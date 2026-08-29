@@ -7,7 +7,11 @@ import 'package:pi_client/app/workspace/workspace.dart';
 import 'package:pi_client/app/workspace/workspace.srv.dart';
 
 void main() {
-  testWidgets('connects and renders a selected session', (tester) async {
+  testWidgets('scrolls sessions, selects one, and submits a prompt', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final api = _WidgetFakePiWebApi();
     final viewModel = WorkspaceViewModel(
       gateway: api,
@@ -28,14 +32,23 @@ void main() {
 
     expect(find.text('Pi Client'), findsOneWidget);
     expect(find.byKey(const Key('connectionStatusChip')), findsOneWidget);
-    expect(find.text('Widget session'), findsOneWidget);
+    expect(find.text('Widget session 1'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('session-s1')));
+    await tester.drag(
+      find.byKey(const Key('sessionList')),
+      const Offset(0, -600),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Widget session 16'), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const Key('session-s16')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('session-s16')));
     await tester.pump();
     await tester.runAsync(
       () => _waitUntil(
         () =>
-            viewModel.state.selectedSessionId == 's1' &&
+            viewModel.state.selectedSessionId == 's16' &&
             !viewModel.state.conversationLoading &&
             viewModel.state.messages.isNotEmpty,
       ),
@@ -51,8 +64,17 @@ void main() {
       findsOneWidget,
     );
 
-    expect(find.byKey(const Key('promptField')), findsOneWidget);
-    expect(find.byKey(const Key('sendPromptButton')), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const Key('promptField')),
+      'Run the focused tests',
+    );
+    expect(find.text('Run the focused tests'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('sendPromptButton')));
+    await tester.pump();
+
+    expect(viewModel.state.sending, isTrue);
+    expect(viewModel.state.messages.last.role, PiMessageRole.user);
+    expect(viewModel.state.messages.last.text, 'Run the focused tests');
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
@@ -75,17 +97,18 @@ final class _WidgetFakePiWebApi implements PiWebApi {
     required String password,
     bool force = false,
   }) async => <String, dynamic>{
-    'sessions': <Map<String, dynamic>>[
-      <String, dynamic>{
-        'id': 's1',
-        'cwd': '/tmp/widget-project',
-        'name': 'Widget session',
+    'sessions': List<Map<String, dynamic>>.generate(
+      16,
+      (index) => <String, dynamic>{
+        'id': 's${index + 1}',
+        'cwd': '/tmp/widget-project-${index + 1}',
+        'name': 'Widget session ${index + 1}',
         'created': '2026-01-01T00:00:00Z',
         'modified': '2026-01-01T00:00:00Z',
-        'messageCount': 2,
+        'messageCount': index + 1,
         'firstMessage': 'Run tests',
       },
-    ],
+    ),
     'runningSessionIds': <String>[],
   };
 
@@ -139,7 +162,7 @@ final class _WidgetFakePiWebApi implements PiWebApi {
     required String password,
     required String sessionId,
   }) {
-    final controller = StreamController<Map<String, dynamic>>();
+    final controller = StreamController<Map<String, dynamic>>.broadcast();
     _controllers.add(controller);
     scheduleMicrotask(
       () => controller.add(<String, dynamic>{
