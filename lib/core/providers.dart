@@ -1,0 +1,64 @@
+import 'package:dio/dio.dart';
+import 'package:flowr/flowr_mvvm.dart';
+import 'package:flowr/flowr_mvvm_support.dart';
+import 'package:flutter/widgets.dart';
+
+import 'app_env.dart';
+import 'app_locale.dart';
+import 'app_theme.dart';
+import 'interceptors.dart';
+
+class AppProviders extends StatelessWidget {
+  const AppProviders({required this.child, this.dio, super.key});
+
+  final Widget child;
+  final Dio? dio;
+
+  @override
+  Widget build(BuildContext context) => ChangeNotifierProvider(
+    create: (context) => AppEnvViewModel(),
+    child: FrProvider.multi(
+      [
+        FrProvider((context) => AppLocaleViewModel()),
+        FrProvider((context) => AppThemeViewModel()),
+      ],
+      child: Consumer<AppEnvViewModel>(
+        builder: (context, appEnvViewModel, child) => _AppEnvironmentScope(
+          key: ValueKey(
+            '${appEnvViewModel.state.env}|${appEnvViewModel.state.apiBaseUrl}',
+          ),
+          env: appEnvViewModel.state,
+          dio: dio,
+          child: child!,
+        ),
+        child: child,
+      ),
+    ),
+  );
+}
+
+class _AppEnvironmentScope extends StatelessWidget {
+  const _AppEnvironmentScope({
+    required this.env,
+    required this.child,
+    this.dio,
+    super.key,
+  });
+
+  final AppEnv env;
+  final Widget child;
+  final Dio? dio;
+
+  @override
+  Widget build(BuildContext context) {
+    final injectedDio = dio;
+    if (injectedDio != null) {
+      return FrProvider<Dio>.value(value: injectedDio, child: child);
+    }
+    return FrProvider<Dio>(
+      (context) => createAppDio(env),
+      dispose: (context, dio) => dio.close(force: true),
+      child: child,
+    );
+  }
+}

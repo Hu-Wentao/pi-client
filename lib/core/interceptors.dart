@@ -1,0 +1,17 @@
+import 'package:dio/dio.dart';
+import 'package:efficient_dio_logger/efficient_dio_logger.dart';
+
+import 'app_env.dart';
+
+Dio createAppDio(AppEnv env) {
+  final dio = Dio(BaseOptions(baseUrl: env.apiBaseUrl));
+  dio.interceptors.add(
+    EffDioLogger(
+      requestHeader: false,
+      requestBody: false,
+      responseHeader: false,
+      responseBody: false,
+    ),
+  );
+  return dio;
+}

@@ -1,0 +1,27 @@
+import 'package:flowr/flowr_mvvm_support.dart';
+import 'package:flutter/foundation.dart';
+import 'package:fr_mvvm_env/fr_mvvm_env.dart';
+
+class AppEnv extends EnvModel {
+  const AppEnv({required super.env, required this.apiBaseUrl});
+
+  final String apiBaseUrl;
+}
+
+class AppEnvViewModel extends IEnvViewModel<AppEnv>
+    with ChangeNotifier, FrChangeNotifierMx<AppEnv> {
+  AppEnvViewModel() : super(values.first);
+
+  static const values = [
+    AppEnv(
+      env: 'local',
+      apiBaseUrl: String.fromEnvironment(
+        'PI_CLIENT_BASE_URL',
+        defaultValue: 'http://127.0.0.1:30141',
+      ),
+    ),
+  ];
+
+  @override
+  Iterable<AppEnv> get all => values;
+}
