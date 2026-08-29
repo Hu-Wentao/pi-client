@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "flowr-usage": {
+      "source": "hu-wentao/flowr",
+      "sourceType": "github",
+      "skillPath": "skills/flowr-usage/SKILL.md",
+      "computedHash": "6e3132b2458700715b0216dd30f234bff39476a1557ef98250fcce1d4f3c353c"
+    },
+    "fr-mvvm-contract": {
+      "source": "hu-wentao/flowr",
+      "sourceType": "github",
+      "skillPath": "skills/fr-mvvm-contract/SKILL.md",
+      "computedHash": "720f0b1660083b121b55ce66130425bca84b1d50b660d8f5ccf0e28b3251d2c0"
+    }
+  }
+}
