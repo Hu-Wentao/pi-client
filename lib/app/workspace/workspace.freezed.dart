@@ -227,7 +227,7 @@ return $default(_that.baseUrl,_that.connectionStatus,_that.streamStatus,_that.se
 
 class _WorkspaceModel with DiagnosticableTreeMixin implements WorkspaceModel {
   const _WorkspaceModel({this.baseUrl = 'http://127.0.0.1:30141', this.connectionStatus = WorkspaceConnectionStatus.disconnected, this.streamStatus = WorkspaceStreamStatus.idle, final  List<PiSessionModel> sessions = const <PiSessionModel>[], this.selectedSessionId, final  List<PiMessageModel> messages = const <PiMessageModel>[], this.sessionsLoading = false, this.conversationLoading = false, this.creatingSession = false, this.sending = false, this.streaming = false, this.error, this.statusMessage}): _sessions = sessions,_messages = messages;
-
+  
 
 @override@JsonKey() final  String baseUrl;
 @override@JsonKey() final  WorkspaceConnectionStatus connectionStatus;
