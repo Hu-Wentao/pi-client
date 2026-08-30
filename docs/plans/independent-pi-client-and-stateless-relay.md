@@ -37,13 +37,14 @@ mdq:
 ## PLAN-PI-001 - 独立 Pi 客户端与无持久化公网中转
 
 - Status: Superseded
-- Superseded by: `PLAN-PI-002` in `docs/plans/friday-relay-workspace-service.md`; do not implement this plan's central identity, Passkey ownership, Stateless Relay, subdomain, entitlement, or tunnel design.
+- Superseded by: `PLAN-PI-002` in `docs/plans/friday-relay-workspace-service.md`.
+- Supersession scope: This entire document is historical and authorizes no implementation, including its candidate capability lists, phases, decisions, and acceptance conditions. Only an item explicitly reaccepted by a current requirement, decision, or `PLAN-PI-002` remains in scope under that current authority.
 - Review level: L9（产品目标与数据约束）/ L3（技术方案）
 - Target: 独立 Flutter Pi 客户端通过 Passkey 与中心化中转服务安全访问用户自己的 Pi
 - 当前项目基线：`pi-client` `0.0.1+1`，`main` 上已经交付的 MVP 仍通过 `PiWebGateway` 验证基础交互
 - 外部参考边界：pi-web 只是非权威的产品灵感来源；它不定义本项目的需求、验收、架构、协议或实现。
 - 架构纠正：根据 `DEC-012`，目标产品不得导入、复制、调用、部署或要求安装任何 pi-web 代码。
-- 计划状态说明：本文描述未来目标，不改变 `docs/baseline.md` 中当前 MVP 已生效的历史事实，也不把尚未实现的 Pi Node、Relay、Passkey 或完整功能描述为当前能力。
+- 历史状态说明：本文只保留已取代方案的背景，不改变 `docs/baseline.md` 中当前 MVP 已生效的事实；其中任何 Pi Node、Relay、Passkey 或产品能力只有被当前 authority 明确重新接受后才进入范围。
 
 ### 1. 目标
 

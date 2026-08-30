@@ -161,8 +161,12 @@ See `docs/benchmark.md` for the frozen comparison and acceptance boundary.
 - Durable baselines: `docs/baseline.md`
 - pi-web comparison and known differences: `docs/benchmark.md`
 - Verification ownership: `docs/verification.md`
+- Current planned target: `docs/plans/friday-relay-workspace-service.md` (`PLAN-PI-002`)
+- Historical superseded plan: `docs/plans/independent-pi-client-and-stateless-relay.md` (`PLAN-PI-001`)
 - Individual recommended-option records: `docs/decisions/`
 - Contribution workflow: `CONTRIBUTING.md`
+
+Authority order is current requirements, active baselines, future plans, scoped code/test evidence, then superseded historical material. A Planned target does not override the current pi-web MVP baseline, and a passing focused test proves only its named scope.
 
 Every accepted option has its own Markdown record and immutable `decision/NNN-*` Git tag.
 
