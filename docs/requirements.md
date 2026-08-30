@@ -26,97 +26,100 @@ mdq:
 ---
 # Pi Client requirements
 
-Default review level: L6. Requirements derived directly from the user-provided MVP objective are L9.
+Default review level: L6. User-directed product scope and safety boundaries are L9. The fixed pi-web snapshot is a completeness baseline under `DEC-016`; these project-owned requirements remain the semantic authority for implementation and acceptance.
 
 ## REQ-PI-001 - Connect to the local pi-web gateway
 
-- Status: Active
+- Status: Deprecated
 - Priority: Must
 - Review level: L9
-- Actor and goal: A user can configure a reachable pi-web server and know whether the client connected.
-- Constraints: The default is loopback; an optional pi-web Basic Auth password must not be persisted, placed in URLs, or logged.
-- Source: MVP plan plus `DEC-004`.
-- Acceptance: The UI exposes URL/password inputs, connection progress, success, failure, and retry; the live smoke tool reads `GET /api/sessions` from pi-web `0.8.11`.
+- Actor and goal: A `v0.0.2` user can configure the historical pi-web compatibility gateway and see whether it connected.
+- Release scope: Satisfied and evidenced only for the immutable `v0.0.2` Preview; it is not a post-`v0.0.2` product target.
+- Constraints: The password remains ephemeral and must not enter URLs, persisted state, screenshots, or logs.
+- Replacement: `REQ-PI-006`, `REQ-PI-009`, and `REQ-PI-013` replace this gateway outcome with first-party Pi Node connectivity.
+- Acceptance: Historical evidence remains in `VER-PI-001` through `VER-PI-003`; no new feature may depend on this requirement.
 
-## REQ-PI-002 - Find and continue pi sessions
+## REQ-PI-002 - Find and continue pi sessions through pi-web
 
-- Status: Active
+- Status: Deprecated
 - Priority: Must
 - Review level: L9
-- Actor and goal: A user can refresh session summaries, select a session, and read its visible message history.
-- Constraints: Session data remains authoritative in pi-web; the client does not read pi JSONL files directly.
-- Source: MVP plan, pi-web feature baseline, and `DEC-005`.
-- Acceptance: Session loading, empty, error, selected, and message-history states are observable; switching selection discards stale loads and attaches the selected SSE stream.
+- Actor and goal: A `v0.0.2` user can browse and continue sessions exposed by the historical compatibility gateway.
+- Release scope: Satisfied and evidenced only for the immutable `v0.0.2` Preview.
+- Constraints: This record does not authorize direct JSONL access or make pi-web session semantics authoritative.
+- Replacement: `REQ-PI-015` and `REQ-PI-016` own the independent session and history outcomes.
+- Acceptance: Historical loading, selection, message, stale-load, and stream evidence remains in `VER-PI-002` through `VER-PI-004`.
 
-## REQ-PI-003 - Run and stop the agent
+## REQ-PI-003 - Run and stop the agent through pi-web
 
-- Status: Active
+- Status: Deprecated
 - Priority: Must
 - Review level: L9
-- Actor and goal: A user can create a session for an absolute cwd, submit a prompt, observe incremental output, and stop the active run.
-- Constraints: Pi-web owns runtime execution; prompt transport uncertainty must not be reported as definite rejection unless pi-web says `accepted: false`.
-- Source: MVP plan, pi-web behavior, and `DEC-005`.
-- Acceptance: Focused tests cover create/send/stream/final-refresh/abort behavior, and SSE disconnect enters reconnecting state and starts a replacement stream for the still-selected session.
+- Actor and goal: A `v0.0.2` user can create, prompt, observe, and stop an Agent through the historical compatibility gateway.
+- Release scope: Satisfied and evidenced only for the immutable `v0.0.2` Preview.
+- Constraints: This record does not authorize pi-web HTTP, SSE, command, or event semantics in the first-party protocol.
+- Replacement: `REQ-PI-013`, `REQ-PI-017`, `REQ-PI-018`, and `REQ-PI-019` own independent runtime interaction.
+- Acceptance: Historical prompt, stream, refresh, reconnect, and abort evidence remains in `VER-PI-001` through `VER-PI-003`.
 
 ## REQ-PI-004 - Provide reproducible macOS delivery
 
 - Status: Active
 - Priority: Must
 - Review level: L9
-- Actor and goal: A contributor can build, test, and run the MVP on the chosen target platform.
-- Constraints: Flutter is fixed with FVM; the initial version is `0.0.1`; minimum macOS is 11.0.
-- Source: MVP plan, `DEC-002`, and `DEC-008`.
-- Acceptance: FVM configuration, lockfile, generated sources, tests, a Debug `.app`, and run/build instructions are present.
+- Actor and goal: A contributor can build, test, and run the current macOS Preview with the project-pinned toolchain.
+- Constraints: Flutter is fixed with FVM; minimum macOS is 11.0; unsigned Preview limits remain disclosed.
+- Source: `DEC-002`, `DEC-008`, and `DEC-015`.
+- Acceptance: The lockfile, generated sources, tests, Debug app, Universal Preview workflow, and user-facing build/run guidance remain reproducible.
 
 ## REQ-PI-005 - Preserve a bounded open-source comparison
 
 - Status: Active
 - Priority: Must
 - Review level: L9
-- Actor and goal: Reviewers can identify the exact pi-web source, license, implemented P0 boundary, and deferred differences.
-- Constraints: No friday-swarm or friday-relay dependency; no copied pi-web branding or production data.
-- Source: MVP plan, `DEC-003`, and `DEC-005`.
-- Acceptance: README, LICENSE, benchmark, differences, contribution instructions, and per-choice decision records are present and queryable.
+- Actor and goal: Reviewers can trace the exact observed capability snapshot, license, exclusions, and independent implementation boundary.
+- Constraints: The snapshot is pi-web `v0.8.11` at `28bab3c25f5f6770c9b0b745ebbfec1c27f7b948`; only user-visible, reachable behavior enters the completeness baseline; project requirements own semantics.
+- Source: `DEC-003`, `DEC-012`, and `DEC-016`.
+- Acceptance: `docs/benchmark.md` classifies every observed domain, identifies native adaptations and exclusions, and contains no copied route, schema, event, protocol, branding, or implementation contract.
 
 ## REQ-PI-006 - Keep Local Direct independent
 
 - Status: Planned
 - Priority: Must
 - Review level: L9
-- Actor and goal: A user can connect a native Pi Client to their own local or LAN Pi Node without a Friday Relay identity, subscription, or available central service.
-- Constraints: Local Direct uses a node-local pairing and authorization boundary; Friday Workspace entitlement must not disable or change an existing Local Direct capability.
-- Source: `PLAN-PI-002` and `DEC-013`.
-- Acceptance: The Local Direct flow can be verified with Friday Relay unavailable and without a Friday account or paid entitlement.
+- Actor and goal: A user can connect a native Pi Client to their local or LAN Pi Node without a Friday identity, subscription, or available central service.
+- Constraints: Local Direct uses node-local pairing and authorization; Friday entitlement must not disable or change an existing Local Direct capability.
+- Source: `PLAN-PI-002`, `PLAN-PI-004`, and `DEC-013`.
+- Acceptance: The full supported Direct workflow remains available while Friday Relay is unreachable and no Friday account exists.
 
 ## REQ-PI-007 - Provide one personal Friday Workspace
 
 - Status: Planned
 - Priority: Must
 - Review level: L9
-- Actor and goal: An authenticated Friday Relay user can access at most one personal Pi Workspace at its unique platform-managed origin.
-- Constraints: Friday Relay owns identity, paid entitlement, Workspace ownership, hostname, and Node binding; Pi Client consumes only safe projections and does not infer authorization from billing or identity data.
+- Actor and goal: An authenticated Friday user can access at most one personal Pi Workspace at its platform-managed origin.
+- Constraints: Friday Relay owns identity, entitlement, Workspace, hostname, and Node binding; Pi Client consumes safe projections only.
 - Source: `PLAN-PI-002` and `DEC-013`.
-- Acceptance: The client exposes anonymous, provisioning, subscription-required, active, suspended, and node-offline outcomes for the server-selected personal Workspace; another user, hostname, Workspace, or Node is denied.
+- Acceptance: Anonymous, provisioning, subscription-required, active, suspended, and node-offline outcomes are visible; another user, origin, Workspace, or Node is denied.
 
 ## REQ-PI-008 - Use platform-safe Friday authentication
 
 - Status: Planned
 - Priority: Must
 - Review level: L9
-- Actor and goal: Native and WebAssembly Pi Clients can authenticate with Friday Relay without embedding a client secret or implementing Friday password, Passkey, or account-recovery logic.
-- Constraints: Native authentication uses a system browser and public-client PKCE with credentials restricted to OS secure storage; WebAssembly uses canonical Friday authentication and a host-only Workspace session without browser-readable long-lived tokens.
+- Actor and goal: Native and Web Pi Clients can authenticate with Friday Relay without embedding a client secret or implementing Friday account security.
+- Constraints: Native uses a system browser and public-client PKCE with OS secure storage; Web uses canonical Friday authentication and a host-only session without browser-readable long-lived tokens.
 - Source: `PLAN-PI-002` and `DEC-013`.
-- Acceptance: Platform adapters keep native and WebAssembly authentication surfaces separate, reject unapproved callbacks or handoffs, and expose only the safe session projection required by Pi Client.
+- Acceptance: Approved callbacks and handoffs succeed; unapproved origins, callbacks, handoffs, and browser token persistence fail closed.
 
 ## REQ-PI-009 - Use one private Pi transport contract
 
 - Status: Planned
 - Priority: Must
 - Review level: L9
-- Actor and goal: A user receives equivalent Pi product behavior whether the client reaches Pi Node through Local Direct or Friday Workspace.
-- Constraints: Product features depend on one versioned Pi transport contract; Friday Relay may authorize and route remote access but must not persist, log, or decrypt Pi payloads; the E2EE protocol must use an evaluated standard rather than custom cryptography.
-- Source: `PLAN-PI-002` and `DEC-013`.
-- Acceptance: Direct and remote transports pass the same Pi behavior conformance suite, while remote evidence also proves grant binding, encrypted payload opacity, tamper rejection, and bounded revocation.
+- Actor and goal: A user receives equivalent Pi behavior through Local Direct and Friday Workspace transports.
+- Constraints: Product features depend on one versioned first-party contract; Friday Relay must not persist, log, or decrypt Pi payloads; cryptography uses an evaluated standard.
+- Source: `PLAN-PI-002`, `PLAN-PI-004`, `DEC-013`, and `DEC-016`.
+- Acceptance: Direct and remote transports pass the same behavior fixtures; remote evidence also proves grant binding, payload opacity, tamper rejection, and bounded revocation.
 
 ## REQ-PI-010 - Build one client for all supported platforms
 
@@ -124,26 +127,246 @@ Default review level: L6. Requirements derived directly from the user-provided M
 - Priority: Must
 - Review level: L9
 - Actor and goal: A contributor can build the same Pi Client product for Android, iOS, macOS, Windows, Linux, and Web.
-- Constraints: The project uses one Flutter source tree and one version; platform-specific identifiers, signing, minimum versions, packaging, and secure capabilities remain native configuration rather than cross-platform guesses.
-- Source: User platform instruction and `DEC-014`.
-- Acceptance: All six platform directories are current, shared analysis and tests pass, and each target has a successful build on an appropriate host with application identity and release-readiness evidence recorded separately.
+- Constraints: One Flutter source tree and version own shared behavior; platform identity, signing, packaging, and secure capabilities remain native configuration.
+- Source: `DEC-014` and `PLAN-PI-004`.
+- Acceptance: Shared analysis and tests pass, each platform builds on an appropriate host, and release-readiness evidence identifies platform-specific gaps without claiming unsupported execution roles.
 
 ## REQ-PI-011 - Separate desktop Agent hosts from connect-only clients
 
 - Status: Planned
 - Priority: Must
 - Review level: L9
-- Actor and goal: A user can host an Agent on macOS, Windows, or Linux and connect to that host from any supported Pi Client platform.
-- Constraints: Android, iOS, and Web never embed Pi SDK or obtain local Agent, tool-execution, project-trust, or host-filesystem authority; macOS, Windows, and Linux may expose hosting only through the first-party Pi host and transport contracts.
-- Source: User platform-role instruction and `DEC-014`.
-- Acceptance: The platform capability contract rejects hosting on Android, iOS, and Web; desktop host implementations pass Pi SDK lifecycle, permission, isolation, and transport conformance tests; all six clients pass connection behavior tests.
+- Actor and goal: A user can host an Agent on macOS, Windows, or Linux and connect from any supported Pi Client platform.
+- Constraints: Android, iOS, and Web never embed Pi SDK or obtain local Agent, tool, project-trust, shell, or host-filesystem authority.
+- Source: `DEC-014` and `PLAN-PI-004`.
+- Acceptance: Desktop host lifecycle and isolation pass platform tests; mobile and Web artifacts reject hosting and contain no host runtime.
 
 ## REQ-PI-012 - Provide a public product and download entry
 
 - Status: Planned
 - Priority: Must
 - Review level: L9
-- Actor and goal: A prospective user can understand Pi Client in English or Simplified Chinese, inspect its current limits, and download the exact current macOS Preview from a stable product page.
-- Constraints: The Landing Page must describe only delivered behavior; pi-web `0.8.11` is identified as transitional; unsigned and unnotarized assets disclose Gatekeeper risk; WebAssembly, signed DMG, and planned Pi SDK/transport features are not presented as available.
-- Source: `DEC-015` and `PLAN-PI-003`.
-- Acceptance: GitHub Pages serves `/pi-client/` and `/pi-client/zh-cn/`; both routes link to the published `v0.0.2/Pi-Client-0.0.2-macOS-universal.zip`; the ZIP and SHA-256 are public; production metadata, responsive behavior, keyboard access, and representative Safari/Chrome rendering are verified.
+- Actor and goal: A prospective user can understand Pi Client, inspect current limits, and obtain the exact current supported release.
+- Constraints: The site describes delivered behavior only; release trust, signing, platform, and migration limits are disclosed before download.
+- Source: `DEC-015`, `PLAN-PI-003`, and `PLAN-PI-004`.
+- Acceptance: Maintained English and Simplified Chinese routes expose valid release links, metadata, responsive keyboard access, browser evidence, and current security notices.
+
+## REQ-PI-013 - Run Pi through a first-party Pi Node
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: A desktop user can start or connect to a first-party Pi Node that runs the reviewed Pi SDK boundary without pi-web.
+- Constraints: Pi Node owns SDK lifecycle, sessions, tools, resources, credentials, and host operations behind typed Pi Client contracts; Pi SDK internals do not become public DTOs.
+- Source: `DEC-012`, `DEC-014`, `DEC-016`, and `PLAN-PI-004`.
+- Acceptance: With pi-web absent, Pi Client negotiates a compatible Node, starts a session, completes a prompt, receives ordered output, cancels work, survives Node restart, and reports incompatible versions.
+
+## REQ-PI-014 - Select and trust projects
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: A user can select, validate, revisit, and trust an allowed project directory before project resources or privileged operations load.
+- Constraints: Project identity handles repositories and linked worktrees; trust and allowed-root checks precede project-scoped resources, files, shell, packages, and destructive actions.
+- Source: `BENCH-PI-002`, `DEC-016`, and `PLAN-PI-004`.
+- Acceptance: Directory picker, recent/default project, invalid path, untrusted, trusted, moved, and unavailable states are observable; untrusted resources remain unloaded.
+
+## REQ-PI-015 - Browse and manage sessions
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: A user can browse, restore, create, name, rename, auto-name, delete, and export sessions grouped by project.
+- Constraints: Running, unread, parent/child, worktree, context, cost, and compaction summaries remain attributable to the correct session; destructive actions require explicit targets.
+- Source: `BENCH-PI-003`, `DEC-016`, and `PLAN-PI-004`.
+- Acceptance: Loading, empty, error, refresh, restored, running, unread, renamed, exported, deleted, and recovery outcomes are observable, including deep and orphaned session relationships.
+
+## REQ-PI-016 - Navigate session history and branches
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: A user can load earlier history, edit from an earlier point, navigate in-session branches, and create an independent session from a prior message.
+- Constraints: In-session navigation and independent session creation remain distinct; stale branch or history responses cannot replace the active selection.
+- Source: `BENCH-PI-004`, `DEC-016`, and `PLAN-PI-004`.
+- Acceptance: Pagination, deferred content, branch selection, edit-from-here, independent fork, deep-tree navigation, cancellation, and failure recovery are observable without corrupting either session.
+
+## REQ-PI-017 - Run resilient Agent turns
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: A user can prompt, stream, stop, retry, compact, reload, steer, follow up, and reconcile an Agent run.
+- Constraints: Commands expose accepted, rejected, or uncertain admission; events are ordered, deduplicated, cancellable, resumable, and isolated from stale sessions or runs.
+- Source: `BENCH-PI-005`, `DEC-016`, and `PLAN-PI-004`.
+- Acceptance: Active, reconnecting, retrying, compacting, stopped, completed, failed, uncertain, and recovered states are observable across disconnect, refresh, duplicate, late, and replaced-run scenarios.
+
+## REQ-PI-018 - Compose prompts and queued interactions
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: A user can prepare and submit text, images, commands, files, model choices, thinking levels, tool presets, and queued interactions.
+- Constraints: Drafts, input history, input method editor composition, attachment limits, slash sources, dormant skills, and file mentions preserve user intent across page and session transitions.
+- Source: `BENCH-PI-006`, `DEC-016`, and `PLAN-PI-004`.
+- Acceptance: Draft restore, history recall, image validation/compression, slash palette, prompt template, skill, extension command, `@` file/line mention, steer, follow-up, queue recall, and disabled-state outcomes are observable.
+
+## REQ-PI-019 - Run project shell commands
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: An authorized desktop user can run, observe, stop, and retrieve bounded project shell output from the composer.
+- Constraints: Shell execution is desktop-host-only, project-trust-gated, scoped to the project command environment, and never exposed as an arbitrary transport proxy.
+- Source: `BENCH-PI-006`, `DEC-014`, `DEC-016`, and `PLAN-PI-004`.
+- Acceptance: Context-included and context-excluded commands, streaming output, truncation, full-output retrieval, cancellation, nonzero exit, and unsupported-platform states are observable.
+
+## REQ-PI-020 - Read rich conversation output
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: A user can understand user, assistant, thinking, tool, shell, custom, error, compaction, and usage output while it streams and after reload.
+- Constraints: Rich content is sanitized and bounded; unknown content remains inspectable without being misreported as success; deferred and oversized content cannot freeze the UI.
+- Source: `BENCH-PI-007`, `DEC-016`, and `PLAN-PI-004`.
+- Acceptance: Markdown, GFM, math, Mermaid, ANSI, highlighted code, images, tool details, diffs, written files, process details, usage/cost/context, copy, deferred content, and oversized fallbacks are observable.
+
+## REQ-PI-021 - Browse and preview project files
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: A user can browse, search, upload, download, watch, mention, and preview files within authorized project roots.
+- Constraints: Canonical paths, real paths, allowed roots, symbolic links, binary limits, ranges, cancellation, and backpressure are enforced by Pi Node.
+- Source: `BENCH-PI-008`, `DEC-016`, and `PLAN-PI-004`.
+- Acceptance: Tree, search, upload conflict, live refresh, multi-tab state, source, Markdown/HTML, image, audio, PDF, DOCX, download, wrap, mode, line mention, and unsupported-preview outcomes are observable.
+
+## REQ-PI-022 - Inspect Git changes
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: A user can inspect repository branch identity, status, changed files, totals, and working-tree diffs.
+- Constraints: The strict parity scope does not imply stage, commit, push, pull, or arbitrary Git command execution.
+- Source: `BENCH-PI-009`, `DEC-016`, and `PLAN-PI-004`.
+- Acceptance: Clean, modified, added, deleted, renamed, conflicted, untracked, binary, unavailable, and refresh states are observable with correct working-tree-to-HEAD diffs.
+
+## REQ-PI-023 - Manage Git worktrees safely
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: A desktop user can list, switch, create, and remove Git worktrees while preserving project and session identity.
+- Constraints: Dirty removal requires evidence and a separate force confirmation; removing a worktree does not delete its branch or session history.
+- Source: `BENCH-PI-009`, `DEC-016`, and `PLAN-PI-004`.
+- Acceptance: Root-only visibility, branch reuse/create, switch, dirty refusal, confirmed force removal, prunable records, removed-worktree session grouping, and platform path differences are observable.
+
+## REQ-PI-024 - Configure models and thinking
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: A user can list, scope, select, configure, discover, enrich, and test models and thinking levels.
+- Constraints: Model scope follows reviewed Pi SDK semantics; ambiguous or empty scope is visible; changes reload runtime state without exposing provider secrets.
+- Source: `BENCH-PI-010`, `DEC-016`, and `PLAN-PI-004`.
+- Acceptance: Default, automatic, explicit, unavailable, scoped, pinned-thinking, custom-provider, discovery, metadata-fill, undo, test-success, test-failure, and reload outcomes are observable.
+
+## REQ-PI-025 - Authenticate model providers securely
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: A user can add, replace, and remove provider authentication through supported OAuth, device-code, manual-code, and API-key flows.
+- Constraints: Credentials remain in Pi Node secure ownership; Pi Client, Friday Relay, routes, models, logs, screenshots, and crash reports never contain reusable secret values.
+- Source: `BENCH-PI-010`, `DEC-016`, and `PLAN-PI-004`.
+- Acceptance: Capability-driven provider listing, dual-auth deduplication, login, callback/device/manual continuation, replacement, logout, cancellation, expiry, invalid code/key, and redacted status outcomes are observable.
+
+## REQ-PI-026 - Manage global and project settings
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: A user can inspect and change global or trusted-project settings that affect appearance and Pi runtime behavior.
+- Constraints: Project writes require trust; scope and reload impact are explicit; settings do not bypass provider, package, tool, or platform ownership.
+- Source: `BENCH-PI-010`, `DEC-016`, and `PLAN-PI-004`.
+- Acceptance: Theme, locale, default model, thinking, retry, compaction, system prompt, tool definitions, tool presets, Windows shell, scope warning, save, reload-required, validation, and rollback states are observable.
+
+## REQ-PI-027 - Manage skills
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: A user can list, search, install, invoke, make dormant, check, and update global and trusted-project skills.
+- Constraints: Pi Node uses the reviewed Pi resource/package boundary; project actions require trust; edits preserve unrelated skill content and source attribution.
+- Source: `BENCH-PI-011`, `DEC-016`, and `PLAN-PI-004`.
+- Acceptance: Source grouping, dormancy, manual invocation, search, install scope, already-installed, update available, up-to-date, unsupported update, failure, and runtime reload outcomes are observable.
+
+## REQ-PI-028 - Manage Pi packages and resources
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: A user can inspect, install, update, enable, disable, remove, and reload Pi packages and their resolved resources.
+- Constraints: Source, version or ref, scope, trust, resource inventory, full host-code privilege, and reload impact are shown before relevant actions.
+- Source: `BENCH-PI-011`, `DEC-016`, and `PLAN-PI-004`.
+- Acceptance: npm, Git, and local sources; global/project scope; installed/loaded/disabled/error states; resource counts; update; removal; enable/disable; reload; and failure recovery are observable.
+
+## REQ-PI-029 - Host extension interactions
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: A user can respond to extension input and observe extension notifications, status, widgets, titles, editor changes, and custom terminal UI.
+- Constraints: Blocking requests carry identity, timeout, cancellation, disconnect recovery, and stale-response rejection; arbitrary custom UI stays within a bounded headless terminal bridge.
+- Source: `BENCH-PI-012`, `DEC-016`, and `PLAN-PI-004`.
+- Acceptance: Select, confirm, input, editor, notify, status, widget, title, editor text, custom render/input/resize/close, extension error, timeout, cancel, and replacement outcomes are observable.
+
+## REQ-PI-030 - Open existing subagent sessions
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: A user can identify, inspect, and open existing child or subagent sessions with their parent relationship and status.
+- Constraints: pi-web `v0.8.11` built-in subagent creation is disabled and unreachable, so creating or configuring built-in subagents is not a strict parity requirement; third-party plugin behavior is not inherited implicitly.
+- Source: `BENCH-PI-013`, `DEC-016`, and `PLAN-PI-004`.
+- Acceptance: Existing child sessions appear in the correct family, expose profile/status/activity, open independently, survive deep/orphaned metadata safely, and do not emit duplicate parent completion notifications.
+
+## REQ-PI-031 - Provide localized adaptive product experience
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: A user can operate Pi Client in English, Simplified Chinese, or Traditional Chinese across desktop, narrow, mobile, and Web layouts.
+- Constraints: Theme, language, layout, focus, semantics, safe areas, and reduced motion use native platform conventions rather than reproducing browser CSS or PWA mechanics.
+- Source: `BENCH-PI-014`, `DEC-014`, `DEC-016`, and `PLAN-PI-004`.
+- Acceptance: Light, dark, system, locale switching, responsive navigation, resizable/restored panels, keyboard-only operation, screen-reader semantics, 200% zoom, safe-area, and reduced-motion states are verified.
+
+## REQ-PI-032 - Notify and accelerate user control
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: A user can use shortcuts, clipboard actions, completion sound, notifications, deep links, and update notices without losing session context.
+- Constraints: Permission and background behavior are platform-adapted; subagent/internal completions do not create duplicate or misleading notices.
+- Source: `BENCH-PI-014`, `BENCH-PI-015`, `DEC-016`, and `PLAN-PI-004`.
+- Acceptance: Shortcut conflicts, copy, sound unlock/toggle, foreground/background completion, attention-needed, notification click, permission denial, deep link, update available, offline, and unsupported-platform outcomes are observable.
+
+## REQ-PI-033 - Enforce host authorization and secret boundaries
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: A user can grant only the project, file, shell, tool, package, model, and remote scopes needed for a Pi Client operation.
+- Constraints: Project trust, allowed roots, canonical path checks, symbolic-link escape prevention, node pairing, scoped grants, secret redaction, bounded streams, and destructive confirmations fail closed.
+- Source: `DEC-012`, `DEC-013`, `DEC-014`, `DEC-016`, and `PLAN-PI-004`.
+- Acceptance: Unauthorized roots, traversal, symbolic-link escape, stale/replayed grant, wrong Node, secret logging, oversized frames/uploads, unbounded streams, and unconfirmed destructive actions are rejected with stable user-visible errors.
+
+## REQ-PI-034 - Publish supported 1.0 releases
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: A user can install, verify, start, update, and recover a supported Pi Client `1.0.0` release for each declared platform role.
+- Constraints: Release identity binds the Pi Client, Pi Node, protocol, exact Pi SDK, immutable source, artifact manifest, checksums, software bill of materials, licenses, signing, and platform evidence.
+- Source: `DEC-014`, `DEC-015`, `DEC-016`, and `PLAN-PI-004`.
+- Acceptance: Declared desktop host artifacts and connect-only client artifacts install and start on supported systems; signatures, notarization where applicable, checksums, update/rollback, migration, and absence of host runtime on mobile/Web are verified.
