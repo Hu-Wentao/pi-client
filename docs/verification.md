@@ -111,3 +111,19 @@ mdq:
 - Owner: Flutter platform directories, `.metadata`, shared analyzer/tests, and per-platform Flutter build commands
 - Evidence: `.metadata` tracks Android, iOS, Linux, macOS, Web, and Windows; shared analysis and all tests pass; macOS Debug, Android Debug APK, iOS Debug without code signing, and standard JavaScript Web builds succeed. iOS is fixed at 15.0 because ObjectBox requires it.
 - Gap: Windows and Linux native builds require their respective operating systems. Dart WebAssembly is blocked by `flutter_secure_storage_web 1.2.1`, which still imports unsupported `dart:html` and `dart:js` libraries. Release signing, store identity, production icons, and distribution remain unverified or missing.
+
+## VER-PI-012 - Landing Page and unsigned Preview source qualification
+
+- Status: PASS
+- Requirements: REQ-PI-004, REQ-PI-012
+- Owner: `test/app_storage_test.dart`, `test/marketing_screenshot_test.dart`, `site/scripts/validate-built-site.mjs`, Astro checks, Flutter checks, and local macOS build inspection
+- Evidence: Distribution-channel tests prove standard/Preview directory and key selection without changing Windows/Linux debug storage; the committed 1280 × 800 screenshot renders synthetic data with real Flutter fonts and icons; brand generation is source-controlled; English and Chinese static routes build with exact metadata, base-aware assets, exact `v0.0.2` CTA, and no client JavaScript; Flutter analysis/tests and macOS build gates qualify the source.
+- Scope limit: This PASS proves committed source and locally executable workflow logic only. It does not prove a pushed tag, public GitHub Release asset, GitHub-hosted workflow run, Pages deployment, notarization, Gatekeeper trust, or production-browser acceptance.
+
+## VER-PI-013 - Public Release and GitHub Pages acceptance
+
+- Status: PLANNED
+- Requirements: REQ-PI-012
+- Owner: `.github/workflows/release-macos.yml`, `.github/workflows/pages.yml`, GitHub Release evidence, and production manual accessibility/browser verification
+- Planned evidence: The immutable `v0.0.2` tag resolves to the admitted main commit; the public prerelease contains a non-empty Universal ZIP and SHA-256; the app starts in `unsigned-preview` without Keychain `-34018`; Pages serves both locales with live download links; Safari, Chrome, keyboard, VoiceOver, 200% zoom, responsive widths, and Lighthouse checks pass on the production URL.
+- Gap: Push, tag creation, Release publication, Pages deployment, and production manual verification are authorized for this delivery but have not yet executed; source qualification alone cannot mark them complete.

@@ -76,3 +76,14 @@ Default review level: L6.
 - Android, iOS, and Web are remote-client-only: they may connect to an Agent host but must not embed Pi SDK, launch an Agent runtime, expose host tools, or claim host filesystem authority.
 - `PlatformCapabilities` is the application-wide code authority for this role mapping; feature code must not duplicate ad hoc platform checks.
 - Agent-host capability does not prove that the Pi SDK runtime is implemented or available in the current release.
+
+## BASE-PI-007 - Preview distribution and product-site integrity
+
+- Status: Active
+- Review level: L9
+- The current public version target is `0.0.2+2`; the macOS app name is `Pi Client`, and the release asset identity is `v0.0.2/Pi-Client-0.0.2-macOS-universal.zip`.
+- The macOS Preview is a Universal `arm64 + x86_64` ZIP, not a signed, notarized, sandbox-trusted, or DMG distribution. User-facing surfaces must disclose that boundary before download or installation.
+- Unsigned Preview storage uses `fr_storage_unsigned_preview` and a fixed public key that provides no secrecy; standard signed desktop storage remains in `fr_storage` with platform secure storage. Preview preferences do not automatically migrate to the signed channel.
+- The Landing Page uses the Pi Client-owned SVG and sanitized Flutter screenshot. It must not use Flutter/pi-web branding, production paths, credentials, private prompts, or real tool output.
+- GitHub Pages may deploy only while its exact current-version GitHub Release asset is public. A passing local site build is not publication evidence.
+- Current pi-web compatibility is transitional and does not authorize a WebAssembly build or weaken the planned independent, versioned Pi SDK/transport boundary.

@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Pi Client mark</title>
+  <desc id="desc">A bright terminal prompt and status dot on an indigo rounded square.</desc>
+  <defs>
+    <linearGradient id="surface" x1="112" y1="96" x2="920" y2="936" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3324c7"/>
+      <stop offset="0.48" stop-color="#15164b"/>
+      <stop offset="1" stop-color="#072a58"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="138" y1="114" x2="894" y2="910" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9b70ff"/>
+      <stop offset="0.48" stop-color="#5446ff"/>
+      <stop offset="1" stop-color="#37d9ef"/>
+    </linearGradient>
+    <radialGradient id="violetGlow" cx="0" cy="0" r="1" gradientTransform="translate(230 210) rotate(42) scale(650)">
+      <stop stop-color="#875cff" stop-opacity="0.72"/>
+      <stop offset="1" stop-color="#875cff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="cyanGlow" cx="0" cy="0" r="1" gradientTransform="translate(800 790) rotate(-135) scale(510)">
+      <stop stop-color="#00d6ec" stop-opacity="0.6"/>
+      <stop offset="1" stop-color="#00d6ec" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="promptGlow" x="220" y="220" width="560" height="620" filterUnits="userSpaceOnUse">
+      <feGaussianBlur stdDeviation="20"/>
+    </filter>
+    <filter id="dotGlow" x="620" y="600" width="280" height="280" filterUnits="userSpaceOnUse">
+      <feGaussianBlur stdDeviation="22"/>
+    </filter>
+  </defs>
+  <rect x="48" y="48" width="928" height="928" rx="224" fill="url(#rim)"/>
+  <rect x="63" y="63" width="898" height="898" rx="211" fill="url(#surface)"/>
+  <rect x="63" y="63" width="898" height="898" rx="211" fill="url(#violetGlow)"/>
+  <rect x="63" y="63" width="898" height="898" rx="211" fill="url(#cyanGlow)"/>
+  <path d="M166 258C316 128 653 101 874 196" fill="none" stroke="#fff" stroke-opacity="0.13" stroke-width="18" stroke-linecap="round"/>
+  <path d="M320 304 555 512 320 720" fill="none" stroke="#7667ff" stroke-opacity="0.64" stroke-width="116" stroke-linecap="round" stroke-linejoin="round" filter="url(#promptGlow)"/>
+  <path d="M320 304 555 512 320 720" fill="none" stroke="#fff" stroke-width="82" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="746" cy="704" r="94" fill="#0be1e4" fill-opacity="0.42" filter="url(#dotGlow)"/>
+  <circle cx="746" cy="704" r="63" fill="#18e0e2"/>
+  <circle cx="728" cy="684" r="18" fill="#baffff" fill-opacity="0.72"/>
+</svg>

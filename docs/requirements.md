@@ -137,3 +137,13 @@ Default review level: L6. Requirements derived directly from the user-provided M
 - Constraints: Android, iOS, and Web never embed Pi SDK or obtain local Agent, tool-execution, project-trust, or host-filesystem authority; macOS, Windows, and Linux may expose hosting only through the first-party Pi host and transport contracts.
 - Source: User platform-role instruction and `DEC-014`.
 - Acceptance: The platform capability contract rejects hosting on Android, iOS, and Web; desktop host implementations pass Pi SDK lifecycle, permission, isolation, and transport conformance tests; all six clients pass connection behavior tests.
+
+## REQ-PI-012 - Provide a public product and download entry
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: A prospective user can understand Pi Client in English or Simplified Chinese, inspect its current limits, and download the exact current macOS Preview from a stable product page.
+- Constraints: The Landing Page must describe only delivered behavior; pi-web `0.8.11` is identified as transitional; unsigned and unnotarized assets disclose Gatekeeper risk; WebAssembly, signed DMG, and planned Pi SDK/transport features are not presented as available.
+- Source: `DEC-015` and `PLAN-PI-003`.
+- Acceptance: GitHub Pages serves `/pi-client/` and `/pi-client/zh-cn/`; both routes link to the published `v0.0.2/Pi-Client-0.0.2-macOS-universal.zip`; the ZIP and SHA-256 are public; production metadata, responsive behavior, keyboard access, and representative Safari/Chrome rendering are verified.

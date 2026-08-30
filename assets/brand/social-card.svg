@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="75" y1="36" x2="1120" y2="630" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#15102f"/>
+      <stop offset="0.58" stop-color="#090a18"/>
+      <stop offset="1" stop-color="#08233c"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientTransform="translate(918 174) rotate(127) scale(515 590)">
+      <stop stop-color="#6f5bf2" stop-opacity="0.44"/>
+      <stop offset="1" stop-color="#6f5bf2" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <path d="M0 523C226 428 346 577 568 494S932 354 1200 460V630H0Z" fill="#6c5deb" fill-opacity="0.08"/>
+  <g transform="translate(790 105) scale(.39)">
+    <rect x="48" y="48" width="928" height="928" rx="224" fill="#7568ff"/>
+    <rect x="63" y="63" width="898" height="898" rx="211" fill="#15164b"/>
+    <path d="M320 304 555 512 320 720" fill="none" stroke="#fff" stroke-width="82" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="746" cy="704" r="63" fill="#18e0e2"/>
+  </g>
+  <text x="92" y="207" fill="#aaa4ff" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="24" font-weight="700" letter-spacing="4">NATIVE WORKSPACE FOR PI</text>
+  <text x="88" y="305" fill="#f7f6ff" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="80" font-weight="750" letter-spacing="-4">Pi Client</text>
+  <text x="94" y="368" fill="#b6b5ca" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="29">Sessions, prompts, and live agent output on macOS.</text>
+  <g transform="translate(94 428)">
+    <rect width="162" height="48" rx="24" fill="#ffffff" fill-opacity="0.06" stroke="#b4b8ff" stroke-opacity="0.22"/>
+    <text x="81" y="31" text-anchor="middle" fill="#dfddf0" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="18">macOS 11+</text>
+    <rect x="176" width="190" height="48" rx="24" fill="#ffffff" fill-opacity="0.06" stroke="#b4b8ff" stroke-opacity="0.22"/>
+    <text x="271" y="31" text-anchor="middle" fill="#dfddf0" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="18">Version 0.0.2</text>
+  </g>
+</svg>

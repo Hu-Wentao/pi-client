@@ -2,6 +2,10 @@
 
 Pi Client is a Flutter client for the [pi coding agent](https://github.com/earendil-works/pi). One codebase targets Android, iOS, macOS, Windows, Linux, and Web.
 
+Visit the [Pi Client product page](https://hu-wentao.github.io/pi-client/) for the bilingual overview, sanitized product screenshot, and current release download.
+
+Pi Client `0.0.2` is an early macOS Preview. Its current workspace connects through [pi-web](https://github.com/agegr/pi-web) `0.8.11` as a transitional compatibility bridge while the project works toward its own versioned, Pi SDK-based transport.
+
 The platform roles are intentionally different:
 
 | Platform | Connect to an Agent host | Run Pi SDK and host an Agent |
@@ -15,7 +19,7 @@ Android, iOS, and Web are connect-only clients. They must not embed Pi SDK, laun
 
 The repository contains all six Flutter platform projects and a tested `PlatformCapabilities` contract for the platform roles. The actual desktop Pi SDK host, Pi Node transport, Friday authentication, tunnel, and end-to-end encryption are still planned.
 
-The current workspace screen remains the legacy MVP implementation. It connects to a separately running [pi-web](https://github.com/agegr/pi-web) `0.8.11` service for session and Agent interactions. This adapter is retained for migration and verification only; pi-web is not the target Pi Client runtime or protocol authority.
+The current workspace screen remains the legacy MVP implementation. It connects to pi-web `0.8.11` for session and Agent interactions. This adapter is retained for migration and verification only; pi-web is not the target Pi Client runtime or protocol authority.
 
 ## What you can do today
 
@@ -30,6 +34,29 @@ With the legacy workspace adapter, you can:
 - See connection, loading, error, streaming, and reconnecting states.
 
 Pi-web continues to own sessions, models, tools, provider credentials, project access, and Agent execution for this legacy path.
+
+## Download the macOS Preview
+
+The current downloadable artifact is a Universal macOS Preview for Apple silicon and Intel Macs. Other platform projects are source/build baselines and do not yet have published downloads.
+
+1. Download both files from the [`v0.0.2` prerelease](https://github.com/Hu-Wentao/pi-client/releases/tag/v0.0.2):
+
+   - [`Pi-Client-0.0.2-macOS-universal.zip`](https://github.com/Hu-Wentao/pi-client/releases/download/v0.0.2/Pi-Client-0.0.2-macOS-universal.zip)
+   - [`Pi-Client-0.0.2-macOS-universal.zip.sha256`](https://github.com/Hu-Wentao/pi-client/releases/download/v0.0.2/Pi-Client-0.0.2-macOS-universal.zip.sha256)
+
+2. From the directory that contains both files, verify the download:
+
+   ```bash
+   shasum -a 256 -c Pi-Client-0.0.2-macOS-universal.zip.sha256
+   ```
+
+3. Extract the ZIP.
+
+4. In Finder, Control-click `Pi Client.app`, select **Open**, then confirm **Open** in the warning dialog.
+
+> **Unsigned Preview:** Version `0.0.2` is not signed with an Apple Developer ID and is not notarized. Gatekeeper warnings are expected. Install it only if you trust this repository and the checksum. Do not remove quarantine metadata with a shell command. A signed, notarized DMG is not available yet.
+
+The unsigned Preview stores only non-sensitive preferences in `fr_storage_unsigned_preview`. Its fixed public storage key avoids unavailable Keychain entitlements and provides no secrecy. A future signed release will use the standard secure-storage path and will not automatically inherit Preview preferences. The pi-web password is never persisted.
 
 ## Set up the project
 
@@ -93,7 +120,7 @@ fvm flutter build windows --debug
 fvm flutter build linux --debug
 ```
 
-Release signing, store registration, production icons, and distribution credentials are not configured by this baseline.
+Release signing, store registration, and distribution credentials are not configured for the general platform matrix. Only the explicitly disclosed unsigned macOS Preview is published by the current release workflow.
 
 ## Keep access secure
 
@@ -112,11 +139,12 @@ Pi Client keeps the legacy pi-web password in memory for the current page lifecy
 
 The current release:
 
+- Publishes only an unsigned macOS Preview; Android, iOS, Windows, Linux, and Web have no release download yet.
 - Does not include the desktop Pi SDK Agent host runtime.
 - Does not include the first-party Pi Node transport, Friday Workspace runtime, tunnel, or end-to-end encryption.
 - Builds Flutter Web with the standard JavaScript target; WebAssembly remains blocked by the current `flutter_secure_storage_web` dependency.
 - Retains a legacy pi-web adapter whose HTTP routes are not a stable public API.
-- Has no release signing, notarization, store delivery, or production icon evidence for the newly generated platforms.
+- Has no Apple signing, notarization, store delivery, or signed DMG evidence.
 - Requires Windows and Linux build evidence from their respective operating systems.
 - Does not include file browsing, uploads, Git diffs, worktree controls, model selection, provider login, skill management, plugin management, or subagent configuration.
 - Does not include session rename, deletion, export, branching, compaction controls, rich Markdown, or media rendering.
