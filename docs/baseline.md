@@ -36,9 +36,10 @@ Default review level: L6.
 
 - Status: Active
 - Review level: L6
-- The optional Basic Auth password exists only in private ViewModel/service memory for the current page lifecycle.
-- The password must not enter route state, `WorkspaceModel`, JSON generation, URL user-info, repository files, screenshots, or logs.
+- For the legacy `v0.0.2` adapter, the optional Basic Auth password exists only in private ViewModel/service memory for the current page lifecycle.
+- The legacy password must not enter route state, `WorkspaceModel`, JSON generation, URL user-info, repository files, screenshots, or logs.
 - Request/response headers and bodies remain disabled in Dio logging because they can contain credentials, prompts, messages, tool output, and project data.
+- First-party provider, Node, and Friday credentials remain owned by their accepted secure boundaries and must not be copied into Flutter serializable state or Relay payload logs.
 
 ## BASE-PI-003 - Contract and state ownership
 
@@ -63,10 +64,11 @@ Default review level: L6.
 
 - Status: Active
 - Review level: L6
-- Evidence for the legacy MVP adapter remains pinned to `agegr/pi-web` commit `28bab3c25f5f6770c9b0b745ebbfec1c27f7b948` (`0.8.11`, MIT).
-- Pi-web is not the target runtime, protocol authority, or cross-platform host. No new platform may copy its implementation or promote its HTTP routes into the first-party Pi transport contract.
-- Any maintenance of the legacy adapter requires focused compatibility tests; its future removal requires the migration and release notes already required by `DEC-012`.
-- Pi-web branding, screenshots, icons, and substantial implementation are not treated as Pi Client-owned assets.
+- Evidence for the legacy MVP adapter and the bounded completeness snapshot remains pinned to `agegr/pi-web` commit `28bab3c25f5f6770c9b0b745ebbfec1c27f7b948` (`v0.8.11`, MIT).
+- The legacy adapter remains release-scoped to `v0.0.2`; new product behavior must not extend its HTTP/SSE compatibility surface.
+- Pi-web is not the target runtime, semantic requirement authority, protocol authority, or cross-platform host. No platform may copy its implementation or promote routes, schemas, events, or internal types into first-party contracts.
+- Any maintenance of the legacy adapter requires focused compatibility tests; removal requires the migration and release notes required by `DEC-012` and `DEC-016`.
+- Pi-web branding, screenshots, icons, substantial implementation, and deployment artifacts are not treated as Pi Client-owned assets.
 
 ## BASE-PI-006 - Platform execution roles
 
@@ -87,3 +89,14 @@ Default review level: L6.
 - The Landing Page uses the Pi Client-owned SVG and sanitized Flutter screenshot. It must not use Flutter/pi-web branding, production paths, credentials, private prompts, or real tool output.
 - GitHub Pages may deploy only while its exact current-version GitHub Release asset is public. A passing local site build is not publication evidence.
 - Current pi-web compatibility is transitional and does not authorize a WebAssembly build or weaken the planned independent, versioned Pi SDK/transport boundary.
+
+## BASE-PI-008 - Product authority and 1.0 completeness
+
+- Status: Active
+- Review level: L9
+- The user-approved `1.0.0` completeness baseline is the user-visible and reachable capability set observed in pi-web `v0.8.11` at commit `28bab3c25f5f6770c9b0b745ebbfec1c27f7b948`.
+- `docs/requirements.md` is the semantic authority for Pi Client outcomes, constraints, platform adaptations, and acceptance; `docs/benchmark.md` is a bounded omission check only.
+- Hidden, disabled, test-only, or unreachable behavior is not strict parity. Built-in subagent creation is excluded because the fixed snapshot hard-disables runtime creation and exposes no ordinary Settings path to its configuration; existing child-session visibility remains in scope.
+- A later pi-web release does not change Pi Client scope without a new project decision and requirement change.
+- Completeness never authorizes importing, copying, calling, deploying, or requiring pi-web runtime, source, routes, schemas, events, protocol, components, or artifacts.
+- `PLAN-PI-004` owns the P0-P11 implementation path; `PLAN-PI-002` remains the Friday Workspace parallel track, and `PLAN-PI-001` remains Superseded.
