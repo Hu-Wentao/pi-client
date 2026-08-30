@@ -32,40 +32,43 @@ mdq:
 ---
 # Pi Client 实施计划
 
-默认评审级别：L3。用户直接指定的产品目标、数据约束及“pi-web 仅作借鉴，不作为任何代码依赖”为 L9；已由仓库和固定参考版本确认的事实为 L6；尚未实施的架构、协议和阶段安排为 L3。
+默认评审级别：L3。用户直接指定的独立产品目标、数据约束及“pi-web 只可提供灵感，不作为需求或代码权威”为 L9；已由当前仓库确认的事实为 L6；尚未实施的架构、协议和阶段安排为 L3。
 
 ## PLAN-PI-001 - 独立 Pi 客户端与无持久化公网中转
 
 - Status: Planned
 - Review level: L9（产品目标与数据约束）/ L3（技术方案）
-- Target: 独立 Flutter Pi 客户端借鉴 pi-web 的产品能力，并通过 Passkey 与中心化中转服务安全访问用户自己的 Pi
+- Target: 独立 Flutter Pi 客户端通过 Passkey 与中心化中转服务安全访问用户自己的 Pi
 - 当前项目基线：`pi-client` `0.0.1+1`，`main` 上已经交付的 MVP 仍通过 `PiWebGateway` 验证基础交互
-- 产品参考：`agegr/pi-web` commit `28bab3c25f5f6770c9b0b745ebbfec1c27f7b948`，package `0.8.11`，MIT
-- 架构纠正：根据 `DEC-012`，pi-web 只用于产品行为、信息架构和功能清单参考；目标产品不得导入、复制、调用、部署或要求安装任何 pi-web 代码。
+- 外部参考边界：pi-web 只是非权威的产品灵感来源；它不定义本项目的需求、验收、架构、协议或实现。
+- 架构纠正：根据 `DEC-012`，目标产品不得导入、复制、调用、部署或要求安装任何 pi-web 代码。
 - 计划状态说明：本文描述未来目标，不改变 `docs/baseline.md` 中当前 MVP 已生效的历史事实，也不把尚未实现的 Pi Node、Relay、Passkey 或完整功能描述为当前能力。
 
 ### 1. 目标
 
 本计划交付一个独立产品体系：
 
-1. **独立 Flutter 客户端**：以 pi-web 的可观察产品能力为参考，独立设计和实现会话、消息、文件、Git、worktree、模型、技能、插件、子代理、扩展交互、设置和响应式体验。
+1. **独立 Flutter 客户端**：依据用户确认的产品需求，独立设计和实现会话、消息、文件、Git、worktree、模型、技能、插件、子代理、扩展交互、设置和响应式体验。
 2. **独立 Pi Node Gateway**：用户设备上的第一方节点服务直接集成 Pi SDK、Pi RPC 或其他经过评审的官方 Pi 运行时边界，不依赖 pi-web 服务端或其 API。
 3. **本地与公网访问**：客户端既可直连本机或局域网中的 Pi Node，也可通过中心 Relay 从公网访问同一个 Pi Node。
 4. **Passkey 鉴权**：远程访问使用 Passkey 完成用户到自己 Pi Node 的认证，不使用中心账户密码。
 5. **中心服务无用户数据持久化**：Relay 不建立用户账户库，不持久化 Passkey 凭证、Pi 会话、消息、提示、文件、模型配置、API Key 或其他用户业务数据，只执行连接鉴别、能力凭证校验与加密流量转发。
 6. **用户侧数据主权**：Pi 数据、Passkey 凭证记录、节点身份、Provider 凭据和项目文件全部留在用户控制的设备上。
 
-### 2. pi-web 的使用边界
+### 2. 外部产品参考边界
 
-pi-web 仅允许作为以下证据来源：
+pi-web 只提供候选灵感，不是需求来源或验收权威。任何候选能力只有在转换为本项目独立的 requirement、interaction contract 和 acceptance rule，并由用户接受后，才能进入范围。
 
-- 产品功能目录。
-- 可观察用户流程、页面信息架构和加载/空/错误/运行状态参考。
-- 响应式桌面与移动交互参考。
-- 公开许可证允许范围内的比较、测试说明和已知差异记录。
+允许的参考方式：
+
+- 观察公开界面的产品概念和用户流程。
+- 比较通用的加载、空、错误和运行状态表达。
+- 研究响应式桌面与移动产品体验。
+- 在许可证允许范围内记录产品差异。
 
 禁止以下行为：
 
+- 根据 pi-web 源码、route、event、type 或测试自动生成本项目需求和协议。
 - Flutter、Pi Node 或 Relay 在运行时调用 pi-web HTTP/SSE API。
 - 要求用户安装、启动或配置 pi-web。
 - 导入 pi-web npm package、源码文件、React component、Next.js route 或内部类型。
@@ -73,7 +76,7 @@ pi-web 仅允许作为以下证据来源：
 - 把 pi-web 的未声明稳定 API 变成本项目协议。
 - 使用 pi-web 作为 Pi Node 的代理、sidecar、BFF 或部署依赖。
 
-实施团队必须把“产品借鉴”和“代码依赖”分开：对标记录描述用户能完成什么，不描述如何复制 pi-web 的实现。
+实施和验收不要求读取 pi-web 源码。本文后续的产品能力目录是待用户确认的候选范围，不代表必须镜像 pi-web。
 
 ### 3. 非目标
 
@@ -82,7 +85,7 @@ pi-web 仅允许作为以下证据来源：
 - 不由 Relay 保存离线消息、离线任务、通知队列或请求重放队列。
 - 不提供依赖中心用户库的邮箱登录、社交登录、密码找回、跨节点账户列表、计费或按用户配额。
 - 不把 Relay 做成任意 TCP、HTTP 或内网地址代理；Relay 只能把已认证的加密流量转发给对应在线 Pi Node。
-- 不要求 Flutter UI 与 Web DOM/CSS 像素级一致；要求产品能力、信息结构、状态语义和关键交互达到对标目标，平台特有能力采用明确记录的原生等价实现。
+- 不要求 Flutter UI 与任何 Web DOM/CSS 像素级一致；产品能力、信息结构、状态语义和关键交互由本项目独立 requirements 决定，平台特有能力采用明确记录的原生实现。
 - 不直接读写 `~/.pi/agent` 来绕过 Pi Runtime 的公开或经过审查的运行时边界；若某项能力没有受支持的 Pi API，必须先形成独立契约和风险决策。
 
 ### 4. 必须先澄清的可行性边界
@@ -274,7 +277,7 @@ Pi 会话、项目文件、Git 和模型数据保留在用户自己的设备上�
 - Direct 与 Relay 模式使用相同领域协议；Relay 只承载加密后的协议帧。
 - 协议定义独立于 Pi Runtime SDK 的内部类型，避免把第三方实现细节变成客户端兼容面。
 
-固定 pi-web 中的 route 和 event 可以帮助发现遗漏的产品能力，但不得作为本协议的命名、字段或兼容性权威。
+外部产品观察可以帮助发现候选能力，但源码 route、event、type 和内部状态不得作为本协议的命名、字段、语义或兼容性权威。
 
 ### 10. Flutter 架构演进
 
@@ -346,9 +349,9 @@ Pi feature component
 - Pi Runtime adapter 只存在于 Pi Node，不进入 Flutter。
 - 当前 `PiWebApi` 和 `PiWebGateway` 在迁移完成后删除，不作为兼容 adapter 长期保留。
 
-### 11. 产品能力对标清单
+### 11. 独立产品能力清单
 
-实施前把每项标为 `Exact`、`Native-adapted`、`Not-applicable`、`Blocked` 或 `Verified`。对标对象是产品行为，不是 pi-web API 或源码结构。
+下表是根据当前目标整理的候选范围。P0 必须让用户确认每项是否进入 requirements，再标为 `Planned`、`Native-adapted`、`Not-applicable`、`Blocked` 或 `Verified`。pi-web 不参与状态判定。
 
 | Domain | 目标能力 | 当前状态 | 计划阶段 |
 | --- | --- | --- | --- |
@@ -371,16 +374,16 @@ Pi feature component
 | UX | theme、en/zh-CN/zh-TW、sound、clipboard、shortcuts、notifications、update | Missing | P7 |
 | Remote access | Pi Node、Relay、Passkey、capability、E2EE | Missing | P2、P8 |
 
-P0 必须把这些产品能力转换成项目自己的 requirements、interaction flows 和 Pi Node operations。不得用“pi-web 有某 route”直接创建同名接口。
+P0 必须把用户接受的能力转换成项目自己的 requirements、interaction flows 和 Pi Node operations。未被用户接受的候选项不得因为其他产品存在类似功能而自动进入范围。
 
 ### 12. 分阶段实施
 
-#### P0 - 产品对标与独立架构冻结
+#### P0 - 独立需求与架构冻结
 
 交付：
 
-- 从 pi-web 的可观察产品行为和公开说明整理完整 feature/state/interaction matrix。
-- 为每项确定 `Exact`、`Native-adapted` 或 `Not-applicable`；无证据项不得默认实现。
+- 从用户目标和候选产品灵感整理 feature/state/interaction proposal，并逐项取得范围确认。
+- 为每个已接受 requirement 确定 `Planned`、`Native-adapted` 或 `Not-applicable`；未接受项不得默认实现。
 - 评估官方 Pi SDK、RPC、CLI 和 session/runtime extension points，确定 Pi Node 的受支持集成边界。
 - 建立第一方 Pi Node Protocol、Relay threat model、数据分类、日志规范和 protocol v1 草案。
 - 建立 planned requirements、decision records 和 verification owners。
@@ -388,8 +391,8 @@ P0 必须把这些产品能力转换成项目自己的 requirements、interactio
 
 退出条件：
 
-- 产品能力清单没有未分类项。
-- 每项能力都有本项目自己的 owner、API/Flow 和验证层。
+- 候选能力均已接受、排除或延期，没有未经确认而自动进入范围的项目。
+- 每项已接受能力都有本项目自己的 owner、API/Flow 和验证层。
 - 文档和依赖图中没有 pi-web runtime/build/source dependency。
 - Pi Runtime integration、Passkey owner 和“不持久化”的可验证定义获得接受。
 
@@ -426,7 +429,7 @@ P0 必须把这些产品能力转换成项目自己的 requirements、interactio
 - Relay filesystem、DB、logs、metrics 和 crash output 检查无用户数据。
 - 未认证、错误节点、错误 origin、过期 capability、重放、篡改帧和越权 operation 全部被拒绝。
 
-#### P3 - 会话、消息和 composer 完整对标
+#### P3 - 会话、消息和 composer 完整交付
 
 交付：
 
@@ -438,7 +441,7 @@ P0 必须把这些产品能力转换成项目自己的 requirements、interactio
 
 退出条件：
 
-- session/message/composer 对标项全部 `Verified`。
+- 已接受的 session/message/composer requirements 全部 `Verified`。
 - Direct 与 Relay 对同一 Pi Node fixture 产生等价 Model state。
 - disconnect、late response、session switch、duplicate event 和 command uncertainty 有聚焦测试。
 
@@ -539,7 +542,7 @@ P0 必须把这些产品能力转换成项目自己的 requirements、interactio
 | --- | --- |
 | Flutter Contract、Event、Provider、typed route | `fr-mvvm-contract` validators、route validator、analyzer |
 | UI 状态、滚动、输入、对话框、响应式布局 | Widget tests、Golden、accessibility semantics |
-| 产品能力对标 | 独立 acceptance scenarios、状态截图和人工差异审查，不使用 pi-web API contract |
+| 产品需求验收 | 独立 acceptance scenarios、状态截图和人工审查，不使用任何外部产品 API contract |
 | Pi Runtime integration | Pi Node focused/integration tests 与官方 Pi runtime fixture |
 | Direct/Relay 等价 | transport conformance suite，对同一 Pi Node fixture 比较 domain state |
 | Passkey ceremony | FIDO/WebAuthn server tests、fake authenticator 自动测试、真机手工验证 |
@@ -560,7 +563,7 @@ P0 必须把这些产品能力转换成项目自己的 requirements、interactio
 - protocol handshake 必须携带 major/minor；不兼容 major 明确拒绝，不能静默降级为明文或无认证模式。
 - Direct 与 Relay 都连接 Pi Node；它们不形成两套业务 API。
 - 当前 `pi-web URL/password` 配置属于 MVP 遗留面。删除前必须提供明确迁移提示，不把它升级为长期兼容承诺。
-- pi-web 参考版本可以用于重新审查产品差异，但参考版本变化不自动改变本项目协议、requirements 或 release。
+- 外部产品可以用于发现候选想法，但其版本和实现变化不自动改变本项目协议、requirements 或 release。
 - Passkey RP ID 绑定公网域名。更换 RP ID 会要求重新注册 Passkey，属于明确迁移事件。
 - 节点身份密钥轮换会改变节点指纹或 nodeId，必须经过本地确认并重新配对。
 
@@ -618,13 +621,13 @@ P0 必须把这些产品能力转换成项目自己的 requirements、interactio
 - 同意影响：形成两个第一方源码项目和多项独立 artifact，但避免污染 Flutter 根目录。
 - 否决影响：A 耦合构建/发布；C 在首版增加跨仓同步成本。
 
-#### D7 - 对标判定
+#### D7 - 外部产品参考方式
 
-- 选项 A：要求 Flutter 对 Web UI 像素级复制。
-- 选项 B：要求行为、信息架构、状态和错误语义对标，平台特有能力采用记录在案的原生等价。
+- 选项 A：把外部产品的 UI 和行为视为必须复制的验收标准。
+- 选项 B：只把外部产品当作候选灵感，由本项目 requirements 独立决定范围和验收。
 - 推荐：B。
-- 同意影响：PWA、Web Push 和浏览器存储会有 `Native-adapted` disposition。
-- 否决影响：A 会把 DOM/CSS 偶然细节错误升级为 Flutter 产品契约，并阻碍跨平台可访问性。
+- 同意影响：平台体验、状态和能力可以按用户目标独立设计，不承担外部产品兼容承诺。
+- 否决影响：A 会把其他产品的偶然实现错误升级为本项目契约。
 
 #### D8 - 多实例路由
 
@@ -639,7 +642,7 @@ P0 必须把这些产品能力转换成项目自己的 requirements、interactio
 必须按以下依赖顺序执行：
 
 ```text
-产品对标矩阵与 Pi Runtime 边界
+独立产品需求矩阵与 Pi Runtime 边界
 -> 独立 requirements/decision/verification
 -> Pi Node Protocol 与 Direct vertical slice
 -> Flutter module migration and PiWebGateway removal
@@ -661,14 +664,14 @@ P0 必须把这些产品能力转换成项目自己的 requirements、interactio
 - 用一份巨大 `WorkspaceModel` 承载所有未来域。
 - 把当前已通过的 MVP tests 删除后以“新架构尚未完成”为理由降低验证。
 - 将 Relay 日志、分析平台或托管代理的默认访问日志排除在“无用户数据”审计之外。
-- 为了功能对标而绕过项目 trust、路径安全和破坏性操作确认。
+- 为了功能完整性而绕过项目 trust、路径安全和破坏性操作确认。
 
 ### 18. 总体验收条件
 
 仅当以下条件同时满足，才能称为“独立 Pi Client 已完成目标能力并支持公网访问”：
 
-- 产品 feature/state/interaction matrix 没有未分类项。
-- 所有 `Exact` 和 `Native-adapted` 项有实现与对应验证；`Not-applicable` 有理由和用户影响。
+- 用户确认的 requirement/interaction matrix 没有未分类项。
+- 所有 `Planned` 和 `Native-adapted` 项有实现与对应验证；`Not-applicable` 有理由和用户影响。
 - 用户不安装、不启动 pi-web，也能完成全部产品流程。
 - 代码、依赖、构建、部署和运行时中不存在 pi-web artifact。
 - Direct 与 Relay 对全部已支持 Pi Node operations 行为等价。
@@ -681,7 +684,7 @@ P0 必须把这些产品能力转换成项目自己的 requirements、interactio
 
 ### 19. 外部依据
 
-- pi-web 固定参考副本：`/tmp/pi-web-reference`，commit `28bab3c25f5f6770c9b0b745ebbfec1c27f7b948`；仅用于产品研究和差异审查。
+- `DEC-012`：pi-web 只可提供非权威产品灵感，不能成为需求、代码、协议或运行时依赖。
 - Pi Runtime：实施前必须选择并固定经过依赖评估的官方 Pi SDK、RPC 或 CLI 边界。
 - W3C Web Authentication Level 3：Passkey/WebAuthn Relying Party registration 和 authentication operations。
 - Google Server-side passkey authentication：认证需要一次性 challenge、用户/credential 查找和 credential public key verification。
