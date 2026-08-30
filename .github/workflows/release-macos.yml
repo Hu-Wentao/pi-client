@@ -180,6 +180,7 @@ jobs:
           [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PLIST")" == "$BUILD_NUMBER" ]]
           [[ "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$PLIST")" == '11.0' ]]
           ! grep -Eq 'app-sandbox|disable-library-validation|allow-unsigned-executable-memory' macos/Runner/Release.entitlements
+          grep -q 'disable-library-validation' macos/Runner/ReleaseAdHoc.entitlements
           grep -q 'allow-unsigned-executable-memory' macos/Runner/PiNode.entitlements
           grep -q 'allow-unsigned-executable-memory' macos/Runner/PiNodeAdHoc.entitlements
 

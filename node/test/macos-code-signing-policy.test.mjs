@@ -9,12 +9,14 @@ const entitlementKeys = (xml) =>
   [...xml.matchAll(/<key>([^<]+)<\/key>/gu)].map((match) => match[1]).sort();
 
 test("Release app and Pi Node entitlements remain least-privilege", async () => {
-  const [app, node, adHocNode] = await Promise.all([
+  const [app, adHocApp, node, adHocNode] = await Promise.all([
     readFile(resolve(repositoryRoot, "macos/Runner/Release.entitlements"), "utf8"),
+    readFile(resolve(repositoryRoot, "macos/Runner/ReleaseAdHoc.entitlements"), "utf8"),
     readFile(resolve(repositoryRoot, "macos/Runner/PiNode.entitlements"), "utf8"),
     readFile(resolve(repositoryRoot, "macos/Runner/PiNodeAdHoc.entitlements"), "utf8"),
   ]);
   assert.deepEqual(entitlementKeys(app), []);
+  assert.deepEqual(entitlementKeys(adHocApp), ["com.apple.security.cs.disable-library-validation"]);
   assert.deepEqual(entitlementKeys(node), [
     "com.apple.security.cs.allow-jit",
     "com.apple.security.cs.allow-unsigned-executable-memory",

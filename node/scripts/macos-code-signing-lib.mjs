@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { lstat, mkdir, readFile, readdir, stat } from "node:fs/promises";
+import { chmod, lstat, mkdir, readFile, readdir, stat } from "node:fs/promises";
 import { dirname, extname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -27,6 +27,10 @@ export const MACOS_SIGNING_MANIFEST_RELATIVE_PATH =
 export const DEFAULT_APP_ENTITLEMENTS = resolve(
   repositoryRoot,
   "macos/Runner/Release.entitlements",
+);
+export const DEFAULT_AD_HOC_APP_ENTITLEMENTS = resolve(
+  repositoryRoot,
+  "macos/Runner/ReleaseAdHoc.entitlements",
 );
 export const DEFAULT_NODE_ENTITLEMENTS = resolve(
   repositoryRoot,
@@ -66,7 +70,10 @@ export async function signMacosAppInsideOut(options) {
     identityKind === "ad-hoc"
       ? (options.adHocNodeEntitlements ?? DEFAULT_AD_HOC_NODE_ENTITLEMENTS)
       : (options.nodeEntitlements ?? DEFAULT_NODE_ENTITLEMENTS);
-  const appEntitlements = options.appEntitlements ?? DEFAULT_APP_ENTITLEMENTS;
+  const appEntitlements =
+    identityKind === "ad-hoc"
+      ? (options.adHocAppEntitlements ?? DEFAULT_AD_HOC_APP_ENTITLEMENTS)
+      : (options.appEntitlements ?? DEFAULT_APP_ENTITLEMENTS);
   const expectedNodeEntitlements = await readEntitlementFileKeys(nodeEntitlements);
   const expectedAppEntitlements = await readEntitlementFileKeys(appEntitlements);
   assertMinimumEntitlements(identityKind, expectedNodeEntitlements, expectedAppEntitlements);
@@ -125,7 +132,11 @@ export async function signMacosAppInsideOut(options) {
     },
     notarization: "external-gate",
   };
+  await chmod(signingManifestPath, 0o644).catch((error) => {
+    if (error?.code !== "ENOENT") throw error;
+  });
   await writeDeterministicJson(signingManifestPath, signingManifest);
+  await chmod(signingManifestPath, 0o444);
   codesignObject({
     path: appBundle,
     identity,
@@ -209,13 +220,18 @@ export async function verifyMacosAppCodeSigning(options) {
   const disableLibraryValidationUsers = signingManifest.insideOutSigningOrder.filter((entry) =>
     entry.entitlements.includes("com.apple.security.cs.disable-library-validation"),
   );
+  const appDisablesLibraryValidation = appEntitlements.includes(
+    "com.apple.security.cs.disable-library-validation",
+  );
   if (
     disableLibraryValidationUsers.length > 1 ||
     (disableLibraryValidationUsers.length === 1 &&
       !disableLibraryValidationUsers[0].path.endsWith("/runtime/bin/node")) ||
-    (signingManifest.signingKind === "developer-id" && disableLibraryValidationUsers.length !== 0)
+    (signingManifest.signingKind === "developer-id" &&
+      (disableLibraryValidationUsers.length !== 0 || appDisablesLibraryValidation)) ||
+    (signingManifest.signingKind === "ad-hoc" && !appDisablesLibraryValidation)
   ) {
-    throw new Error("Library validation is disabled outside the ad-hoc Node helper boundary.");
+    throw new Error("Library validation exceptions escaped the proven ad-hoc app/Node boundaries.");
   }
   if (
     signingManifest.signingKind === "ad-hoc" &&
@@ -388,8 +404,10 @@ function plistKeys(xml) {
 }
 
 function assertMinimumEntitlements(identityKind, nodeEntitlements, appEntitlements) {
-  if (appEntitlements.length !== 0) {
-    throw new Error("The unsandboxed desktop app requires no Release entitlements.");
+  const expectedApp =
+    identityKind === "ad-hoc" ? ["com.apple.security.cs.disable-library-validation"] : [];
+  if (stableStringify(appEntitlements) !== stableStringify(expectedApp)) {
+    throw new Error("App entitlements exceed the minimum signing policy.");
   }
   const expectedNode = [
     "com.apple.security.cs.allow-jit",
