@@ -36,7 +36,8 @@ mdq:
 
 ## PLAN-PI-001 - 独立 Pi 客户端与无持久化公网中转
 
-- Status: Planned
+- Status: Superseded
+- Superseded by: `PLAN-PI-002` in `docs/plans/friday-relay-workspace-service.md`; do not implement this plan's central identity, Passkey ownership, Stateless Relay, subdomain, entitlement, or tunnel design.
 - Review level: L9（产品目标与数据约束）/ L3（技术方案）
 - Target: 独立 Flutter Pi 客户端通过 Passkey 与中心化中转服务安全访问用户自己的 Pi
 - 当前项目基线：`pi-client` `0.0.1+1`，`main` 上已经交付的 MVP 仍通过 `PiWebGateway` 验证基础交互
