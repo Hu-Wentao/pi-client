@@ -11,7 +11,7 @@ interface Props {
 }
 
 const { lang, title, description, canonicalPath, skipLabel, socialImageAlt } = Astro.props;
-const baseUrl = Astro.site ?? new URL('https://hu-wentao.github.io');
+const baseUrl = Astro.site ?? new URL('https://wyattcoder.top');
 const basePath = import.meta.env.BASE_URL;
 const canonical = new URL(
   `${basePath}${canonicalPath.replace(/^\/+/, '')}`,

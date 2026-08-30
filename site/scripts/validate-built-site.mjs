@@ -10,12 +10,12 @@ const pages = [
   {
     path: resolve(dist, 'index.html'),
     lang: 'en',
-    canonical: 'https://hu-wentao.github.io/pi-client/',
+    canonical: 'https://wyattcoder.top/pi-client/',
   },
   {
     path: resolve(dist, 'zh-cn/index.html'),
     lang: 'zh-CN',
-    canonical: 'https://hu-wentao.github.io/pi-client/zh-cn/',
+    canonical: 'https://wyattcoder.top/pi-client/zh-cn/',
   },
 ];
 

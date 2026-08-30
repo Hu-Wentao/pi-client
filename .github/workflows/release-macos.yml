@@ -58,7 +58,7 @@ jobs:
           sdk: 3.11.4
 
       - name: Cache Flutter SDK
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: ~/fvm/versions/3.41.6
           key: macos-fvm-flutter-3.41.6
@@ -230,9 +230,16 @@ jobs:
           ASSET: ${{ steps.metadata.outputs.asset }}
           CHECKSUM_ASSET: ${{ steps.metadata.outputs.checksumAsset }}
         run: |
-          RELEASE_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}")"
+          RELEASE_JSON="$(
+            gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" |
+              jq -c --arg tag "$TAG" '
+                [.[] | select(.tag_name == $tag and .draft == true)] |
+                if length == 1 then .[0]
+                else error("expected exactly one draft release for " + $tag)
+                end
+              '
+          )"
           RELEASE_ID="$(jq -r '.id' <<<"$RELEASE_JSON")"
-          [[ "$(jq -r '.draft' <<<"$RELEASE_JSON")" == 'true' ]]
           jq -r '.assets[].name' <<<"$RELEASE_JSON" | grep -Fxq "$ASSET"
           jq -r '.assets[].name' <<<"$RELEASE_JSON" | grep -Fxq "$CHECKSUM_ASSET"
           [[ "$(jq --arg name "$ASSET" '[.assets[] | select(.name == $name) | .size > 0] | all' <<<"$RELEASE_JSON")" == 'true' ]]
