@@ -108,9 +108,9 @@ mdq:
 
 - Status: PARTIAL
 - Requirements: REQ-PI-010, REQ-PI-011
-- Owner: Flutter platform directories, `.metadata`, shared analyzer/tests, and per-platform Flutter build commands
-- Evidence: `.metadata` tracks Android, iOS, Linux, macOS, Web, and Windows; shared analysis and all tests pass; macOS Debug, Android Debug APK, iOS Debug without code signing, and standard JavaScript Web builds succeed. iOS is fixed at 15.0 because ObjectBox requires it.
-- Gap: Windows and Linux native builds require their respective operating systems. Dart WebAssembly is blocked by `flutter_secure_storage_web 1.2.1`, which still imports unsupported `dart:html` and `dart:js` libraries. Signing, store identity, production icons, and distribution remain unverified or missing for the general platform matrix; the bounded unsigned macOS Preview is tracked separately by `VER-PI-012` and `VER-PI-013`.
+- Owner: Flutter platform directories, `.metadata`, shared analyzer/tests, per-platform Flutter build commands, and `.github/workflows/ci.yml`
+- Evidence: `.metadata` tracks Android, iOS, Linux, macOS, Web, and Windows; shared analysis and all tests pass; macOS Debug, Android Debug APK, iOS Debug without code signing, and standard JavaScript Web builds succeed. The CI source now assigns all six builds to native GitHub runners and keeps Web on JavaScript. iOS is fixed at 15.0 because ObjectBox requires it.
+- Gap: The new GitHub-hosted matrix has not yet produced a merged-commit run, so Windows/Linux and hosted iOS/macOS evidence remain pending. Dart WebAssembly is blocked by `flutter_secure_storage_web 1.2.1`. Signing, store identity, production icons, and formal distribution remain unverified or missing; Preview workflow source is tracked by `VER-PI-014`, while hosted qualification/publication is tracked by `VER-PI-015`.
 
 ## VER-PI-012 - Landing Page and unsigned Preview source qualification
 
@@ -124,6 +124,22 @@ mdq:
 
 - Status: PARTIAL
 - Requirements: REQ-PI-012
-- Owner: `.github/workflows/release-macos.yml`, `.github/workflows/pages.yml`, GitHub Release evidence, and production manual accessibility/browser verification
-- Evidence: Annotated `v0.0.2` resolves to `ac2b492cf595a715fc5e86f7e850ae5bcaf4c942`; Release build run `33308958703` passed generation, analysis, 35 tests, Debug build, unsigned Universal build, bundle/architecture/Gatekeeper checks, launch without Keychain `-34018`, packaging, tag creation, and Draft upload. Draft release `379262752` was reconciled after the workflow's tag lookup returned 404; the exact uploaded ZIP and SHA-256 were downloaded, checksum-verified, unpacked, and inspected before publication. Pages run `33309764563` deployed both locales from `c6318263fd4309460d392697eef84eee24c96058`; production HTML, canonical URLs, assets, direct download, Cloudflare command integrity, responsive Chrome rendering, and Lighthouse 94/100/100/100 were verified.
-- Gap: Safari WebDriver is blocked until **Allow Remote Automation** is enabled. VoiceOver and 200% zoom still require manual acceptance. HTTPS works through Cloudflare, but GitHub Pages cannot enforce HTTPS for the inherited custom domain and HTTP does not currently redirect; changing that shared domain behavior requires separate Cloudflare governance authority.
+- Owner: historical `.github/workflows/release-macos.yml@ac2b492`, current `.github/workflows/pages.yml`, GitHub Release evidence, and production manual accessibility/browser verification
+- Evidence: Annotated `v0.0.2` resolves to `ac2b492cf595a715fc5e86f7e850ae5bcaf4c942`; Release build run `33308958703` passed generation, analysis, 35 tests, Debug build, unsigned Universal build, bundle/architecture/Gatekeeper checks, launch without Keychain `-34018`, packaging, tag creation, and Draft upload. Draft release `379262752` was reconciled after the historical workflow's tag lookup returned 404; the exact uploaded ZIP and SHA-256 were downloaded, checksum-verified, unpacked, and inspected before publication. Pages run `33309764563` deployed both locales from `c6318263fd4309460d392697eef84eee24c96058`; production HTML, canonical URLs, assets, direct download, Cloudflare command integrity, responsive Chrome rendering, and Lighthouse 94/100/100/100 were verified.
+- Gap: Safari WebDriver is blocked until **Allow Remote Automation** is enabled. VoiceOver and 200% zoom still require manual acceptance. HTTPS works through Cloudflare, but GitHub Pages cannot enforce HTTPS for the inherited custom domain and HTTP does not currently redirect; changing that shared domain behavior requires separate Cloudflare governance authority. Replacing the source workflow does not alter this historical `v0.0.2` evidence.
+
+## VER-PI-014 - Cross-platform Release contract and workflow source
+
+- Status: PASS
+- Requirements: REQ-PI-010, REQ-PI-011, REQ-PI-013
+- Owner: `tool/release_contract.mjs`, `tool/release_metadata.mjs`, `tool/preview_artifacts.mjs`, Node release tests, workflow policy tests, actionlint, and local Flutter/Astro checks
+- Evidence: Focused tests validate generic and monotonic SemVer resolution, active-Profile-independent tests plus immutable synthesized `0.0.2+2` compatibility, the future six-platform file/role/runtime-baseline contract, isolated platform Artifact sources, package filename-boundary evidence with contained Framework symlinks, deterministic manifest/checksum output, commit binding, missing/extra/wrong-source/duplicate/unsafe-name/zero-byte rejection, SHA-pinned Actions, exact-run bundle recovery, bounded Draft starter repair, concurrent-publication rejection, annotated-Tag Pages binding, recoverable fail-closed Tag/Draft/public states, and JavaScript Dart application policy. Local shared checks and actual unsigned Android split APK, no-codesign iOS archive, unsigned Universal macOS bundle, and standard JavaScript Web builds qualify the source without changing the public version.
+- Scope limit: This PASS proves repository source and locally available hosts. It does not prove GitHub runner availability, Windows/Linux runtime output, a six-platform Actions bundle, a new Tag, or a public cross-platform Prerelease.
+
+## VER-PI-015 - GitHub-hosted six-platform qualification and Preview publication
+
+- Status: PLANNED
+- Requirements: REQ-PI-010, REQ-PI-013
+- Owner: `.github/workflows/ci.yml`, `.github/workflows/release-preview.yml`, GitHub Actions artifacts, GitHub Release readback, and Pages admission
+- Planned evidence: One full commit passes the six-platform native runner matrix; `qualify` emits the exact `six-platform-preview-v1` bundle and matching stage evidence/manifest/checksums; an independently authorized `publish` creates the annotated Tag or resumes it with the original qualification run ID and exact retained bundle, verifies every existing, repaired starter, or newly uploaded Draft asset by service metadata and downloaded SHA-256, publishes the Prerelease, and dispatches Pages from that annotated Tag only after the complete asset set is public.
+- Gap: The current release contract intentionally remains `macos-preview-v1` for immutable `v0.0.2`, and no next-version `qualify` or `publish` run is authorized or available yet. Formal platform signing and store delivery remain outside this Preview verification.

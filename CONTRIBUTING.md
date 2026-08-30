@@ -56,7 +56,11 @@ fvm dart format --output=none --set-exit-if-changed lib test tool
 fvm dart run build_runner build
 fvm flutter analyze
 fvm flutter test
+node --test test/release_contract_test.mjs test/preview_artifacts_test.mjs test/workflow_policy_test.mjs
+node tool/release_metadata.mjs
 ```
+
+The Node release tests are required whenever `release/`, `tool/release_*.mjs`, `tool/preview_artifacts.mjs`, `.github/actions/`, or `.github/workflows/` changes.
 
 Run the applicable platform builds on configured hosts:
 
@@ -81,7 +85,7 @@ ASTRO_TELEMETRY_DISABLED=1 bun run build
 bun run validate
 ```
 
-Run `node tool/release_metadata.mjs` whenever the app version, release asset, or Landing Page download CTA changes.
+Run `node tool/release_metadata.mjs` whenever the app version, Artifact Profile, release asset, Release Notes, or Landing Page download CTA changes. `pubspec.yaml` owns the version/build number; `release/release.json` only selects the current profile and primary target.
 
 When the UI intentionally changes, review the rendered result before running:
 
@@ -101,7 +105,10 @@ Keep changes focused. Update requirements, baselines, comparison scope, tests, g
 
 - Edit `assets/brand/pi-client-mark.svg` as the product-mark source, then run `cd site && bun run brand`. Commit the generated favicon, social card, screenshot WebP, and every macOS App Icon size together.
 - Generate the marketing screenshot with `fvm flutter test test/marketing_screenshot_test.dart --update-goldens`, inspect the final pixels, then run `cd site && bun run brand` to refresh its WebP delivery asset. Use only synthetic paths, sessions, prompts, and output. Its comparator permits at most 0.02% cross-host font raster variance and must still reject structural changes.
-- Keep release metadata synchronized across `pubspec.yaml`, `site/package.json`, `site/src/content/copy.ts`, release notes, and workflow-generated asset names.
-- Do not manually move, overwrite, or delete a release tag or published asset. The manual Release workflow owns admission, Universal build checks, ZIP/checksum upload, and publication.
+- Keep release metadata synchronized across `pubspec.yaml`, `release/release.json`, `site/package.json`, `site/src/content/copy.ts`, release notes, and workflow-generated asset names.
+- Keep `macos-preview-v1` while maintaining the immutable `v0.0.2` release. A later version may select `six-platform-preview-v1` only together with matching site copy and Release Notes; never use a profile change to add new bytes to an old Tag.
+- Run the Release workflow in `qualify` mode before requesting publication. `publish` requires separate current authorization, main, a monotonic version, all six native runner builds, the exact aggregate file set, manifest/checksum verification, and Draft asset readback. The remote identity must be absent or an exact recoverable annotated Tag/Draft/public Release for the same commit. Recovery requires the original qualification `resume_run_id`; it reuses that exact retained bundle, never moves a Tag or overwrites an uploaded asset, and may delete only one revalidated Draft `starter/0-byte` failure before retransmission.
+- Do not manually move, overwrite, or delete a release tag or published asset. The manual Release workflow owns admission, annotated Tag creation, platform checks, aggregate upload, digest readback, and publication.
 - The `unsigned-preview` channel is not signed, notarized, or effectively sandboxed. Do not remove its Gatekeeper disclosure, claim that its public fixed key is secret, or merge its preferences directory with the future signed channel.
+- Android Release is fail-closed: without a configured Release signer it must remain unsigned rather than silently using the Debug key. Use Debug builds for local development; do not describe an unsigned APK or no-codesign iOS archive as a store-ready package.
 - Publishing a Release, dispatching Pages, enabling Pages, pushing tags, and creating decision tags require explicit current authorization.

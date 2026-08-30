@@ -1,71 +1,58 @@
+#!/usr/bin/env node
 import { appendFile, readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
 import process from 'node:process';
+import {
+  assertCandidateExceedsRemoteStableTags,
+  inspectRemoteCandidateTag,
+  loadReleaseContract,
+} from './release_contract.mjs';
 
-const repositoryRoot = resolve(import.meta.dirname, '..');
-const pubspec = await readFile(resolve(repositoryRoot, 'pubspec.yaml'), 'utf8');
-const versionMatch = pubspec.match(/^version:\s*([0-9]+\.[0-9]+\.[0-9]+)\+([0-9]+)\s*$/m);
-if (!versionMatch) {
-  throw new Error('pubspec.yaml must contain a MAJOR.MINOR.PATCH+BUILD version.');
+function optionValue(name) {
+  const index = process.argv.indexOf(name);
+  if (index === -1) return undefined;
+  const value = process.argv[index + 1];
+  if (!value || value.startsWith('--')) throw new Error(`${name} requires a value.`);
+  return value;
 }
 
-const [, version, buildNumber] = versionMatch;
-const tag = `v${version}`;
-const asset = `Pi-Client-${version}-macOS-universal.zip`;
-const checksumAsset = `${asset}.sha256`;
-const downloadUrl = `https://github.com/Hu-Wentao/pi-client/releases/download/${tag}/${asset}`;
-const expected = {
-  version: '0.0.2',
-  buildNumber: '2',
-  tag: 'v0.0.2',
-  asset: 'Pi-Client-0.0.2-macOS-universal.zip',
-};
-
-for (const [field, expectedValue] of Object.entries(expected)) {
-  const actualValue = { version, buildNumber, tag, asset }[field];
-  if (actualValue !== expectedValue) {
-    throw new Error(`Expected ${field}=${expectedValue}, received ${actualValue}.`);
-  }
+const outputPath = optionValue('--github-output');
+const requireProfile = optionValue('--require-profile');
+const remoteTagsPath = optionValue('--remote-tags-file');
+const candidateCommit = optionValue('--candidate-commit');
+if (Boolean(remoteTagsPath) !== Boolean(candidateCommit)) {
+  throw new Error('--remote-tags-file and --candidate-commit must be provided together.');
 }
 
-const sitePackage = JSON.parse(
-  await readFile(resolve(repositoryRoot, 'site/package.json'), 'utf8'),
-);
-if (sitePackage.version !== version) {
-  throw new Error(
-    `Expected site/package.json version=${version}, received ${sitePackage.version}.`,
-  );
-}
-
-const siteCopy = await readFile(
-  resolve(repositoryRoot, 'site/src/content/copy.ts'),
-  'utf8',
-);
-for (const value of [version, tag, asset, downloadUrl]) {
-  if (!siteCopy.includes(value)) {
-    throw new Error(`Landing-page release metadata is missing ${value}.`);
-  }
-}
-
+const contract = await loadReleaseContract(undefined, { requireProfile });
 const metadata = {
-  version,
-  buildNumber,
-  tag,
-  asset,
-  checksumAsset,
-  downloadUrl,
+  version: contract.version,
+  buildNumber: contract.buildNumber,
+  tag: contract.tag,
+  asset: contract.asset,
+  checksumAsset: contract.checksumAsset,
+  downloadUrl: contract.downloadUrl,
+  artifactProfile: contract.artifactProfile,
+  expectedAssetsJson: JSON.stringify(contract.expectedAssets),
+  releaseTitle: contract.releaseTitle,
+  releaseNotesPath: contract.releaseNotesPath,
 };
 
-const outputArgument = process.argv.indexOf('--github-output');
-if (outputArgument !== -1) {
-  const outputPath = process.argv[outputArgument + 1];
-  if (!outputPath) throw new Error('--github-output requires a path.');
-  await appendFile(
-    outputPath,
-    `${Object.entries(metadata)
-      .map(([key, value]) => `${key}=${value}`)
-      .join('\n')}\n`,
-  );
+if (remoteTagsPath) {
+  const remoteTags = await readFile(remoteTagsPath, 'utf8');
+  assertCandidateExceedsRemoteStableTags(contract.tag, remoteTags);
+  metadata.remoteTagState = inspectRemoteCandidateTag(
+    contract.tag,
+    candidateCommit,
+    remoteTags,
+  ).state;
+}
+
+if (outputPath) {
+  const lines = Object.entries(metadata).map(([key, value]) => {
+    if (String(value).includes('\n')) throw new Error(`GitHub output ${key} must be a single line.`);
+    return `${key}=${value}`;
+  });
+  await appendFile(outputPath, `${lines.join('\n')}\n`);
 }
 
 console.log(JSON.stringify(metadata, null, 2));

@@ -4,17 +4,34 @@ on:
   pull_request:
     paths:
       - 'site/**'
+      - 'release/release.json'
+      - '.github/release-notes/**'
+      - 'tool/release_contract.mjs'
       - 'tool/release_metadata.mjs'
       - '.github/workflows/pages.yml'
       - 'pubspec.yaml'
+      - '.fvmrc'
   push:
     branches: [main]
     paths:
       - 'site/**'
+      - 'release/release.json'
+      - '.github/release-notes/**'
+      - 'tool/release_contract.mjs'
       - 'tool/release_metadata.mjs'
       - '.github/workflows/pages.yml'
       - 'pubspec.yaml'
+      - '.fvmrc'
   workflow_dispatch:
+    inputs:
+      source_commit:
+        description: Exact released commit to deploy; must be paired with release_tag.
+        required: false
+        type: string
+      release_tag:
+        description: Release tag expected from the frozen source metadata.
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -26,11 +43,131 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      commit: ${{ steps.freeze.outputs.commit }}
+      releaseRequest: ${{ steps.freeze.outputs.releaseRequest }}
+      releaseTag: ${{ steps.freeze.outputs.releaseTag }}
+    steps:
+      - name: Check out dispatch or event source with tag objects
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Freeze Pages source identity and bind an annotated tag
+        id: freeze
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_SOURCE_COMMIT: ${{ inputs.source_commit }}
+          INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$INPUT_SOURCE_COMMIT" || -n "$INPUT_RELEASE_TAG" ]]; then
+            [[ -n "$INPUT_SOURCE_COMMIT" && -n "$INPUT_RELEASE_TAG" ]] || {
+              echo 'source_commit and release_tag must be provided together.' >&2
+              exit 1
+            }
+            [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]] || {
+              echo 'Release Pages identity inputs are accepted only on workflow_dispatch.' >&2
+              exit 1
+            }
+            [[ "$INPUT_SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]] || {
+              echo 'Release Pages source_commit must be an exact lowercase 40-character commit.' >&2
+              exit 1
+            }
+            [[ "$INPUT_RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || {
+              echo 'Release Pages release_tag must be an exact stable vMAJOR.MINOR.PATCH tag.' >&2
+              exit 1
+            }
+            [[ "$GITHUB_REF" == "refs/tags/$INPUT_RELEASE_TAG" ]] || {
+              echo "Release Pages dispatch must run at refs/tags/$INPUT_RELEASE_TAG; received $GITHUB_REF." >&2
+              exit 1
+            }
+            [[ "$GITHUB_SHA" == "$INPUT_SOURCE_COMMIT" ]] || {
+              echo "Release Pages dispatch SHA $GITHUB_SHA does not equal requested commit $INPUT_SOURCE_COMMIT." >&2
+              exit 1
+            }
+            [[ "$(git rev-parse HEAD)" == "$INPUT_SOURCE_COMMIT" ]] || {
+              echo "Checked-out Pages source does not equal requested commit $INPUT_SOURCE_COMMIT." >&2
+              exit 1
+            }
+
+            LOCAL_TAG_REF="refs/tags/$INPUT_RELEASE_TAG"
+            [[ "$(git cat-file -t "$LOCAL_TAG_REF")" == 'tag' ]] || {
+              echo "Local $INPUT_RELEASE_TAG is not an annotated tag object." >&2
+              exit 1
+            }
+            LOCAL_TAG_OBJECT="$(git rev-parse "$LOCAL_TAG_REF")"
+            [[ "$(git rev-parse "$LOCAL_TAG_REF^{}")" == "$INPUT_SOURCE_COMMIT" ]] || {
+              echo "Local $INPUT_RELEASE_TAG does not peel to requested commit $INPUT_SOURCE_COMMIT." >&2
+              exit 1
+            }
+
+            REMOTE_TAG_REF='refs/pi-client-pages/validated-release-tag'
+            if git show-ref --verify --quiet "$REMOTE_TAG_REF"; then
+              echo "Temporary Pages tag ref $REMOTE_TAG_REF unexpectedly exists." >&2
+              exit 1
+            else
+              STATUS=$?
+              [[ "$STATUS" -eq 1 ]] || {
+                echo "git show-ref failed with exit code $STATUS while checking $REMOTE_TAG_REF." >&2
+                exit "$STATUS"
+              }
+            fi
+            git fetch --no-tags origin "refs/tags/$INPUT_RELEASE_TAG:$REMOTE_TAG_REF"
+            [[ "$(git cat-file -t "$REMOTE_TAG_REF")" == 'tag' ]] || {
+              echo "Remote $INPUT_RELEASE_TAG is not an annotated tag object." >&2
+              exit 1
+            }
+            REMOTE_TAG_OBJECT="$(git rev-parse "$REMOTE_TAG_REF")"
+            [[ "$REMOTE_TAG_OBJECT" == "$LOCAL_TAG_OBJECT" ]] || {
+              echo "Remote and local tag objects differ for $INPUT_RELEASE_TAG." >&2
+              exit 1
+            }
+            [[ "$(git rev-parse "$REMOTE_TAG_REF^{}")" == "$INPUT_SOURCE_COMMIT" ]] || {
+              echo "Remote $INPUT_RELEASE_TAG does not peel to requested commit $INPUT_SOURCE_COMMIT." >&2
+              exit 1
+            }
+
+            gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$INPUT_RELEASE_TAG" \
+              > "$RUNNER_TEMP/pages-api-tag-ref.json"
+            jq -e --arg object "$REMOTE_TAG_OBJECT" \
+              '.object.type == "tag" and .object.sha == $object' \
+              "$RUNNER_TEMP/pages-api-tag-ref.json" >/dev/null || {
+                echo "GitHub API did not return the expected annotated tag object for $INPUT_RELEASE_TAG." >&2
+                exit 1
+              }
+            gh api "repos/$GITHUB_REPOSITORY/git/tags/$REMOTE_TAG_OBJECT" \
+              > "$RUNNER_TEMP/pages-api-tag-object.json"
+            jq -e --arg commit "$INPUT_SOURCE_COMMIT" \
+              '.object.type == "commit" and .object.sha == $commit' \
+              "$RUNNER_TEMP/pages-api-tag-object.json" >/dev/null || {
+                echo "GitHub API tag object does not bind $INPUT_RELEASE_TAG to $INPUT_SOURCE_COMMIT." >&2
+                exit 1
+              }
+
+            SOURCE_COMMIT="$INPUT_SOURCE_COMMIT"
+            RELEASE_REQUEST=true
+          else
+            SOURCE_COMMIT="$GITHUB_SHA"
+            RELEASE_REQUEST=false
+          fi
+          {
+            echo "commit=$SOURCE_COMMIT"
+            echo "releaseRequest=$RELEASE_REQUEST"
+            echo "releaseTag=$INPUT_RELEASE_TAG"
+          } >> "$GITHUB_OUTPUT"
+
   build:
+    needs: source
     runs-on: ubuntu-24.04
     steps:
-      - name: Check out source
+      - name: Check out frozen source
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.source.outputs.commit }}
 
       - name: Set up Bun 1.4.0
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
@@ -42,7 +179,19 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Validate release metadata
-        run: node tool/release_metadata.mjs
+        env:
+          RELEASE_REQUEST: ${{ needs.source.outputs.releaseRequest }}
+          REQUESTED_TAG: ${{ needs.source.outputs.releaseTag }}
+        run: |
+          set -euo pipefail
+          node tool/release_metadata.mjs --github-output "$RUNNER_TEMP/release-metadata"
+          if [[ "$RELEASE_REQUEST" == 'true' ]]; then
+            METADATA_TAG="$(sed -n 's/^tag=//p' "$RUNNER_TEMP/release-metadata")"
+            [[ "$REQUESTED_TAG" == "$METADATA_TAG" ]] || {
+              echo "Requested release tag $REQUESTED_TAG does not match frozen metadata $METADATA_TAG." >&2
+              exit 1
+            }
+          fi
 
       - name: Check Astro source
         working-directory: site
@@ -72,38 +221,97 @@ jobs:
         with:
           path: site/dist
 
-  release-asset:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+  release-assets:
+    if: >-
+      github.event_name != 'pull_request' &&
+      (github.ref == 'refs/heads/main' || needs.source.outputs.releaseRequest == 'true')
+    needs: source
     runs-on: ubuntu-24.04
     outputs:
-      exists: ${{ steps.asset.outputs.exists }}
+      complete: ${{ steps.assets.outputs.complete }}
     steps:
-      - name: Check out source
+      - name: Check out frozen source
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.source.outputs.commit }}
 
       - name: Resolve release metadata
         id: metadata
         run: node tool/release_metadata.mjs --github-output "$GITHUB_OUTPUT"
 
-      - name: Check published release asset
-        id: asset
+      - name: Verify release request matches frozen metadata
+        env:
+          RELEASE_REQUEST: ${{ needs.source.outputs.releaseRequest }}
+          REQUESTED_TAG: ${{ needs.source.outputs.releaseTag }}
+          METADATA_TAG: ${{ steps.metadata.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if [[ "$RELEASE_REQUEST" == 'true' && "$REQUESTED_TAG" != "$METADATA_TAG" ]]; then
+            echo "Requested release tag $REQUESTED_TAG does not match frozen metadata $METADATA_TAG." >&2
+            exit 1
+          fi
+
+      - name: Check exact published release asset set
+        id: assets
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.metadata.outputs.tag }}
-          ASSET: ${{ steps.metadata.outputs.asset }}
+          PROFILE: ${{ steps.metadata.outputs.artifactProfile }}
+          EXPECTED_ASSETS: ${{ steps.metadata.outputs.expectedAssetsJson }}
+          RELEASE_REQUEST: ${{ needs.source.outputs.releaseRequest }}
         run: |
-          if RELEASE_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" 2>/dev/null)" && \
-            [[ "$(jq -r '.draft' <<<"$RELEASE_JSON")" == 'false' ]] && \
-            [[ "$(jq --arg name "$ASSET" '[.assets[] | select(.name == $name and .size > 0)] | length' <<<"$RELEASE_JSON")" == '1' ]]; then
-            echo 'exists=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'exists=false' >> "$GITHUB_OUTPUT"
-            echo "Skipping deployment until published ${TAG}/${ASSET} exists with non-zero bytes."
+          set -euo pipefail
+          RELEASE_PAGES="$RUNNER_TEMP/release-pages.json"
+          RELEASE_MATCHES="$RUNNER_TEMP/release-matches.json"
+          EXPECTED_NAMES="$RUNNER_TEMP/expected-assets.txt"
+          ACTUAL_NAMES="$RUNNER_TEMP/actual-assets.txt"
+
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RELEASE_PAGES"
+          jq -c --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)]' \
+            "$RELEASE_PAGES" > "$RELEASE_MATCHES"
+          RELEASE_COUNT="$(jq 'length' "$RELEASE_MATCHES")"
+          if [[ "$RELEASE_COUNT" -gt 1 ]]; then
+            echo "Duplicate GitHub Releases use $TAG." >&2
+            exit 1
+          fi
+          if [[ "$RELEASE_COUNT" -eq 0 ]]; then
+            if [[ "$RELEASE_REQUEST" == 'true' ]]; then
+              echo "Published release $TAG is missing during a release-requested Pages deployment." >&2
+              exit 1
+            fi
+            echo 'complete=false' >> "$GITHUB_OUTPUT"
+            echo "Skipping Pages deployment until published $TAG exists for $PROFILE."
+            exit 0
           fi
 
+          jq -c '.[0]' "$RELEASE_MATCHES" > "$RUNNER_TEMP/release.json"
+          if [[ "$(jq -r '.draft' "$RUNNER_TEMP/release.json")" != 'false' ]]; then
+            if [[ "$RELEASE_REQUEST" == 'true' ]]; then
+              echo "Release-requested Pages deployment found draft $TAG." >&2
+              exit 1
+            fi
+            echo 'complete=false' >> "$GITHUB_OUTPUT"
+            echo "Skipping Pages deployment until $TAG is public."
+            exit 0
+          fi
+
+          jq -r '.[]' <<< "$EXPECTED_ASSETS" | sort > "$EXPECTED_NAMES"
+          jq -r '.assets[].name' "$RUNNER_TEMP/release.json" | sort > "$ACTUAL_NAMES"
+          if ! diff -u "$EXPECTED_NAMES" "$ACTUAL_NAMES" ||
+            [[ "$(jq '[.assets[] | select(.size <= 0)] | length' "$RUNNER_TEMP/release.json")" != '0' ]]; then
+            if [[ "$RELEASE_REQUEST" == 'true' ]]; then
+              echo "Published release $TAG does not have the exact non-zero asset set for $PROFILE." >&2
+              exit 1
+            fi
+            echo 'complete=false' >> "$GITHUB_OUTPUT"
+            echo "Skipping Pages deployment until published $TAG has the exact non-zero asset set for $PROFILE."
+            exit 0
+          fi
+          echo 'complete=true' >> "$GITHUB_OUTPUT"
+
   deploy:
-    if: needs.release-asset.outputs.exists == 'true'
-    needs: [build, release-asset]
+    if: needs.release-assets.outputs.complete == 'true'
+    needs: [build, release-assets]
     runs-on: ubuntu-24.04
     environment:
       name: github-pages

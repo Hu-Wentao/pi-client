@@ -23,9 +23,9 @@ mdq:
       expect: {max_total_bytes: 65536, structured: true, min_confidence: 1.0}
   maintenance: {query_contract: {mode: locked}}
 ---
-# pi-web comparison baseline
+# External comparison baseline
 
-Reference: `https://github.com/agegr/pi-web`, commit `28bab3c25f5f6770c9b0b745ebbfec1c27f7b948`, package `0.8.11`, MIT.
+Pi-web reference: `https://github.com/agegr/pi-web`, commit `28bab3c25f5f6770c9b0b745ebbfec1c27f7b948`, package `0.8.11`, MIT.
 
 ## BENCH-PI-001 - Session workspace
 
@@ -86,3 +86,14 @@ Reference: `https://github.com/agegr/pi-web`, commit `28bab3c25f5f6770c9b0b745eb
 - Pi Client scope: Android, iOS, macOS, Windows, Linux, and Web are first-party targets; macOS, Windows, and Linux are Agent-host-capable, while Android, iOS, and Web are connect-only clients.
 - Reason: the platform matrix now comes directly from `DEC-014`, `REQ-PI-010`, and `REQ-PI-011`, not from comparison with pi-web.
 - Governance: This record remains historical comparison context only. PWA behavior is still deferred unless a separate project requirement accepts it.
+
+## BENCH-PI-008 - FlClash cross-platform release pipeline
+
+- Status: Verified
+- Disposition: Selectively adopted
+- FlClash reference: `https://github.com/chen08209/FlClash`, stable tag `v0.8.96`, commit `e2f678909dd9738015a5c032a8e25288ed79d4f1`, GPL-3.0.
+- Adopted design: use native operating-system runners, standard platform/architecture asset names, one project-owned packaging contract, per-platform Actions Artifacts, and one aggregate Release step with checksum output.
+- Rejected design: do not use tag-only CI, broad `v*` admission, hyphen-only prerelease classification, floating Action or packaging refs, Android Debug-signing fallback, post-Release main mutation, quarantine removal, or unsigned desktop artifacts without explicit disclosure.
+- Pi Client difference: the matrix includes iOS and Web, preserves manual `qualify`/`publish`, binds the annotated Tag to an exact qualified commit, verifies Draft assets and downloaded digests, and records platform execution role plus `hostRuntimeIncluded: false` in a manifest.
+- License boundary: architecture concepts were independently implemented; no FlClash workflow, setup script, buildkit, packaging template, branding, or other substantial GPL-3.0 source was copied.
+- Evidence owner: `DEC-016`, `PLAN-PI-004`, Release tooling tests, workflow policy tests, and the stored shared open-source assessment `RESOURCE-ASSESS-GITHUB-COM-CHEN08209-FLCLASH-BAA102A4`.

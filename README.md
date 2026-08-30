@@ -21,6 +21,8 @@ The repository contains all six Flutter platform projects and a tested `Platform
 
 The current workspace screen remains the legacy MVP implementation. It connects to pi-web `0.8.11` for session and Agent interactions. This adapter is retained for migration and verification only; pi-web is not the target Pi Client runtime or protocol authority.
 
+The repository also contains six-platform CI and a future cross-platform Preview Release pipeline. This automation does not change the current public download: `v0.0.2` remains the immutable macOS-only Preview. A later version must explicitly select the six-platform Artifact Profile before it can qualify Android, iOS, macOS, Windows, Linux, and Web assets from one commit.
+
 ## What you can do today
 
 With the legacy workspace adapter, you can:
@@ -120,7 +122,16 @@ fvm flutter build windows --debug
 fvm flutter build linux --debug
 ```
 
-Release signing, store registration, and distribution credentials are not configured for the general platform matrix. Only the explicitly disclosed unsigned macOS Preview is published by the current release workflow.
+Release signing, store registration, and distribution credentials are not configured for the general platform matrix. Only the explicitly disclosed unsigned macOS Preview is currently public.
+
+The future Preview profile intentionally keeps these boundaries visible:
+
+- Android produces unsigned Release APKs that require downstream signing.
+- iOS produces a no-codesign archive, not an installable App Store IPA.
+- macOS remains an unsigned Universal ZIP until Developer ID and notarization are configured.
+- Windows produces an unsigned Portable ZIP; Linux produces an amd64 archive that still requires compatible desktop libraries such as libsecret.
+- Web compiles the Dart application to JavaScript; Flutter renderer framework assets may still include WebAssembly inside the static-site ZIP.
+- Every Preview manifest records `hostRuntimeIncluded: false`; desktop host capability does not imply that Pi SDK is bundled.
 
 ## Keep access secure
 
@@ -139,7 +150,7 @@ Pi Client keeps the legacy pi-web password in memory for the current page lifecy
 
 The current release:
 
-- Publishes only an unsigned macOS Preview; Android, iOS, Windows, Linux, and Web have no release download yet.
+- Publishes only an unsigned macOS Preview today; the six-platform CI/Preview pipeline is source-controlled but Android, iOS, Windows, Linux, and Web downloads require a later version qualification and separately authorized publication.
 - Does not include the desktop Pi SDK Agent host runtime.
 - Does not include the first-party Pi Node transport, Friday Workspace runtime, tunnel, or end-to-end encryption.
 - Builds Flutter Web with the standard JavaScript target; WebAssembly remains blocked by the current `flutter_secure_storage_web` dependency.
