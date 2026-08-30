@@ -1,12 +1,21 @@
 {
-  "name": "@pi-client/protocol-spike",
-  "version": "0.0.0",
+  "name": "@pi-client/protocol",
+  "version": "0.1.0-dev.0",
   "private": true,
   "type": "module",
   "packageManager": "bun@1.4.0",
   "engines": {
     "node": ">=22.19.0"
   },
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "format": "buf format -w schema",
     "format:check": "buf format --diff --exit-code schema",
@@ -17,11 +26,12 @@
     "vectors": "bun run tools/generate-ts-vectors.ts && cd dart && fvm dart run tool/generate_vectors.dart",
     "vectors:check": "node tools/check-vectors.mjs",
     "typecheck": "tsc --noEmit",
+    "build:package": "tsc -p tsconfig.package.json",
     "test:bun": "bun test test",
     "test:node": "tsc -p tsconfig.node.json && node --test .build/node/test/node_compat.test.js",
     "test:dart": "cd dart && fvm dart test",
     "analyze:dart": "cd dart && fvm dart analyze",
-    "check": "bun run format:check && bun run lint && bun run build && bun run codegen:check && bun run vectors:check && bun run typecheck && bun run test:bun && bun run test:node && bun run analyze:dart && bun run test:dart"
+    "check": "bun run format:check && bun run lint && bun run build && bun run codegen:check && bun run vectors:check && bun run typecheck && bun run build:package && bun run test:bun && bun run test:node && bun run analyze:dart && bun run test:dart"
   },
   "dependencies": {
     "@bufbuild/protobuf": "2.14.0"

@@ -68,6 +68,36 @@ export {
   type ProjectTrustSource,
 } from "./project-trust.js";
 export {
+  PiNodeDomainServiceProtocolAdapter,
+  type PiNodeProtocolDomain,
+} from "./protocol/pi-node-protocol-domain-port.js";
+export {
+  PI_NODE_PROTOCOL_IMPLEMENTATION_NAME,
+  PiNodeProtobufConnection,
+  SUPPORTED_PROTOCOL_CAPABILITIES,
+  SUPPORTED_UNPUBLISHED_PROTOCOL_VERSIONS,
+  type PiNodeProtocolConnectionOptions,
+  type PiNodeProtocolLogCode,
+  type PiNodeProtocolLogger,
+  type PiNodeProtocolReceiveResult,
+} from "./protocol/pi-node-protobuf-connection.js";
+export {
+  PiNodeProtocolAdapterError,
+  mapCommandFailure,
+  mapDomainError,
+  piNodeMessageText,
+  stableError,
+  toProtocolMessageSnapshot,
+  toProtocolSessionDetail,
+  toProtocolSessionSummary,
+} from "./protocol/protobuf-domain-adapter.js";
+export {
+  RedactedStderrLogger,
+  runPiNodeStdioServer,
+  type PiNodeStdioServerOptions,
+  type PiNodeStdioServerResult,
+} from "./stdio/pi-node-stdio-server.js";
+export {
   assertRuntimeCompatibility,
   getRuntimeMetadata,
   PI_NODE_VERSION,
