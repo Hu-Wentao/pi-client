@@ -277,6 +277,7 @@ final class PiNodeClient implements PiNodeApi {
       }
       final connected = PiNodeConnectionSnapshot.connected(
         message.negotiatedVersion,
+        capabilities: message.capabilities,
       );
       _emitConnection(connected);
       final completer = _handshakeCompleter;

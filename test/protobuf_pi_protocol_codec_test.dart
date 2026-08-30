@@ -136,6 +136,13 @@ void main() {
                         minor: 1,
                         patch: 0,
                       ),
+                      capabilities: <wire.Capability>[
+                        wire.Capability.CAPABILITY_SESSION_READ,
+                        wire.Capability.CAPABILITY_SESSION_CREATE,
+                        wire.Capability.CAPABILITY_PROMPT_COMMAND,
+                        wire.Capability.CAPABILITY_ABORT_COMMAND,
+                        wire.Capability.CAPABILITY_SESSION_EVENTS,
+                      ],
                       nodeInstanceId: 'node-1',
                       implementationName: 'pi-node',
                       implementationVersion: '0.1.0',
@@ -147,6 +154,13 @@ void main() {
               )
               as PiProtocolHandshakeAcceptedMessage;
       expect(accepted.negotiatedVersion, PiProtocolVersion(0, 1, 0));
+      expect(accepted.capabilities, <PiProtocolCapability>{
+        PiProtocolCapability.sessionRead,
+        PiProtocolCapability.sessionCreate,
+        PiProtocolCapability.promptCommand,
+        PiProtocolCapability.abortCommand,
+        PiProtocolCapability.sessionEvents,
+      });
 
       final rejected =
           codec.decode(

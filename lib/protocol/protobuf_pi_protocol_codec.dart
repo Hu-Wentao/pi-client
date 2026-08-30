@@ -158,6 +158,9 @@ final class ProtobufPiProtocolCodec implements PiProtocolCodec {
             negotiatedVersion: _semanticVersion(
               frame.serverHandshakeAccepted.selectedProtocolVersion,
             ),
+            capabilities: frame.serverHandshakeAccepted.capabilities.map(
+              _semanticCapability,
+            ),
           ),
         wire.PiTransportFrame_Operation.serverHandshakeRejected =>
           PiProtocolHandshakeRejectedMessage(
@@ -454,6 +457,27 @@ DateTime _semanticInstant(Int64 unixMillis) {
       PiProtocolCodecErrorCode.integerOutOfRange,
     );
   }
+}
+
+PiProtocolCapability _semanticCapability(wire.Capability capability) {
+  if (capability == wire.Capability.CAPABILITY_SESSION_READ) {
+    return PiProtocolCapability.sessionRead;
+  }
+  if (capability == wire.Capability.CAPABILITY_SESSION_CREATE) {
+    return PiProtocolCapability.sessionCreate;
+  }
+  if (capability == wire.Capability.CAPABILITY_PROMPT_COMMAND) {
+    return PiProtocolCapability.promptCommand;
+  }
+  if (capability == wire.Capability.CAPABILITY_ABORT_COMMAND) {
+    return PiProtocolCapability.abortCommand;
+  }
+  if (capability == wire.Capability.CAPABILITY_SESSION_EVENTS) {
+    return PiProtocolCapability.sessionEvents;
+  }
+  throw const PiProtocolCodecException(
+    PiProtocolCodecErrorCode.unsupportedOperation,
+  );
 }
 
 PiProtocolMessageRole _semanticRole(wire.MessageRole role) {

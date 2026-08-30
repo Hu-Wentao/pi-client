@@ -58,40 +58,82 @@ enum PiNodeConnectionStatus {
 }
 
 final class PiNodeConnectionSnapshot {
-  const PiNodeConnectionSnapshot._(this.status, this.negotiatedVersion);
+  const PiNodeConnectionSnapshot._(
+    this.status,
+    this.negotiatedVersion,
+    this.capabilities,
+  );
 
   const PiNodeConnectionSnapshot.disconnected()
-    : this._(PiNodeConnectionStatus.disconnected, null);
+    : this._(
+        PiNodeConnectionStatus.disconnected,
+        null,
+        const <PiProtocolCapability>{},
+      );
 
   const PiNodeConnectionSnapshot.connecting()
-    : this._(PiNodeConnectionStatus.connecting, null);
+    : this._(
+        PiNodeConnectionStatus.connecting,
+        null,
+        const <PiProtocolCapability>{},
+      );
 
-  PiNodeConnectionSnapshot.connected(PiProtocolVersion negotiatedVersion)
-    : this._(PiNodeConnectionStatus.connected, negotiatedVersion);
+  factory PiNodeConnectionSnapshot.connected(
+    PiProtocolVersion negotiatedVersion, {
+    Iterable<PiProtocolCapability> capabilities =
+        const <PiProtocolCapability>[],
+  }) => PiNodeConnectionSnapshot._(
+    PiNodeConnectionStatus.connected,
+    negotiatedVersion,
+    Set<PiProtocolCapability>.unmodifiable(capabilities),
+  );
 
   const PiNodeConnectionSnapshot.closing()
-    : this._(PiNodeConnectionStatus.closing, null);
+    : this._(
+        PiNodeConnectionStatus.closing,
+        null,
+        const <PiProtocolCapability>{},
+      );
 
   const PiNodeConnectionSnapshot.closed()
-    : this._(PiNodeConnectionStatus.closed, null);
+    : this._(
+        PiNodeConnectionStatus.closed,
+        null,
+        const <PiProtocolCapability>{},
+      );
 
   final PiNodeConnectionStatus status;
   final PiProtocolVersion? negotiatedVersion;
+  final Set<PiProtocolCapability> capabilities;
 
   @override
   bool operator ==(Object other) =>
       other is PiNodeConnectionSnapshot &&
       status == other.status &&
-      negotiatedVersion == other.negotiatedVersion;
+      negotiatedVersion == other.negotiatedVersion &&
+      _sameCapabilities(capabilities, other.capabilities);
 
   @override
-  int get hashCode => Object.hash(status, negotiatedVersion);
+  int get hashCode => Object.hash(
+    status,
+    negotiatedVersion,
+    Object.hashAll(
+      capabilities.toList(growable: false)
+        ..sort((left, right) => left.index.compareTo(right.index)),
+    ),
+  );
 
   @override
   String toString() =>
       'PiNodeConnectionSnapshot(status: $status, '
-      'protocol: ${negotiatedVersion ?? '<none>'})';
+      'protocol: ${negotiatedVersion ?? '<none>'}, '
+      'capabilities: ${capabilities.length})';
 }
+
+bool _sameCapabilities(
+  Set<PiProtocolCapability> left,
+  Set<PiProtocolCapability> right,
+) => left.length == right.length && left.containsAll(right);
 
 enum PiMessageRole { user, assistant, tool, system }
 

@@ -23,6 +23,7 @@ export class FakeProtocolDomain implements PiNodeProtocolDomain {
   listError: unknown;
   createOrdinal = 0;
   emitOnObserve = false;
+  promptAdmission: PiNodePromptAdmission["status"] = "accepted";
 
   constructor() {
     this.sessions.set("session-1", sessionSnapshot("session-1", defaultCwd, "Existing session"));
@@ -87,6 +88,17 @@ export class FakeProtocolDomain implements PiNodeProtocolDomain {
     readonly text: string;
   }): Promise<PiNodePromptAdmission> {
     const session = this.requireSession(input.sessionId);
+    if (this.promptAdmission !== "accepted") {
+      return {
+        sessionId: input.sessionId,
+        commandId: input.commandId,
+        status: this.promptAdmission,
+        failure:
+          this.promptAdmission === "rejected"
+            ? { code: "invalid-prompt", message: "The prompt was rejected." }
+            : { code: "session-busy", message: "Prompt admission is uncertain." },
+      };
+    }
     this.activeCommands.set(input.sessionId, input.commandId);
     this.emit(input.sessionId, {
       type: "running",

@@ -449,6 +449,19 @@ export class PiNodeProtobufConnection {
             },
           ),
         );
+      } else if (admission.status === "uncertain") {
+        await this.#sendOperation({
+          case: "error",
+          value: {
+            correlation: { case: "requestId", value: requestId },
+            error: mapCommandFailure(
+              admission.failure ?? {
+                code: "runtime-failed",
+                message: "Prompt admission could not be confirmed.",
+              },
+            ),
+          },
+        });
       } else {
         await this.#sendOperation({
           case: "commandAccepted",
