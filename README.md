@@ -1,119 +1,138 @@
 # Pi Client
 
-Pi Client is a native macOS desktop client for the [pi coding agent](https://github.com/earendil-works/pi). It connects to a separately running [pi-web](https://github.com/agegr/pi-web) service, giving you a focused desktop interface for existing pi sessions and live agent runs.
+Pi Client is a Flutter client for the [pi coding agent](https://github.com/earendil-works/pi). One codebase targets Android, iOS, macOS, Windows, Linux, and Web.
 
-Pi Client is an early release. The current version targets macOS and pi-web `0.8.11`.
+The platform roles are intentionally different:
 
-## What you can do
+| Platform | Connect to an Agent host | Run Pi SDK and host an Agent |
+| --- | --- | --- |
+| macOS, Windows, Linux | Yes | Platform capability is allowed; the runtime integration is not implemented yet |
+| Android, iOS, Web | Yes | No |
 
-Use Pi Client to:
+Android, iOS, and Web are connect-only clients. They must not embed Pi SDK, launch an Agent runtime, expose host tools, or obtain host filesystem authority.
 
-- Connect to a local or remote pi-web service.
-- Browse and refresh your pi session list.
+## Current implementation status
+
+The repository contains all six Flutter platform projects and a tested `PlatformCapabilities` contract for the platform roles. The actual desktop Pi SDK host, Pi Node transport, Friday authentication, tunnel, and end-to-end encryption are still planned.
+
+The current workspace screen remains the legacy MVP implementation. It connects to a separately running [pi-web](https://github.com/agegr/pi-web) `0.8.11` service for session and Agent interactions. This adapter is retained for migration and verification only; pi-web is not the target Pi Client runtime or protocol authority.
+
+## What you can do today
+
+With the legacy workspace adapter, you can:
+
+- Connect to a reachable pi-web service.
+- Browse and refresh session summaries.
 - Open a session and read its visible message history.
 - Create a session for an absolute project directory.
-- Send prompts and watch agent output as it arrives.
-- Stop an active agent run.
+- Send prompts and watch Agent output as it arrives.
+- Stop an active Agent run.
 - See connection, loading, error, streaming, and reconnecting states.
 
-Pi-web continues to manage your sessions, models, tools, provider credentials, and project access. Pi Client provides the native desktop interface and does not replace the pi runtime.
+Pi-web continues to own sessions, models, tools, provider credentials, project access, and Agent execution for this legacy path.
 
-## Before you begin
+## Set up the project
 
-You need:
+You need [FVM](https://fvm.app/) and the native toolchain for the platform that you want to build. The repository selects Flutter `3.41.6` through `.fvmrc`. The current native minimums include macOS 11.0 and iOS 15.0; Android uses the minimum SDK from the pinned Flutter toolchain.
 
-- macOS 11.0 or newer.
-- A working Flutter macOS toolchain and [FVM](https://fvm.app/). The repository selects Flutter `3.41.6` through `.fvmrc`.
-- Node.js and `npx` to run pi-web `0.8.11`.
-- A model provider configured for pi if you want the agent to execute prompts.
+Install the selected Flutter SDK and dependencies:
 
-The default pi-web address is `http://127.0.0.1:30141`.
+```bash
+fvm install
+fvm flutter pub get
+```
 
-## Start Pi Client
+List available devices:
 
-1. Start pi-web in a terminal and keep it running:
+```bash
+fvm flutter devices
+```
 
-   ```bash
-   npx @agegr/pi-web@0.8.11 --no-open
-   ```
+Run the app by replacing `DEVICE_ID` with a listed device ID:
 
-   If your pi-web service uses `PI_WEB_PASSWORD`, you will enter the same password in Pi Client.
+```bash
+fvm flutter run -d DEVICE_ID
+```
 
-2. Clone and run Pi Client from source:
+## Run the legacy workspace
 
-   ```bash
-   git clone https://github.com/Hu-Wentao/pi-client.git
-   cd pi-client
-   fvm install
-   fvm flutter pub get
-   fvm flutter run -d macos
-   ```
+To use the current workspace features, start pi-web and keep it running:
 
-3. Wait for the Pi Client window to open. The connection form initially uses `http://127.0.0.1:30141`.
+```bash
+npx @agegr/pi-web@0.8.11 --no-open
+```
 
-## Use Pi Client
+The default address is `http://127.0.0.1:30141`. Loopback reaches the same device as Pi Client, so a mobile device or browser normally needs a host URL that it can reach over the network. Use HTTPS for remote connections; the Android and iOS projects do not enable unrestricted cleartext traffic.
 
-1. Enter the pi-web URL and, if configured, its password.
-2. Select **Connect**. The status changes to **Connected** when Pi Client can reach pi-web.
-3. Continue an existing session by selecting it from **Sessions**.
-4. To create a session, enter an absolute project path in **New session cwd**, then select **Create session**.
-5. Enter a prompt in the message field, then select **Send prompt**.
-6. To interrupt a running agent, select **Stop agent**.
-
-Select **Refresh sessions** when you want to reload the session list. Pi Client automatically reconnects the live event stream for the selected session after a temporary stream interruption.
-
-## Configure the connection
-
-You can change the pi-web URL in the connection form before selecting **Connect**. Both HTTP and HTTPS URLs are accepted.
+If pi-web uses `PI_WEB_PASSWORD`, enter the same password in Pi Client. The Basic Authentication username is fixed to `pi`.
 
 To set a different initial URL when running from source, use `PI_CLIENT_BASE_URL`:
 
 ```bash
-fvm flutter run -d macos \
+fvm flutter run -d DEVICE_ID \
   --dart-define=PI_CLIENT_BASE_URL=https://pi.example.com
 ```
 
-Replace `https://pi.example.com` with your pi-web address. Enter the password only in the runtime connection form. Pi Client does not accept a password through `--dart-define`.
+Pi Client does not accept a password through `--dart-define`.
 
-When pi-web uses Basic Authentication, its username is fixed to `pi`; Pi Client supplies that username automatically.
+## Build a platform target
+
+Run each native desktop build on its target operating system. Android, iOS, macOS, and Web can be built from a configured macOS development host.
+
+```bash
+fvm flutter build apk --debug
+fvm flutter build ios --debug --no-codesign
+fvm flutter build macos --debug
+fvm flutter build web
+```
+
+Run these commands on their corresponding desktop hosts:
+
+```bash
+fvm flutter build windows --debug
+fvm flutter build linux --debug
+```
+
+Release signing, store registration, production icons, and distribution credentials are not configured by this baseline.
 
 ## Keep access secure
 
-Pi-web exposes a coding agent that can access projects and run tools with the permissions of its host process. Keep pi-web bound to loopback unless you have intentionally configured remote access.
+An Agent host can access projects and run tools with the permissions of its host process. Keep a development host bound to loopback unless you have intentionally configured authenticated remote access.
 
 For remote access:
 
-- Use a strong `PI_WEB_PASSWORD`.
-- Put pi-web behind a trusted HTTPS reverse proxy or VPN.
-- Do not rely on Basic Authentication alone to encrypt network traffic.
-- Do not expose an unprotected pi-web service directly to the internet.
+- Use HTTPS or a trusted virtual private network.
+- Use a strong credential when the current legacy gateway requires one.
+- Do not expose an unprotected Agent host directly to the internet.
+- Configure browser cross-origin resource sharing only for explicitly trusted Web origins.
 
-Pi Client keeps the password in memory for the current page lifecycle. It does not store the password in workspace data, add it to URLs, or include request and response payloads in application logs.
+Pi Client keeps the legacy pi-web password in memory for the current page lifecycle. It does not add the password to URLs, persist it in workspace state, or include request and response payloads in application logs.
 
 ## Current limitations
 
 The current release:
 
-- Supports macOS 11.0 or newer only.
-- Targets the observable behavior of pi-web `0.8.11`; pi-web does not declare these HTTP routes as a stable public API.
-- Requires model and provider setup to be completed outside Pi Client.
-- Does not include file browsing, uploads, Git diffs, or worktree controls.
-- Does not include model selection, provider login, skill management, plugin management, or subagent configuration.
+- Does not include the desktop Pi SDK Agent host runtime.
+- Does not include the first-party Pi Node transport, Friday Workspace runtime, tunnel, or end-to-end encryption.
+- Builds Flutter Web with the standard JavaScript target; WebAssembly remains blocked by the current `flutter_secure_storage_web` dependency.
+- Retains a legacy pi-web adapter whose HTTP routes are not a stable public API.
+- Has no release signing, notarization, store delivery, or production icon evidence for the newly generated platforms.
+- Requires Windows and Linux build evidence from their respective operating systems.
+- Does not include file browsing, uploads, Git diffs, worktree controls, model selection, provider login, skill management, plugin management, or subagent configuration.
 - Does not include session rename, deletion, export, branching, compaction controls, rich Markdown, or media rendering.
 
 ## Troubleshooting and support
 
-Use these checks for common problems:
-
 | Problem | What to check |
 | --- | --- |
-| The status shows **Unavailable** | Confirm that pi-web is running, the URL is correct, and the password matches `PI_WEB_PASSWORD`. |
-| No sessions appear after connecting | Select **Refresh sessions**, or create a session with an absolute project path. |
-| A prompt does not execute | Confirm that the pi runtime has a working model provider configuration. |
-| A remote server cannot connect | Confirm that the HTTPS proxy or VPN can reach pi-web and that the configured URL is reachable from the Mac. |
-| A live response reconnects repeatedly | Check the pi-web process and the network path, then reopen the session or select **Retry** when shown. |
+| The status shows **Unavailable** | Confirm that the legacy gateway is running, the URL is reachable from the client device, and the password matches `PI_WEB_PASSWORD`. |
+| A mobile device cannot reach `127.0.0.1` | Use the Agent host's reachable network URL instead of the mobile device's loopback address. |
+| A Web build cannot connect | Confirm that the host uses HTTPS as required and permits the Web origin through its cross-origin policy. |
+| No sessions appear after connecting | Select **Refresh sessions**, or create a session with an absolute path that exists on the Agent host. |
+| A prompt does not execute | Confirm that the current host runtime has a working model provider configuration. |
+| A live response reconnects repeatedly | Check the host process and network path, then reopen the session or select **Retry** when shown. |
 
-To report a bug or request a feature, open a [GitHub issue](https://github.com/Hu-Wentao/pi-client/issues). Include the Pi Client version, macOS version, pi-web version, and relevant error text. Do not include passwords, provider credentials, private prompts, or tool output.
+To report a bug or request a feature, open a [GitHub issue](https://github.com/Hu-Wentao/pi-client/issues). Include the Pi Client version, target platform, Flutter version, host type, and relevant error text. Do not include passwords, provider credentials, private prompts, or tool output.
 
 To contribute code or documentation, see [Contributing to Pi Client](CONTRIBUTING.md).
 
@@ -121,4 +140,4 @@ To contribute code or documentation, see [Contributing to Pi Client](CONTRIBUTIN
 
 Pi Client is available under the [MIT License](LICENSE).
 
-Pi Client is an independent implementation based on observable behavior from pi-web commit `28bab3c25f5f6770c9b0b745ebbfec1c27f7b948` (`0.8.11`, MIT). Pi-web is Copyright (c) 2026 agegr.
+The legacy adapter is an independent implementation based on observable behavior from pi-web commit `28bab3c25f5f6770c9b0b745ebbfec1c27f7b948` (`0.8.11`, MIT). Pi-web is Copyright (c) 2026 agegr. Pi-web remains a reference and migration input, not a target runtime dependency for the first-party Pi Client architecture.

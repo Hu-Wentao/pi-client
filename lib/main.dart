@@ -9,6 +9,7 @@ import 'app_router.dart';
 import 'core/app_locale.dart';
 import 'core/app_theme.dart';
 import 'core/providers.dart';
+import 'platform/platform_capabilities.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,11 +44,12 @@ class Application extends StatelessWidget {
 }
 
 Future<void> _initializeStorage() async {
-  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.macOS) {
+  final capabilities = PlatformCapabilities.current;
+  if (!kIsWeb && capabilities.isDesktop) {
     final supportDirectory = await getApplicationSupportDirectory();
     await FrStorage.init(
       directory: '${supportDirectory.path}/fr_storage',
-      encryptionKey: kDebugMode
+      encryptionKey: kDebugMode && defaultTargetPlatform == TargetPlatform.macOS
           ? Uint8List.fromList(const <int>[
               25,
               107,

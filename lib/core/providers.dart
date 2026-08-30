@@ -3,22 +3,32 @@ import 'package:flowr/flowr_mvvm.dart';
 import 'package:flowr/flowr_mvvm_support.dart';
 import 'package:flutter/widgets.dart';
 
+import '../platform/platform_capabilities.dart';
 import 'app_env.dart';
 import 'app_locale.dart';
 import 'app_theme.dart';
 import 'interceptors.dart';
 
 class AppProviders extends StatelessWidget {
-  const AppProviders({required this.child, this.dio, super.key});
+  const AppProviders({
+    required this.child,
+    this.dio,
+    this.platformCapabilities,
+    super.key,
+  });
 
   final Widget child;
   final Dio? dio;
+  final PlatformCapabilities? platformCapabilities;
 
   @override
   Widget build(BuildContext context) => ChangeNotifierProvider(
     create: (context) => AppEnvViewModel(),
     child: FrProvider.multi(
       [
+        FrProvider<PlatformCapabilities>.value(
+          value: platformCapabilities ?? PlatformCapabilities.current,
+        ),
         FrProvider((context) => AppLocaleViewModel()),
         FrProvider((context) => AppThemeViewModel()),
       ],
