@@ -95,3 +95,19 @@ mdq:
 - Owner: future friday-relay authentication tests plus pi-client platform integration and manual platform verification
 - Planned evidence: Verify native system-browser PKCE and secure storage, WebAssembly canonical handoff and host-only session, callback/handoff denial, and absence of browser-readable long-lived credentials.
 - Blocker: `friday-relay@42cb0a74890700920d411604f07ff70a5bde5bd2` 已建立 Native/WASM Friday identity 的 Planned requirement，但 exact Native callback、Workspace handoff path/session profile、SameSite、Native refresh/rotation/revoke 和 public-client token lifetime 仍未冻结；不存在外部运行时实现声明。
+
+## VER-PI-010 - Platform execution-role contract
+
+- Status: PASS
+- Requirements: REQ-PI-011
+- Owner: `lib/platform/platform_capabilities.dart`, `test/platform_capabilities_test.dart`, and `test/application_test.dart`
+- Evidence: Focused tests map macOS, Windows, and Linux to Agent-host-capable roles; map Android, iOS, and Web to connect-only roles; reject Fuchsia; and prove that the root provider exposes the selected capability object.
+- Scope limit: This PASS proves the platform gate only. It does not prove Pi SDK availability, Agent host lifecycle, tool isolation, Local Direct, or remote transport behavior.
+
+## VER-PI-011 - Six-platform project and build matrix
+
+- Status: PARTIAL
+- Requirements: REQ-PI-010, REQ-PI-011
+- Owner: Flutter platform directories, `.metadata`, shared analyzer/tests, and per-platform Flutter build commands
+- Evidence: `.metadata` tracks Android, iOS, Linux, macOS, Web, and Windows; shared analysis and all tests pass; macOS Debug, Android Debug APK, iOS Debug without code signing, and standard JavaScript Web builds succeed. iOS is fixed at 15.0 because ObjectBox requires it.
+- Gap: Windows and Linux native builds require their respective operating systems. Dart WebAssembly is blocked by `flutter_secure_storage_web 1.2.1`, which still imports unsupported `dart:html` and `dart:js` libraries. Release signing, store identity, production icons, and distribution remain unverified or missing.

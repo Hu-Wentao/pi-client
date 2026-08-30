@@ -80,9 +80,9 @@ Reference: `https://github.com/agegr/pi-web`, commit `28bab3c25f5f6770c9b0b745eb
 
 ## BENCH-PI-007 - Platform matrix
 
-- Status: Deferred
-- Disposition: Deferred candidate
+- Status: Superseded
+- Disposition: Project-owned requirement
 - Pi-web behavior: browser/PWA layouts across desktop and mobile browsers.
-- Pi Client scope: macOS 11+ only for MVP.
-- Reason: local pi/web gateway access is directly testable on desktop without introducing mobile network and filesystem boundaries.
-- Governance: This comparison does not authorize platform work. Native platform expansion and Flutter WebAssembly are accepted only through `PLAN-PI-002`; PWA behavior remains a deferred candidate.
+- Pi Client scope: Android, iOS, macOS, Windows, Linux, and Web are first-party targets; macOS, Windows, and Linux are Agent-host-capable, while Android, iOS, and Web are connect-only clients.
+- Reason: the platform matrix now comes directly from `DEC-014`, `REQ-PI-010`, and `REQ-PI-011`, not from comparison with pi-web.
+- Governance: This record remains historical comparison context only. PWA behavior is still deferred unless a separate project requirement accepts it.

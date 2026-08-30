@@ -117,3 +117,23 @@ Default review level: L6. Requirements derived directly from the user-provided M
 - Constraints: Product features depend on one versioned Pi transport contract; Friday Relay may authorize and route remote access but must not persist, log, or decrypt Pi payloads; the E2EE protocol must use an evaluated standard rather than custom cryptography.
 - Source: `PLAN-PI-002` and `DEC-013`.
 - Acceptance: Direct and remote transports pass the same Pi behavior conformance suite, while remote evidence also proves grant binding, encrypted payload opacity, tamper rejection, and bounded revocation.
+
+## REQ-PI-010 - Build one client for all supported platforms
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: A contributor can build the same Pi Client product for Android, iOS, macOS, Windows, Linux, and Web.
+- Constraints: The project uses one Flutter source tree and one version; platform-specific identifiers, signing, minimum versions, packaging, and secure capabilities remain native configuration rather than cross-platform guesses.
+- Source: User platform instruction and `DEC-014`.
+- Acceptance: All six platform directories are current, shared analysis and tests pass, and each target has a successful build on an appropriate host with application identity and release-readiness evidence recorded separately.
+
+## REQ-PI-011 - Separate desktop Agent hosts from connect-only clients
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: A user can host an Agent on macOS, Windows, or Linux and connect to that host from any supported Pi Client platform.
+- Constraints: Android, iOS, and Web never embed Pi SDK or obtain local Agent, tool-execution, project-trust, or host-filesystem authority; macOS, Windows, and Linux may expose hosting only through the first-party Pi host and transport contracts.
+- Source: User platform-role instruction and `DEC-014`.
+- Acceptance: The platform capability contract rejects hosting on Android, iOS, and Web; desktop host implementations pass Pi SDK lifecycle, permission, isolation, and transport conformance tests; all six clients pass connection behavior tests.

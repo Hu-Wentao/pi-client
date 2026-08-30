@@ -1,12 +1,13 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flowr/flowr_mvvm.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pi_client/core/providers.dart';
 import 'package:pi_client/main.dart' show Application;
+import 'package:pi_client/platform/platform_capabilities.dart';
 
 void main() {
   testWidgets('builds the routed Pi Client application', (tester) async {
@@ -46,6 +47,27 @@ void main() {
     );
 
     expect(resolvedDio, same(dio));
+  });
+
+  testWidgets('provides the injected platform capabilities', (tester) async {
+    final capabilities = PlatformCapabilities.resolve(
+      isWeb: false,
+      targetPlatform: TargetPlatform.android,
+    );
+    late PlatformCapabilities resolvedCapabilities;
+
+    await tester.pumpWidget(
+      AppProviders(
+        platformCapabilities: capabilities,
+        child: _RuntimeProbe(
+          onMount: (context) =>
+              resolvedCapabilities = context.read<PlatformCapabilities>(),
+        ),
+      ),
+    );
+
+    expect(resolvedCapabilities, same(capabilities));
+    expect(resolvedCapabilities.isRemoteClientOnly, isTrue);
   });
 }
 

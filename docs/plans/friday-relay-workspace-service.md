@@ -45,11 +45,12 @@ mdq:
 
 ### 1. 产品目标
 
-系统最终由以下客户端组成：
+系统最终由同一 Flutter 工程构建以下客户端：
 
-- macOS、Windows、Linux、iOS 和 Android 原生客户端。
-- 由同一 Flutter 工程构建的 WebAssembly 客户端。
-- 用户设备上独立运行的 Pi Node。
+- macOS、Windows 和 Linux 桌面客户端：既可连接其他宿主，也可通过第一方宿主集成运行 Pi SDK 并承载 Agent。
+- Android 和 iOS 移动客户端：只连接宿主，不嵌入 Pi SDK 或执行 Agent。
+- WebAssembly 客户端：只通过受控 Web transport 连接宿主，不获得本地宿主权限。
+- Pi Node 表达第一方 Agent 宿主运行时边界；桌面发行物可集成或启动该边界，但具体进程形态仍待后续设计冻结。
 
 中心化访问是一项 friday-relay 付费服务：
 
@@ -62,7 +63,7 @@ mdq:
 
 访问模式分离：
 
-- **Local Direct**：Native Client 在本机或局域网直连 Pi Node，不要求 Friday Relay user 或付费 entitlement；它使用独立的节点本地配对边界。
+- **Local Direct**：Native Client 在本机或局域网直连 Pi Node，不要求 Friday Relay user 或付费 entitlement；桌面客户端可以连接本机宿主，移动客户端只能连接另一台宿主设备。
 - **Friday Workspace**：Native Client 或 WebAssembly Client 通过独立子域和 Friday Relay 访问 Pi Node；该模式要求 Friday identity 与 active paid entitlement。
 - WebAssembly Client 由 Friday Relay Workspace Host 承载，因此第一版只提供 Friday Workspace 模式，不提供浏览器直连任意 LAN Node。
 - Friday Workspace entitlement 只能控制中心接入，不得禁用或改变用户已有的 Local Direct 能力。
@@ -99,6 +100,8 @@ WebAssembly Pi Client       Native Pi Client
         Pi SDK / Pi Runtime
 ```
 
+图中的 Pi Node 是统一的第一方 Agent 宿主边界。macOS、Windows 和 Linux 桌面客户端可以在同一设备上集成或启动该宿主，并通过统一 Pi transport 使用它；Android、iOS 和 WebAssembly 只能连接已存在的宿主。
+
 本方案把中心复杂度集中在 friday-relay：
 
 - **Control plane**：身份、订阅、Workspace、子域、Node enrollment、授权和审计。
@@ -130,7 +133,7 @@ Friday Relay 当前 fixed-client OIDC 只支持 confidential Web/BFF profile，�
 | Entitlement | friday-relay Entitlement | Workspace 使用期、暂停、到期和 access Decision | token claim 不能成为长期授权真相源 |
 | Pi Workspace | friday-relay 新 Context | 一用户一 Workspace、slug、hostname、生命周期、Node binding | 不复用 Team DomainBinding 或 AccessPoint Plan |
 | Workspace ingress | friday-relay | Host 解析、session/grant、静态 WASM、Tunnel 路由 | Pi Node 不决定公共 hostname |
-| Pi product state | Pi Node | Pi session、files、Git、models、skills、runtime | friday-relay 不持久化 Pi payload |
+| Pi product state | Pi Node / desktop Agent host | Pi SDK lifecycle、Pi session、files、Git、models、skills、runtime | 移动端、Web 和 friday-relay 不执行宿主操作或持久化 Pi payload |
 | Client state | pi-client | 页面状态、安全 user/workspace projection、短期连接状态 | 不复制 Identity、Billing 或 Entitlement model |
 
 ### 5. Pi Workspace 数据模型
@@ -415,20 +418,26 @@ lib/transport/
   direct_node_transport.dart          # Local Direct, no Friday identity
   friday_relay_tunnel_transport.dart  # Paid Friday Workspace
 
-lib/platform/auth/
-  native_oidc_adapter.dart
-  web_workspace_session_adapter.dart
-
-lib/platform/secure_storage/
-  native_secure_storage.dart
-  web_no_secret_storage.dart
+lib/platform/
+  platform_capabilities.dart          # six-platform execution-role authority
+  auth/
+    native_oidc_adapter.dart
+    web_workspace_session_adapter.dart
+  agent_host/                         # future desktop-only Pi SDK host boundary
+    agent_host.dart
+    unsupported_agent_host.dart
+  secure_storage/
+    native_secure_storage.dart
+    web_no_secret_storage.dart
 ```
 
 要求：
 
 - Domain Feature 只依赖 `PiTransport`；只有 Friday Workspace shell 依赖 `CentralAccessGateway` 和 `WorkspaceDirectory`。
-- 使用 conditional import 隔离 `dart:io`、浏览器 API、deep link 和 secure storage。
-- WebAssembly build 不引入不支持 WASM 的 native auth/crypto/storage package。
+- `PlatformCapabilities` 是六平台执行角色的唯一代码权威；Feature 不重复维护平台列表。
+- Agent host API 只允许 macOS、Windows 和 Linux 实现；Android、iOS 和 Web 使用不可启动宿主的显式 unsupported boundary。
+- 使用 conditional import 隔离 `dart:io`、浏览器 API、deep link、secure storage 和未来 Pi SDK host package。
+- Android、iOS 和 WebAssembly build 不引入 Pi SDK、Agent runtime 或宿主工具依赖；WebAssembly build 也不引入不支持 WASM 的 native auth/crypto/storage package。
 - Web 不保存 access/refresh token到 localStorage、sessionStorage、IndexedDB 或 Flutter state serialization。
 - Native rotating credential 只进入 OS secure storage，不进入 FlowR Model、route、日志或 crash report。
 - friday-relay 的 Product、Subscription 和 User 完整 DTO 不进入客户端；只返回安全 projection 和 action URL。
@@ -464,16 +473,18 @@ friday-relay 新增能力必须在其独立治理流程和隔离 worktree 中实
 
 ### 16. Pi Client 需要新增的能力
 
-1. 跨平台 `CentralAccessGateway`。
-2. Web Workspace session adapter。
-3. Native public OIDC + PKCE adapter。
-4. 安全 `CentralUserProjection` 与 `WorkspaceProjection`。
-5. Local Direct 与 Friday Workspace mode selection，以及 subscription-required、suspended、provisioning 和 node-offline states。
-6. Friday Relay tunnel transport 与 access-grant renewal。
-7. Client-to-Node E2EE。
-8. Flutter WebAssembly build、asset manifest和 workspace-host bootstrap。
-9. 原生 deep link/universal link 与 secure storage。
-10. 购买、续费、Passkey 管理和账户恢复的 external Friday Web handoff。
+1. 六平台工程与 `PlatformCapabilities` 执行角色合同。
+2. macOS、Windows 和 Linux 的第一方 Pi SDK Agent host integration。
+3. 跨平台 `CentralAccessGateway`。
+4. Web Workspace session adapter。
+5. Native public OIDC + PKCE adapter。
+6. 安全 `CentralUserProjection` 与 `WorkspaceProjection`。
+7. Local Direct 与 Friday Workspace mode selection，以及 subscription-required、suspended、provisioning 和 node-offline states。
+8. Friday Relay tunnel transport 与 access-grant renewal。
+9. Client-to-Node E2EE。
+10. Flutter WebAssembly build、asset manifest和 workspace-host bootstrap。
+11. 原生 deep link/universal link 与 secure storage。
+12. 购买、续费、Passkey 管理和账户恢复的 external Friday Web handoff。
 
 ### 17. 分阶段实施
 
@@ -488,7 +499,7 @@ friday-relay 新增能力必须在其独立治理流程和隔离 worktree 中实
 
 #### R0 证据与关闭状态
 
-- pi-client 侧合同面已实现：`REQ-PI-006` 至 `REQ-PI-009` 固定 Local Direct、单一 Friday Workspace、平台安全鉴权和统一私有 Pi transport 产品边界；`lib/central_access/`、`lib/platform/auth/` 和 `lib/transport/` 固定无具体网络实现的安全 projection、adapter、opaque grant、error、protocol version 和 frame transport 接口。
+- pi-client 侧合同面已实现：`REQ-PI-006` 至 `REQ-PI-009` 固定 Local Direct、单一 Friday Workspace、平台安全鉴权和统一私有 Pi transport 产品边界；`REQ-PI-010` 和 `REQ-PI-011` 进一步固定六平台工程目标及桌面宿主/移动与 Web 仅连接的执行角色；`lib/central_access/`、`lib/platform/auth/`、`lib/platform/platform_capabilities.dart` 和 `lib/transport/` 固定无具体网络实现的安全 projection、adapter、platform role、opaque grant、error、protocol version 和 frame transport 接口。
 - `VER-PI-006` 的 PASS 只证明本仓库纯 Dart interface、focused tests 与治理记录，不证明 Pi Node、friday-relay、平台鉴权、grant 签发、socket tunnel、E2EE 或跨项目 runtime 已实现。
 - friday-relay 侧治理合同已建立：`friday-relay@42cb0a74890700920d411604f07ff70a5bde5bd2` 的 `PLAN-PI-WORKSPACE-R0-CONTRACTS`、<code>REQ-GA&#45;024</code>、<code>REQ-MEMBER&#45;035</code> 至 <code>REQ-MEMBER&#45;037</code>、<code>REQ-NEXT-IDENTITY&#45;006</code> 和 <code>REQ-OPS&#45;010</code> 分别拥有商品/履约、个人 Workspace、Node enrollment、Tunnel、Native/WASM 鉴权和 managed ingress 的 Planned 结果与验证缺口。
 - 跨项目 R0 仍为 BLOCKED：精确 Workspace host/base domain 与 slug policy、Web/Native callback/session/refresh profile、Node cardinality、grant wire/TTL/续租/撤权、tunnel topology/path、E2EE suite/test vectors、Pi Protocol initial version/conformance，以及商品价格/退款决策尚未固定。
@@ -522,8 +533,9 @@ friday-relay 新增能力必须在其独立治理流程和隔离 worktree 中实
 - friday-relay 增加 Native public OIDC profile。
 - Flutter 实现 system-browser PKCE、callback和 secure storage。
 - macOS、Windows、Linux、iOS、Android 使用相同 Workspace Directory 和 Tunnel。
+- macOS、Windows 和 Linux 可选择本机 Agent host；iOS 和 Android 只能连接本机之外的宿主。
 
-退出条件：App 不包含 Friday client secret；callback、state、nonce和 PKCE 负向测试通过。
+退出条件：App 不包含 Friday client secret；callback、state、nonce和 PKCE 负向测试通过；移动端构建不包含 Pi SDK 或 Agent host 实现。
 
 #### R5 - E2EE 与撤权
 
@@ -553,6 +565,8 @@ friday-relay 新增能力必须在其独立治理流程和隔离 worktree 中实
 | E2EE 与 payload opacity | cross-language vectors、tamper tests、relay sentinel |
 | WASM 无 token persistence | browser storage/manual inspection + static scan |
 | Native secret storage与 deep link | platform integration/manual verification |
+| 六平台执行角色与移动/Web 宿主拒绝 | pi-client platform capability tests + platform build inspection |
+| Desktop Pi SDK host lifecycle与权限隔离 | macOS/Windows/Linux host integration tests |
 | Direct/Remote Pi behavior | pi-client/Pi Node conformance suite |
 | Paid service E2E | Friday login -> purchase -> workspace -> node -> client |
 
@@ -627,6 +641,8 @@ friday-relay 新增能力必须在其独立治理流程和隔离 worktree 中实
 - Pi Node只接受绑定自己Workspace和key的有效grant。
 - 另一个user、subdomain或node不能访问当前Workspace。
 - friday-relay持久化Identity/Commerce/Workspace控制数据，但不持久化或记录Pi payload。
+- macOS、Windows 和 Linux 可以运行第一方 Pi SDK Agent host，也可以连接其他宿主。
+- Android、iOS 和 WebAssembly 只能连接宿主，构建产物不包含 Pi SDK 或 Agent runtime。
 - Native与WASM通过同一Pi Protocol获得等价产品行为。
 - Billing履约、entitlement、Workspace activation和node enrollment保持可解释且幂等。
 - Wildcard DNS/TLS、Host admission、shard routing、升级和回退有production-equivalent evidence。
@@ -639,3 +655,4 @@ friday-relay 新增能力必须在其独立治理流程和隔离 worktree 中实
 - 当前Passkey只允许显式canonical origin；Workspace子域通过auth handoff保持该边界，不自动加入RP。
 - 当前Team `domain_bindings`不迁移为Pi Workspace hostname；两者继续拥有不同schema和产品语义。
 - 当前pi-client的pi-web URL/Basic Auth仍属于MVP遗留实现，后续迁移到Pi Node/Friday Relay时按`0.x`Breaking Change处理。
+- 六平台工程和执行角色合同是加法性变更，不移除现有 macOS MVP 行为；真实桌面 Pi SDK host 仍是 Planned，不因平台能力映射而视为已交付。
