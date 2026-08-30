@@ -26,7 +26,7 @@ for (const page of pages) {
     [`href=\"${page.canonical}\"`, `canonical ${page.canonical}`],
     [expectedDownload, 'exact release download'],
     ['/pi-client/assets/pi-client-mark.svg', 'base-aware product mark'],
-    ['/pi-client/assets/workspace-preview.png', 'base-aware screenshot'],
+    ['/pi-client/assets/workspace-preview.webp', 'base-aware screenshot'],
     ['hreflang=\"en\"', 'English hreflang'],
     ['hreflang=\"zh-CN\"', 'Chinese hreflang'],
     ['<!--email_off-->', 'Cloudflare email-obfuscation exclusion'],
@@ -44,7 +44,7 @@ for (const page of pages) {
 
 await Promise.all([
   access(resolve(dist, 'assets/pi-client-mark.svg')),
-  access(resolve(dist, 'assets/workspace-preview.png')),
+  access(resolve(dist, 'assets/workspace-preview.webp')),
   access(resolve(dist, 'assets/social-card.png')),
 ]);
 
