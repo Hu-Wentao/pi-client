@@ -110,7 +110,7 @@ mdq:
 - Requirements: REQ-PI-010, REQ-PI-011
 - Owner: Flutter platform directories, `.metadata`, shared analyzer/tests, and per-platform Flutter build commands
 - Evidence: `.metadata` tracks Android, iOS, Linux, macOS, Web, and Windows; shared analysis and all tests pass; macOS Debug, Android Debug APK, iOS Debug without code signing, and standard JavaScript Web builds succeed. iOS is fixed at 15.0 because ObjectBox requires it.
-- Gap: Windows and Linux native builds require their respective operating systems. Dart WebAssembly is blocked by `flutter_secure_storage_web 1.2.1`, which still imports unsupported `dart:html` and `dart:js` libraries. Release signing, store identity, production icons, and distribution remain unverified or missing.
+- Gap: Windows and Linux native builds require their respective operating systems. Dart WebAssembly is blocked by `flutter_secure_storage_web 1.2.1`, which still imports unsupported `dart:html` and `dart:js` libraries. Signing, store identity, production icons, and distribution remain unverified or missing for the general platform matrix; the bounded unsigned macOS Preview is tracked separately by `VER-PI-012` and `VER-PI-013`.
 
 ## VER-PI-012 - Landing Page and unsigned Preview source qualification
 
@@ -122,8 +122,8 @@ mdq:
 
 ## VER-PI-013 - Public Release and GitHub Pages acceptance
 
-- Status: PLANNED
+- Status: PARTIAL
 - Requirements: REQ-PI-012
 - Owner: `.github/workflows/release-macos.yml`, `.github/workflows/pages.yml`, GitHub Release evidence, and production manual accessibility/browser verification
-- Planned evidence: The immutable `v0.0.2` tag resolves to the admitted main commit; the public prerelease contains a non-empty Universal ZIP and SHA-256; the app starts in `unsigned-preview` without Keychain `-34018`; Pages serves both locales with live download links; Safari, Chrome, keyboard, VoiceOver, 200% zoom, responsive widths, and Lighthouse checks pass on the production URL.
-- Gap: Push, tag creation, Release publication, Pages deployment, and production manual verification are authorized for this delivery but have not yet executed; source qualification alone cannot mark them complete.
+- Evidence: Annotated `v0.0.2` resolves to `ac2b492cf595a715fc5e86f7e850ae5bcaf4c942`; Release build run `33308958703` passed generation, analysis, 35 tests, Debug build, unsigned Universal build, bundle/architecture/Gatekeeper checks, launch without Keychain `-34018`, packaging, tag creation, and Draft upload. Draft release `379262752` was reconciled after the workflow's tag lookup returned 404; the exact uploaded ZIP and SHA-256 were downloaded, checksum-verified, unpacked, and inspected before publication. Pages run `33309764563` deployed both locales from `c6318263fd4309460d392697eef84eee24c96058`; production HTML, canonical URLs, assets, direct download, Cloudflare command integrity, responsive Chrome rendering, and Lighthouse 94/100/100/100 were verified.
+- Gap: Safari WebDriver is blocked until **Allow Remote Automation** is enabled. VoiceOver and 200% zoom still require manual acceptance. HTTPS works through Cloudflare, but GitHub Pages cannot enforce HTTPS for the inherited custom domain and HTTP does not currently redirect; changing that shared domain behavior requires separate Cloudflare governance authority.

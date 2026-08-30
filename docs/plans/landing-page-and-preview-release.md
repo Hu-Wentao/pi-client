@@ -42,7 +42,7 @@ mdq:
 
 ### 当前事实
 
-- 当前 Flutter 产品只支持 macOS，版本目标为 `0.0.2+2`。
+- 当前 Flutter 源码包含 Android、iOS、macOS、Windows、Linux 和 Web 项目；本计划的已发布二进制产物仅为 macOS Preview，版本为 `0.0.2+2`。
 - 当前运行时仍通过 pi-web `0.8.11` HTTP/SSE 兼容桥接；它不是长期产品身份。
 - `v0.0.1` 是不可变历史 annotated tag，不能移动到当前代码，也没有 Release 资产。
 - 当前没有 Developer ID、Notarization 或 DMG 发布证据。
@@ -53,23 +53,28 @@ mdq:
 1. `site/` 使用 Astro `7.2.9`、Bun `1.4.0` 和锁文件生成英文根路由及简体中文 `/zh-cn/` 路由。
 2. 页面包含精确 `v0.0.2` Universal ZIP 下载 CTA、当前能力、过渡架构、安全边界、限制、canonical、`hreflang` 和 Open Graph 元数据。
 3. 生产页面不使用客户端 hydration；构建验证拒绝业务 JavaScript、错误子路径资产和漂移的下载 URL。
-4. 原创 SVG 是 App Icon、favicon 和社交分享图的单一品牌来源；确定性脚本生成 macOS PNG 尺寸和分享图。
-5. 营销截图由 Flutter Widget 测试使用真实 Roboto 和 Material Icons 字体、合成路径、会话、提示和输出生成；测试拒绝真实用户路径、密码和 token 文本。
+4. 原创 SVG 是 App Icon、favicon 和社交分享图的单一品牌来源；确定性脚本生成 macOS PNG 尺寸、分享图和 Landing Page 截图 WebP。
+5. 营销截图由 Flutter Widget 测试使用真实 Roboto 和 Material Icons 字体、合成路径、会话、提示和输出生成；测试拒绝真实用户路径、密码和 token 文本，并将跨宿主字体栅格差异限制在 0.02%。
 6. `unsigned-preview` 分发通道使用独立 `fr_storage_unsigned_preview` 目录和固定公开 32 字节密钥，不访问 Keychain；标准 Release 继续使用 `fr_storage` 和平台安全存储。
 7. Release entitlement 为未来签名、沙箱化版本声明 outbound network client 能力，但不伪造 Apple Team 或 Keychain group。
 8. Pages workflow 在 PR 和 main 上检查并构建站点，只在精确 Release 资产已发布时部署。
 9. 手动 macOS workflow 从 main 构建、测试、生成未签名 Universal App、验证启动及架构、打包 ZIP/校验和、创建不可变 tag、发布 prerelease，并请求 Pages 部署。
 
-### 尚未执行的外部操作
+### 外部发布状态
 
-以下状态仍为 Planned，不能由源码或本地测试推断为完成：
+已完成：
 
-1. 推送实现提交和后续决策标签。
-2. 调度手动 Release workflow。
-3. 创建并发布 annotated `v0.0.2` 和 GitHub prerelease。
-4. 验证公开 ZIP 与 SHA-256 资产。
-5. 启用并验证生产 GitHub Pages URL。
-6. 在生产 URL 上完成 Safari、Chrome、键盘、VoiceOver、200% 缩放和 Lighthouse 人工验收。
+1. `main` 和 annotated `decision/015-landing-page-and-preview-release` 已推送。
+2. annotated `v0.0.2` 固定到 `ac2b492cf595a715fc5e86f7e850ae5bcaf4c942`。
+3. GitHub prerelease 已公开 20,344,765 字节 Universal ZIP 与 102 字节 SHA-256；重新下载后的 checksum、Bundle metadata 和 `arm64 + x86_64` 已复核。
+4. GitHub Pages 已通过 workflow 部署到 `https://wyattcoder.top/pi-client/` 和 `/zh-cn/`；精确 Release CTA、canonical、资源、零客户端 JavaScript和 Cloudflare 命令防改写已在生产 HTML 验证。
+5. Chrome production Lighthouse 为 Performance 94、Accessibility 100、Best Practices 100、SEO 100。
+
+仍未完成：
+
+1. Safari WebDriver 因宿主未启用 **Allow Remote Automation** 而无法执行；尚无 Safari 渲染验收证据。
+2. VoiceOver 与浏览器 200% 缩放仍需人工验收。
+3. 账户级 Cloudflare 自定义域名可通过 HTTPS 访问，但 GitHub Pages API 无法启用 `https_enforced`，且 HTTP 当前不自动跳转 HTTPS；修复需要独立的共享 Cloudflare/域名治理授权。
 
 ### 发布准入
 
