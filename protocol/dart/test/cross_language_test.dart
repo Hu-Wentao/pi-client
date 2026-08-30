@@ -68,6 +68,30 @@ void main() {
       );
     });
 
+    test('decodes TypeScript session administration outcomes', () {
+      final frame = decodeTransportFrame(
+        File.fromUri(
+          _vectors.uri.resolve('ts_session_admin_outcome.pb'),
+        ).readAsBytesSync(),
+      );
+
+      expect(
+        frame.whichOperation(),
+        PiTransportFrame_Operation.sessionAdminCommandOutcome,
+      );
+      final outcome = frame.sessionAdminCommandOutcome;
+      expect(
+        outcome.operation,
+        SessionAdminOperation.SESSION_ADMIN_OPERATION_AUTO_NAME,
+      );
+      expect(
+        outcome.whichOutcome(),
+        SessionAdminCommandOutcome_Outcome.session,
+      );
+      expect(outcome.session.title, 'Generated cross-language title');
+      expect(outcome.session.hasCustomName, isTrue);
+    });
+
     test('preserves unknown fields when decoded and re-encoded by Dart', () {
       final input = File.fromUri(
         _vectors.uri.resolve('unknown_field.pb'),

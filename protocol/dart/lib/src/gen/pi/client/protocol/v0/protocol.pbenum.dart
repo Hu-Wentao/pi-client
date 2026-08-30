@@ -39,6 +39,8 @@ class Capability extends $pb.ProtobufEnum {
       Capability._(10, _omitEnumNames ? '' : 'CAPABILITY_PROJECT_DISCOVERY');
   static const Capability CAPABILITY_PROJECT_TRUST =
       Capability._(11, _omitEnumNames ? '' : 'CAPABILITY_PROJECT_TRUST');
+  static const Capability CAPABILITY_SESSION_ADMIN =
+      Capability._(12, _omitEnumNames ? '' : 'CAPABILITY_SESSION_ADMIN');
 
   static const $core.List<Capability> values = <Capability>[
     CAPABILITY_UNSPECIFIED,
@@ -53,10 +55,11 @@ class Capability extends $pb.ProtobufEnum {
     CAPABILITY_TRANSFER,
     CAPABILITY_PROJECT_DISCOVERY,
     CAPABILITY_PROJECT_TRUST,
+    CAPABILITY_SESSION_ADMIN,
   ];
 
   static final $core.List<Capability?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 11);
+      $pb.ProtobufEnum.$_initByValueList(values, 12);
   static Capability? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 
@@ -175,6 +178,40 @@ class ProjectTrustReason extends $pb.ProtobufEnum {
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 
   const ProjectTrustReason._(super.value, super.name);
+}
+
+class SessionAdminOperation extends $pb.ProtobufEnum {
+  static const SessionAdminOperation SESSION_ADMIN_OPERATION_UNSPECIFIED =
+      SessionAdminOperation._(
+          0, _omitEnumNames ? '' : 'SESSION_ADMIN_OPERATION_UNSPECIFIED');
+  static const SessionAdminOperation SESSION_ADMIN_OPERATION_RENAME =
+      SessionAdminOperation._(
+          1, _omitEnumNames ? '' : 'SESSION_ADMIN_OPERATION_RENAME');
+  static const SessionAdminOperation SESSION_ADMIN_OPERATION_CLEAR_NAME =
+      SessionAdminOperation._(
+          2, _omitEnumNames ? '' : 'SESSION_ADMIN_OPERATION_CLEAR_NAME');
+  static const SessionAdminOperation SESSION_ADMIN_OPERATION_AUTO_NAME =
+      SessionAdminOperation._(
+          3, _omitEnumNames ? '' : 'SESSION_ADMIN_OPERATION_AUTO_NAME');
+  static const SessionAdminOperation SESSION_ADMIN_OPERATION_DELETE =
+      SessionAdminOperation._(
+          4, _omitEnumNames ? '' : 'SESSION_ADMIN_OPERATION_DELETE');
+
+  static const $core.List<SessionAdminOperation> values =
+      <SessionAdminOperation>[
+    SESSION_ADMIN_OPERATION_UNSPECIFIED,
+    SESSION_ADMIN_OPERATION_RENAME,
+    SESSION_ADMIN_OPERATION_CLEAR_NAME,
+    SESSION_ADMIN_OPERATION_AUTO_NAME,
+    SESSION_ADMIN_OPERATION_DELETE,
+  ];
+
+  static final $core.List<SessionAdminOperation?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 4);
+  static SessionAdminOperation? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const SessionAdminOperation._(super.value, super.name);
 }
 
 class MessageRole extends $pb.ProtobufEnum {

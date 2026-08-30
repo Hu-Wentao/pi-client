@@ -36,6 +36,14 @@ final class FakePiNodeApi implements PiNodeApi {
   Future<PiSessionDetail> Function(PiSessionId sessionId)? getSessionHandler;
   Future<PiSessionDetail> Function(PiCreateSessionRequest request)?
   createSessionHandler;
+  Future<PiSessionAdminResult> Function(PiRenameSessionCommand command)?
+  renameSessionHandler;
+  Future<PiSessionAdminResult> Function(PiClearSessionNameCommand command)?
+  clearSessionNameHandler;
+  Future<PiSessionAdminResult> Function(PiAutoNameSessionCommand command)?
+  autoNameSessionHandler;
+  Future<PiSessionAdminResult> Function(PiDeleteSessionCommand command)?
+  deleteSessionHandler;
   Future<PiCommandResult> Function(PiPromptCommand command)? promptHandler;
   Future<PiCommandResult> Function(PiAbortCommand command)? abortHandler;
 
@@ -50,12 +58,17 @@ final class FakePiNodeApi implements PiNodeApi {
   int listCalls = 0;
   int getCalls = 0;
   int createCalls = 0;
+  int renameCalls = 0;
+  int clearNameCalls = 0;
+  int autoNameCalls = 0;
+  int deleteCalls = 0;
   int promptCalls = 0;
   int abortCalls = 0;
   int eventListenCalls = 0;
   int closeCalls = 0;
   PiPromptCommand? lastPrompt;
   PiAbortCommand? lastAbort;
+  PiSessionAdminCommand? lastSessionAdminCommand;
   bool _closed = false;
 
   @override
@@ -189,6 +202,8 @@ final class FakePiNodeApi implements PiNodeApi {
       updatedAt: now,
       isRunning: false,
       hasUnread: false,
+      adminRevision: PiSessionAdminRevision('revision-created-$createCalls-1'),
+      hasCustomName: false,
     );
     final detail = PiSessionDetail(
       summary: summary,
@@ -197,6 +212,113 @@ final class FakePiNodeApi implements PiNodeApi {
     sessions = <PiSessionSummary>[summary, ...sessions];
     details[summary.id] = detail;
     return detail;
+  }
+
+  @override
+  Future<PiSessionAdminResult> renameSession(
+    PiRenameSessionCommand command,
+  ) async {
+    renameCalls += 1;
+    lastSessionAdminCommand = command;
+    final handler = renameSessionHandler;
+    if (handler != null) return handler(command);
+    final current = sessions.firstWhere(
+      (session) => session.id == command.sessionId,
+    );
+    final updated = _updatedSession(current, command.name, hasCustomName: true);
+    _replaceSummary(updated);
+    return PiSessionAdminUpdated(
+      commandId: command.commandId,
+      operation: PiSessionAdminOperation.rename,
+      session: updated,
+    );
+  }
+
+  @override
+  Future<PiSessionAdminResult> clearSessionName(
+    PiClearSessionNameCommand command,
+  ) async {
+    clearNameCalls += 1;
+    lastSessionAdminCommand = command;
+    final handler = clearSessionNameHandler;
+    if (handler != null) return handler(command);
+    final current = sessions.firstWhere(
+      (session) => session.id == command.sessionId,
+    );
+    final detail = details[current.id];
+    final fallback = detail?.messages
+        .where((message) => message.role == PiMessageRole.user)
+        .map((message) => message.text.trim())
+        .firstOrNull;
+    final updated = _updatedSession(
+      current,
+      fallback?.isNotEmpty == true ? fallback! : 'Untitled session',
+      hasCustomName: false,
+    );
+    _replaceSummary(updated);
+    return PiSessionAdminUpdated(
+      commandId: command.commandId,
+      operation: PiSessionAdminOperation.clearName,
+      session: updated,
+    );
+  }
+
+  @override
+  Future<PiSessionAdminResult> autoNameSession(
+    PiAutoNameSessionCommand command,
+  ) async {
+    autoNameCalls += 1;
+    lastSessionAdminCommand = command;
+    final handler = autoNameSessionHandler;
+    if (handler != null) return handler(command);
+    final current = sessions.firstWhere(
+      (session) => session.id == command.sessionId,
+    );
+    final updated = _updatedSession(
+      current,
+      'Generated session name',
+      hasCustomName: true,
+    );
+    _replaceSummary(updated);
+    return PiSessionAdminUpdated(
+      commandId: command.commandId,
+      operation: PiSessionAdminOperation.autoName,
+      session: updated,
+    );
+  }
+
+  @override
+  Future<PiSessionAdminResult> deleteSession(
+    PiDeleteSessionCommand command,
+  ) async {
+    deleteCalls += 1;
+    lastSessionAdminCommand = command;
+    final handler = deleteSessionHandler;
+    if (handler != null) return handler(command);
+    final current = sessions.firstWhere(
+      (session) => session.id == command.sessionId,
+    );
+    if (!command.confirmation.destructiveActionAcknowledged ||
+        command.confirmation.sessionId != command.sessionId ||
+        command.confirmation.adminRevision != current.adminRevision) {
+      return PiSessionAdminRejected(
+        commandId: command.commandId,
+        operation: PiSessionAdminOperation.delete,
+        error: const PiNodeException(
+          PiNodeErrorCode.conflict,
+          retryable: false,
+        ),
+      );
+    }
+    sessions = sessions
+        .where((session) => session.id != command.sessionId)
+        .toList(growable: false);
+    details.remove(command.sessionId);
+    return PiSessionAdminDeleted(
+      commandId: command.commandId,
+      sessionId: command.sessionId,
+      reparentedChildCount: 0,
+    );
   }
 
   @override
@@ -240,16 +362,25 @@ final class FakePiNodeApi implements PiNodeApi {
 
   void updateDetail(PiSessionDetail detail) {
     details[detail.summary.id] = detail;
-    final index = sessions.indexWhere(
-      (session) => session.id == detail.summary.id,
-    );
+    _replaceSummary(detail.summary);
+  }
+
+  void _replaceSummary(PiSessionSummary summary) {
+    final index = sessions.indexWhere((session) => session.id == summary.id);
     sessions = index == -1
-        ? <PiSessionSummary>[detail.summary, ...sessions]
+        ? <PiSessionSummary>[summary, ...sessions]
         : <PiSessionSummary>[
             ...sessions.take(index),
-            detail.summary,
+            summary,
             ...sessions.skip(index + 1),
           ];
+    final currentDetail = details[summary.id];
+    if (currentDetail != null) {
+      details[summary.id] = PiSessionDetail(
+        summary: summary,
+        messages: currentDetail.messages,
+      );
+    }
   }
 
   Future<void> closeEventStream(PiSessionId sessionId) async {
@@ -327,8 +458,28 @@ PiSessionSummary fakeSession({
     updatedAt: updatedAt ?? created.add(const Duration(minutes: 5)),
     isRunning: isRunning,
     hasUnread: hasUnread,
+    adminRevision: PiSessionAdminRevision('revision-$id-1'),
+    hasCustomName: true,
   );
 }
+
+PiSessionSummary _updatedSession(
+  PiSessionSummary current,
+  String title, {
+  required bool hasCustomName,
+}) => PiSessionSummary(
+  id: current.id,
+  title: title,
+  workingDirectory: current.workingDirectory,
+  createdAt: current.createdAt,
+  updatedAt: current.updatedAt.add(const Duration(milliseconds: 1)),
+  isRunning: false,
+  hasUnread: current.hasUnread,
+  adminRevision: PiSessionAdminRevision(
+    '${current.adminRevision.value}-${title.hashCode}-${hasCustomName ? "custom" : "fallback"}',
+  ),
+  hasCustomName: hasCustomName,
+);
 
 PiMessage fakeMessage({
   required String id,

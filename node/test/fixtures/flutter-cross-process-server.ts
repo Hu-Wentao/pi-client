@@ -223,6 +223,50 @@ class FixtureProtocolDomain implements PiNodeProtocolDomain {
     });
   }
 
+  renameSession(input: {
+    readonly sessionId: string;
+    readonly name: string;
+  }): Promise<PiNodeSessionSummary> {
+    const session = this.#requireSession(input.sessionId);
+    const updated = updateSessionName(session, input.name);
+    this.#sessions.set(input.sessionId, updated);
+    return Promise.resolve(copySummary(updated));
+  }
+
+  clearSessionName(input: { readonly sessionId: string }): Promise<PiNodeSessionSummary> {
+    const session = this.#requireSession(input.sessionId);
+    const updated = updateSessionName(session, undefined);
+    this.#sessions.set(input.sessionId, updated);
+    return Promise.resolve(copySummary(updated));
+  }
+
+  autoNameSession(input: { readonly sessionId: string }): Promise<PiNodeSessionSummary> {
+    const session = this.#requireSession(input.sessionId);
+    const updated = updateSessionName(session, "Generated fixture title");
+    this.#sessions.set(input.sessionId, updated);
+    return Promise.resolve(copySummary(updated));
+  }
+
+  deleteSession(input: {
+    readonly sessionId: string;
+    readonly confirmation: {
+      readonly sessionId: string;
+      readonly adminRevision: string;
+      readonly destructiveActionAcknowledged: boolean;
+    };
+  }): Promise<{ readonly sessionId: string; readonly reparentedChildCount: number }> {
+    const session = this.#requireSession(input.sessionId);
+    if (
+      !input.confirmation.destructiveActionAcknowledged ||
+      input.confirmation.sessionId !== input.sessionId ||
+      input.confirmation.adminRevision !== session.adminRevision
+    ) {
+      return Promise.reject(new Error("Stale fixture deletion confirmation."));
+    }
+    this.#sessions.delete(input.sessionId);
+    return Promise.resolve({ sessionId: input.sessionId, reparentedChildCount: 0 });
+  }
+
   abort(input: { readonly sessionId: string }): Promise<PiNodeAbortResult> {
     const session = this.#requireSession(input.sessionId);
     const activeCommand = this.#activeCommands.get(input.sessionId);
@@ -430,6 +474,7 @@ function sessionSnapshot(
     messageCount: messages.length,
     firstMessage: messages[0]?.parts[0]?.type === "text" ? messages[0].parts[0].text : title,
     running: false,
+    adminRevision: `fixture-revision-${sessionId}-1`,
     persistence: "persistent",
     messages,
     lastEventSequence: 0,
@@ -456,7 +501,25 @@ function copySummary(snapshot: PiNodeSessionSnapshot): PiNodeSessionSummary {
     messageCount: snapshot.messageCount,
     firstMessage: snapshot.firstMessage,
     running: snapshot.running,
+    adminRevision: snapshot.adminRevision,
   };
+}
+
+function updateSessionName(
+  session: PiNodeSessionSnapshot,
+  name: string | undefined,
+): PiNodeSessionSnapshot {
+  const modifiedAtMs = session.modifiedAtMs + 1;
+  const updated = {
+    ...session,
+    modifiedAtMs,
+    adminRevision: `fixture-revision-${session.sessionId}-${modifiedAtMs}-${name ?? "clear"}`,
+  };
+  if (name === undefined) {
+    const { name: _discarded, ...withoutName } = updated;
+    return withoutName;
+  }
+  return { ...updated, name };
 }
 
 function copySnapshot(snapshot: PiNodeSessionSnapshot): PiNodeSessionSnapshot {

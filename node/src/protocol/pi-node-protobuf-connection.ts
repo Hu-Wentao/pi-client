@@ -7,6 +7,7 @@ import {
   MAX_FRAME_BYTES,
   MAX_TRANSFER_CHUNK_BYTES,
   PiTransportFrameSchema,
+  SessionAdminOperation,
   SessionEventStreamEnvelopeSchema,
   decodeTransportFrame,
   encodeTransportFrame,
@@ -49,6 +50,7 @@ export const SUPPORTED_PROTOCOL_CAPABILITIES = Object.freeze([
   Capability.SESSION_EVENTS,
   Capability.PROJECT_DISCOVERY,
   Capability.PROJECT_TRUST,
+  Capability.SESSION_ADMIN,
 ] as const);
 
 export interface PiNodeProtocolLogger {
@@ -116,6 +118,7 @@ export class PiNodeProtobufConnection {
   readonly #observations = new Map<string, ObservedSession>();
   readonly #pendingAdmissions = new Map<string, PendingAdmission>();
   readonly #projectWorkingDirectories = new Map<string, string>();
+  readonly #adminAbortControllers = new Map<bigint, AbortController>();
 
   #handshake: "awaiting" | "accepted" | "rejected" = "awaiting";
   #lastClientFrameSequence = 0n;
@@ -158,6 +161,10 @@ export class PiNodeProtobufConnection {
 
   async dispose(): Promise<void> {
     this.#terminal = true;
+    for (const controller of this.#adminAbortControllers.values()) {
+      controller.abort();
+    }
+    this.#adminAbortControllers.clear();
     await this.#releaseObservations();
     await this.#writeTail.catch(() => undefined);
   }
@@ -326,6 +333,41 @@ export class PiNodeProtobufConnection {
           frame.operation.value.sessionId,
         );
         return;
+      case "renameSessionCommand":
+        await this.#handleRenameSession(
+          frame.operation.value.requestId,
+          frame.operation.value.commandId,
+          frame.operation.value.projectId,
+          frame.operation.value.sessionId,
+          frame.operation.value.name,
+        );
+        return;
+      case "clearSessionNameCommand":
+        await this.#handleClearSessionName(
+          frame.operation.value.requestId,
+          frame.operation.value.commandId,
+          frame.operation.value.projectId,
+          frame.operation.value.sessionId,
+        );
+        return;
+      case "autoNameSessionCommand":
+        await this.#handleAutoNameSession(
+          frame.operation.value.requestId,
+          frame.operation.value.commandId,
+          frame.operation.value.projectId,
+          frame.operation.value.sessionId,
+          frame.operation.value.timeoutMillis,
+        );
+        return;
+      case "deleteSessionCommand":
+        await this.#handleDeleteSession(
+          frame.operation.value.requestId,
+          frame.operation.value.commandId,
+          frame.operation.value.projectId,
+          frame.operation.value.sessionId,
+          frame.operation.value.confirmation,
+        );
+        return;
       case "healthRequest":
         await this.#handleUnsupportedRequest(frame.operation.value.requestId);
         return;
@@ -340,6 +382,7 @@ export class PiNodeProtobufConnection {
       case "listSessionsResponse":
       case "getSessionResponse":
       case "createSessionResponse":
+      case "sessionAdminCommandOutcome":
       case "requestRejected":
       case "commandAccepted":
       case "commandRejected":
@@ -696,6 +739,174 @@ export class PiNodeProtobufConnection {
     } finally {
       await this.#flushAdmission(sessionId, pending);
     }
+  }
+
+  async #handleRenameSession(
+    requestId: bigint,
+    commandId: string,
+    projectId: string,
+    sessionId: string,
+    name: string,
+  ): Promise<void> {
+    if (!(await this.#claimAdminCommand(requestId, commandId))) return;
+    try {
+      const cwd = this.#requireRegisteredProject(projectId);
+      this.#dropObservation(sessionId);
+      const session = await this.#domain.renameSession({
+        cwd,
+        sessionId,
+        name,
+      });
+      await this.#sendSessionAdminOutcome(requestId, commandId, SessionAdminOperation.RENAME, {
+        case: "session",
+        value: toProtocolSessionSummary(session),
+      });
+    } catch (error) {
+      await this.#sendSessionAdminOutcome(requestId, commandId, SessionAdminOperation.RENAME, {
+        case: "error",
+        value: mapDomainError(error),
+      });
+    }
+  }
+
+  async #handleClearSessionName(
+    requestId: bigint,
+    commandId: string,
+    projectId: string,
+    sessionId: string,
+  ): Promise<void> {
+    if (!(await this.#claimAdminCommand(requestId, commandId))) return;
+    try {
+      const cwd = this.#requireRegisteredProject(projectId);
+      this.#dropObservation(sessionId);
+      const session = await this.#domain.clearSessionName({
+        cwd,
+        sessionId,
+      });
+      await this.#sendSessionAdminOutcome(requestId, commandId, SessionAdminOperation.CLEAR_NAME, {
+        case: "session",
+        value: toProtocolSessionSummary(session),
+      });
+    } catch (error) {
+      await this.#sendSessionAdminOutcome(requestId, commandId, SessionAdminOperation.CLEAR_NAME, {
+        case: "error",
+        value: mapDomainError(error),
+      });
+    }
+  }
+
+  async #handleAutoNameSession(
+    requestId: bigint,
+    commandId: string,
+    projectId: string,
+    sessionId: string,
+    timeoutMillis: number,
+  ): Promise<void> {
+    if (!(await this.#claimAdminCommand(requestId, commandId))) return;
+    const controller = new AbortController();
+    this.#adminAbortControllers.set(requestId, controller);
+    try {
+      const cwd = this.#requireRegisteredProject(projectId);
+      this.#dropObservation(sessionId);
+      const session = await this.#domain.autoNameSession({
+        cwd,
+        sessionId,
+        timeoutMillis,
+        signal: controller.signal,
+      });
+      await this.#sendSessionAdminOutcome(requestId, commandId, SessionAdminOperation.AUTO_NAME, {
+        case: "session",
+        value: toProtocolSessionSummary(session),
+      });
+    } catch (error) {
+      await this.#sendSessionAdminOutcome(requestId, commandId, SessionAdminOperation.AUTO_NAME, {
+        case: "error",
+        value: mapDomainError(error),
+      });
+    } finally {
+      this.#adminAbortControllers.delete(requestId);
+    }
+  }
+
+  async #handleDeleteSession(
+    requestId: bigint,
+    commandId: string,
+    projectId: string,
+    sessionId: string,
+    confirmation:
+      | {
+          readonly sessionId: string;
+          readonly adminRevision: string;
+          readonly displayedTitle: string;
+          readonly destructiveActionAcknowledged: boolean;
+        }
+      | undefined,
+  ): Promise<void> {
+    if (!(await this.#claimAdminCommand(requestId, commandId))) return;
+    try {
+      const cwd = this.#requireRegisteredProject(projectId);
+      this.#dropObservation(sessionId);
+      const deletion = await this.#domain.deleteSession({
+        cwd,
+        sessionId,
+        confirmation: confirmation ?? {
+          sessionId: "",
+          adminRevision: "",
+          displayedTitle: "",
+          destructiveActionAcknowledged: false,
+        },
+      });
+      await this.#sendSessionAdminOutcome(requestId, commandId, SessionAdminOperation.DELETE, {
+        case: "deletion",
+        value: {
+          sessionId: deletion.sessionId,
+          reparentedChildCount: deletion.reparentedChildCount,
+        },
+      });
+    } catch (error) {
+      await this.#sendSessionAdminOutcome(requestId, commandId, SessionAdminOperation.DELETE, {
+        case: "error",
+        value: mapDomainError(error),
+      });
+    }
+  }
+
+  async #claimAdminCommand(requestId: bigint, commandId: string): Promise<boolean> {
+    if (!(await this.#claimRequest(requestId, true, commandId))) return false;
+    if (!(await this.#claimCommand(requestId, commandId))) return false;
+    return this.#requireCapability(requestId, Capability.SESSION_ADMIN, true, commandId);
+  }
+
+  #dropObservation(sessionId: string): void {
+    const entry = this.#observations.get(sessionId);
+    if (!entry) return;
+    entry.closed = true;
+    entry.unsubscribe();
+    this.#observations.delete(sessionId);
+    this.#pendingAdmissions.delete(sessionId);
+  }
+
+  async #sendSessionAdminOutcome(
+    requestId: bigint,
+    commandId: string,
+    operation: SessionAdminOperation,
+    outcome:
+      | { readonly case: "session"; readonly value: ReturnType<typeof toProtocolSessionSummary> }
+      | {
+          readonly case: "deletion";
+          readonly value: { readonly sessionId: string; readonly reparentedChildCount: number };
+        }
+      | { readonly case: "error"; readonly value: StableError },
+  ): Promise<void> {
+    await this.#sendRequestOperation(
+      requestId,
+      {
+        case: "sessionAdminCommandOutcome",
+        value: { requestId, commandId, operation, outcome },
+      },
+      true,
+      commandId,
+    );
   }
 
   async #handleUnsupportedRequest(requestId: bigint): Promise<void> {

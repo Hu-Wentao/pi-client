@@ -79,6 +79,118 @@ void main() {
     expect(find.bySemanticsLabel(RegExp('Unread activity')), findsWidgets);
   });
 
+  testWidgets(
+    'offers accessible rename, auto-name, and inline delete actions',
+    (tester) async {
+      final session = testSession('admin', title: 'Admin session');
+      String? renamed;
+      var customNameCleared = false;
+      var autoNamed = false;
+      PiDeleteSessionConfirmation? deletion;
+
+      await tester.pumpWidget(
+        componentTestApp(
+          SessionBrowserView(
+            sessions: <PiSessionSummary>[session],
+            onSessionSelected: (_) {},
+            onRenameSession: (_, name) => renamed = name,
+            onClearSessionName: (_) => customNameCleared = true,
+            onAutoNameSession: (_) => autoNamed = true,
+            onDeleteSessionConfirmed: (confirmation) => deletion = confirmation,
+          ),
+        ),
+      );
+
+      final actions = find.byKey(
+        ValueKey<String>('sessionActions-${session.id.value}'),
+      );
+      expect(actions, findsOneWidget);
+      expect(
+        find.byTooltip('Session actions for Admin session'),
+        findsOneWidget,
+      );
+      await tester.tap(actions);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Rename'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('sessionRenameDialog')), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const Key('sessionRenameField')),
+        'Focused admin name',
+      );
+      await tester.tap(find.byKey(const Key('sessionRenameSaveButton')));
+      await tester.pumpAndSettle();
+      expect(renamed, 'Focused admin name');
+
+      await tester.tap(actions);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Clear custom name'));
+      await tester.pump();
+      expect(customNameCleared, isTrue);
+
+      await tester.tap(actions);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Generate name'));
+      await tester.pump();
+      expect(autoNamed, isTrue);
+
+      await tester.tap(actions);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete'));
+      await tester.pump();
+      expect(
+        find.byKey(
+          ValueKey<String>('sessionDeleteConfirmation-${session.id.value}'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .getSemantics(
+              find.byKey(
+                ValueKey<String>(
+                  'sessionDeleteConfirmationSemantics-${session.id.value}',
+                ),
+              ),
+            )
+            .label,
+        contains('Confirm deletion of Admin session'),
+      );
+      await tester.tap(find.byKey(const Key('sessionDeleteConfirmButton')));
+      await tester.pump();
+      expect(deletion?.sessionId, session.id);
+      expect(deletion?.adminRevision, session.adminRevision);
+      expect(deletion?.destructiveActionAcknowledged, isTrue);
+    },
+  );
+
+  testWidgets('shows session action progress as a live region', (tester) async {
+    final session = testSession('progress', title: 'Progress session');
+    await tester.pumpWidget(
+      componentTestApp(
+        SessionBrowserView(
+          sessions: <PiSessionSummary>[session],
+          onSessionSelected: (_) {},
+          onAutoNameSession: (_) {},
+          sessionActionInProgressId: session.id,
+          sessionActionInProgressOperation: PiSessionAdminOperation.autoName,
+        ),
+      ),
+    );
+
+    expect(
+      tester
+          .getSemantics(
+            find.byKey(
+              ValueKey<String>('sessionActionProgress-${session.id.value}'),
+            ),
+          )
+          .label,
+      contains('Session autoName in progress'),
+    );
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+  });
+
   testWidgets('shows a retryable error without hiding existing sessions', (
     tester,
   ) async {

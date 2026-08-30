@@ -7,11 +7,11 @@
 /// - none
 /// State Ownership: none
 /// Capabilities:
-/// - Browse, filter, refresh, create, and keyboard-select first-party Pi sessions while presenting loading, empty, and retryable error states.
+/// - Browse, filter, refresh, create, keyboard-select, rename, clear custom names, generate names, and explicitly confirm deletion of first-party Pi sessions while presenting loading, progress, empty, and retryable error states.
 /// Public Views:
 /// - [SessionBrowserView] — responsive session browser driven only by `PiSessionSummary` inputs and callbacks.
 /// Widget Tree:
-/// - [SessionBrowserView] > [TextField], [IconButton] (refresh), [ListView], [ListTile] × N, [FilledButton] (empty/create), [MaterialBanner] (error)
+/// - [SessionBrowserView] > [TextField], [IconButton] (refresh), [ListView], [ListTile] × N, [PopupMenuButton] (session actions), [AlertDialog] (rename), [FilledButton] (inline delete confirmation), [FilledButton] (empty/create), [MaterialBanner] (error)
 /// Theme: material
 
 part of 'session_browser.dart';

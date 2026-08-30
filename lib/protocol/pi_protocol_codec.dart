@@ -163,6 +163,97 @@ final class PiProtocolAbortCommandRequest extends PiProtocolCommandRequest {
       'PiProtocolAbortCommandRequest(requestId: $requestId, <redacted>)';
 }
 
+enum PiProtocolSessionAdminOperation { rename, clearName, autoName, delete }
+
+sealed class PiProtocolSessionAdminCommandRequest
+    extends PiProtocolCommandRequest {
+  PiProtocolSessionAdminCommandRequest({
+    required super.requestId,
+    required super.commandId,
+    required super.sessionId,
+    required String projectId,
+  }) : projectId = _validatedOpaqueId(projectId, 'projectId');
+
+  final String projectId;
+}
+
+final class PiProtocolRenameSessionCommandRequest
+    extends PiProtocolSessionAdminCommandRequest {
+  PiProtocolRenameSessionCommandRequest({
+    required super.requestId,
+    required super.commandId,
+    required super.projectId,
+    required super.sessionId,
+    required String name,
+  }) : name = _validatedText(name, 'name', allowEmpty: false);
+
+  final String name;
+}
+
+final class PiProtocolClearSessionNameCommandRequest
+    extends PiProtocolSessionAdminCommandRequest {
+  PiProtocolClearSessionNameCommandRequest({
+    required super.requestId,
+    required super.commandId,
+    required super.projectId,
+    required super.sessionId,
+  });
+}
+
+final class PiProtocolAutoNameSessionCommandRequest
+    extends PiProtocolSessionAdminCommandRequest {
+  PiProtocolAutoNameSessionCommandRequest({
+    required super.requestId,
+    required super.commandId,
+    required super.projectId,
+    required super.sessionId,
+    required int timeoutMillis,
+  }) : timeoutMillis = _validatedBoundedCount(
+         timeoutMillis,
+         'timeoutMillis',
+         30000,
+       ) {
+    if (timeoutMillis < 1000) {
+      throw ArgumentError('timeoutMillis is outside the supported range.');
+    }
+  }
+
+  final int timeoutMillis;
+}
+
+final class PiProtocolDeleteSessionConfirmationEvidence {
+  PiProtocolDeleteSessionConfirmationEvidence({
+    required String sessionId,
+    required String adminRevision,
+    required String displayedTitle,
+    required this.destructiveActionAcknowledged,
+  }) : sessionId = _validatedOpaqueId(sessionId, 'sessionId'),
+       adminRevision = _validatedOpaqueId(adminRevision, 'adminRevision'),
+       displayedTitle = _validatedText(
+         displayedTitle,
+         'displayedTitle',
+         allowEmpty: false,
+       );
+
+  final String sessionId;
+  final String adminRevision;
+  final String displayedTitle;
+  final bool destructiveActionAcknowledged;
+}
+
+final class PiProtocolDeleteSessionCommandRequest
+    extends PiProtocolSessionAdminCommandRequest {
+  PiProtocolDeleteSessionCommandRequest({
+    required super.requestId,
+    required super.commandId,
+    required super.projectId,
+    required super.sessionId,
+    required this.confirmation,
+  });
+
+  final PiProtocolDeleteSessionConfirmationEvidence confirmation;
+}
+
 sealed class PiServerProtocolMessage {
   const PiServerProtocolMessage();
 }
@@ -175,6 +266,7 @@ enum PiProtocolCapability {
   sessionEvents,
   projectDiscovery,
   projectTrust,
+  sessionAdmin,
 }
 
 final class PiProtocolHandshakeAcceptedMessage extends PiServerProtocolMessage {
@@ -273,6 +365,52 @@ final class PiProtocolSessionCreatedResponse extends PiProtocolResponseMessage {
   });
 
   final PiProtocolSessionDetail session;
+}
+
+sealed class PiProtocolSessionAdminOutcome {
+  const PiProtocolSessionAdminOutcome();
+}
+
+final class PiProtocolSessionAdminUpdated
+    extends PiProtocolSessionAdminOutcome {
+  const PiProtocolSessionAdminUpdated(this.session);
+
+  final PiProtocolSessionSummary session;
+}
+
+final class PiProtocolSessionAdminDeleted
+    extends PiProtocolSessionAdminOutcome {
+  PiProtocolSessionAdminDeleted({
+    required String sessionId,
+    required int reparentedChildCount,
+  }) : sessionId = _validatedOpaqueId(sessionId, 'sessionId'),
+       reparentedChildCount = _validatedBoundedCount(
+         reparentedChildCount,
+         'reparentedChildCount',
+         0xffffffff,
+       );
+
+  final String sessionId;
+  final int reparentedChildCount;
+}
+
+final class PiProtocolSessionAdminFailed extends PiProtocolSessionAdminOutcome {
+  const PiProtocolSessionAdminFailed(this.failure);
+
+  final PiProtocolFailure failure;
+}
+
+final class PiProtocolSessionAdminOutcomeMessage
+    extends PiProtocolCommandResponseMessage {
+  PiProtocolSessionAdminOutcomeMessage({
+    required super.requestId,
+    required super.commandId,
+    required this.operation,
+    required this.outcome,
+  });
+
+  final PiProtocolSessionAdminOperation operation;
+  final PiProtocolSessionAdminOutcome outcome;
 }
 
 final class PiProtocolRequestRejectedMessage extends PiProtocolResponseMessage {
@@ -531,11 +669,14 @@ final class PiProtocolSessionSummary {
     required DateTime updatedAt,
     required this.isRunning,
     required this.hasUnread,
+    required String adminRevision,
+    required this.hasCustomName,
   }) : id = _validatedOpaqueId(id, 'sessionId'),
        title = _validatedText(title, 'title', allowEmpty: false),
        workingDirectory = _validatedPath(workingDirectory),
        createdAt = _validatedUtcInstant(createdAt, 'createdAt'),
-       updatedAt = _validatedUtcInstant(updatedAt, 'updatedAt') {
+       updatedAt = _validatedUtcInstant(updatedAt, 'updatedAt'),
+       adminRevision = _validatedOpaqueId(adminRevision, 'adminRevision') {
     if (updatedAt.isBefore(createdAt)) {
       throw ArgumentError('updatedAt must not be before createdAt.');
     }
@@ -548,6 +689,8 @@ final class PiProtocolSessionSummary {
   final DateTime updatedAt;
   final bool isRunning;
   final bool hasUnread;
+  final String adminRevision;
+  final bool hasCustomName;
 
   @override
   String toString() => 'PiProtocolSessionSummary(<redacted>)';

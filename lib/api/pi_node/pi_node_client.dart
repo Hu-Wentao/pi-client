@@ -256,6 +256,69 @@ final class PiNodeClient implements PiNodeApi {
       );
 
   @override
+  Future<PiSessionAdminResult> renameSession(PiRenameSessionCommand command) =>
+      _sendSessionAdminCommand(
+        command,
+        PiSessionAdminOperation.rename,
+        (requestId) => PiProtocolRenameSessionCommandRequest(
+          requestId: requestId,
+          commandId: command.commandId.value,
+          projectId: command.projectId.value,
+          sessionId: command.sessionId.value,
+          name: command.name,
+        ),
+      );
+
+  @override
+  Future<PiSessionAdminResult> clearSessionName(
+    PiClearSessionNameCommand command,
+  ) => _sendSessionAdminCommand(
+    command,
+    PiSessionAdminOperation.clearName,
+    (requestId) => PiProtocolClearSessionNameCommandRequest(
+      requestId: requestId,
+      commandId: command.commandId.value,
+      projectId: command.projectId.value,
+      sessionId: command.sessionId.value,
+    ),
+  );
+
+  @override
+  Future<PiSessionAdminResult> autoNameSession(
+    PiAutoNameSessionCommand command,
+  ) => _sendSessionAdminCommand(
+    command,
+    PiSessionAdminOperation.autoName,
+    (requestId) => PiProtocolAutoNameSessionCommandRequest(
+      requestId: requestId,
+      commandId: command.commandId.value,
+      projectId: command.projectId.value,
+      sessionId: command.sessionId.value,
+      timeoutMillis: command.timeout.inMilliseconds,
+    ),
+  );
+
+  @override
+  Future<PiSessionAdminResult> deleteSession(PiDeleteSessionCommand command) =>
+      _sendSessionAdminCommand(
+        command,
+        PiSessionAdminOperation.delete,
+        (requestId) => PiProtocolDeleteSessionCommandRequest(
+          requestId: requestId,
+          commandId: command.commandId.value,
+          projectId: command.projectId.value,
+          sessionId: command.sessionId.value,
+          confirmation: PiProtocolDeleteSessionConfirmationEvidence(
+            sessionId: command.confirmation.sessionId.value,
+            adminRevision: command.confirmation.adminRevision.value,
+            displayedTitle: command.confirmation.displayedTitle,
+            destructiveActionAcknowledged:
+                command.confirmation.destructiveActionAcknowledged,
+          ),
+        ),
+      );
+
+  @override
   Future<PiCommandResult> prompt(PiPromptCommand command) => _sendCommand(
     command,
     (requestId) => PiProtocolPromptCommandRequest(
@@ -504,6 +567,58 @@ final class PiNodeClient implements PiNodeApi {
     return completer.future;
   }
 
+  Future<PiSessionAdminResult> _sendSessionAdminCommand(
+    PiSessionAdminCommand command,
+    PiSessionAdminOperation operation,
+    PiProtocolSessionAdminCommandRequest Function(int requestId) buildMessage,
+  ) {
+    try {
+      _ensureConnected();
+    } catch (error, stackTrace) {
+      return Future<PiSessionAdminResult>.error(error, stackTrace);
+    }
+    final requestId = _takeRequestId();
+    final completer = Completer<PiSessionAdminResult>();
+    final pending = _PendingSessionAdmin(
+      command.commandId,
+      command.sessionId,
+      operation,
+      completer,
+      _resetSessionEventState,
+    );
+    _pending[requestId] = pending;
+
+    PiTransportFrame frame;
+    try {
+      frame = _encode(buildMessage(requestId));
+    } catch (error, stackTrace) {
+      _pending.remove(requestId);
+      return Future<PiSessionAdminResult>.error(error, stackTrace);
+    }
+
+    try {
+      unawaited(
+        _transport.send(frame).catchError((Object _) {
+          if (identical(_pending.remove(requestId), pending)) {
+            pending.fail(
+              const PiNodeException(
+                PiNodeErrorCode.disconnected,
+                retryable: true,
+              ),
+            );
+          }
+        }),
+      );
+    } catch (_) {
+      if (identical(_pending.remove(requestId), pending)) {
+        pending.fail(
+          const PiNodeException(PiNodeErrorCode.disconnected, retryable: true),
+        );
+      }
+    }
+    return completer.future;
+  }
+
   Future<PiCommandResult> _sendCommand(
     PiSessionCommand command,
     PiProtocolCommandRequest Function(int requestId) buildMessage,
@@ -637,6 +752,14 @@ final class PiNodeClient implements PiNodeApi {
     await _connectionStates.close();
   }
 
+  void _resetSessionEventState(PiSessionId sessionId) {
+    _lastSessionSequences.remove(sessionId);
+    final controller = _sessionControllers.remove(sessionId);
+    if (controller != null && !controller.isClosed) {
+      unawaited(controller.close());
+    }
+  }
+
   void _failAndCloseSessionStreams(PiNodeException error) {
     final controllers = _sessionControllers.values.toList(growable: false);
     _sessionControllers.clear();
@@ -689,6 +812,89 @@ final class _PendingRequest<T> implements _PendingOperation {
   }
 }
 
+final class _PendingSessionAdmin implements _PendingOperation {
+  const _PendingSessionAdmin(
+    this._commandId,
+    this._sessionId,
+    this._operation,
+    this._completer,
+    this._onSettled,
+  );
+
+  final PiCommandId _commandId;
+  final PiSessionId _sessionId;
+  final PiSessionAdminOperation _operation;
+  final Completer<PiSessionAdminResult> _completer;
+  final void Function(PiSessionId sessionId) _onSettled;
+
+  @override
+  void complete(PiProtocolResponseMessage message) {
+    if (_completer.isCompleted) return;
+    _onSettled(_sessionId);
+    if (message is PiProtocolCommandRejectedMessage &&
+        message.commandId == _commandId.value) {
+      _completer.complete(
+        PiSessionAdminRejected(
+          commandId: _commandId,
+          operation: _operation,
+          error: PiNodeException.fromProtocolFailure(message.failure),
+        ),
+      );
+      return;
+    }
+    if (message is! PiProtocolSessionAdminOutcomeMessage ||
+        message.commandId != _commandId.value ||
+        _sessionAdminOperationFromProtocol(message.operation) != _operation) {
+      _completer.complete(
+        PiSessionAdminUncertain(
+          commandId: _commandId,
+          operation: _operation,
+          error: const PiNodeException(
+            PiNodeErrorCode.unexpectedResponse,
+            retryable: true,
+          ),
+        ),
+      );
+      return;
+    }
+    final result = switch (message.outcome) {
+      PiProtocolSessionAdminUpdated(:final session) => PiSessionAdminUpdated(
+        commandId: _commandId,
+        operation: _operation,
+        session: _sessionSummaryFromProtocol(session),
+      ),
+      PiProtocolSessionAdminDeleted(
+        :final sessionId,
+        :final reparentedChildCount,
+      ) =>
+        PiSessionAdminDeleted(
+          commandId: _commandId,
+          sessionId: PiSessionId(sessionId),
+          reparentedChildCount: reparentedChildCount,
+        ),
+      PiProtocolSessionAdminFailed(:final failure) => PiSessionAdminRejected(
+        commandId: _commandId,
+        operation: _operation,
+        error: PiNodeException.fromProtocolFailure(failure),
+      ),
+    };
+    _completer.complete(result);
+  }
+
+  @override
+  void fail(PiNodeException error) {
+    if (_completer.isCompleted) return;
+    _onSettled(_sessionId);
+    _completer.complete(
+      PiSessionAdminUncertain(
+        commandId: _commandId,
+        operation: _operation,
+        error: error,
+      ),
+    );
+  }
+}
+
 final class _PendingCommand implements _PendingOperation {
   const _PendingCommand(this._commandId, this._completer);
 
@@ -720,6 +926,13 @@ final class _PendingCommand implements _PendingOperation {
       PiProtocolCommandUncertainMessage(:final failure) => PiCommandUncertain(
         _commandId,
         PiNodeException.fromProtocolFailure(failure),
+      ),
+      PiProtocolSessionAdminOutcomeMessage() => PiCommandUncertain(
+        _commandId,
+        const PiNodeException(
+          PiNodeErrorCode.unexpectedResponse,
+          retryable: true,
+        ),
       ),
     };
     _completer.complete(result);
@@ -802,6 +1015,8 @@ PiSessionSummary _sessionSummaryFromProtocol(PiProtocolSessionSummary value) =>
       updatedAt: value.updatedAt,
       isRunning: value.isRunning,
       hasUnread: value.hasUnread,
+      adminRevision: PiSessionAdminRevision(value.adminRevision),
+      hasCustomName: value.hasCustomName,
     );
 
 PiSessionDetail _sessionDetailFromProtocol(PiProtocolSessionDetail value) =>
@@ -822,6 +1037,16 @@ PiMessage _messageFromProtocol(PiProtocolMessageSnapshot value) => PiMessage(
   createdAt: value.createdAt,
   isStreaming: value.isStreaming,
 );
+
+PiSessionAdminOperation _sessionAdminOperationFromProtocol(
+  PiProtocolSessionAdminOperation value,
+) => switch (value) {
+  PiProtocolSessionAdminOperation.rename => PiSessionAdminOperation.rename,
+  PiProtocolSessionAdminOperation.clearName =>
+    PiSessionAdminOperation.clearName,
+  PiProtocolSessionAdminOperation.autoName => PiSessionAdminOperation.autoName,
+  PiProtocolSessionAdminOperation.delete => PiSessionAdminOperation.delete,
+};
 
 PiSessionEvent _sessionEventFromProtocol(
   PiSessionId sessionId,

@@ -75,6 +75,7 @@ export interface PiNodeSessionSummary {
   readonly messageCount: number;
   readonly firstMessage: string;
   readonly running: boolean;
+  readonly adminRevision: string;
 }
 
 export interface PiNodeSessionSnapshot extends PiNodeSessionSummary {
@@ -245,7 +246,46 @@ export interface PiNodeDomainSessionBackend {
   dispose(): Promise<void>;
 }
 
-export interface PiNodeDomainSessionBackendFactory {
+export interface PiNodeSessionDeleteConfirmation {
+  readonly sessionId: string;
+  readonly adminRevision: string;
+  readonly displayedTitle: string;
+  readonly destructiveActionAcknowledged: boolean;
+}
+
+export interface PiNodeSessionDeleteResult {
+  readonly sessionId: string;
+  readonly reparentedChildCount: number;
+}
+
+export interface PiNodeSessionAdministrationBackend {
+  renamePersistentSession(input: {
+    readonly authorization: ProjectTrustAuthorization;
+    readonly agentDir: string;
+    readonly sessionId: string;
+    readonly name: string;
+  }): Promise<PiNodeSessionSummary>;
+  clearPersistentSessionName(input: {
+    readonly authorization: ProjectTrustAuthorization;
+    readonly agentDir: string;
+    readonly sessionId: string;
+  }): Promise<PiNodeSessionSummary>;
+  autoNamePersistentSession(input: {
+    readonly authorization: ProjectTrustAuthorization;
+    readonly agentDir: string;
+    readonly sessionId: string;
+    readonly timeoutMillis: number;
+    readonly signal?: AbortSignal;
+  }): Promise<PiNodeSessionSummary>;
+  deletePersistentSession(input: {
+    readonly authorization: ProjectTrustAuthorization;
+    readonly agentDir: string;
+    readonly sessionId: string;
+    readonly confirmation: PiNodeSessionDeleteConfirmation;
+  }): Promise<PiNodeSessionDeleteResult>;
+}
+
+export interface PiNodeDomainSessionBackendFactory extends PiNodeSessionAdministrationBackend {
   listPersistentSessions(input: {
     readonly authorization: ProjectTrustAuthorization;
     readonly agentDir: string;
@@ -281,6 +321,16 @@ export type PiNodeDomainErrorCode =
   | "session-create-failed"
   | "session-load-failed"
   | "session-dispose-failed"
+  | "session-admin-invalid-name"
+  | "session-admin-confirmation-required"
+  | "session-admin-conflict"
+  | "session-admin-locked"
+  | "session-admin-failed"
+  | "session-auto-name-model-unavailable"
+  | "session-auto-name-provider-auth-required"
+  | "session-auto-name-timeout"
+  | "session-auto-name-cancelled"
+  | "session-auto-name-failed"
   | "abort-failed";
 
 export class PiNodeDomainError extends Error {

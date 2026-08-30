@@ -99,6 +99,64 @@ void main() {
     unawaited(api.close());
   });
 
+  testWidgets('renames a session through the Workspace action surface', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final session = fakeSession(
+      id: 'workspace-admin',
+      title: 'Original workspace title',
+      workingDirectory: '/Projects/workspace-admin',
+    );
+    final api = FakePiNodeApi(
+      sessions: <PiSessionSummary>[session],
+      details: <PiSessionId, PiSessionDetail>{session.id: fakeDetail(session)},
+    );
+    final viewModel = WorkspaceViewModel(service: WorkspaceService(api));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FrProvider<WorkspaceViewModel>.value(
+          value: viewModel,
+          child: const WorkspaceView(),
+        ),
+      ),
+    );
+    viewModel.add(const WorkspaceStarted());
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(ValueKey<String>('sessionActions-${session.id.value}')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Rename'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('sessionRenameField')),
+      'Renamed from Workspace',
+    );
+    await tester.tap(find.byKey(const Key('sessionRenameSaveButton')));
+    await tester.pump();
+    await tester.runAsync(
+      () => _waitUntil(
+        () =>
+            api.renameCalls == 1 &&
+            !viewModel.state.sessionAdminLoading &&
+            viewModel.state.sessions.single.title == 'Renamed from Workspace',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Renamed from Workspace'), findsOneWidget);
+    expect(viewModel.state.sessionAdminError, isNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    unawaited(viewModel.close());
+    unawaited(api.close());
+  });
+
   testWidgets('scrolls typed sessions, selects one, and submits a prompt', (
     tester,
   ) async {

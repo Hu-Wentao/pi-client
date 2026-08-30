@@ -17,7 +17,9 @@
 ///   [WorkspaceProjectDirectoryBrowsed], [WorkspaceProjectPathValidated],
 ///   [WorkspaceProjectSelected], [WorkspaceProjectTrustApproved],
 ///   [WorkspaceSessionsRefreshed], [WorkspaceSessionSelected],
-///   [WorkspaceNewSessionRequested], [WorkspacePromptSubmitted],
+///   [WorkspaceNewSessionRequested], [WorkspaceSessionRenamed],
+///   [WorkspaceSessionCustomNameCleared], [WorkspaceSessionAutoNamed],
+///   [WorkspaceSessionDeleted], [WorkspacePromptSubmitted],
 ///   [WorkspaceAgentStopped]
 /// Startup Event: [WorkspaceStarted]
 /// ViewModels: [WorkspaceViewModel]
@@ -28,7 +30,8 @@
 ///   subscriptions. Startup connects, resolves the Node-owned default project,
 ///   loads session-derived known projects, and lists the selected project's
 ///   sessions; directory browsing, manual-path validation, project selection,
-///   explicit trust approval, refresh, session selection, creation,
+///   explicit trust approval, refresh, session selection, creation, rename,
+///   custom-name clearing, bounded model-assisted naming, confirmed deletion,
 ///   prompt admission, ordered events, sequence-gap recovery, abort, and clean
 ///   close remain observable. Local-host, remote-node-required, unsupported,
 ///   empty, rejected, uncertain, disconnected, retry, and stale-result-safe
@@ -64,6 +67,9 @@ abstract class WorkspaceModel with _$WorkspaceModel {
     @Default(<PiSessionSummary>[])
     List<PiSessionSummary> sessions,
     @JsonKey(includeToJson: false) PiSessionId? selectedSessionId,
+    @JsonKey(includeToJson: false) PiSessionId? sessionAdminSessionId,
+    @JsonKey(includeToJson: false)
+    PiSessionAdminOperation? sessionAdminOperation,
     @JsonKey(includeToJson: false)
     @Default(<PiMessage>[])
     List<PiMessage> messages,
@@ -74,11 +80,13 @@ abstract class WorkspaceModel with _$WorkspaceModel {
     @Default(false) bool sessionsLoading,
     @Default(false) bool conversationLoading,
     @Default(false) bool creatingSession,
+    @Default(false) bool sessionAdminLoading,
     @Default(false) bool sending,
     @Default(false) bool stopping,
     String? nodeError,
     String? projectError,
     String? sessionError,
+    String? sessionAdminError,
     String? conversationError,
     String? promptError,
     String? statusMessage,
@@ -137,6 +145,31 @@ final class WorkspaceSessionSelected extends WorkspaceEvent {
 
 final class WorkspaceNewSessionRequested extends WorkspaceEvent {
   const WorkspaceNewSessionRequested();
+}
+
+final class WorkspaceSessionRenamed extends WorkspaceEvent {
+  const WorkspaceSessionRenamed({required this.sessionId, required this.name});
+
+  final PiSessionId sessionId;
+  final String name;
+}
+
+final class WorkspaceSessionCustomNameCleared extends WorkspaceEvent {
+  const WorkspaceSessionCustomNameCleared(this.sessionId);
+
+  final PiSessionId sessionId;
+}
+
+final class WorkspaceSessionAutoNamed extends WorkspaceEvent {
+  const WorkspaceSessionAutoNamed(this.sessionId);
+
+  final PiSessionId sessionId;
+}
+
+final class WorkspaceSessionDeleted extends WorkspaceEvent {
+  const WorkspaceSessionDeleted(this.confirmation);
+
+  final PiDeleteSessionConfirmation confirmation;
 }
 
 final class WorkspacePromptSubmitted extends WorkspaceEvent {

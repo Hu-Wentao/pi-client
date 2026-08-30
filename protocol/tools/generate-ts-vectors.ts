@@ -8,6 +8,7 @@ import {
   PiTransportFrameSchema,
   ProjectTrustReason,
   ProjectTrustStatus,
+  SessionAdminOperation,
 } from "../gen/ts/pi/client/protocol/v0/protocol_pb.ts";
 import { encodeTransportFrame } from "../src/frame_codec.ts";
 
@@ -30,6 +31,8 @@ const sessionResponse = create(PiTransportFrameSchema, {
           updatedAtUnixMillis: 9_007_199_254_740_999n,
           isRunning: true,
           hasUnread: false,
+          adminRevision: "revision-session-ts-1",
+          hasCustomName: true,
         },
         messages: [
           {
@@ -84,6 +87,36 @@ const projectSnapshot = create(PiTransportFrameSchema, {
 writeFileSync(
   resolve(vectorDirectory, "ts_project_snapshot.pb"),
   encodeTransportFrame(projectSnapshot),
+);
+
+const sessionAdminOutcome = create(PiTransportFrameSchema, {
+  frameSequence: 19n,
+  operation: {
+    case: "sessionAdminCommandOutcome",
+    value: {
+      requestId: 23n,
+      commandId: "admin-command-ts-1",
+      operation: SessionAdminOperation.AUTO_NAME,
+      outcome: {
+        case: "session",
+        value: {
+          sessionId: "session-ts-admin-1",
+          title: "Generated cross-language title",
+          workingDirectory: "/tmp/pi-client-admin-vector",
+          createdAtUnixMillis: 1_700_000_000_000n,
+          updatedAtUnixMillis: 1_700_000_000_001n,
+          isRunning: false,
+          hasUnread: false,
+          adminRevision: "revision-session-ts-admin-2",
+          hasCustomName: true,
+        },
+      },
+    },
+  },
+});
+writeFileSync(
+  resolve(vectorDirectory, "ts_session_admin_outcome.pb"),
+  encodeTransportFrame(sessionAdminOutcome),
 );
 
 // Unknown top-level field 19000, varint value 123. It is appended to a valid

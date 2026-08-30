@@ -124,6 +124,8 @@ export function toProtocolSessionSummary(summary: PiNodeSessionSummary): Session
     updatedAtUnixMillis,
     isRunning: summary.running,
     hasUnread: false,
+    adminRevision: requireIdentifier(summary.adminRevision, "session administration revision"),
+    hasCustomName: summary.name?.trim().length !== undefined && summary.name.trim().length > 0,
   });
 }
 
@@ -216,6 +218,32 @@ export function mapDomainError(error: unknown): StableError {
       return stableError(ErrorCode.CONFLICT, "The session is already in use.");
     case "session-capacity-exceeded":
       return stableError(ErrorCode.NODE_BUSY, "The Pi Node session capacity is exhausted.", true);
+    case "session-admin-invalid-name":
+      return stableError(ErrorCode.INVALID_REQUEST, "The session name is invalid.");
+    case "session-admin-confirmation-required":
+      return stableError(
+        ErrorCode.FAILED_PRECONDITION,
+        "Explicit session deletion confirmation is required.",
+      );
+    case "session-admin-conflict":
+      return stableError(ErrorCode.CONFLICT, "The session changed. Refresh and try again.");
+    case "session-admin-locked":
+      return stableError(ErrorCode.NODE_BUSY, "The session is being administered.", true);
+    case "session-auto-name-model-unavailable":
+      return stableError(ErrorCode.FAILED_PRECONDITION, "The session model is unavailable.");
+    case "session-auto-name-provider-auth-required":
+      return stableError(
+        ErrorCode.AUTHENTICATION_REQUIRED,
+        "The session model provider requires authentication.",
+      );
+    case "session-auto-name-timeout":
+      return stableError(
+        ErrorCode.DEADLINE_EXCEEDED,
+        "Session naming exceeded its deadline.",
+        true,
+      );
+    case "session-auto-name-cancelled":
+      return stableError(ErrorCode.CANCELLED, "Session naming was cancelled.");
     case "service-disposed":
       return stableError(ErrorCode.UNAVAILABLE, "The Pi Node service is unavailable.", true);
     case "project-trust-resolution-failed":
@@ -226,6 +254,8 @@ export function mapDomainError(error: unknown): StableError {
     case "session-create-failed":
     case "session-load-failed":
     case "session-dispose-failed":
+    case "session-admin-failed":
+    case "session-auto-name-failed":
     case "abort-failed":
       return stableError(ErrorCode.INTERNAL, "The Pi Node operation failed.");
   }

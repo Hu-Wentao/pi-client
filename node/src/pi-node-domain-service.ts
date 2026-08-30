@@ -16,6 +16,8 @@ import {
   type PiNodeSessionBackendEvent,
   type PiNodeSessionEvent,
   type PiNodeSessionEventListener,
+  type PiNodeSessionDeleteConfirmation,
+  type PiNodeSessionDeleteResult,
   type PiNodeSessionSnapshot,
   type PiNodeSessionSummary,
 } from "./pi-node-domain.js";
@@ -25,6 +27,7 @@ import {
   type ProjectTrustAuthorization,
 } from "./project-trust.js";
 import { PiNodeProjectService } from "./project-service.js";
+import { PiSdkSessionAdministrationError } from "./pi-sdk-session-administration.js";
 
 export interface PiNodeSessionLease {
   release(): void;
@@ -77,6 +80,22 @@ class SerialExecutor {
   }
 }
 
+class KeyedSerialExecutor {
+  readonly #entries = new Map<string, { executor: SerialExecutor; references: number }>();
+
+  run<T>(key: string, operation: () => Promise<T> | T): Promise<T> {
+    const entry = this.#entries.get(key) ?? { executor: new SerialExecutor(), references: 0 };
+    entry.references += 1;
+    this.#entries.set(key, entry);
+    return entry.executor.run(operation).finally(() => {
+      entry.references -= 1;
+      if (entry.references === 0 && this.#entries.get(key) === entry) {
+        this.#entries.delete(key);
+      }
+    });
+  }
+}
+
 interface ActiveCommand {
   readonly commandId: string;
   admission: "accepted" | "uncertain" | "admitting";
@@ -119,8 +138,10 @@ export class PiNodeDomainService {
   readonly #clock: () => number;
   readonly #ownerId: string;
   readonly #executor = new SerialExecutor();
+  readonly #sessionAdminExecutor = new KeyedSerialExecutor();
   readonly #sessions = new Map<string, RegistryEntry>();
   readonly #lastSequenceBySession = new Map<string, number>();
+  readonly #administeredSessionKeys = new Set<string>();
 
   #touchCounter = 0;
   #disposeRequested = false;
@@ -264,6 +285,13 @@ export class PiNodeDomainService {
       this.#assertAvailable();
       const sessionId = requireIdentifier(input.sessionId, "sessionId");
       const authorization = await this.#authorize(input.cwd);
+      const adminKey = sessionOwnershipKey(authorization.cwd, sessionId);
+      if (this.#administeredSessionKeys.has(adminKey)) {
+        throw new PiNodeDomainError(
+          "session-admin-locked",
+          "The session has an active administration operation.",
+        );
+      }
       const existing = this.#sessions.get(sessionId);
       if (existing) {
         if (existing.backend.cwd !== authorization.cwd) {
@@ -448,6 +476,66 @@ export class PiNodeDomainService {
     });
   }
 
+  renamePersistentSession(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+    readonly name: string;
+  }): Promise<PiNodeSessionSummary> {
+    return this.#runSessionAdministration(input, false, (authorization) =>
+      this.#sessionFactory.renamePersistentSession({
+        authorization,
+        agentDir: this.#agentDir,
+        sessionId: input.sessionId,
+        name: input.name,
+      }),
+    );
+  }
+
+  clearPersistentSessionName(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+  }): Promise<PiNodeSessionSummary> {
+    return this.#runSessionAdministration(input, false, (authorization) =>
+      this.#sessionFactory.clearPersistentSessionName({
+        authorization,
+        agentDir: this.#agentDir,
+        sessionId: input.sessionId,
+      }),
+    );
+  }
+
+  autoNamePersistentSession(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+    readonly timeoutMillis: number;
+    readonly signal?: AbortSignal;
+  }): Promise<PiNodeSessionSummary> {
+    return this.#runSessionAdministration(input, true, (authorization) =>
+      this.#sessionFactory.autoNamePersistentSession({
+        authorization,
+        agentDir: this.#agentDir,
+        sessionId: input.sessionId,
+        timeoutMillis: input.timeoutMillis,
+        ...(input.signal === undefined ? {} : { signal: input.signal }),
+      }),
+    );
+  }
+
+  deletePersistentSession(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+    readonly confirmation: PiNodeSessionDeleteConfirmation;
+  }): Promise<PiNodeSessionDeleteResult> {
+    return this.#runSessionAdministration(input, false, (authorization) =>
+      this.#sessionFactory.deletePersistentSession({
+        authorization,
+        agentDir: this.#agentDir,
+        sessionId: input.sessionId,
+        confirmation: input.confirmation,
+      }),
+    );
+  }
+
   closeSession(sessionId: string): Promise<void> {
     return this.#executor.run(async () => {
       this.#assertAvailable();
@@ -479,6 +567,55 @@ export class PiNodeDomainService {
       }
     });
     return this.#disposePromise;
+  }
+
+  #runSessionAdministration<T>(
+    input: { readonly cwd: string; readonly sessionId: string },
+    requiresTrustedResources: boolean,
+    operation: (authorization: ProjectTrustAuthorization) => Promise<T>,
+  ): Promise<T> {
+    const requestedSessionId = requireIdentifier(input.sessionId, "sessionId");
+    return this.#sessionAdminExecutor.run(`${input.cwd}\u0000${requestedSessionId}`, async () => {
+      let authorization: ProjectTrustAuthorization | undefined;
+      let adminKey: string | undefined;
+      try {
+        authorization = await this.#executor.run(async () => {
+          this.#assertAvailable();
+          const resolved = requiresTrustedResources
+            ? await this.#authorize(input.cwd)
+            : await this.#authorizeMetadata(input.cwd);
+          const key = sessionOwnershipKey(resolved.cwd, requestedSessionId);
+          if (this.#administeredSessionKeys.has(key)) {
+            throw new PiNodeDomainError(
+              "session-admin-locked",
+              "The session has an active administration operation.",
+            );
+          }
+          this.#administeredSessionKeys.add(key);
+          adminKey = key;
+          const loaded = this.#sessions.get(requestedSessionId);
+          if (loaded) {
+            if (loaded.backend.cwd !== resolved.cwd) {
+              throw new PiNodeDomainError(
+                "session-not-found",
+                "The requested session does not belong to the canonical project directory.",
+              );
+            }
+            await this.#disposeEntry(loaded);
+          }
+          return resolved;
+        });
+        return await operation(authorization);
+      } catch (error) {
+        throw wrapSessionAdministrationError(error);
+      } finally {
+        if (adminKey !== undefined) {
+          await this.#executor.run(() => {
+            this.#administeredSessionKeys.delete(adminKey!);
+          });
+        }
+      }
+    });
   }
 
   async #authorizeMetadata(cwd: string): Promise<ProjectTrustAuthorization> {
@@ -795,6 +932,7 @@ function copySummary(summary: PiNodeSessionSummary, running: boolean): PiNodeSes
     messageCount: summary.messageCount,
     firstMessage: summary.firstMessage,
     running,
+    adminRevision: summary.adminRevision,
   });
 }
 
@@ -854,6 +992,77 @@ function safeTrustMessage(code: PiNodeDomainError["code"]): string {
 
 function hasErrorCode(error: unknown, code: string): boolean {
   return typeof error === "object" && error !== null && "code" in error && error.code === code;
+}
+
+function wrapSessionAdministrationError(error: unknown): PiNodeDomainError {
+  if (error instanceof PiNodeDomainError) return error;
+  if (!(error instanceof PiSdkSessionAdministrationError)) {
+    return new PiNodeDomainError(
+      "session-admin-failed",
+      "The Pi Node session administration operation failed.",
+      { cause: error },
+    );
+  }
+  const code = switchSessionAdministrationErrorCode(error.code);
+  return new PiNodeDomainError(code, safeSessionAdministrationMessage(code), {
+    cause: error,
+  });
+}
+
+function switchSessionAdministrationErrorCode(
+  code: PiSdkSessionAdministrationError["code"],
+): PiNodeDomainError["code"] {
+  switch (code) {
+    case "session-not-found":
+    case "session-id-ambiguous":
+      return "session-not-found";
+    case "session-name-invalid":
+      return "session-admin-invalid-name";
+    case "session-delete-confirmation-required":
+      return "session-admin-confirmation-required";
+    case "session-admin-conflict":
+      return "session-admin-conflict";
+    case "session-admin-locked":
+      return "session-admin-locked";
+    case "session-auto-name-model-unavailable":
+      return "session-auto-name-model-unavailable";
+    case "session-auto-name-provider-auth-required":
+      return "session-auto-name-provider-auth-required";
+    case "session-auto-name-timeout":
+      return "session-auto-name-timeout";
+    case "session-auto-name-cancelled":
+      return "session-auto-name-cancelled";
+    case "session-auto-name-empty":
+    case "session-auto-name-failed":
+      return "session-auto-name-failed";
+    case "session-admin-write-failed":
+      return "session-admin-failed";
+  }
+}
+
+function safeSessionAdministrationMessage(code: PiNodeDomainError["code"]): string {
+  switch (code) {
+    case "session-not-found":
+      return "The requested session was not found.";
+    case "session-admin-invalid-name":
+      return "The session name is outside the supported bounds.";
+    case "session-admin-confirmation-required":
+      return "Explicit deletion confirmation evidence is required.";
+    case "session-admin-conflict":
+      return "The session changed before the administration operation completed.";
+    case "session-admin-locked":
+      return "The session already has an administration operation in progress.";
+    case "session-auto-name-model-unavailable":
+      return "The session model is unavailable.";
+    case "session-auto-name-provider-auth-required":
+      return "The session model provider requires authentication.";
+    case "session-auto-name-timeout":
+      return "The session naming operation exceeded its deadline.";
+    case "session-auto-name-cancelled":
+      return "The session naming operation was cancelled.";
+    default:
+      return "The Pi Node session administration operation failed.";
+  }
 }
 
 function wrapDomainError(

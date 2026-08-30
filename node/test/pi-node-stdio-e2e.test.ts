@@ -34,6 +34,7 @@ function operationOffer(minor = 1): FrameOperationInit {
         Capability.SESSION_EVENTS,
         Capability.PROJECT_DISCOVERY,
         Capability.PROJECT_TRUST,
+        Capability.SESSION_ADMIN,
       ],
       clientInstanceId: "stdio-e2e-client",
       implementationName: "Pi Client E2E",
@@ -79,9 +80,14 @@ test("binary stdio E2E covers handshake, sessions, prompt events, abort, and dis
   });
   const created = await client.next();
   assert.equal(created.operation.case, "createSessionResponse");
+  const createdRevision =
+    created.operation.case === "createSessionResponse"
+      ? created.operation.value.session?.summary?.adminRevision
+      : undefined;
   if (created.operation.case === "createSessionResponse") {
     assert.equal(created.operation.value.session?.summary?.sessionId, "created-1");
   }
+  assert.ok(createdRevision);
 
   await client.send(5n, {
     case: "getSessionRequest",
@@ -127,6 +133,65 @@ test("binary stdio E2E covers handshake, sessions, prompt events, abort, and dis
     if (completed.operation.value.event.case === "commandCompleted") {
       assert.equal(completed.operation.value.event.value.error?.code, ErrorCode.CANCELLED);
     }
+  }
+
+  await client.send(8n, {
+    case: "renameSessionCommand",
+    value: {
+      requestId: 7n,
+      commandId: "rename-stdio",
+      projectId,
+      sessionId: "created-1",
+      name: "Renamed over stdio",
+    },
+  });
+  const renamed = await client.next();
+  assert.equal(renamed.operation.case, "sessionAdminCommandOutcome");
+  const renamedRevision =
+    renamed.operation.case === "sessionAdminCommandOutcome" &&
+    renamed.operation.value.outcome.case === "session"
+      ? renamed.operation.value.outcome.value.adminRevision
+      : undefined;
+  assert.ok(renamedRevision);
+
+  await client.send(9n, {
+    case: "autoNameSessionCommand",
+    value: {
+      requestId: 8n,
+      commandId: "auto-name-stdio",
+      projectId,
+      sessionId: "created-1",
+      timeoutMillis: 15_000,
+    },
+  });
+  const autoNamed = await client.next();
+  assert.equal(autoNamed.operation.case, "sessionAdminCommandOutcome");
+  const autoNamedRevision =
+    autoNamed.operation.case === "sessionAdminCommandOutcome" &&
+    autoNamed.operation.value.outcome.case === "session"
+      ? autoNamed.operation.value.outcome.value.adminRevision
+      : undefined;
+  assert.ok(autoNamedRevision);
+
+  await client.send(10n, {
+    case: "deleteSessionCommand",
+    value: {
+      requestId: 9n,
+      commandId: "delete-stdio",
+      projectId,
+      sessionId: "created-1",
+      confirmation: {
+        sessionId: "created-1",
+        adminRevision: autoNamedRevision,
+        displayedTitle: "Generated session title",
+        destructiveActionAcknowledged: true,
+      },
+    },
+  });
+  const deleted = await client.next();
+  assert.equal(deleted.operation.case, "sessionAdminCommandOutcome");
+  if (deleted.operation.case === "sessionAdminCommandOutcome") {
+    assert.equal(deleted.operation.value.outcome.case, "deletion");
   }
 
   client.endInput();

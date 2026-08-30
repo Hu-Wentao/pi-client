@@ -172,6 +172,78 @@ final class ProtobufPiProtocolCodec implements PiProtocolCodec {
             sessionId: sessionId,
           ),
         ),
+      PiProtocolRenameSessionCommandRequest(
+        :final requestId,
+        :final commandId,
+        :final projectId,
+        :final sessionId,
+        :final name,
+      ) =>
+        wire.PiTransportFrame(
+          frameSequence: _wirePositiveInt(frameSequence),
+          renameSessionCommand: wire.RenameSessionCommand(
+            requestId: _wirePositiveInt(requestId),
+            commandId: commandId,
+            projectId: projectId,
+            sessionId: sessionId,
+            name: name,
+          ),
+        ),
+      PiProtocolClearSessionNameCommandRequest(
+        :final requestId,
+        :final commandId,
+        :final projectId,
+        :final sessionId,
+      ) =>
+        wire.PiTransportFrame(
+          frameSequence: _wirePositiveInt(frameSequence),
+          clearSessionNameCommand: wire.ClearSessionNameCommand(
+            requestId: _wirePositiveInt(requestId),
+            commandId: commandId,
+            projectId: projectId,
+            sessionId: sessionId,
+          ),
+        ),
+      PiProtocolAutoNameSessionCommandRequest(
+        :final requestId,
+        :final commandId,
+        :final projectId,
+        :final sessionId,
+        :final timeoutMillis,
+      ) =>
+        wire.PiTransportFrame(
+          frameSequence: _wirePositiveInt(frameSequence),
+          autoNameSessionCommand: wire.AutoNameSessionCommand(
+            requestId: _wirePositiveInt(requestId),
+            commandId: commandId,
+            projectId: projectId,
+            sessionId: sessionId,
+            timeoutMillis: timeoutMillis,
+          ),
+        ),
+      PiProtocolDeleteSessionCommandRequest(
+        :final requestId,
+        :final commandId,
+        :final projectId,
+        :final sessionId,
+        :final confirmation,
+      ) =>
+        wire.PiTransportFrame(
+          frameSequence: _wirePositiveInt(frameSequence),
+          deleteSessionCommand: wire.DeleteSessionCommand(
+            requestId: _wirePositiveInt(requestId),
+            commandId: commandId,
+            projectId: projectId,
+            sessionId: sessionId,
+            confirmation: wire.DeleteSessionConfirmationEvidence(
+              sessionId: confirmation.sessionId,
+              adminRevision: confirmation.adminRevision,
+              displayedTitle: confirmation.displayedTitle,
+              destructiveActionAcknowledged:
+                  confirmation.destructiveActionAcknowledged,
+            ),
+          ),
+        ),
     };
 
     Uint8List encoded;
@@ -242,6 +314,8 @@ final class ProtobufPiProtocolCodec implements PiProtocolCodec {
       _decodeSessionResponse(frame.getSessionResponse),
     wire.PiTransportFrame_Operation.createSessionResponse =>
       _decodeSessionCreatedResponse(frame.createSessionResponse),
+    wire.PiTransportFrame_Operation.sessionAdminCommandOutcome =>
+      _decodeSessionAdminOutcome(frame.sessionAdminCommandOutcome),
     wire.PiTransportFrame_Operation.requestRejected => _decodeRequestRejected(
       frame.requestRejected,
     ),
@@ -352,6 +426,36 @@ final class ProtobufPiProtocolCodec implements PiProtocolCodec {
     return PiProtocolSessionCreatedResponse(
       requestId: requestId,
       session: _semanticSessionDetail(response.session),
+    );
+  }
+
+  PiProtocolSessionAdminOutcomeMessage _decodeSessionAdminOutcome(
+    wire.SessionAdminCommandOutcome response,
+  ) {
+    final requestId = _semanticPositiveInt(response.requestId);
+    _requestCorrelations.remove(requestId);
+    final outcome = switch (response.whichOutcome()) {
+      wire.SessionAdminCommandOutcome_Outcome.session =>
+        PiProtocolSessionAdminUpdated(
+          _semanticSessionSummary(response.session),
+        ),
+      wire.SessionAdminCommandOutcome_Outcome.deletion =>
+        PiProtocolSessionAdminDeleted(
+          sessionId: response.deletion.sessionId,
+          reparentedChildCount: response.deletion.reparentedChildCount,
+        ),
+      wire.SessionAdminCommandOutcome_Outcome.error =>
+        PiProtocolSessionAdminFailed(_semanticFailure(response.error)),
+      wire.SessionAdminCommandOutcome_Outcome.notSet =>
+        throw const PiProtocolCodecException(
+          PiProtocolCodecErrorCode.malformedFrame,
+        ),
+    };
+    return PiProtocolSessionAdminOutcomeMessage(
+      requestId: requestId,
+      commandId: response.commandId,
+      operation: _semanticSessionAdminOperation(response.operation),
+      outcome: outcome,
     );
   }
 
@@ -503,6 +607,8 @@ final class ProtobufPiProtocolCodec implements PiProtocolCodec {
     updatedAt: _semanticInstant(summary.updatedAtUnixMillis),
     isRunning: summary.isRunning,
     hasUnread: summary.hasUnread,
+    adminRevision: summary.adminRevision,
+    hasCustomName: summary.hasCustomName,
   );
 
   PiProtocolSessionDetail _semanticSessionDetail(
@@ -532,7 +638,8 @@ final class ProtobufPiProtocolCodec implements PiProtocolCodec {
       PiProtocolGetSessionRequest() ||
       PiProtocolCreateSessionRequest() => const _RegularRequestCorrelation(),
       PiProtocolPromptCommandRequest(:final commandId) ||
-      PiProtocolAbortCommandRequest(
+      PiProtocolAbortCommandRequest(:final commandId) ||
+      PiProtocolSessionAdminCommandRequest(
         :final commandId,
       ) => _CommandCorrelation(commandId),
       PiProtocolHandshakeOfferMessage() => null,
@@ -592,6 +699,7 @@ final _clientCapabilities = <wire.Capability>[
   wire.Capability.CAPABILITY_SESSION_EVENTS,
   wire.Capability.CAPABILITY_PROJECT_DISCOVERY,
   wire.Capability.CAPABILITY_PROJECT_TRUST,
+  wire.Capability.CAPABILITY_SESSION_ADMIN,
 ];
 
 wire.ProtocolVersion _wireVersion(PiProtocolVersion version) {
@@ -674,6 +782,9 @@ PiProtocolCapability _semanticCapability(wire.Capability capability) {
   if (capability == wire.Capability.CAPABILITY_PROJECT_TRUST) {
     return PiProtocolCapability.projectTrust;
   }
+  if (capability == wire.Capability.CAPABILITY_SESSION_ADMIN) {
+    return PiProtocolCapability.sessionAdmin;
+  }
   throw const PiProtocolCodecException(
     PiProtocolCodecErrorCode.unsupportedOperation,
   );
@@ -729,6 +840,28 @@ PiProtocolProjectTrustReason _semanticProjectTrustReason(
   }
   if (reason == wire.ProjectTrustReason.PROJECT_TRUST_REASON_SAVED_DENIAL) {
     return PiProtocolProjectTrustReason.savedDenial;
+  }
+  throw const PiProtocolCodecException(
+    PiProtocolCodecErrorCode.unsupportedOperation,
+  );
+}
+
+PiProtocolSessionAdminOperation _semanticSessionAdminOperation(
+  wire.SessionAdminOperation operation,
+) {
+  if (operation == wire.SessionAdminOperation.SESSION_ADMIN_OPERATION_RENAME) {
+    return PiProtocolSessionAdminOperation.rename;
+  }
+  if (operation ==
+      wire.SessionAdminOperation.SESSION_ADMIN_OPERATION_CLEAR_NAME) {
+    return PiProtocolSessionAdminOperation.clearName;
+  }
+  if (operation ==
+      wire.SessionAdminOperation.SESSION_ADMIN_OPERATION_AUTO_NAME) {
+    return PiProtocolSessionAdminOperation.autoName;
+  }
+  if (operation == wire.SessionAdminOperation.SESSION_ADMIN_OPERATION_DELETE) {
+    return PiProtocolSessionAdminOperation.delete;
   }
   throw const PiProtocolCodecException(
     PiProtocolCodecErrorCode.unsupportedOperation,

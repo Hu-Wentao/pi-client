@@ -167,6 +167,24 @@ final class LazyHostedPiNodeApi
       _requireConnectedApi().createSession(request);
 
   @override
+  Future<PiSessionAdminResult> renameSession(PiRenameSessionCommand command) =>
+      _requireConnectedApi().renameSession(command);
+
+  @override
+  Future<PiSessionAdminResult> clearSessionName(
+    PiClearSessionNameCommand command,
+  ) => _requireConnectedApi().clearSessionName(command);
+
+  @override
+  Future<PiSessionAdminResult> autoNameSession(
+    PiAutoNameSessionCommand command,
+  ) => _requireConnectedApi().autoNameSession(command);
+
+  @override
+  Future<PiSessionAdminResult> deleteSession(PiDeleteSessionCommand command) =>
+      _requireConnectedApi().deleteSession(command);
+
+  @override
   Future<PiCommandResult> prompt(PiPromptCommand command) =>
       _requireConnectedApi().prompt(command);
 
@@ -362,6 +380,24 @@ final class UnavailablePiNodeApi
   @override
   Future<PiSessionDetail> createSession(PiCreateSessionRequest request) =>
       Future<PiSessionDetail>.error(_failure);
+
+  @override
+  Future<PiSessionAdminResult> renameSession(PiRenameSessionCommand command) =>
+      Future<PiSessionAdminResult>.error(_failure);
+
+  @override
+  Future<PiSessionAdminResult> clearSessionName(
+    PiClearSessionNameCommand command,
+  ) => Future<PiSessionAdminResult>.error(_failure);
+
+  @override
+  Future<PiSessionAdminResult> autoNameSession(
+    PiAutoNameSessionCommand command,
+  ) => Future<PiSessionAdminResult>.error(_failure);
+
+  @override
+  Future<PiSessionAdminResult> deleteSession(PiDeleteSessionCommand command) =>
+      Future<PiSessionAdminResult>.error(_failure);
 
   @override
   Future<PiCommandResult> prompt(PiPromptCommand command) =>

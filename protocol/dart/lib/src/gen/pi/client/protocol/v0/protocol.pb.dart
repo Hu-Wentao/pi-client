@@ -48,6 +48,11 @@ enum PiTransportFrame_Operation {
   commandRejected,
   approveProjectTrustRequest,
   approveProjectTrustResponse,
+  renameSessionCommand,
+  clearSessionNameCommand,
+  autoNameSessionCommand,
+  deleteSessionCommand,
+  sessionAdminCommandOutcome,
   sessionEventStream,
   eventStream,
   cancel,
@@ -93,6 +98,11 @@ class PiTransportFrame extends $pb.GeneratedMessage {
     CommandRejected? commandRejected,
     ApproveProjectTrustRequest? approveProjectTrustRequest,
     ApproveProjectTrustResponse? approveProjectTrustResponse,
+    RenameSessionCommand? renameSessionCommand,
+    ClearSessionNameCommand? clearSessionNameCommand,
+    AutoNameSessionCommand? autoNameSessionCommand,
+    DeleteSessionCommand? deleteSessionCommand,
+    SessionAdminCommandOutcome? sessionAdminCommandOutcome,
     SessionEventStreamEnvelope? sessionEventStream,
     EventStreamEnvelope? eventStream,
     Cancel? cancel,
@@ -150,6 +160,16 @@ class PiTransportFrame extends $pb.GeneratedMessage {
       result.approveProjectTrustRequest = approveProjectTrustRequest;
     if (approveProjectTrustResponse != null)
       result.approveProjectTrustResponse = approveProjectTrustResponse;
+    if (renameSessionCommand != null)
+      result.renameSessionCommand = renameSessionCommand;
+    if (clearSessionNameCommand != null)
+      result.clearSessionNameCommand = clearSessionNameCommand;
+    if (autoNameSessionCommand != null)
+      result.autoNameSessionCommand = autoNameSessionCommand;
+    if (deleteSessionCommand != null)
+      result.deleteSessionCommand = deleteSessionCommand;
+    if (sessionAdminCommandOutcome != null)
+      result.sessionAdminCommandOutcome = sessionAdminCommandOutcome;
     if (sessionEventStream != null)
       result.sessionEventStream = sessionEventStream;
     if (eventStream != null) result.eventStream = eventStream;
@@ -201,6 +221,11 @@ class PiTransportFrame extends $pb.GeneratedMessage {
     40: PiTransportFrame_Operation.commandRejected,
     41: PiTransportFrame_Operation.approveProjectTrustRequest,
     42: PiTransportFrame_Operation.approveProjectTrustResponse,
+    43: PiTransportFrame_Operation.renameSessionCommand,
+    44: PiTransportFrame_Operation.clearSessionNameCommand,
+    45: PiTransportFrame_Operation.autoNameSessionCommand,
+    46: PiTransportFrame_Operation.deleteSessionCommand,
+    47: PiTransportFrame_Operation.sessionAdminCommandOutcome,
     50: PiTransportFrame_Operation.sessionEventStream,
     51: PiTransportFrame_Operation.eventStream,
     60: PiTransportFrame_Operation.cancel,
@@ -245,6 +270,11 @@ class PiTransportFrame extends $pb.GeneratedMessage {
       40,
       41,
       42,
+      43,
+      44,
+      45,
+      46,
+      47,
       50,
       51,
       60,
@@ -326,6 +356,21 @@ class PiTransportFrame extends $pb.GeneratedMessage {
     ..aOM<ApproveProjectTrustResponse>(
         42, _omitFieldNames ? '' : 'approveProjectTrustResponse',
         subBuilder: ApproveProjectTrustResponse.create)
+    ..aOM<RenameSessionCommand>(
+        43, _omitFieldNames ? '' : 'renameSessionCommand',
+        subBuilder: RenameSessionCommand.create)
+    ..aOM<ClearSessionNameCommand>(
+        44, _omitFieldNames ? '' : 'clearSessionNameCommand',
+        subBuilder: ClearSessionNameCommand.create)
+    ..aOM<AutoNameSessionCommand>(
+        45, _omitFieldNames ? '' : 'autoNameSessionCommand',
+        subBuilder: AutoNameSessionCommand.create)
+    ..aOM<DeleteSessionCommand>(
+        46, _omitFieldNames ? '' : 'deleteSessionCommand',
+        subBuilder: DeleteSessionCommand.create)
+    ..aOM<SessionAdminCommandOutcome>(
+        47, _omitFieldNames ? '' : 'sessionAdminCommandOutcome',
+        subBuilder: SessionAdminCommandOutcome.create)
     ..aOM<SessionEventStreamEnvelope>(
         50, _omitFieldNames ? '' : 'sessionEventStream',
         subBuilder: SessionEventStreamEnvelope.create)
@@ -394,6 +439,11 @@ class PiTransportFrame extends $pb.GeneratedMessage {
   @$pb.TagNumber(40)
   @$pb.TagNumber(41)
   @$pb.TagNumber(42)
+  @$pb.TagNumber(43)
+  @$pb.TagNumber(44)
+  @$pb.TagNumber(45)
+  @$pb.TagNumber(46)
+  @$pb.TagNumber(47)
   @$pb.TagNumber(50)
   @$pb.TagNumber(51)
   @$pb.TagNumber(60)
@@ -432,6 +482,11 @@ class PiTransportFrame extends $pb.GeneratedMessage {
   @$pb.TagNumber(40)
   @$pb.TagNumber(41)
   @$pb.TagNumber(42)
+  @$pb.TagNumber(43)
+  @$pb.TagNumber(44)
+  @$pb.TagNumber(45)
+  @$pb.TagNumber(46)
+  @$pb.TagNumber(47)
   @$pb.TagNumber(50)
   @$pb.TagNumber(51)
   @$pb.TagNumber(60)
@@ -754,116 +809,174 @@ class PiTransportFrame extends $pb.GeneratedMessage {
   ApproveProjectTrustResponse ensureApproveProjectTrustResponse() =>
       $_ensure(26);
 
+  @$pb.TagNumber(43)
+  RenameSessionCommand get renameSessionCommand => $_getN(27);
+  @$pb.TagNumber(43)
+  set renameSessionCommand(RenameSessionCommand value) => $_setField(43, value);
+  @$pb.TagNumber(43)
+  $core.bool hasRenameSessionCommand() => $_has(27);
+  @$pb.TagNumber(43)
+  void clearRenameSessionCommand() => $_clearField(43);
+  @$pb.TagNumber(43)
+  RenameSessionCommand ensureRenameSessionCommand() => $_ensure(27);
+
+  @$pb.TagNumber(44)
+  ClearSessionNameCommand get clearSessionNameCommand => $_getN(28);
+  @$pb.TagNumber(44)
+  set clearSessionNameCommand(ClearSessionNameCommand value) =>
+      $_setField(44, value);
+  @$pb.TagNumber(44)
+  $core.bool hasClearSessionNameCommand() => $_has(28);
+  @$pb.TagNumber(44)
+  void clearClearSessionNameCommand() => $_clearField(44);
+  @$pb.TagNumber(44)
+  ClearSessionNameCommand ensureClearSessionNameCommand() => $_ensure(28);
+
+  @$pb.TagNumber(45)
+  AutoNameSessionCommand get autoNameSessionCommand => $_getN(29);
+  @$pb.TagNumber(45)
+  set autoNameSessionCommand(AutoNameSessionCommand value) =>
+      $_setField(45, value);
+  @$pb.TagNumber(45)
+  $core.bool hasAutoNameSessionCommand() => $_has(29);
+  @$pb.TagNumber(45)
+  void clearAutoNameSessionCommand() => $_clearField(45);
+  @$pb.TagNumber(45)
+  AutoNameSessionCommand ensureAutoNameSessionCommand() => $_ensure(29);
+
+  @$pb.TagNumber(46)
+  DeleteSessionCommand get deleteSessionCommand => $_getN(30);
+  @$pb.TagNumber(46)
+  set deleteSessionCommand(DeleteSessionCommand value) => $_setField(46, value);
+  @$pb.TagNumber(46)
+  $core.bool hasDeleteSessionCommand() => $_has(30);
+  @$pb.TagNumber(46)
+  void clearDeleteSessionCommand() => $_clearField(46);
+  @$pb.TagNumber(46)
+  DeleteSessionCommand ensureDeleteSessionCommand() => $_ensure(30);
+
+  @$pb.TagNumber(47)
+  SessionAdminCommandOutcome get sessionAdminCommandOutcome => $_getN(31);
+  @$pb.TagNumber(47)
+  set sessionAdminCommandOutcome(SessionAdminCommandOutcome value) =>
+      $_setField(47, value);
+  @$pb.TagNumber(47)
+  $core.bool hasSessionAdminCommandOutcome() => $_has(31);
+  @$pb.TagNumber(47)
+  void clearSessionAdminCommandOutcome() => $_clearField(47);
+  @$pb.TagNumber(47)
+  SessionAdminCommandOutcome ensureSessionAdminCommandOutcome() => $_ensure(31);
+
   @$pb.TagNumber(50)
-  SessionEventStreamEnvelope get sessionEventStream => $_getN(27);
+  SessionEventStreamEnvelope get sessionEventStream => $_getN(32);
   @$pb.TagNumber(50)
   set sessionEventStream(SessionEventStreamEnvelope value) =>
       $_setField(50, value);
   @$pb.TagNumber(50)
-  $core.bool hasSessionEventStream() => $_has(27);
+  $core.bool hasSessionEventStream() => $_has(32);
   @$pb.TagNumber(50)
   void clearSessionEventStream() => $_clearField(50);
   @$pb.TagNumber(50)
-  SessionEventStreamEnvelope ensureSessionEventStream() => $_ensure(27);
+  SessionEventStreamEnvelope ensureSessionEventStream() => $_ensure(32);
 
   @$pb.TagNumber(51)
-  EventStreamEnvelope get eventStream => $_getN(28);
+  EventStreamEnvelope get eventStream => $_getN(33);
   @$pb.TagNumber(51)
   set eventStream(EventStreamEnvelope value) => $_setField(51, value);
   @$pb.TagNumber(51)
-  $core.bool hasEventStream() => $_has(28);
+  $core.bool hasEventStream() => $_has(33);
   @$pb.TagNumber(51)
   void clearEventStream() => $_clearField(51);
   @$pb.TagNumber(51)
-  EventStreamEnvelope ensureEventStream() => $_ensure(28);
+  EventStreamEnvelope ensureEventStream() => $_ensure(33);
 
   @$pb.TagNumber(60)
-  Cancel get cancel => $_getN(29);
+  Cancel get cancel => $_getN(34);
   @$pb.TagNumber(60)
   set cancel(Cancel value) => $_setField(60, value);
   @$pb.TagNumber(60)
-  $core.bool hasCancel() => $_has(29);
+  $core.bool hasCancel() => $_has(34);
   @$pb.TagNumber(60)
   void clearCancel() => $_clearField(60);
   @$pb.TagNumber(60)
-  Cancel ensureCancel() => $_ensure(29);
+  Cancel ensureCancel() => $_ensure(34);
 
   @$pb.TagNumber(61)
-  WindowUpdate get windowUpdate => $_getN(30);
+  WindowUpdate get windowUpdate => $_getN(35);
   @$pb.TagNumber(61)
   set windowUpdate(WindowUpdate value) => $_setField(61, value);
   @$pb.TagNumber(61)
-  $core.bool hasWindowUpdate() => $_has(30);
+  $core.bool hasWindowUpdate() => $_has(35);
   @$pb.TagNumber(61)
   void clearWindowUpdate() => $_clearField(61);
   @$pb.TagNumber(61)
-  WindowUpdate ensureWindowUpdate() => $_ensure(30);
+  WindowUpdate ensureWindowUpdate() => $_ensure(35);
 
   @$pb.TagNumber(70)
-  TransferOpen get transferOpen => $_getN(31);
+  TransferOpen get transferOpen => $_getN(36);
   @$pb.TagNumber(70)
   set transferOpen(TransferOpen value) => $_setField(70, value);
   @$pb.TagNumber(70)
-  $core.bool hasTransferOpen() => $_has(31);
+  $core.bool hasTransferOpen() => $_has(36);
   @$pb.TagNumber(70)
   void clearTransferOpen() => $_clearField(70);
   @$pb.TagNumber(70)
-  TransferOpen ensureTransferOpen() => $_ensure(31);
+  TransferOpen ensureTransferOpen() => $_ensure(36);
 
   @$pb.TagNumber(71)
-  TransferChunk get transferChunk => $_getN(32);
+  TransferChunk get transferChunk => $_getN(37);
   @$pb.TagNumber(71)
   set transferChunk(TransferChunk value) => $_setField(71, value);
   @$pb.TagNumber(71)
-  $core.bool hasTransferChunk() => $_has(32);
+  $core.bool hasTransferChunk() => $_has(37);
   @$pb.TagNumber(71)
   void clearTransferChunk() => $_clearField(71);
   @$pb.TagNumber(71)
-  TransferChunk ensureTransferChunk() => $_ensure(32);
+  TransferChunk ensureTransferChunk() => $_ensure(37);
 
   @$pb.TagNumber(72)
-  TransferAck get transferAck => $_getN(33);
+  TransferAck get transferAck => $_getN(38);
   @$pb.TagNumber(72)
   set transferAck(TransferAck value) => $_setField(72, value);
   @$pb.TagNumber(72)
-  $core.bool hasTransferAck() => $_has(33);
+  $core.bool hasTransferAck() => $_has(38);
   @$pb.TagNumber(72)
   void clearTransferAck() => $_clearField(72);
   @$pb.TagNumber(72)
-  TransferAck ensureTransferAck() => $_ensure(33);
+  TransferAck ensureTransferAck() => $_ensure(38);
 
   @$pb.TagNumber(73)
-  TransferComplete get transferComplete => $_getN(34);
+  TransferComplete get transferComplete => $_getN(39);
   @$pb.TagNumber(73)
   set transferComplete(TransferComplete value) => $_setField(73, value);
   @$pb.TagNumber(73)
-  $core.bool hasTransferComplete() => $_has(34);
+  $core.bool hasTransferComplete() => $_has(39);
   @$pb.TagNumber(73)
   void clearTransferComplete() => $_clearField(73);
   @$pb.TagNumber(73)
-  TransferComplete ensureTransferComplete() => $_ensure(34);
+  TransferComplete ensureTransferComplete() => $_ensure(39);
 
   @$pb.TagNumber(74)
-  TransferAbort get transferAbort => $_getN(35);
+  TransferAbort get transferAbort => $_getN(40);
   @$pb.TagNumber(74)
   set transferAbort(TransferAbort value) => $_setField(74, value);
   @$pb.TagNumber(74)
-  $core.bool hasTransferAbort() => $_has(35);
+  $core.bool hasTransferAbort() => $_has(40);
   @$pb.TagNumber(74)
   void clearTransferAbort() => $_clearField(74);
   @$pb.TagNumber(74)
-  TransferAbort ensureTransferAbort() => $_ensure(35);
+  TransferAbort ensureTransferAbort() => $_ensure(40);
 
   @$pb.TagNumber(80)
-  ErrorEnvelope get error => $_getN(36);
+  ErrorEnvelope get error => $_getN(41);
   @$pb.TagNumber(80)
   set error(ErrorEnvelope value) => $_setField(80, value);
   @$pb.TagNumber(80)
-  $core.bool hasError() => $_has(36);
+  $core.bool hasError() => $_has(41);
   @$pb.TagNumber(80)
   void clearError() => $_clearField(80);
   @$pb.TagNumber(80)
-  ErrorEnvelope ensureError() => $_ensure(36);
+  ErrorEnvelope ensureError() => $_ensure(41);
 }
 
 /// ProtocolVersion is the numeric SemVer core used for exact wire negotiation.
@@ -3356,6 +3469,737 @@ class AbortCommand extends $pb.GeneratedMessage {
   void clearSessionId() => $_clearField(3);
 }
 
+class RenameSessionCommand extends $pb.GeneratedMessage {
+  factory RenameSessionCommand({
+    $fixnum.Int64? requestId,
+    $core.String? commandId,
+    $core.String? projectId,
+    $core.String? sessionId,
+    $core.String? name,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (commandId != null) result.commandId = commandId;
+    if (projectId != null) result.projectId = projectId;
+    if (sessionId != null) result.sessionId = sessionId;
+    if (name != null) result.name = name;
+    return result;
+  }
+
+  RenameSessionCommand._();
+
+  factory RenameSessionCommand.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory RenameSessionCommand.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RenameSessionCommand',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(2, _omitFieldNames ? '' : 'commandId')
+    ..aOS(3, _omitFieldNames ? '' : 'projectId')
+    ..aOS(4, _omitFieldNames ? '' : 'sessionId')
+    ..aOS(5, _omitFieldNames ? '' : 'name')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RenameSessionCommand clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RenameSessionCommand copyWith(void Function(RenameSessionCommand) updates) =>
+      super.copyWith((message) => updates(message as RenameSessionCommand))
+          as RenameSessionCommand;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static RenameSessionCommand create() => RenameSessionCommand._();
+  @$core.override
+  RenameSessionCommand createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static RenameSessionCommand getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<RenameSessionCommand>(create);
+  static RenameSessionCommand? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get commandId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set commandId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasCommandId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCommandId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get projectId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set projectId($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasProjectId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearProjectId() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get sessionId => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set sessionId($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSessionId() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSessionId() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get name => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set name($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasName() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearName() => $_clearField(5);
+}
+
+class ClearSessionNameCommand extends $pb.GeneratedMessage {
+  factory ClearSessionNameCommand({
+    $fixnum.Int64? requestId,
+    $core.String? commandId,
+    $core.String? projectId,
+    $core.String? sessionId,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (commandId != null) result.commandId = commandId;
+    if (projectId != null) result.projectId = projectId;
+    if (sessionId != null) result.sessionId = sessionId;
+    return result;
+  }
+
+  ClearSessionNameCommand._();
+
+  factory ClearSessionNameCommand.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClearSessionNameCommand.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClearSessionNameCommand',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(2, _omitFieldNames ? '' : 'commandId')
+    ..aOS(3, _omitFieldNames ? '' : 'projectId')
+    ..aOS(4, _omitFieldNames ? '' : 'sessionId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClearSessionNameCommand clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClearSessionNameCommand copyWith(
+          void Function(ClearSessionNameCommand) updates) =>
+      super.copyWith((message) => updates(message as ClearSessionNameCommand))
+          as ClearSessionNameCommand;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClearSessionNameCommand create() => ClearSessionNameCommand._();
+  @$core.override
+  ClearSessionNameCommand createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClearSessionNameCommand getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClearSessionNameCommand>(create);
+  static ClearSessionNameCommand? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get commandId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set commandId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasCommandId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCommandId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get projectId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set projectId($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasProjectId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearProjectId() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get sessionId => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set sessionId($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSessionId() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSessionId() => $_clearField(4);
+}
+
+class AutoNameSessionCommand extends $pb.GeneratedMessage {
+  factory AutoNameSessionCommand({
+    $fixnum.Int64? requestId,
+    $core.String? commandId,
+    $core.String? projectId,
+    $core.String? sessionId,
+    $core.int? timeoutMillis,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (commandId != null) result.commandId = commandId;
+    if (projectId != null) result.projectId = projectId;
+    if (sessionId != null) result.sessionId = sessionId;
+    if (timeoutMillis != null) result.timeoutMillis = timeoutMillis;
+    return result;
+  }
+
+  AutoNameSessionCommand._();
+
+  factory AutoNameSessionCommand.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory AutoNameSessionCommand.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AutoNameSessionCommand',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(2, _omitFieldNames ? '' : 'commandId')
+    ..aOS(3, _omitFieldNames ? '' : 'projectId')
+    ..aOS(4, _omitFieldNames ? '' : 'sessionId')
+    ..aI(5, _omitFieldNames ? '' : 'timeoutMillis',
+        fieldType: $pb.PbFieldType.OU3)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AutoNameSessionCommand clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AutoNameSessionCommand copyWith(
+          void Function(AutoNameSessionCommand) updates) =>
+      super.copyWith((message) => updates(message as AutoNameSessionCommand))
+          as AutoNameSessionCommand;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static AutoNameSessionCommand create() => AutoNameSessionCommand._();
+  @$core.override
+  AutoNameSessionCommand createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static AutoNameSessionCommand getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<AutoNameSessionCommand>(create);
+  static AutoNameSessionCommand? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get commandId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set commandId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasCommandId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCommandId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get projectId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set projectId($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasProjectId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearProjectId() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get sessionId => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set sessionId($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSessionId() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSessionId() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get timeoutMillis => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set timeoutMillis($core.int value) => $_setUnsignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasTimeoutMillis() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearTimeoutMillis() => $_clearField(5);
+}
+
+class DeleteSessionConfirmationEvidence extends $pb.GeneratedMessage {
+  factory DeleteSessionConfirmationEvidence({
+    $core.String? sessionId,
+    $core.String? adminRevision,
+    $core.String? displayedTitle,
+    $core.bool? destructiveActionAcknowledged,
+  }) {
+    final result = create();
+    if (sessionId != null) result.sessionId = sessionId;
+    if (adminRevision != null) result.adminRevision = adminRevision;
+    if (displayedTitle != null) result.displayedTitle = displayedTitle;
+    if (destructiveActionAcknowledged != null)
+      result.destructiveActionAcknowledged = destructiveActionAcknowledged;
+    return result;
+  }
+
+  DeleteSessionConfirmationEvidence._();
+
+  factory DeleteSessionConfirmationEvidence.fromBuffer(
+          $core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteSessionConfirmationEvidence.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteSessionConfirmationEvidence',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'sessionId')
+    ..aOS(2, _omitFieldNames ? '' : 'adminRevision')
+    ..aOS(3, _omitFieldNames ? '' : 'displayedTitle')
+    ..aOB(4, _omitFieldNames ? '' : 'destructiveActionAcknowledged')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteSessionConfirmationEvidence clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteSessionConfirmationEvidence copyWith(
+          void Function(DeleteSessionConfirmationEvidence) updates) =>
+      super.copyWith((message) =>
+              updates(message as DeleteSessionConfirmationEvidence))
+          as DeleteSessionConfirmationEvidence;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteSessionConfirmationEvidence create() =>
+      DeleteSessionConfirmationEvidence._();
+  @$core.override
+  DeleteSessionConfirmationEvidence createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeleteSessionConfirmationEvidence getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteSessionConfirmationEvidence>(
+          create);
+  static DeleteSessionConfirmationEvidence? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get sessionId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set sessionId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSessionId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSessionId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get adminRevision => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set adminRevision($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasAdminRevision() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearAdminRevision() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get displayedTitle => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set displayedTitle($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasDisplayedTitle() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearDisplayedTitle() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.bool get destructiveActionAcknowledged => $_getBF(3);
+  @$pb.TagNumber(4)
+  set destructiveActionAcknowledged($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasDestructiveActionAcknowledged() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearDestructiveActionAcknowledged() => $_clearField(4);
+}
+
+class DeleteSessionCommand extends $pb.GeneratedMessage {
+  factory DeleteSessionCommand({
+    $fixnum.Int64? requestId,
+    $core.String? commandId,
+    $core.String? projectId,
+    $core.String? sessionId,
+    DeleteSessionConfirmationEvidence? confirmation,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (commandId != null) result.commandId = commandId;
+    if (projectId != null) result.projectId = projectId;
+    if (sessionId != null) result.sessionId = sessionId;
+    if (confirmation != null) result.confirmation = confirmation;
+    return result;
+  }
+
+  DeleteSessionCommand._();
+
+  factory DeleteSessionCommand.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteSessionCommand.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteSessionCommand',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(2, _omitFieldNames ? '' : 'commandId')
+    ..aOS(3, _omitFieldNames ? '' : 'projectId')
+    ..aOS(4, _omitFieldNames ? '' : 'sessionId')
+    ..aOM<DeleteSessionConfirmationEvidence>(
+        5, _omitFieldNames ? '' : 'confirmation',
+        subBuilder: DeleteSessionConfirmationEvidence.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteSessionCommand clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteSessionCommand copyWith(void Function(DeleteSessionCommand) updates) =>
+      super.copyWith((message) => updates(message as DeleteSessionCommand))
+          as DeleteSessionCommand;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteSessionCommand create() => DeleteSessionCommand._();
+  @$core.override
+  DeleteSessionCommand createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeleteSessionCommand getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteSessionCommand>(create);
+  static DeleteSessionCommand? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get commandId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set commandId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasCommandId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCommandId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get projectId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set projectId($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasProjectId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearProjectId() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get sessionId => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set sessionId($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSessionId() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSessionId() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  DeleteSessionConfirmationEvidence get confirmation => $_getN(4);
+  @$pb.TagNumber(5)
+  set confirmation(DeleteSessionConfirmationEvidence value) =>
+      $_setField(5, value);
+  @$pb.TagNumber(5)
+  $core.bool hasConfirmation() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearConfirmation() => $_clearField(5);
+  @$pb.TagNumber(5)
+  DeleteSessionConfirmationEvidence ensureConfirmation() => $_ensure(4);
+}
+
+class DeleteSessionOutcome extends $pb.GeneratedMessage {
+  factory DeleteSessionOutcome({
+    $core.String? sessionId,
+    $core.int? reparentedChildCount,
+  }) {
+    final result = create();
+    if (sessionId != null) result.sessionId = sessionId;
+    if (reparentedChildCount != null)
+      result.reparentedChildCount = reparentedChildCount;
+    return result;
+  }
+
+  DeleteSessionOutcome._();
+
+  factory DeleteSessionOutcome.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteSessionOutcome.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteSessionOutcome',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'sessionId')
+    ..aI(2, _omitFieldNames ? '' : 'reparentedChildCount',
+        fieldType: $pb.PbFieldType.OU3)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteSessionOutcome clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteSessionOutcome copyWith(void Function(DeleteSessionOutcome) updates) =>
+      super.copyWith((message) => updates(message as DeleteSessionOutcome))
+          as DeleteSessionOutcome;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteSessionOutcome create() => DeleteSessionOutcome._();
+  @$core.override
+  DeleteSessionOutcome createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeleteSessionOutcome getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteSessionOutcome>(create);
+  static DeleteSessionOutcome? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get sessionId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set sessionId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSessionId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSessionId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get reparentedChildCount => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set reparentedChildCount($core.int value) => $_setUnsignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasReparentedChildCount() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearReparentedChildCount() => $_clearField(2);
+}
+
+enum SessionAdminCommandOutcome_Outcome { session, deletion, error, notSet }
+
+class SessionAdminCommandOutcome extends $pb.GeneratedMessage {
+  factory SessionAdminCommandOutcome({
+    $fixnum.Int64? requestId,
+    $core.String? commandId,
+    SessionAdminOperation? operation,
+    SessionSummarySnapshot? session,
+    DeleteSessionOutcome? deletion,
+    StableError? error,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (commandId != null) result.commandId = commandId;
+    if (operation != null) result.operation = operation;
+    if (session != null) result.session = session;
+    if (deletion != null) result.deletion = deletion;
+    if (error != null) result.error = error;
+    return result;
+  }
+
+  SessionAdminCommandOutcome._();
+
+  factory SessionAdminCommandOutcome.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SessionAdminCommandOutcome.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static const $core.Map<$core.int, SessionAdminCommandOutcome_Outcome>
+      _SessionAdminCommandOutcome_OutcomeByTag = {
+    10: SessionAdminCommandOutcome_Outcome.session,
+    11: SessionAdminCommandOutcome_Outcome.deletion,
+    12: SessionAdminCommandOutcome_Outcome.error,
+    0: SessionAdminCommandOutcome_Outcome.notSet
+  };
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SessionAdminCommandOutcome',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..oo(0, [10, 11, 12])
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(2, _omitFieldNames ? '' : 'commandId')
+    ..aE<SessionAdminOperation>(3, _omitFieldNames ? '' : 'operation',
+        enumValues: SessionAdminOperation.values)
+    ..aOM<SessionSummarySnapshot>(10, _omitFieldNames ? '' : 'session',
+        subBuilder: SessionSummarySnapshot.create)
+    ..aOM<DeleteSessionOutcome>(11, _omitFieldNames ? '' : 'deletion',
+        subBuilder: DeleteSessionOutcome.create)
+    ..aOM<StableError>(12, _omitFieldNames ? '' : 'error',
+        subBuilder: StableError.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SessionAdminCommandOutcome clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SessionAdminCommandOutcome copyWith(
+          void Function(SessionAdminCommandOutcome) updates) =>
+      super.copyWith(
+              (message) => updates(message as SessionAdminCommandOutcome))
+          as SessionAdminCommandOutcome;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SessionAdminCommandOutcome create() => SessionAdminCommandOutcome._();
+  @$core.override
+  SessionAdminCommandOutcome createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SessionAdminCommandOutcome getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SessionAdminCommandOutcome>(create);
+  static SessionAdminCommandOutcome? _defaultInstance;
+
+  @$pb.TagNumber(10)
+  @$pb.TagNumber(11)
+  @$pb.TagNumber(12)
+  SessionAdminCommandOutcome_Outcome whichOutcome() =>
+      _SessionAdminCommandOutcome_OutcomeByTag[$_whichOneof(0)]!;
+  @$pb.TagNumber(10)
+  @$pb.TagNumber(11)
+  @$pb.TagNumber(12)
+  void clearOutcome() => $_clearField($_whichOneof(0));
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get commandId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set commandId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasCommandId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCommandId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  SessionAdminOperation get operation => $_getN(2);
+  @$pb.TagNumber(3)
+  set operation(SessionAdminOperation value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasOperation() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearOperation() => $_clearField(3);
+
+  @$pb.TagNumber(10)
+  SessionSummarySnapshot get session => $_getN(3);
+  @$pb.TagNumber(10)
+  set session(SessionSummarySnapshot value) => $_setField(10, value);
+  @$pb.TagNumber(10)
+  $core.bool hasSession() => $_has(3);
+  @$pb.TagNumber(10)
+  void clearSession() => $_clearField(10);
+  @$pb.TagNumber(10)
+  SessionSummarySnapshot ensureSession() => $_ensure(3);
+
+  @$pb.TagNumber(11)
+  DeleteSessionOutcome get deletion => $_getN(4);
+  @$pb.TagNumber(11)
+  set deletion(DeleteSessionOutcome value) => $_setField(11, value);
+  @$pb.TagNumber(11)
+  $core.bool hasDeletion() => $_has(4);
+  @$pb.TagNumber(11)
+  void clearDeletion() => $_clearField(11);
+  @$pb.TagNumber(11)
+  DeleteSessionOutcome ensureDeletion() => $_ensure(4);
+
+  @$pb.TagNumber(12)
+  StableError get error => $_getN(5);
+  @$pb.TagNumber(12)
+  set error(StableError value) => $_setField(12, value);
+  @$pb.TagNumber(12)
+  $core.bool hasError() => $_has(5);
+  @$pb.TagNumber(12)
+  void clearError() => $_clearField(12);
+  @$pb.TagNumber(12)
+  StableError ensureError() => $_ensure(5);
+}
+
 class RequestRejected extends $pb.GeneratedMessage {
   factory RequestRejected({
     $fixnum.Int64? requestId,
@@ -3590,6 +4434,8 @@ class SessionSummarySnapshot extends $pb.GeneratedMessage {
     $fixnum.Int64? updatedAtUnixMillis,
     $core.bool? isRunning,
     $core.bool? hasUnread,
+    $core.String? adminRevision,
+    $core.bool? hasCustomName,
   }) {
     final result = create();
     if (sessionId != null) result.sessionId = sessionId;
@@ -3601,6 +4447,8 @@ class SessionSummarySnapshot extends $pb.GeneratedMessage {
       result.updatedAtUnixMillis = updatedAtUnixMillis;
     if (isRunning != null) result.isRunning = isRunning;
     if (hasUnread != null) result.hasUnread = hasUnread;
+    if (adminRevision != null) result.adminRevision = adminRevision;
+    if (hasCustomName != null) result.hasCustomName = hasCustomName;
     return result;
   }
 
@@ -3629,6 +4477,8 @@ class SessionSummarySnapshot extends $pb.GeneratedMessage {
         defaultOrMaker: $fixnum.Int64.ZERO)
     ..aOB(6, _omitFieldNames ? '' : 'isRunning')
     ..aOB(7, _omitFieldNames ? '' : 'hasUnread')
+    ..aOS(8, _omitFieldNames ? '' : 'adminRevision')
+    ..aOB(9, _omitFieldNames ? '' : 'hasCustomName')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3713,6 +4563,24 @@ class SessionSummarySnapshot extends $pb.GeneratedMessage {
   $core.bool hasHasUnread() => $_has(6);
   @$pb.TagNumber(7)
   void clearHasUnread() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.String get adminRevision => $_getSZ(7);
+  @$pb.TagNumber(8)
+  set adminRevision($core.String value) => $_setString(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasAdminRevision() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearAdminRevision() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.bool get hasCustomName => $_getBF(8);
+  @$pb.TagNumber(9)
+  set hasCustomName($core.bool value) => $_setBool(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasHasCustomName() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearHasCustomName() => $_clearField(9);
 }
 
 class SessionDetailSnapshot extends $pb.GeneratedMessage {

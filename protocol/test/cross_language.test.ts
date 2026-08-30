@@ -45,6 +45,22 @@ describe("cross-language Protobuf vectors", () => {
     expect(frame.operation.value.directory?.truncated).toBeTrue();
   });
 
+  test("decodes Dart delete confirmation evidence", () => {
+    const frame = decodeTransportFrame(
+      readFileSync(resolve(vectors, "dart_delete_session_command.pb")),
+    );
+
+    expect(frame.operation.case).toBe("deleteSessionCommand");
+    if (frame.operation.case !== "deleteSessionCommand") {
+      throw new Error("expected delete session command");
+    }
+    expect(frame.operation.value.projectId).toBe("project-dart-1");
+    expect(frame.operation.value.confirmation?.adminRevision).toBe(
+      "revision-session-dart-delete-1",
+    );
+    expect(frame.operation.value.confirmation?.destructiveActionAcknowledged).toBeTrue();
+  });
+
   test("preserves unknown fields when decoded and re-encoded by Protobuf-ES", () => {
     const input = readFileSync(resolve(vectors, "unknown_field.pb"));
     const decoded = fromBinary(PiTransportFrameSchema, input);

@@ -31,6 +31,11 @@ import {
   type ProjectTrustAuthorization,
 } from "./project-trust.js";
 import { assertRuntimeCompatibility } from "./runtime-metadata.js";
+import {
+  createSessionAdminRevision,
+  PublicPiSdkSessionAdministration,
+  sessionInfoToSummary,
+} from "./pi-sdk-session-administration.js";
 
 export type PiSdkDomainAdapterErrorCode =
   | "agent-dir-mismatch"
@@ -56,6 +61,7 @@ export interface PublicPiSdkDomainSessionFactoryOptions {
 
 export class PublicPiSdkDomainSessionFactory implements PiNodeDomainSessionBackendFactory {
   readonly #clock: () => number;
+  readonly #administration = new PublicPiSdkSessionAdministration();
 
   constructor(options: PublicPiSdkDomainSessionFactoryOptions = {}) {
     this.#clock = options.clock ?? Date.now;
@@ -72,7 +78,31 @@ export class PublicPiSdkDomainSessionFactory implements PiNodeDomainSessionBacke
     });
     const sessionDir = resolveSessionDirectory(settingsManager, input.agentDir);
     const sessions = await SessionManager.list(input.authorization.cwd, sessionDir);
-    return Object.freeze(sessions.map((session) => normalizeSessionInfo(session)));
+    return Object.freeze(sessions.map(sessionInfoToSummary));
+  }
+
+  renamePersistentSession(
+    input: Parameters<PublicPiSdkSessionAdministration["renamePersistentSession"]>[0],
+  ): Promise<PiNodeSessionSummary> {
+    return this.#administration.renamePersistentSession(input);
+  }
+
+  clearPersistentSessionName(
+    input: Parameters<PublicPiSdkSessionAdministration["clearPersistentSessionName"]>[0],
+  ): Promise<PiNodeSessionSummary> {
+    return this.#administration.clearPersistentSessionName(input);
+  }
+
+  autoNamePersistentSession(
+    input: Parameters<PublicPiSdkSessionAdministration["autoNamePersistentSession"]>[0],
+  ): Promise<PiNodeSessionSummary> {
+    return this.#administration.autoNamePersistentSession(input);
+  }
+
+  deletePersistentSession(
+    input: Parameters<PublicPiSdkSessionAdministration["deletePersistentSession"]>[0],
+  ): ReturnType<PublicPiSdkSessionAdministration["deletePersistentSession"]> {
+    return this.#administration.deletePersistentSession(input);
   }
 
   createPersistentSession(input: {
@@ -251,7 +281,7 @@ class PublicPiSdkDomainSession implements PiNodeDomainSessionBackend {
       this.#sessionInfo?.modified.getTime() ??
       parseTimestamp(entries.at(-1)?.timestamp ?? header?.timestamp, createdAtMs);
 
-    return Object.freeze({
+    const summary = {
       sessionId: this.sessionId,
       cwd: this.cwd,
       ...(this.#session.sessionName === undefined ? {} : { name: this.#session.sessionName }),
@@ -260,6 +290,10 @@ class PublicPiSdkDomainSession implements PiNodeDomainSessionBackend {
       messageCount: messages.length,
       firstMessage: firstUserText(messages),
       running: this.isRunning,
+    };
+    return Object.freeze({
+      ...summary,
+      adminRevision: createSessionAdminRevision(summary),
       persistence: "persistent",
       messages: Object.freeze(messages),
     });
@@ -579,19 +613,6 @@ function normalizeSessionEntry(entry: SessionEntry, clock: () => number): PiNode
     ];
   }
   return [];
-}
-
-function normalizeSessionInfo(info: SessionInfo): PiNodeSessionSummary {
-  return Object.freeze({
-    sessionId: info.id,
-    cwd: info.cwd,
-    ...(info.name === undefined ? {} : { name: info.name }),
-    createdAtMs: info.created.getTime(),
-    modifiedAtMs: info.modified.getTime(),
-    messageCount: info.messageCount,
-    firstMessage: info.firstMessage,
-    running: false,
-  });
 }
 
 function resolveSessionDirectory(

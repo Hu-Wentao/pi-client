@@ -426,6 +426,129 @@ void main() {
     },
   );
 
+  test(
+    'cleans a selected session immediately before confirmed deletion',
+    () async {
+      final session = fakeSession(
+        id: 'delete-session',
+        title: 'Delete session',
+        workingDirectory: '/Projects/delete',
+      );
+      final completion = Completer<PiSessionAdminResult>();
+      final api = FakePiNodeApi(
+        sessions: <PiSessionSummary>[session],
+        details: <PiSessionId, PiSessionDetail>{
+          session.id: fakeDetail(
+            session,
+            messages: <PiMessage>[
+              fakeMessage(
+                id: 'delete-message',
+                role: PiMessageRole.assistant,
+                text: 'Delete me',
+              ),
+            ],
+          ),
+        },
+      )..deleteSessionHandler = (command) => completion.future;
+      final viewModel = WorkspaceViewModel(service: WorkspaceService(api));
+
+      viewModel.add(const WorkspaceStarted());
+      await _waitFor(
+        viewModel,
+        (state) => state.connection.status == PiNodeConnectionStatus.connected,
+      );
+      viewModel.add(WorkspaceSessionSelected(session.id));
+      await _waitFor(
+        viewModel,
+        (state) =>
+            state.selectedSessionId == session.id && state.messages.isNotEmpty,
+      );
+      viewModel.add(
+        WorkspaceSessionDeleted(PiDeleteSessionConfirmation.confirmed(session)),
+      );
+      await _waitFor(
+        viewModel,
+        (state) => api.deleteCalls == 1 && state.sessionAdminLoading,
+      );
+      expect(viewModel.state.selectedSessionId, isNull);
+      expect(viewModel.state.messages, isEmpty);
+      expect(
+        viewModel.state.sessionAdminOperation,
+        PiSessionAdminOperation.delete,
+      );
+
+      api.sessions = const <PiSessionSummary>[];
+      api.details.remove(session.id);
+      completion.complete(
+        PiSessionAdminDeleted(
+          commandId: PiCommandId('delete-result'),
+          sessionId: session.id,
+          reparentedChildCount: 1,
+        ),
+      );
+      await _waitFor(
+        viewModel,
+        (state) => !state.sessionAdminLoading && state.sessions.isEmpty,
+      );
+      expect(viewModel.state.statusMessage, contains('reparented'));
+
+      await viewModel.close();
+      await api.close();
+    },
+  );
+
+  test(
+    'ignores a stale session rename after the selected project changes',
+    () async {
+      final session = fakeSession(
+        id: 'stale-admin-session',
+        title: 'Original title',
+        workingDirectory: '/Projects/original',
+      );
+      final completion = Completer<PiSessionAdminResult>();
+      final api = FakePiNodeApi(sessions: <PiSessionSummary>[session])
+        ..renameSessionHandler = (command) => completion.future;
+      final viewModel = WorkspaceViewModel(service: WorkspaceService(api));
+
+      viewModel.add(const WorkspaceStarted());
+      await _waitFor(
+        viewModel,
+        (state) => state.connection.status == PiNodeConnectionStatus.connected,
+      );
+      viewModel.add(
+        WorkspaceSessionRenamed(sessionId: session.id, name: 'Stale title'),
+      );
+      await _waitUntil(() => api.renameCalls == 1);
+
+      final nextProject = fakeProject('/Projects/next');
+      viewModel.add(WorkspaceProjectSelected(nextProject));
+      await _waitFor(
+        viewModel,
+        (state) =>
+            state.selectedProject == nextProject && !state.sessionsLoading,
+      );
+      completion.complete(
+        PiSessionAdminUpdated(
+          commandId: PiCommandId('stale-admin-result'),
+          operation: PiSessionAdminOperation.rename,
+          session: fakeSession(
+            id: 'stale-admin-session',
+            title: 'Stale title',
+            workingDirectory: '/Projects/original',
+          ),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(viewModel.state.selectedProject, nextProject);
+      expect(viewModel.state.sessions.single.title, 'Original title');
+      expect(viewModel.state.sessionAdminLoading, isFalse);
+
+      await viewModel.close();
+      await api.close();
+    },
+  );
+
   test('ignores a stale selected-session load that completes last', () async {
     final first = fakeSession(
       id: 'first-session',
