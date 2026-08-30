@@ -98,6 +98,10 @@ function targetFromDistributions(id, distributionIds) {
     architecture: architectures.length === 1 ? architectures[0] : "universal",
     architectures,
     distributions,
+    architectureArguments: architectures.map((architecture) => ({
+      architecture,
+      arguments: platform === "darwin" && architecture === "x64" ? ["--jitless"] : [],
+    })),
     executable: platform === "win32" ? "runtime/node.exe" : "runtime/bin/node",
     npmCli:
       platform === "win32"

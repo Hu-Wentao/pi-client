@@ -15,6 +15,7 @@ import {
   CAPSULE_MANIFEST_NAME,
   readJson,
   resolveCapsulePath,
+  runtimeArgumentsForArchitecture,
   validateManifestDocument,
 } from "./runtime-capsule-lib.mjs";
 
@@ -31,6 +32,7 @@ for (const path of [DEFAULT_NODE_ENTITLEMENTS, DEFAULT_AD_HOC_NODE_ENTITLEMENTS]
 
 const evidence = [];
 for (const architecture of target.architectures) {
+  const architectureArguments = runtimeArgumentsForArchitecture(manifest, architecture);
   const addon = manifest.nativeCode.objects.find(
     (entry) =>
       entry.kind === "native-addon" &&
@@ -60,10 +62,15 @@ for (const architecture of target.architectures) {
       'if (typeof addon.isModifierPressed !== "function") throw new Error("native addon API missing");',
       'process.stdout.write("loaded");',
     ].join("\n");
-    const rejected = runArchitecture(architecture, node, ["--eval", directScript, nativeAddon], {
-      allowFailure: true,
-      cwd: root,
-    });
+    const rejected = runArchitecture(
+      architecture,
+      node,
+      [...architectureArguments, "--eval", directScript, nativeAddon],
+      {
+        allowFailure: true,
+        cwd: root,
+      },
+    );
     if (rejected.status === 0) {
       throw new Error(
         `${architecture} ad-hoc native addon loaded without the library-validation exception; remove that entitlement instead of broadening it.`,
@@ -93,14 +100,16 @@ for (const architecture of target.architectures) {
     ).href;
     const extensionScript = [
       `const sdk = await import(${JSON.stringify(sdkUrl)});`,
-      `const loaded = await sdk.loadExtensions([${JSON.stringify(extension)}], ${JSON.stringify(root)});`,
+      `const loader = new sdk.DefaultResourceLoader({cwd: ${JSON.stringify(root)}, agentDir: ${JSON.stringify(root)}, additionalExtensionPaths: [${JSON.stringify(extension)}], noSkills: true, noPromptTemplates: true, noThemes: true, noContextFiles: true});`,
+      "await loader.reload({resolveProjectTrust: async () => true});",
+      "const loaded = loader.getExtensions();",
       "if (loaded.errors.length !== 0 || loaded.extensions.length !== 1) throw new Error(JSON.stringify(loaded.errors));",
       "process.stdout.write(JSON.stringify({architecture: process.arch, nativeAddon: true, extension: true}));",
     ].join("\n");
     const accepted = runArchitecture(
       architecture,
       node,
-      ["--input-type=module", "--eval", extensionScript],
+      [...architectureArguments, "--input-type=module", "--eval", extensionScript],
       { cwd: root },
     );
     const result = JSON.parse(accepted.stdout);

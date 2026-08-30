@@ -367,6 +367,10 @@ export async function createCapsuleManifest(capsuleRoot, metadata) {
         archiveSha256: distribution.archiveSha256,
         checksumsSha256: metadata.checksumsSha256,
       })),
+      architectureArguments: metadata.target.architectureArguments.map((entry) => ({
+        architecture: entry.architecture,
+        arguments: [...entry.arguments],
+      })),
       executable: metadata.target.executable,
       npmCli: metadata.target.npmCli,
       licenses: [metadata.target.nodeLicense, metadata.target.npmLicense],
@@ -516,7 +520,7 @@ export function validateManifestDocument(manifest) {
   requireRecord(manifest.runtime, "manifest.runtime");
   requireExactKeys(
     manifest.runtime,
-    ["distributions", "executable", "npmCli", "licenses"],
+    ["distributions", "architectureArguments", "executable", "npmCli", "licenses"],
     "manifest.runtime",
   );
   if (
@@ -562,6 +566,29 @@ export function validateManifestDocument(manifest) {
       "runtime archiveSha256",
     );
     requireSha256(runtimeDistribution.checksumsSha256, "runtime checksumsSha256");
+  }
+  if (
+    !Array.isArray(manifest.runtime.architectureArguments) ||
+    manifest.runtime.architectureArguments.length !== target.architectureArguments.length
+  ) {
+    throw new Error("Capsule runtime architecture arguments are incomplete.");
+  }
+  for (const [index, architectureArguments] of manifest.runtime.architectureArguments.entries()) {
+    const expected = target.architectureArguments[index];
+    requireRecord(architectureArguments, "runtime architecture arguments");
+    requireExactKeys(
+      architectureArguments,
+      ["architecture", "arguments"],
+      "runtime architecture arguments",
+    );
+    requireExactString(
+      architectureArguments.architecture,
+      expected.architecture,
+      "runtime argument architecture",
+    );
+    if (stableStringify(architectureArguments.arguments) !== stableStringify(expected.arguments)) {
+      throw new Error("Capsule runtime arguments exceed the architecture policy.");
+    }
   }
   requireExactString(manifest.runtime.executable, target.executable, "runtime executable");
   requireExactString(manifest.runtime.npmCli, target.npmCli, "runtime npmCli");
@@ -773,6 +800,17 @@ function validateNativeCodeDocument(nativeCode, target) {
     throw new Error("Capsule native-code signing order is not deterministic inside-out order.");
   }
   return objects;
+}
+
+export function runtimeArgumentsForArchitecture(manifest, architecture) {
+  validateManifestDocument(manifest);
+  const entry = manifest.runtime.architectureArguments.find(
+    (candidate) => candidate.architecture === architecture,
+  );
+  if (!entry) {
+    throw new Error(`Capsule has no runtime argument policy for ${architecture}.`);
+  }
+  return [...entry.arguments];
 }
 
 export async function verifyPayloadIntegrity(capsuleRoot, manifest) {
@@ -1133,7 +1171,11 @@ export async function verifyRuntimeMetadata(capsuleRoot, manifest) {
   );
   const runtimeBin = dirname(executable);
   const isolatedEnvironment = isolatedRuntimeEnvironment(runtimeBin);
-  const nodeVersion = await runCaptured(executable, ["--version"], {
+  const runtimeArchitecture = manifest.target.architectures.includes(process.arch)
+    ? process.arch
+    : manifest.target.architectures[0];
+  const runtimeArguments = runtimeArgumentsForArchitecture(manifest, runtimeArchitecture);
+  const nodeVersion = await runCaptured(executable, [...runtimeArguments, "--version"], {
     cwd: capsuleRoot,
     env: isolatedEnvironment,
   });
@@ -1141,7 +1183,7 @@ export async function verifyRuntimeMetadata(capsuleRoot, manifest) {
     throw new Error(`Capsule embedded Node version is ${nodeVersion.stdout.trim()}.`);
   }
   const npmCli = resolveCapsulePath(capsuleRoot, manifest.runtime.npmCli, "runtime npm CLI");
-  const npmVersion = await runCaptured(executable, [npmCli, "--version"], {
+  const npmVersion = await runCaptured(executable, [...runtimeArguments, npmCli, "--version"], {
     cwd: capsuleRoot,
     env: isolatedEnvironment,
   });
@@ -1155,7 +1197,7 @@ export async function verifyRuntimeMetadata(capsuleRoot, manifest) {
   ].join("\n");
   const metadataResult = await runCaptured(
     executable,
-    ["--input-type=module", "--eval", metadataScript],
+    [...runtimeArguments, "--input-type=module", "--eval", metadataScript],
     {
       cwd: capsuleRoot,
       env: isolatedEnvironment,
@@ -1175,7 +1217,13 @@ export async function verifyRuntimeMetadata(capsuleRoot, manifest) {
   if (!entrypointMetadata.isFile()) {
     throw new Error("Capsule application entrypoint is not a file.");
   }
-  return { executable, runtimeBin, isolatedEnvironment };
+  return {
+    executable,
+    runtimeBin,
+    isolatedEnvironment,
+    runtimeArchitecture,
+    runtimeArguments,
+  };
 }
 
 export function isolatedRuntimeEnvironment(runtimeBin, baseEnvironment = process.env) {

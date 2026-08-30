@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
-import { mkdir, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -16,6 +16,7 @@ import {
   readJson,
   resolveCapsulePath,
   runCaptured,
+  runtimeArgumentsForArchitecture,
   scanForbiddenArtifacts,
   validateManifestDocument,
   verifyLockCopies,
@@ -161,6 +162,7 @@ async function runArchitectureFixtures(capsule, manifest, runtime) {
       ].join("\n"),
       "utf8",
     );
+    const architectureArguments = runtimeArgumentsForArchitecture(manifest, architecture);
     const environment = {
       ...runtime.isolatedEnvironment,
       HOME: fixtureRoot,
@@ -178,14 +180,16 @@ async function runArchitectureFixtures(capsule, manifest, runtime) {
           resolve(capsule, "app/node_modules/@earendil-works/pi-coding-agent/dist/index.js"),
         ).href,
       )});`,
-      `const loaded = await sdk.loadExtensions([${JSON.stringify(extensionPath)}], ${JSON.stringify(fixtureRoot)});`,
+      `const loader = new sdk.DefaultResourceLoader({cwd: ${JSON.stringify(fixtureRoot)}, agentDir: ${JSON.stringify(fixtureRoot)}, additionalExtensionPaths: [${JSON.stringify(extensionPath)}], noSkills: true, noPromptTemplates: true, noThemes: true, noContextFiles: true});`,
+      "await loader.reload({resolveProjectTrust: async () => true});",
+      "const loaded = loader.getExtensions();",
       "if (loaded.errors.length !== 0 || loaded.extensions.length !== 1) throw new Error(JSON.stringify(loaded.errors));",
       "process.stdout.write(JSON.stringify({architecture: process.arch, directNativeAddon: true, clipboardNativeAddon: true, extensionNativeAddon: true}));",
     ].join("\n");
     try {
       const nodeVersion = await runCapturedForArchitecture(
         runtime.executable,
-        ["--version"],
+        [...architectureArguments, "--version"],
         architecture,
         { cwd: fixtureRoot, env: environment },
       );
@@ -195,7 +199,7 @@ async function runArchitectureFixtures(capsule, manifest, runtime) {
       const npmCli = resolveCapsulePath(capsule, manifest.runtime.npmCli, "runtime npm CLI");
       const npmVersion = await runCapturedForArchitecture(
         runtime.executable,
-        [npmCli, "--version"],
+        [...architectureArguments, npmCli, "--version"],
         architecture,
         { cwd: fixtureRoot, env: environment },
       );
@@ -204,7 +208,7 @@ async function runArchitectureFixtures(capsule, manifest, runtime) {
       }
       const result = await runCapturedForArchitecture(
         runtime.executable,
-        ["--input-type=module", "--eval", fixtureScript],
+        [...architectureArguments, "--input-type=module", "--eval", fixtureScript],
         architecture,
         { cwd: fixtureRoot, env: environment },
       );
@@ -242,15 +246,21 @@ function spawnArchitectureSync(executable, arguments_, architecture) {
 }
 
 async function runRuntimeProtocolE2e(capsule, capsuleManifest, runtime) {
-  const verificationRoot = resolve(tmpdir(), `pi-capsule-e2e-${process.pid}-${randomUUID()}`);
+  const verificationRoot = resolve("/tmp", `pi-e2e-${process.pid}-${randomUUID().slice(0, 8)}`);
   const cwd = resolve(verificationRoot, "project");
   const agentDir = resolve(verificationRoot, "agent");
   const sessionDir = resolve(verificationRoot, "sessions");
   const home = resolve(verificationRoot, "home");
   const temporary = resolve(verificationRoot, "tmp");
+  const toolBin = resolve(verificationRoot, "tool-bin");
   await Promise.all(
-    [cwd, agentDir, sessionDir, home, temporary].map((path) => mkdir(path, { recursive: true })),
+    [cwd, agentDir, sessionDir, home, temporary, toolBin].map((path) =>
+      mkdir(path, { recursive: true }),
+    ),
   );
+  if (process.platform === "darwin") {
+    await symlink("/usr/bin/git", resolve(toolBin, "git"));
+  }
   await writeFile(
     resolve(agentDir, "settings.json"),
     `${JSON.stringify({ sessionDir, enableAnalytics: false })}\n`,
@@ -272,8 +282,9 @@ async function runRuntimeProtocolE2e(capsule, capsuleManifest, runtime) {
     HOME: home,
     TMPDIR: temporary,
     PI_CODING_AGENT_DIR: agentDir,
+    PATH: `${runtime.runtimeBin}:${toolBin}`,
   };
-  assert.equal(environment.PATH, runtime.runtimeBin);
+  assert.equal(environment.PATH, `${runtime.runtimeBin}:${toolBin}`);
   const piSdkUrl = pathToFileURL(
     resolve(capsule, "app/node_modules/@earendil-works/pi-coding-agent/dist/index.js"),
   ).href;
@@ -281,10 +292,14 @@ async function runRuntimeProtocolE2e(capsule, capsuleManifest, runtime) {
     `const sdk = await import(${JSON.stringify(piSdkUrl)});`,
     `new sdk.ProjectTrustStore(${JSON.stringify(agentDir)}).set(${JSON.stringify(cwd)}, true);`,
   ].join("\n");
-  await runCaptured(runtime.executable, ["--input-type=module", "--eval", trustScript], {
-    cwd,
-    env: environment,
-  });
+  await runCaptured(
+    runtime.executable,
+    [...runtime.runtimeArguments, "--input-type=module", "--eval", trustScript],
+    {
+      cwd,
+      env: environment,
+    },
+  );
 
   const client = new CapsuleProtocolClient({
     executable: runtime.executable,
@@ -296,6 +311,7 @@ async function runRuntimeProtocolE2e(capsule, capsuleManifest, runtime) {
     cwd,
     agentDir,
     environment,
+    runtimeArguments: runtime.runtimeArguments,
     protocol,
     protobuf,
   });
@@ -308,6 +324,8 @@ async function runRuntimeProtocolE2e(capsule, capsuleManifest, runtime) {
           protocol.Capability.SESSION_READ,
           protocol.Capability.SESSION_CREATE,
           protocol.Capability.SESSION_EVENTS,
+          protocol.Capability.PROJECT_DISCOVERY,
+          protocol.Capability.PROJECT_TRUST,
         ],
         clientInstanceId: "runtime-capsule-verifier",
         implementationName: "Pi Client Runtime Capsule Verifier",
@@ -318,13 +336,26 @@ async function runRuntimeProtocolE2e(capsule, capsuleManifest, runtime) {
     });
     expectOperation(await client.next(), "serverHandshakeAccepted");
 
-    await client.send(2n, { case: "listSessionsRequest", value: { requestId: 1n } });
+    await client.send(2n, {
+      case: "getProjectBootstrapRequest",
+      value: { requestId: 1n },
+    });
+    const bootstrap = await client.next();
+    expectOperation(bootstrap, "getProjectBootstrapResponse");
+    const projectId = bootstrap.operation.value.defaultProject?.identity?.projectId;
+    assert.equal(typeof projectId, "string");
+    assert.notEqual(projectId.length, 0);
+
+    await client.send(3n, {
+      case: "listSessionsRequest",
+      value: { requestId: 2n, projectId },
+    });
     const listed = await client.next();
     expectOperation(listed, "listSessionsResponse");
 
-    await client.send(3n, {
+    await client.send(4n, {
       case: "createSessionRequest",
-      value: { requestId: 2n, workingDirectory: cwd },
+      value: { requestId: 3n, projectId },
     });
     const created = await client.next(30_000);
     expectOperation(created, "createSessionResponse");
@@ -332,9 +363,9 @@ async function runRuntimeProtocolE2e(capsule, capsuleManifest, runtime) {
     assert.equal(typeof sessionId, "string");
     assert.notEqual(sessionId.length, 0);
 
-    await client.send(4n, {
+    await client.send(5n, {
       case: "getSessionRequest",
-      value: { requestId: 3n, sessionId },
+      value: { requestId: 4n, sessionId, projectId },
     });
     const loaded = await client.next(30_000);
     expectOperation(loaded, "getSessionResponse");
@@ -346,6 +377,7 @@ async function runRuntimeProtocolE2e(capsule, capsuleManifest, runtime) {
     assert.match(client.stderrText, /handshake-accepted/u);
     return {
       handshake: "accepted",
+      bootstrap: bootstrap.operation.case,
       list: listed.operation.case,
       create: created.operation.case,
       get: loaded.operation.case,
@@ -370,7 +402,14 @@ class CapsuleProtocolClient {
     this.streamError = undefined;
     this.child = spawn(
       options.executable,
-      [options.entrypoint, "--cwd", options.cwd, "--agent-dir", options.agentDir],
+      [
+        ...options.runtimeArguments,
+        options.entrypoint,
+        "--cwd",
+        options.cwd,
+        "--agent-dir",
+        options.agentDir,
+      ],
       {
         cwd: options.cwd,
         env: options.environment,

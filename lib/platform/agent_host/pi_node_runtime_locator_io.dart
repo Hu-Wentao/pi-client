@@ -150,6 +150,13 @@ final class PlatformPiNodeRuntimeLocator implements PiNodeRuntimeLocator {
       manifest.applicationEntrypoint,
     );
     final runtimeBin = File(executable).parent.path;
+    final runtimeArchitecture = _targetArchitecture(expectedTargetId);
+    final runtimeArguments = manifest.runtimeArguments[runtimeArchitecture];
+    if (runtimeArguments == null) {
+      throw const PiNodeRuntimeLocationException(
+        PiNodeRuntimeLocationErrorCode.incompatibleCapsule,
+      );
+    }
     final inheritedPath = parentEnvironment['PATH'];
     final isolatedRuntimeFirstPath =
         inheritedPath == null || inheritedPath.isEmpty
@@ -163,6 +170,7 @@ final class PlatformPiNodeRuntimeLocator implements PiNodeRuntimeLocator {
     return PiNodeDesktopProcessConfiguration(
       nodeExecutable: executable,
       serverArguments: <String>[
+        ...runtimeArguments,
         entrypoint,
         '--cwd',
         homeDirectory,
@@ -472,6 +480,7 @@ final class _CapsuleManifest {
     required this.protocolPackagePath,
     required this.applicationLaunch,
     required this.runtimeExecutable,
+    required this.runtimeArguments,
     required this.runtimeLicenses,
     required this.lockDigests,
     required this.payloadSize,
@@ -516,6 +525,7 @@ final class _CapsuleManifest {
     final runtime = _asRecord(root['runtime'], 'runtime');
     _expectExactKeys(runtime, const <String>{
       'distributions',
+      'architectureArguments',
       'executable',
       'npmCli',
       'licenses',
@@ -571,6 +581,37 @@ final class _CapsuleManifest {
       _stringValue(distribution['checksumsUrl'], 'checksums URL');
       _sha256Value(distribution['archiveSha256'], 'archive digest');
       _sha256Value(distribution['checksumsSha256'], 'checksums digest');
+    }
+    final architectureArguments = _asList(
+      runtime['architectureArguments'],
+      'runtime architecture arguments',
+    );
+    if (architectureArguments.length != targetArchitectures.length) {
+      throw const FormatException('Invalid runtime argument inventory.');
+    }
+    final runtimeArguments = <String, List<String>>{};
+    for (var index = 0; index < architectureArguments.length; index += 1) {
+      final entry = _asRecord(
+        architectureArguments[index],
+        'runtime architecture arguments',
+      );
+      _expectExactKeys(entry, const <String>{'architecture', 'arguments'});
+      final architecture = _stringValue(
+        entry['architecture'],
+        'runtime argument architecture',
+      );
+      final arguments = _asList(entry['arguments'], 'runtime arguments')
+          .map((value) => _stringValue(value, 'runtime argument'))
+          .toList(growable: false);
+      final expectedArguments =
+          target['platform'] == 'darwin' && architecture == 'x64'
+          ? const <String>['--jitless']
+          : const <String>[];
+      if (architecture != targetArchitectures[index] ||
+          !_listEquals(arguments, expectedArguments)) {
+        throw const FormatException('Invalid runtime architecture arguments.');
+      }
+      runtimeArguments[architecture] = List<String>.unmodifiable(arguments);
     }
     final application = _asRecord(root['application'], 'application');
     _expectExactKeys(application, const <String>{
@@ -739,6 +780,9 @@ final class _CapsuleManifest {
           .map((value) => _relativePathValue(value, 'launch path'))
           .toList(growable: false),
       runtimeExecutable: runtimeExecutable,
+      runtimeArguments: Map<String, List<String>>.unmodifiable(
+        runtimeArguments,
+      ),
       runtimeLicenses: runtimeLicenses,
       lockDigests: Map<String, String>.unmodifiable(lockDigests),
       payloadSize: _integerValue(integrity['payloadSize'], 'payload size'),
@@ -762,6 +806,7 @@ final class _CapsuleManifest {
   final String protocolPackagePath;
   final List<String> applicationLaunch;
   final String runtimeExecutable;
+  final Map<String, List<String>> runtimeArguments;
   final List<String> runtimeLicenses;
   final Map<String, String> lockDigests;
   final int payloadSize;

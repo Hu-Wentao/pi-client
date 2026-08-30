@@ -26,6 +26,7 @@ void main() {
 
       expect(process.executable, '${fixture.capsule.path}/runtime/bin/node');
       expect(process.arguments, <String>[
+        ..._runtimeArgumentsForCurrentArchitecture(),
         '${fixture.capsule.path}/app/dist/stdio-main.js',
         '--cwd',
         fixture.home.path,
@@ -330,6 +331,15 @@ final class _CapsuleFixture {
               'checksumsSha256': 'c' * 64,
             },
         ],
+        'architectureArguments': <Map<String, Object>>[
+          for (final architecture in targetArchitectures)
+            <String, Object>{
+              'architecture': architecture,
+              'arguments': architecture == 'x64'
+                  ? const <String>['--jitless']
+                  : const <String>[],
+            },
+        ],
         'executable': 'runtime/bin/node',
         'npmCli': 'runtime/lib/node_modules/npm/bin/npm-cli.js',
         'licenses': <String>[
@@ -395,6 +405,12 @@ final class _CapsuleFixture {
 
   Future<void> dispose() => root.delete(recursive: true);
 }
+
+List<String> _runtimeArgumentsForCurrentArchitecture() =>
+    switch (Abi.current()) {
+      Abi.macosX64 => const <String>['--jitless'],
+      _ => const <String>[],
+    };
 
 String _currentTargetId() => switch (Abi.current()) {
   Abi.macosArm64 => 'darwin-arm64',

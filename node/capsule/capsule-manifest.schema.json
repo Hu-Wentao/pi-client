@@ -110,7 +110,7 @@
     "runtime": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["distributions", "executable", "npmCli", "licenses"],
+      "required": ["distributions", "architectureArguments", "executable", "npmCli", "licenses"],
       "properties": {
         "distributions": {
           "type": "array",
@@ -118,6 +118,14 @@
           "maxItems": 2,
           "items": {
             "$ref": "#/$defs/runtimeDistribution"
+          }
+        },
+        "architectureArguments": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "items": {
+            "$ref": "#/$defs/runtimeArchitectureArguments"
           }
         },
         "executable": {
@@ -259,6 +267,23 @@
         },
         "checksumsSha256": {
           "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "runtimeArchitectureArguments": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["architecture", "arguments"],
+      "properties": {
+        "architecture": {
+          "enum": ["arm64", "x64"]
+        },
+        "arguments": {
+          "type": "array",
+          "maxItems": 1,
+          "items": {
+            "enum": ["--jitless"]
+          }
         }
       }
     },
