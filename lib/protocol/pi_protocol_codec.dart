@@ -98,10 +98,23 @@ sealed class PiServerProtocolMessage {
   const PiServerProtocolMessage();
 }
 
+enum PiProtocolCapability {
+  sessionRead,
+  sessionCreate,
+  promptCommand,
+  abortCommand,
+  sessionEvents,
+}
+
 final class PiProtocolHandshakeAcceptedMessage extends PiServerProtocolMessage {
-  PiProtocolHandshakeAcceptedMessage({required this.negotiatedVersion});
+  PiProtocolHandshakeAcceptedMessage({
+    required this.negotiatedVersion,
+    Iterable<PiProtocolCapability> capabilities =
+        const <PiProtocolCapability>[],
+  }) : capabilities = Set<PiProtocolCapability>.unmodifiable(capabilities);
 
   final PiProtocolVersion negotiatedVersion;
+  final Set<PiProtocolCapability> capabilities;
 }
 
 final class PiProtocolHandshakeRejectedMessage extends PiServerProtocolMessage {

@@ -235,6 +235,45 @@ test("routes session requests and admits commands before forwarding ordered sess
   assert.equal(domain.unsubscribedCount.get("created-1"), 1);
 });
 
+test("preserves an uncertain prompt admission as a correlated error", async () => {
+  const domain = new FakeProtocolDomain();
+  domain.promptAdmission = "uncertain";
+  const { output, server } = connection(domain);
+  try {
+    await handshake(server);
+    await server.receive(
+      clientFrame(2n, {
+        case: "getSessionRequest",
+        value: { requestId: 1n, sessionId: "session-1" },
+      }),
+    );
+    await server.receive(
+      clientFrame(3n, {
+        case: "promptCommand",
+        value: {
+          requestId: 2n,
+          commandId: "uncertain-command",
+          sessionId: "session-1",
+          prompt: "Continue",
+        },
+      }),
+    );
+
+    const uncertain = output.at(-1);
+    assert.equal(uncertain?.operation.case, "error");
+    if (uncertain?.operation.case === "error") {
+      assert.deepEqual(uncertain.operation.value.correlation, {
+        case: "requestId",
+        value: 2n,
+      });
+      assert.equal(uncertain.operation.value.error?.code, ErrorCode.NODE_BUSY);
+      assert.equal(uncertain.operation.value.error?.retryable, true);
+    }
+  } finally {
+    await server.dispose();
+  }
+});
+
 test("rejects reused request and command identifiers without invoking the domain twice", async () => {
   const { output, server } = connection();
   try {

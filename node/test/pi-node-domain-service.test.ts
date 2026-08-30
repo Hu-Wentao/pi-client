@@ -268,6 +268,29 @@ test("project trust canonicalization precedes every persistent SDK backend opera
   }
 });
 
+test("lists a newly loaded persistent session before the SDK index observes it", async () => {
+  const factory = new FakeSessionFactory();
+  const service = new PiNodeDomainService({
+    agentDir,
+    trustCoordinator: trustCoordinator(),
+    sessionFactory: factory,
+    ownershipRegistry: new InMemoryPiNodeSessionOwnershipRegistry(),
+  });
+
+  try {
+    const created = await service.createPersistentSession({ cwd: "/input" });
+    factory.backends.delete(created.sessionId);
+
+    const listed = await service.listPersistentSessions({ cwd: "/input" });
+    assert.deepEqual(
+      listed.map((session) => session.sessionId),
+      [created.sessionId],
+    );
+  } finally {
+    await service.dispose();
+  }
+});
+
 test("concurrent loads share one exclusive loaded backend and snapshot copy", async () => {
   const factory = new FakeSessionFactory();
   factory.backends.set("session-1", new FakeSessionBackend("session-1"));

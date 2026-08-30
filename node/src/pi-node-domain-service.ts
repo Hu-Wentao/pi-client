@@ -145,12 +145,22 @@ export class PiNodeDomainService {
           authorization,
           agentDir: this.#agentDir,
         });
-        return Object.freeze(
-          summaries.map((summary) => {
-            const loaded = this.#sessions.get(summary.sessionId);
-            return copySummary(summary, loaded?.running ?? false);
-          }),
-        );
+        const listedIds = new Set(summaries.map((summary) => summary.sessionId));
+        const listed = summaries.map((summary) => {
+          const loaded = this.#sessions.get(summary.sessionId);
+          return loaded
+            ? copySummary(loaded.backend.getSnapshot(), loaded.running)
+            : copySummary(summary, false);
+        });
+        for (const loaded of this.#sessions.values()) {
+          if (
+            loaded.backend.cwd === authorization.cwd &&
+            !listedIds.has(loaded.backend.sessionId)
+          ) {
+            listed.push(copySummary(loaded.backend.getSnapshot(), loaded.running));
+          }
+        }
+        return Object.freeze(listed);
       } catch (error) {
         throw wrapDomainError(
           error,
