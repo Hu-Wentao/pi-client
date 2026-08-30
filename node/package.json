@@ -13,23 +13,32 @@
       "import": "./dist/index.js"
     }
   },
+  "bin": {
+    "pi-client-node-stdio": "./dist/stdio-main.js"
+  },
   "files": [
     "dist"
   ],
   "scripts": {
     "runtime:check": "node ./scripts/assert-runtime.mjs",
+    "protocol:sync": "bun run --cwd ../protocol build:package && bun install --frozen-lockfile",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\" \"scripts/**/*.mjs\" \"*.json\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\" \"scripts/**/*.mjs\" \"*.json\"",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
-    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "bun run protocol:sync && bun run typecheck:raw",
+    "typecheck:raw": "tsc --noEmit -p tsconfig.json",
+    "build": "bun run protocol:sync && bun run build:raw",
+    "build:raw": "tsc -p tsconfig.build.json",
     "smoke:dist": "node ./scripts/smoke-dist.mjs",
     "test": "bun run test:node",
-    "test:node": "node ./scripts/run-tests.mjs",
+    "test:node": "bun run protocol:sync && bun run test:node:raw",
+    "test:node:raw": "node ./scripts/run-tests.mjs",
     "scan:forbidden": "node ./scripts/scan-forbidden.mjs",
-    "check": "bun run runtime:check && bun run format:check && bun run typecheck && bun run build && bun run smoke:dist && bun run test:node && bun run scan:forbidden"
+    "check": "bun run runtime:check && bun run format:check && bun run protocol:sync && bun run typecheck:raw && bun run build:raw && bun run smoke:dist && bun run test:node:raw && bun run scan:forbidden"
   },
   "dependencies": {
-    "@earendil-works/pi-coding-agent": "0.84.3"
+    "@bufbuild/protobuf": "2.14.0",
+    "@earendil-works/pi-coding-agent": "0.84.3",
+    "@pi-client/protocol": "file:../protocol"
   },
   "overrides": {
     "@earendil-works/pi-agent-core": "0.84.3",

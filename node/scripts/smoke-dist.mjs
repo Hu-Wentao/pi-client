@@ -19,6 +19,12 @@ if (typeof api.PiNodeDomainService !== "function") {
 if (typeof api.PublicPiSdkDomainSessionFactory !== "function") {
   throw new Error("PublicPiSdkDomainSessionFactory is missing from the built package.");
 }
+if (typeof api.PiNodeProtobufConnection !== "function") {
+  throw new Error("PiNodeProtobufConnection is missing from the built package.");
+}
+if (typeof api.runPiNodeStdioServer !== "function") {
+  throw new Error("runPiNodeStdioServer is missing from the built package.");
+}
 
 console.log(
   `Built Pi Node package loaded with SDK ${metadata.piSdkVersion} on Node.js ${metadata.nodeVersion}.`,

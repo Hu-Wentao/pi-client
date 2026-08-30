@@ -36,6 +36,20 @@ if (packageJson.engines?.node !== ">=22.19.0") {
 if (packageJson.packageManager !== "bun@1.4.0") {
   throw new Error("The Pi Node package must pin Bun 1.4.0 for dependency management.");
 }
+if (packageJson.dependencies?.["@pi-client/protocol"] !== "file:../protocol") {
+  throw new Error("Pi Node must consume the repository protocol package through file:../protocol.");
+}
+if (!lockfile.includes('"@pi-client/protocol": ["@pi-client/protocol@file:../protocol"')) {
+  throw new Error("bun.lock must pin the local @pi-client/protocol file dependency.");
+}
+const protocolPackageJson = JSON.parse(
+  readFileSync(new URL("../protocol/package.json", packageRoot), "utf8"),
+);
+if (protocolPackageJson.name !== "@pi-client/protocol" || protocolPackageJson.private !== true) {
+  throw new Error(
+    "The unpublished protocol package must be exported locally as @pi-client/protocol.",
+  );
+}
 
 function collectFiles(directory) {
   const files = [];
@@ -112,13 +126,19 @@ for (const file of files) {
   if (sourceFile && domainCoreSourceFiles.has(fileName) && content.includes("@earendil-works/")) {
     violations.push(`${file}: domain core must remain independent from upstream SDK types`);
   }
+  const wireSource =
+    file.includes(`${sourceRoot}/protocol/`) ||
+    file.includes(`${sourceRoot}/stdio/`) ||
+    file === `${sourceRoot}/index.ts` ||
+    file === `${sourceRoot}/stdio-main.ts`;
   if (
     sourceFile &&
+    !wireSource &&
     /(?:from\s+|import\s*\(\s*)["'](?:@pi-client\/protocol|(?:\.\.?\/)+protocol(?:\/|["']))/.test(
       content,
     )
   ) {
-    violations.push(`${file}: protocol or wire dependency inside Pi Node domain source`);
+    violations.push(`${file}: protocol dependency outside the dedicated wire or stdio boundary`);
   }
 }
 
