@@ -13,6 +13,7 @@ import {
   isolatedRuntimeEnvironment,
   readJson,
   resolveCapsulePath,
+  runCaptured,
   scanForbiddenArtifacts,
   validateManifestDocument,
   verifyLockCopies,
@@ -126,6 +127,17 @@ async function runRuntimeProtocolE2e(capsule, capsuleManifest, runtime) {
     PI_CODING_AGENT_DIR: agentDir,
   };
   assert.equal(environment.PATH, runtime.runtimeBin);
+  const piSdkUrl = pathToFileURL(
+    resolve(capsule, "app/node_modules/@earendil-works/pi-coding-agent/dist/index.js"),
+  ).href;
+  const trustScript = [
+    `const sdk = await import(${JSON.stringify(piSdkUrl)});`,
+    `new sdk.ProjectTrustStore(${JSON.stringify(agentDir)}).set(${JSON.stringify(cwd)}, true);`,
+  ].join("\n");
+  await runCaptured(runtime.executable, ["--input-type=module", "--eval", trustScript], {
+    cwd,
+    env: environment,
+  });
 
   const client = new CapsuleProtocolClient({
     executable: runtime.executable,
@@ -157,18 +169,18 @@ async function runRuntimeProtocolE2e(capsule, capsuleManifest, runtime) {
         maxTransferChunkBytes: protocol.MAX_TRANSFER_CHUNK_BYTES,
       },
     });
-    assert.equal((await client.next()).operation.case, "serverHandshakeAccepted");
+    expectOperation(await client.next(), "serverHandshakeAccepted");
 
     await client.send(2n, { case: "listSessionsRequest", value: { requestId: 1n } });
     const listed = await client.next();
-    assert.equal(listed.operation.case, "listSessionsResponse");
+    expectOperation(listed, "listSessionsResponse");
 
     await client.send(3n, {
       case: "createSessionRequest",
       value: { requestId: 2n, workingDirectory: cwd },
     });
     const created = await client.next(30_000);
-    assert.equal(created.operation.case, "createSessionResponse");
+    expectOperation(created, "createSessionResponse");
     const sessionId = created.operation.value.session?.summary?.sessionId;
     assert.equal(typeof sessionId, "string");
     assert.notEqual(sessionId.length, 0);
@@ -178,7 +190,7 @@ async function runRuntimeProtocolE2e(capsule, capsuleManifest, runtime) {
       value: { requestId: 3n, sessionId },
     });
     const loaded = await client.next(30_000);
-    assert.equal(loaded.operation.case, "getSessionResponse");
+    expectOperation(loaded, "getSessionResponse");
     assert.equal(loaded.operation.value.session?.summary?.sessionId, sessionId);
 
     client.endInput();
@@ -192,6 +204,7 @@ async function runRuntimeProtocolE2e(capsule, capsuleManifest, runtime) {
       get: loaded.operation.case,
       childExitCode: exit.code,
       systemNodeExcludedFromPath: true,
+      projectTrust: "explicit-synthetic-project-approval",
     };
   } finally {
     client.forceStop();
@@ -326,6 +339,17 @@ class CapsuleProtocolClient {
       waiter.reject(error);
     }
   }
+}
+
+function expectOperation(frame, expectedCase) {
+  if (frame.operation.case === expectedCase) {
+    return;
+  }
+  const error = frame.operation.value?.error;
+  const detail = error
+    ? ` stable error code ${error.code}: ${error.safeMessage}`
+    : ` operation ${frame.operation.case}`;
+  throw new Error(`Expected ${expectedCase}; received${detail}.`);
 }
 
 function asError(error) {
