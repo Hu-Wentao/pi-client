@@ -989,7 +989,7 @@ Directory _defaultBundledCapsuleDirectory() {
   final executable = File(Platform.resolvedExecutable);
   final contents = executable.parent.parent;
   return Directory(
-    '${contents.path}${Platform.pathSeparator}Helpers${Platform.pathSeparator}PiNode',
+    '${contents.path}${Platform.pathSeparator}Resources${Platform.pathSeparator}PiNode',
   );
 }
 

@@ -12,7 +12,7 @@ import {
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const verifyRuntimeCapsuleScript = resolve(scriptDirectory, "verify-runtime-capsule.mjs");
 
-export const MACOS_APP_CAPSULE_RELATIVE_PATH = "Contents/Helpers/PiNode";
+export const MACOS_APP_CAPSULE_RELATIVE_PATH = "Contents/Resources/PiNode";
 
 export function resolveMacosAppCapsulePath(appBundle) {
   const app = resolve(appBundle);

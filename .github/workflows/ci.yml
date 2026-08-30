@@ -272,7 +272,7 @@ jobs:
         run: |
           APP='build/macos/Build/Products/Debug/Pi Client.app'
           test -d "$APP"
-          test ! -e "$APP/Contents/Helpers/PiNode"
+          test ! -e "$APP/Contents/Resources/PiNode"
           ! grep -Eq 'app-sandbox|disable-library-validation|allow-unsigned-executable-memory' macos/Runner/Debug.entitlements
 
       - name: Build unsigned iOS debug app

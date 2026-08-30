@@ -29,10 +29,10 @@ test("installs a verified capsule at the fixed macOS app-bundle layout", async (
     verifyCapsule,
   });
 
-  assert.equal(installed.capsulePath, resolve(fixture.app, "Contents/Helpers/PiNode"));
-  assert.equal(installed.layout, "Contents/Helpers/PiNode");
+  assert.equal(installed.capsulePath, resolve(fixture.app, "Contents/Resources/PiNode"));
+  assert.equal(installed.layout, "Contents/Resources/PiNode");
   assert.equal(installed.sourceCommit, fixture.sourceCommit);
-  assert.deepEqual(verified, [fixture.capsule, resolve(fixture.app, "Contents/Helpers/PiNode")]);
+  assert.deepEqual(verified, [fixture.capsule, resolve(fixture.app, "Contents/Resources/PiNode")]);
   assert.equal(
     await readFile(resolve(installed.capsulePath, "runtime/bin/node"), "utf8"),
     "node\n",
