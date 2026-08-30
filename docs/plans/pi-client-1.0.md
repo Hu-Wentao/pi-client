@@ -83,9 +83,9 @@ Flutter Pi Client
 
 | Phase | Status | Primary scope | Exit gate |
 | --- | --- | --- | --- |
-| P0 | Active | Governance, parity inventory, requirement and verification ownership | Scope is fully classified; dependencies and architecture spikes have recorded decisions |
-| P1 | Planned | Protocol, Pi Node skeleton, desktop host controller | One typed prompt round trip works without pi-web; crash/restart/version gates pass |
-| P2 | Planned | Local Direct migration and legacy adapter removal | Existing MVP works without pi-web; legacy URL/password path is removed with migration notes |
+| P0 | Complete | Governance, parity inventory, requirement and verification ownership | Scope is fully classified; dependencies and architecture spikes have recorded decisions |
+| P1 | Source substantially complete | Protocol, Pi Node skeleton, desktop host controller | One typed prompt round trip works without pi-web; crash/restart/version gates pass |
+| P2 | Source substantially complete | Local Direct migration and legacy adapter removal | Existing MVP works without pi-web; legacy URL/password path is removed with migration notes |
 | P3 | Planned | Project, session, history, branch, and app shell | `REQ-PI-014` through `REQ-PI-016` and `REQ-PI-030` have complete evidence |
 | P4 | Planned | Agent, composer, shell, and rich messages | `REQ-PI-017` through `REQ-PI-020` have complete evidence |
 | P5 | Planned | Files, Git, and worktrees | `REQ-PI-021` through `REQ-PI-023` and applicable security clauses have complete evidence |
@@ -95,6 +95,13 @@ Flutter Pi Client
 | P9 | Planned | Six-platform host/client conformance and packaging | Desktop host and connect-only roles pass artifact inspection and supported builds |
 | P10 | Planned | Friday Workspace, Native OIDC, E2EE, and WebAssembly | `PLAN-PI-002` cross-project gates pass without weakening Local Direct |
 | P11 | Planned | Release qualification and `1.0.0` publication | All Must requirements are Active, no gaps remain, and immutable production artifacts are verified |
+
+### P0-P2 progress at `c10178c`
+
+- P0 is complete: `DEC-016`, `BASE-PI-008`, `BENCH-PI-001` through `BENCH-PI-015`, `REQ-PI-001` through `REQ-PI-034`, and `VER-PI-014` freeze the parity scope, independent boundary, lifecycle semantics, and verification ownership.
+- P1 source is substantially complete: the repository contains a first-party Pi SDK domain, fail-closed project-trust coordinator, private Protobuf `0.1.0-dev.0` package with Dart/TypeScript codecs and vectors, stdio protocol server, Flutter codec/client, desktop host controller, Local Direct process transport, cross-process fixtures, and a reproducible host-targeted runtime Capsule builder.
+- P2 source is substantially complete: application composition owns `PiNodeApi`; Workspace list/load/create/prompt/abort/event behavior uses typed first-party APIs; and current source contains no `PiWebGateway`, pi-web URL/password configuration, Dio HTTP/SSE runtime, gateway compatibility test, or pi-web smoke tool.
+- These statuses describe source implementation only. They do not activate `REQ-PI-006`, `REQ-PI-009`, or `REQ-PI-013`, publish Protocol 1.0, prove a provider-backed production prompt, bundle a Capsule into supported desktop packages, qualify project-trust UX, or establish an independent public release.
 
 ### P0 - Freeze governance and technical preflight
 
@@ -301,7 +308,9 @@ Milestone numbers are planning identities, not release authorization. A release 
 
 ### Current gaps
 
-- The exact reviewed Pi SDK lifecycle and project-trust construction sequence still require P0/P1 spike evidence.
-- Protocol encoding/code generation, Local IPC, Node runtime packaging, desktop sidecar layout, rich preview dependencies, secure storage, and E2EE library choices remain undecided until bounded evaluations complete.
-- Friday Workspace contracts remain blocked as recorded by `VER-PI-008` and `VER-PI-009`.
-- Windows/Linux host builds, signed/notarized desktop distribution, mobile store identity, WebAssembly compatibility, and production accessibility evidence remain Planned.
+- The Protobuf `0.1.0-dev.0` package is private and unpublished. Stream open/resume/close, reconnect cursors, replay retention, stateful backpressure, authentication, pairing, LAN Direct, Friday transport equivalence, and Protocol 1.0 compatibility policy remain incomplete.
+- The production cross-process SDK evidence covers offline handshake, session list/create/get, and Workspace creation. Prompt/abort ordering, uncertain admission, framing pressure, incompatible versions, and process-exit behavior are cross-process fixture evidence; a real provider-backed production prompt, cancellation, restart, and session recovery are not yet proven.
+- The fail-closed project-trust coordinator and focused tests exist, but the production app has no complete trust-decision UX or operational evidence for protected project resources. Provider authentication and secure credential lifecycle remain unimplemented.
+- The runtime Capsule builder verifies a host-targeted Node/Pi Node payload, manifest, checksums, and forbidden-artifact scan, but no supported desktop application currently bundles and qualifies that Capsule. Windows/Linux packaging, signed/notarized desktop distribution, and the first independent public release remain incomplete.
+- README, Landing Page, and public `v0.0.2` Release continue to describe the immutable historical Preview until a separately authorized independent release updates public delivery surfaces.
+- Friday Workspace contracts remain blocked as recorded by `VER-PI-008` and `VER-PI-009`; rich previews, E2EE, mobile store identity, WebAssembly compatibility, and production accessibility evidence remain Planned.
