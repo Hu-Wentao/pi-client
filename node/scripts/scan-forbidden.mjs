@@ -73,10 +73,17 @@ const forbidden = [
   },
 ];
 
-const files = [
-  ...collectFiles(new URL("src", packageRoot).pathname),
-  ...collectFiles(new URL("test", packageRoot).pathname),
-];
+const sourceRoot = new URL("src", packageRoot).pathname;
+const files = [...collectFiles(sourceRoot), ...collectFiles(new URL("test", packageRoot).pathname)];
+const publicSdkPackage = "@earendil-works/pi-coding-agent";
+const sdkAdapterSourceFiles = new Set([
+  "pi-sdk-domain-session.ts",
+  "pi-sdk-session-factory.ts",
+  "project-trust.ts",
+  "runtime-metadata.ts",
+]);
+const domainCoreSourceFiles = new Set(["pi-node-domain.ts", "pi-node-domain-service.ts"]);
+const importPattern = /(?:from\s+|import\s*\(\s*)["']([^"']+)["']/g;
 const violations = [];
 for (const file of files) {
   const content = readFileSync(file, "utf8");
@@ -84,6 +91,34 @@ for (const file of files) {
     if (rule.pattern.test(content)) {
       violations.push(`${file}: ${rule.label}`);
     }
+  }
+
+  const sourceFile = file.startsWith(sourceRoot);
+  const fileName = file.slice(file.lastIndexOf("/") + 1);
+  for (const match of content.matchAll(importPattern)) {
+    const specifier = match[1];
+    if (!specifier?.startsWith("@earendil-works/")) {
+      continue;
+    }
+    if (specifier !== publicSdkPackage) {
+      violations.push(`${file}: non-root upstream import ${specifier}`);
+      continue;
+    }
+    if (sourceFile && !sdkAdapterSourceFiles.has(fileName)) {
+      violations.push(`${file}: public Pi SDK import outside the SDK adapter boundary`);
+    }
+  }
+
+  if (sourceFile && domainCoreSourceFiles.has(fileName) && content.includes("@earendil-works/")) {
+    violations.push(`${file}: domain core must remain independent from upstream SDK types`);
+  }
+  if (
+    sourceFile &&
+    /(?:from\s+|import\s*\(\s*)["'](?:@pi-client\/protocol|(?:\.\.?\/)+protocol(?:\/|["']))/.test(
+      content,
+    )
+  ) {
+    violations.push(`${file}: protocol or wire dependency inside Pi Node domain source`);
   }
 }
 
