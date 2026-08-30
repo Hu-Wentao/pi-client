@@ -1,0 +1,13 @@
+version: v2
+modules:
+  - path: schema
+lint:
+  use:
+    - STANDARD
+  except:
+    # Buf's standard version suffixes start at v1. This unpublished spike uses
+    # v0 deliberately and does not claim a frozen Protocol 1.0 contract.
+    - PACKAGE_VERSION_SUFFIX
+breaking:
+  use:
+    - FILE
