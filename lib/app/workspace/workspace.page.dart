@@ -1,9 +1,8 @@
-import 'package:dio/dio.dart';
 import 'package:flowr/flowr_mvvm.dart';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/app_env.dart';
+import '../../api/pi_node/pi_node.dart';
 import 'workspace.dart';
 import 'workspace.srv.dart';
 
@@ -16,8 +15,7 @@ class WorkspacePage extends GoRouteData with $WorkspacePage {
   @override
   Widget build(BuildContext context, GoRouterState state) => FrProvider(
     (context) => WorkspaceViewModel(
-      gateway: PiWebGateway(context.read<Dio>()),
-      initialBaseUrl: context.read<AppEnvViewModel>().state.apiBaseUrl,
+      service: WorkspaceService(context.read<PiNodeApi>()),
     ),
     onCreated: (context, vm) => vm.add(const WorkspaceStarted()),
     child: const WorkspaceView(),

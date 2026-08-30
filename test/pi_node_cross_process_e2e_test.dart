@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pi_client/api/pi_node/pi_node.dart';
+import 'package:pi_client/app/workspace/workspace.dart';
+import 'package:pi_client/app/workspace/workspace.srv.dart';
 import 'package:pi_client/protocol/pi_protocol.dart';
 import 'package:pi_client/transport/local_direct_pi_transport.dart';
 
@@ -67,6 +69,59 @@ void main() {
             ),
           ),
         );
+      },
+      timeout: const Timeout(Duration(seconds: 60)),
+    );
+
+    test(
+      'drives the production Workspace through the built first-party Node',
+      () async {
+        final root = await Directory.systemTemp.createTemp(
+          'pi-client-workspace-node-sdk-',
+        );
+        addTearDown(() => root.delete(recursive: true));
+        final cwd = await Directory('${root.path}/project').create();
+        final agentDir = await Directory('${root.path}/agent').create();
+        final sessionDir = await Directory('${root.path}/sessions').create();
+        await File('${agentDir.path}/settings.json').writeAsString(
+          '${jsonEncode(<String, Object>{'sessionDir': sessionDir.path, 'enableAnalytics': false})}\n',
+        );
+
+        final harness = await _startProductionNode(
+          cwd: cwd.path,
+          agentDir: agentDir.path,
+        );
+        final viewModel = WorkspaceViewModel(
+          service: WorkspaceService(harness.client),
+        );
+        addTearDown(() async {
+          await viewModel.close();
+          await harness.client.close();
+        });
+
+        viewModel.add(const WorkspaceStarted());
+        await _waitForWorkspace(
+          viewModel,
+          (state) =>
+              state.connection.status == PiNodeConnectionStatus.connected &&
+              !state.sessionsLoading,
+        );
+        expect(viewModel.state.sessions, isEmpty);
+
+        viewModel.add(WorkspaceNewSessionRequested(cwd.path));
+        await _waitForWorkspace(
+          viewModel,
+          (state) =>
+              state.sessions.length == 1 &&
+              state.selectedSessionId == state.sessions.single.id &&
+              !state.conversationLoading &&
+              state.eventStatus == WorkspaceEventStatus.listening,
+        );
+        expect(
+          viewModel.state.sessions.single.workingDirectory,
+          await cwd.resolveSymbolicLinks(),
+        );
+        expect(viewModel.state.messages, isEmpty);
       },
       timeout: const Timeout(Duration(seconds: 60)),
     );
@@ -281,6 +336,18 @@ void main() {
       expect(package['files'], <Object?>['dist']);
     });
   });
+}
+
+Future<WorkspaceModel> _waitForWorkspace(
+  WorkspaceViewModel viewModel,
+  bool Function(WorkspaceModel state) predicate,
+) {
+  if (predicate(viewModel.state)) {
+    return Future<WorkspaceModel>.value(viewModel.state);
+  }
+  return viewModel.stream
+      .firstWhere(predicate)
+      .timeout(const Duration(seconds: 15));
 }
 
 void _expectSupportedHandshake(PiNodeConnectionSnapshot connection) {

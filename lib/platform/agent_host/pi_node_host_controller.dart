@@ -58,8 +58,8 @@ typedef PiNodeTransportLauncher =
       LocalDirectPiProcessConfiguration configuration,
     );
 
-/// Default desktop sidecar controller. It is intentionally not wired into the
-/// current production Workspace until the Local Direct end-to-end gates pass.
+/// Default desktop Pi Node controller used lazily by application composition.
+/// Process startup still occurs only when the app-owned PiNodeApi connects.
 final class LocalProcessPiNodeHostController implements PiNodeHostController {
   LocalProcessPiNodeHostController({
     required PlatformCapabilities capabilities,

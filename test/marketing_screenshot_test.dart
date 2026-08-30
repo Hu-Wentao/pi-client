@@ -1,11 +1,15 @@
 import 'dart:async';
 import 'dart:io';
+
 import 'package:flowr/flowr_mvvm.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pi_client/api/pi_node/pi_node.dart';
 import 'package:pi_client/app/workspace/workspace.dart';
 import 'package:pi_client/app/workspace/workspace.srv.dart';
+
+import 'support/fake_pi_node_api.dart';
 
 void main() {
   final defaultComparator = goldenFileComparator;
@@ -15,19 +19,69 @@ void main() {
   );
   tearDownAll(() => goldenFileComparator = defaultComparator);
 
-  testWidgets('renders the sanitized real-text marketing screenshot', (
+  testWidgets('renders the sanitized first-party Node marketing screenshot', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1280, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.runAsync(_loadMarketingFonts);
 
-    final api = _MarketingPiWebApi();
-    final viewModel = WorkspaceViewModel(
-      gateway: api,
-      initialBaseUrl: 'http://127.0.0.1:30141',
-      reconnectDelay: Duration.zero,
+    final primary = fakeSession(
+      id: 'preview-session',
+      title: 'Repair the sync regression',
+      workingDirectory: '/Projects/aurora-notes',
+      updatedAt: DateTime.utc(2026, 8, 30, 9, 30),
     );
+    final release = fakeSession(
+      id: 'release-session',
+      title: 'Review the release checklist',
+      workingDirectory: '/Projects/atlas-dashboard',
+      updatedAt: DateTime.utc(2026, 8, 29, 16, 20),
+    );
+    final protocol = fakeSession(
+      id: 'protocol-session',
+      title: 'Verify the Pi Node protocol',
+      workingDirectory: '/Projects/lumen-runtime',
+      updatedAt: DateTime.utc(2026, 8, 29, 11, 10),
+    );
+    final api = FakePiNodeApi(
+      sessions: <PiSessionSummary>[primary, release, protocol],
+      details: <PiSessionId, PiSessionDetail>{
+        primary.id: fakeDetail(
+          primary,
+          messages: <PiMessage>[
+            fakeMessage(
+              id: 'preview-user',
+              role: PiMessageRole.user,
+              text: 'Inspect the failing sync test and explain the root cause.',
+              createdAt: DateTime.utc(2026, 8, 30, 9),
+            ),
+            fakeMessage(
+              id: 'preview-analysis',
+              role: PiMessageRole.assistant,
+              text:
+                  'The older request can finish last and overwrite the newer result. I will add a generation guard and a focused regression test.',
+              createdAt: DateTime.utc(2026, 8, 30, 9, 1),
+            ),
+            fakeMessage(
+              id: 'preview-tool',
+              role: PiMessageRole.tool,
+              text:
+                  'flutter test test/sync_controller_test.dart\n00:02 +12: All tests passed!',
+              createdAt: DateTime.utc(2026, 8, 30, 9, 2),
+            ),
+            fakeMessage(
+              id: 'preview-result',
+              role: PiMessageRole.assistant,
+              text:
+                  'The stale response is now ignored. The first-party Pi Node event flow is covered in both completion orders.',
+              createdAt: DateTime.utc(2026, 8, 30, 9, 3),
+            ),
+          ],
+        ),
+      },
+    );
+    final viewModel = WorkspaceViewModel(service: WorkspaceService(api));
 
     await tester.pumpWidget(
       MaterialApp(
@@ -45,22 +99,24 @@ void main() {
     );
     viewModel.add(const WorkspaceStarted());
     await tester.pumpAndSettle();
-    viewModel.add(const WorkspaceSessionSelected('preview-session'));
+    viewModel.add(WorkspaceSessionSelected(primary.id));
     await tester.pump();
     await tester.runAsync(
       () => _waitUntil(
         () =>
-            viewModel.state.selectedSessionId == 'preview-session' &&
+            viewModel.state.selectedSessionId == primary.id &&
             !viewModel.state.conversationLoading &&
             viewModel.state.messages.length == 4,
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(api.receivedPassword, isEmpty);
     expect(find.textContaining('/Users/'), findsNothing);
     expect(find.textContaining('password'), findsNothing);
     expect(find.textContaining('token'), findsNothing);
+    expect(find.textContaining('pi-web'), findsNothing);
+    expect(find.textContaining('Local Pi Node'), findsNothing);
+    expect(find.text('Pi Node'), findsOneWidget);
 
     await expectLater(
       find.byKey(const Key('workspaceScaffold')),
@@ -99,7 +155,7 @@ Future<void> _loadFont(String family, String path) async {
 }
 
 Future<void> _waitUntil(bool Function() predicate) async {
-  final deadline = DateTime.now().add(const Duration(seconds: 2));
+  final deadline = DateTime.now().add(const Duration(seconds: 3));
   while (!predicate()) {
     if (DateTime.now().isAfter(deadline)) {
       throw TimeoutException('Marketing screenshot condition was not met.');
@@ -126,162 +182,5 @@ final class _ThresholdGoldenComparator extends LocalFileComparator {
     final error = await generateFailureOutput(result, golden, basedir);
     result.dispose();
     throw FlutterError(error);
-  }
-}
-
-final class _MarketingPiWebApi implements PiWebApi {
-  final _controllers = <StreamController<Map<String, dynamic>>>[];
-  String receivedPassword = '';
-
-  @override
-  String normalizeBaseUrl(String value) => value;
-
-  @override
-  Future<Map<String, dynamic>> loadSessions({
-    required String baseUrl,
-    required String password,
-    bool force = false,
-  }) async {
-    receivedPassword = password;
-    return <String, dynamic>{
-      'sessions': <Map<String, dynamic>>[
-        <String, dynamic>{
-          'id': 'preview-session',
-          'cwd': '/Projects/aurora-notes',
-          'name': 'Repair the sync regression',
-          'created': '2026-08-28T08:00:00Z',
-          'modified': '2026-08-30T09:30:00Z',
-          'messageCount': 18,
-          'firstMessage': 'Inspect the failing sync test',
-        },
-        <String, dynamic>{
-          'id': 'review-session',
-          'cwd': '/Projects/atlas-dashboard',
-          'name': 'Review the release checklist',
-          'created': '2026-08-27T08:00:00Z',
-          'modified': '2026-08-29T16:20:00Z',
-          'messageCount': 11,
-          'firstMessage': 'Check the release boundaries',
-        },
-        <String, dynamic>{
-          'id': 'docs-session',
-          'cwd': '/Projects/lumen-docs',
-          'name': 'Clarify the setup guide',
-          'created': '2026-08-26T08:00:00Z',
-          'modified': '2026-08-29T11:10:00Z',
-          'messageCount': 7,
-          'firstMessage': 'Make the quick start user-focused',
-        },
-      ],
-      'runningSessionIds': <String>[],
-    };
-  }
-
-  @override
-  Future<Map<String, dynamic>> loadSession({
-    required String baseUrl,
-    required String password,
-    required String sessionId,
-  }) async {
-    receivedPassword = password;
-    return <String, dynamic>{
-      'context': <String, dynamic>{
-        'messages': <Map<String, dynamic>>[
-          <String, dynamic>{
-            'role': 'user',
-            'content':
-                'Inspect the failing sync test and explain the root cause.',
-          },
-          <String, dynamic>{
-            'role': 'assistant',
-            'content': <Map<String, dynamic>>[
-              <String, dynamic>{
-                'type': 'text',
-                'text':
-                    'The older request can finish last and overwrite the newer result. I will add a generation guard and a focused regression test.',
-              },
-            ],
-          },
-          <String, dynamic>{
-            'role': 'toolResult',
-            'content': <Map<String, dynamic>>[
-              <String, dynamic>{
-                'type': 'text',
-                'text':
-                    'flutter test test/sync_controller_test.dart\n00:02 +12: All tests passed!',
-              },
-            ],
-          },
-          <String, dynamic>{
-            'role': 'assistant',
-            'content': <Map<String, dynamic>>[
-              <String, dynamic>{
-                'type': 'text',
-                'text':
-                    'The stale response is now ignored, and the focused test covers both completion orders.',
-              },
-            ],
-          },
-        ],
-        'entryIds': <String>[
-          'preview-user',
-          'preview-analysis',
-          'preview-tool',
-          'preview-result',
-        ],
-      },
-    };
-  }
-
-  @override
-  Future<String> ensureSession({
-    required String baseUrl,
-    required String password,
-    required String cwd,
-  }) async => 'preview-session';
-
-  @override
-  Future<void> sendPrompt({
-    required String baseUrl,
-    required String password,
-    required String sessionId,
-    required String message,
-  }) async {}
-
-  @override
-  Future<void> abort({
-    required String baseUrl,
-    required String password,
-    required String sessionId,
-  }) async {}
-
-  @override
-  Stream<Map<String, dynamic>> watchEvents({
-    required String baseUrl,
-    required String password,
-    required String sessionId,
-  }) {
-    receivedPassword = password;
-    final controller = StreamController<Map<String, dynamic>>.broadcast();
-    _controllers.add(controller);
-    scheduleMicrotask(
-      () => controller.add(<String, dynamic>{
-        'type': 'connected',
-        'sessionId': sessionId,
-        'isStreaming': false,
-      }),
-    );
-    return controller.stream;
-  }
-
-  Future<void> close() async {
-    for (final controller in _controllers) {
-      if (controller.isClosed) continue;
-      if (controller.hasListener) {
-        await controller.close();
-      } else {
-        unawaited(controller.close());
-      }
-    }
   }
 }
