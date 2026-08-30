@@ -105,10 +105,6 @@ test("the real public SDK adapter lists and loads persistent sessions fully offl
     stopReason: "stop",
     timestamp: 2,
   });
-  // The public SDK intentionally defers writing a new session until an entry follows
-  // the first assistant response; session metadata is a network-free way to cross that boundary.
-  sessionManager.appendSessionInfo("Offline session");
-
   const originalFetch = globalThis.fetch;
   let fetchCalls = 0;
   globalThis.fetch = (async () => {
