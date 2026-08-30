@@ -7,6 +7,11 @@ class ConversationView extends StatefulWidget {
     this.isLoading = false,
     this.errorMessage,
     this.onRetry,
+    this.editableMessageIds = const <PiMessageId>{},
+    this.forkableMessageIds = const <PiMessageId>{},
+    this.onEditFromHere,
+    this.onForkFromHere,
+    this.branchActionsEnabled = true,
     this.scrollController,
     this.followLatest = true,
     super.key,
@@ -17,6 +22,11 @@ class ConversationView extends StatefulWidget {
   final bool isLoading;
   final String? errorMessage;
   final VoidCallback? onRetry;
+  final Set<PiMessageId> editableMessageIds;
+  final Set<PiMessageId> forkableMessageIds;
+  final ValueChanged<PiMessage>? onEditFromHere;
+  final ValueChanged<PiMessage>? onForkFromHere;
+  final bool branchActionsEnabled;
   final ScrollController? scrollController;
   final bool followLatest;
 
@@ -170,15 +180,76 @@ class _ConversationViewState extends State<ConversationView> {
             ),
             itemCount: widget.messages.length,
             separatorBuilder: (context, index) => const SizedBox(height: 12),
-            itemBuilder: (context, index) => PiMessageBubble(
-              message: widget.messages[index],
-              maxWidth: bubbleWidth,
-            ),
+            itemBuilder: (context, index) {
+              final message = widget.messages[index];
+              final editable = widget.editableMessageIds.contains(message.id);
+              final forkable = widget.forkableMessageIds.contains(message.id);
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  PiMessageBubble(message: message, maxWidth: bubbleWidth),
+                  if (message.role == PiMessageRole.user &&
+                      (editable || forkable))
+                    _MessageBranchActions(
+                      message: message,
+                      enabled: widget.branchActionsEnabled,
+                      onEditFromHere: editable && widget.onEditFromHere != null
+                          ? () => widget.onEditFromHere!(message)
+                          : null,
+                      onForkFromHere: forkable && widget.onForkFromHere != null
+                          ? () => widget.onForkFromHere!(message)
+                          : null,
+                    ),
+                ],
+              );
+            },
           ),
         );
       },
     );
   }
+}
+
+class _MessageBranchActions extends StatelessWidget {
+  const _MessageBranchActions({
+    required this.message,
+    required this.enabled,
+    required this.onEditFromHere,
+    required this.onForkFromHere,
+  });
+
+  final PiMessage message;
+  final bool enabled;
+  final VoidCallback? onEditFromHere;
+  final VoidCallback? onForkFromHere;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    container: true,
+    label: 'Branch actions for user message',
+    child: Align(
+      alignment: Alignment.centerRight,
+      child: Wrap(
+        spacing: 4,
+        children: [
+          if (onEditFromHere != null)
+            TextButton.icon(
+              key: ValueKey<String>('messageEditFromHere-${message.id.value}'),
+              onPressed: enabled ? onEditFromHere : null,
+              icon: const Icon(Icons.edit_note_rounded, size: 18),
+              label: const Text('Edit from here'),
+            ),
+          if (onForkFromHere != null)
+            TextButton.icon(
+              key: ValueKey<String>('messageForkFromHere-${message.id.value}'),
+              onPressed: enabled ? onForkFromHere : null,
+              icon: const Icon(Icons.fork_right_rounded, size: 18),
+              label: const Text('Fork'),
+            ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _ConversationHeader extends StatelessWidget {

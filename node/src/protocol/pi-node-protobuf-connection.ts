@@ -9,6 +9,7 @@ import {
   PiTransportFrameSchema,
   SessionAdminOperation,
   SessionEventStreamEnvelopeSchema,
+  SessionTreeMutationOperation,
   decodeTransportFrame,
   encodeTransportFrame,
   type PiTransportFrame,
@@ -33,6 +34,7 @@ import {
   toProtocolProjectSnapshot,
   toProtocolSessionDetail,
   toProtocolSessionSummary,
+  toProtocolSessionTree,
 } from "./protobuf-domain-adapter.js";
 import type { PiNodeProtocolDomain } from "./pi-node-protocol-domain-port.js";
 
@@ -51,6 +53,7 @@ export const SUPPORTED_PROTOCOL_CAPABILITIES = Object.freeze([
   Capability.PROJECT_DISCOVERY,
   Capability.PROJECT_TRUST,
   Capability.SESSION_ADMIN,
+  Capability.SESSION_TREE,
 ] as const);
 
 export interface PiNodeProtocolLogger {
@@ -318,6 +321,42 @@ export class PiNodeProtobufConnection {
           frame.operation.value.projectId,
         );
         return;
+      case "getSessionTreeRequest":
+        await this.#handleGetSessionTree(
+          frame.operation.value.requestId,
+          frame.operation.value.projectId,
+          frame.operation.value.sessionId,
+        );
+        return;
+      case "navigateSessionTreeCommand":
+        await this.#handleNavigateSessionTree(
+          frame.operation.value.requestId,
+          frame.operation.value.commandId,
+          frame.operation.value.projectId,
+          frame.operation.value.sessionId,
+          frame.operation.value.entryId,
+          frame.operation.value.expectedAdminRevision,
+        );
+        return;
+      case "forkSessionCommand":
+        await this.#handleForkSession(
+          frame.operation.value.requestId,
+          frame.operation.value.commandId,
+          frame.operation.value.projectId,
+          frame.operation.value.sessionId,
+          frame.operation.value.userEntryId,
+          frame.operation.value.expectedAdminRevision,
+        );
+        return;
+      case "cloneSessionCommand":
+        await this.#handleCloneSession(
+          frame.operation.value.requestId,
+          frame.operation.value.commandId,
+          frame.operation.value.projectId,
+          frame.operation.value.sessionId,
+          frame.operation.value.expectedAdminRevision,
+        );
+        return;
       case "promptCommand":
         await this.#handlePrompt(
           frame.operation.value.requestId,
@@ -382,7 +421,9 @@ export class PiNodeProtobufConnection {
       case "listSessionsResponse":
       case "getSessionResponse":
       case "createSessionResponse":
+      case "getSessionTreeResponse":
       case "sessionAdminCommandOutcome":
+      case "sessionTreeMutationOutcome":
       case "requestRejected":
       case "commandAccepted":
       case "commandRejected":
@@ -635,6 +676,160 @@ export class PiNodeProtobufConnection {
         await this.#flushAdmission(sessionId, observationPending);
       }
     }
+  }
+
+  async #handleGetSessionTree(
+    requestId: bigint,
+    projectId: string,
+    sessionId: string,
+  ): Promise<void> {
+    if (!(await this.#claimRequest(requestId, false))) return;
+    if (!(await this.#requireCapability(requestId, Capability.SESSION_TREE, false))) return;
+    try {
+      const tree = await this.#domain.getSessionTree({
+        cwd: this.#requireRegisteredProject(projectId),
+        sessionId,
+      });
+      await this.#sendRequestOperation(
+        requestId,
+        {
+          case: "getSessionTreeResponse",
+          value: { requestId, tree: toProtocolSessionTree(tree) },
+        },
+        false,
+      );
+    } catch (error) {
+      await this.#sendRequestRejected(requestId, mapDomainError(error));
+    }
+  }
+
+  async #handleNavigateSessionTree(
+    requestId: bigint,
+    commandId: string,
+    projectId: string,
+    sessionId: string,
+    entryId: string,
+    expectedAdminRevision: string,
+  ): Promise<void> {
+    await this.#handleSessionTreeMutation(
+      requestId,
+      commandId,
+      projectId,
+      sessionId,
+      SessionTreeMutationOperation.NAVIGATE,
+      () =>
+        this.#domain.navigateSessionTree({
+          cwd: this.#requireRegisteredProject(projectId),
+          sessionId,
+          entryId,
+          expectedAdminRevision,
+        }),
+    );
+  }
+
+  async #handleForkSession(
+    requestId: bigint,
+    commandId: string,
+    projectId: string,
+    sessionId: string,
+    userEntryId: string,
+    expectedAdminRevision: string,
+  ): Promise<void> {
+    await this.#handleSessionTreeMutation(
+      requestId,
+      commandId,
+      projectId,
+      sessionId,
+      SessionTreeMutationOperation.FORK,
+      () =>
+        this.#domain.forkSession({
+          cwd: this.#requireRegisteredProject(projectId),
+          sessionId,
+          userEntryId,
+          expectedAdminRevision,
+        }),
+    );
+  }
+
+  async #handleCloneSession(
+    requestId: bigint,
+    commandId: string,
+    projectId: string,
+    sessionId: string,
+    expectedAdminRevision: string,
+  ): Promise<void> {
+    await this.#handleSessionTreeMutation(
+      requestId,
+      commandId,
+      projectId,
+      sessionId,
+      SessionTreeMutationOperation.CLONE,
+      () =>
+        this.#domain.cloneSession({
+          cwd: this.#requireRegisteredProject(projectId),
+          sessionId,
+          expectedAdminRevision,
+        }),
+    );
+  }
+
+  async #handleSessionTreeMutation(
+    requestId: bigint,
+    commandId: string,
+    projectId: string,
+    sessionId: string,
+    operation: SessionTreeMutationOperation,
+    mutate: () => ReturnType<PiNodeProtocolDomain["navigateSessionTree"]>,
+  ): Promise<void> {
+    if (!(await this.#claimRequest(requestId, true, commandId))) return;
+    if (!(await this.#claimCommand(requestId, commandId))) return;
+    if (!(await this.#requireCapability(requestId, Capability.SESSION_TREE, true, commandId))) {
+      return;
+    }
+    try {
+      this.#requireRegisteredProject(projectId);
+      this.#dropObservation(sessionId);
+      const result = await mutate();
+      await this.#sendSessionTreeMutationOutcome(requestId, commandId, operation, {
+        case: "result",
+        value: {
+          session: toProtocolSessionDetail(result.session),
+          tree: toProtocolSessionTree(result.tree),
+          editorText: result.editorText ?? "",
+        },
+      });
+    } catch (error) {
+      await this.#sendSessionTreeMutationOutcome(requestId, commandId, operation, {
+        case: "error",
+        value: mapDomainError(error),
+      });
+    }
+  }
+
+  async #sendSessionTreeMutationOutcome(
+    requestId: bigint,
+    commandId: string,
+    operation: SessionTreeMutationOperation,
+    outcome:
+      | {
+          readonly case: "result";
+          readonly value: {
+            readonly session: ReturnType<typeof toProtocolSessionDetail>;
+            readonly tree: ReturnType<typeof toProtocolSessionTree>;
+            readonly editorText: string;
+          };
+        }
+      | { readonly case: "error"; readonly value: StableError },
+  ): Promise<void> {
+    await this.#sendRequestOperation(
+      requestId,
+      {
+        case: "sessionTreeMutationOutcome",
+        value: { requestId, commandId, operation, outcome },
+      },
+      true,
+      commandId,
+    );
   }
 
   #registerProject(project: PiNodeProjectSnapshot): void {

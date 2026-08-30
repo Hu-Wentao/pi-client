@@ -59,6 +59,60 @@ void main() {
     expect(controller.text, 'Still usable');
   });
 
+  testWidgets('restores branch editor text once per generation', (
+    tester,
+  ) async {
+    final controller = TextEditingController(text: 'Unrelated draft');
+    final focusNode = FocusNode();
+    addTearDown(controller.dispose);
+    addTearDown(focusNode.dispose);
+
+    await tester.pumpWidget(
+      componentTestApp(
+        PromptComposerView(
+          controller: controller,
+          focusNode: focusNode,
+          restoredText: 'Restore this branch prompt',
+          restoreGeneration: 1,
+          onSubmitted: (_) {},
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(controller.text, 'Restore this branch prompt');
+    expect(controller.selection.baseOffset, controller.text.length);
+    expect(focusNode.hasFocus, isTrue);
+
+    controller.text = 'User changed the restored draft';
+    await tester.pumpWidget(
+      componentTestApp(
+        PromptComposerView(
+          controller: controller,
+          focusNode: focusNode,
+          restoredText: 'Restore this branch prompt',
+          restoreGeneration: 1,
+          onSubmitted: (_) {},
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(controller.text, 'User changed the restored draft');
+
+    await tester.pumpWidget(
+      componentTestApp(
+        PromptComposerView(
+          controller: controller,
+          focusNode: focusNode,
+          restoredText: '',
+          restoreGeneration: 2,
+          onSubmitted: (_) {},
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(controller.text, isEmpty);
+  });
+
   testWidgets('shows stop, submission, error, and narrow states', (
     tester,
   ) async {

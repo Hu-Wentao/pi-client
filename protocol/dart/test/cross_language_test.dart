@@ -92,6 +92,31 @@ void main() {
       expect(outcome.session.hasCustomName, isTrue);
     });
 
+    test('decodes TypeScript session tree mutation outcomes', () {
+      final frame = decodeTransportFrame(
+        File.fromUri(
+          _vectors.uri.resolve('ts_session_tree_mutation.pb'),
+        ).readAsBytesSync(),
+      );
+
+      expect(
+        frame.whichOperation(),
+        PiTransportFrame_Operation.sessionTreeMutationOutcome,
+      );
+      final outcome = frame.sessionTreeMutationOutcome;
+      expect(
+        outcome.operation,
+        SessionTreeMutationOperation.SESSION_TREE_MUTATION_OPERATION_FORK,
+      );
+      expect(outcome.whichOutcome(), SessionTreeMutationOutcome_Outcome.result);
+      expect(
+        outcome.result.session.summary.parentSessionId,
+        'session-ts-parent-1',
+      );
+      expect(outcome.result.tree.nodes.single.canEditFromHere, isTrue);
+      expect(outcome.result.editorText, 'Restore this prompt');
+    });
+
     test('preserves unknown fields when decoded and re-encoded by Dart', () {
       final input = File.fromUri(
         _vectors.uri.resolve('unknown_field.pb'),

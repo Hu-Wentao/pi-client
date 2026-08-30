@@ -8,6 +8,8 @@ import {
   ProjectTrustReason,
   ProjectTrustStatus,
   SessionAdminOperation,
+  SessionTreeEntryKind,
+  SessionTreeMutationOperation,
   TransferDirection,
   TransferPurpose,
   type DirectoryListingSnapshot,
@@ -17,6 +19,7 @@ import {
   type ProtocolVersion,
   type SessionDetailSnapshot,
   type SessionSummarySnapshot,
+  type SessionTreeSnapshot,
   type StableError,
   type StreamClosedEvent,
 } from "../gen/ts/pi/client/protocol/v0/protocol_pb.ts";
@@ -39,7 +42,8 @@ import {
 
 const textEncoder = new TextEncoder();
 const forbiddenIdentifierControl = /[\u0000-\u001f\u007f]/u;
-const semanticVersionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/u;
+const semanticVersionPattern =
+  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/u;
 
 const knownCapabilities = new Set<Capability>([
   Capability.SESSION_READ,
@@ -54,6 +58,7 @@ const knownCapabilities = new Set<Capability>([
   Capability.PROJECT_DISCOVERY,
   Capability.PROJECT_TRUST,
   Capability.SESSION_ADMIN,
+  Capability.SESSION_TREE,
 ]);
 const knownHealthStatuses = new Set<HealthStatus>([
   HealthStatus.STARTING,
@@ -84,6 +89,25 @@ const knownMessageRoles = new Set<MessageRole>([
   MessageRole.TOOL,
   MessageRole.SYSTEM,
 ]);
+const knownSessionTreeEntryKinds = new Set<SessionTreeEntryKind>([
+  SessionTreeEntryKind.USER_MESSAGE,
+  SessionTreeEntryKind.ASSISTANT_MESSAGE,
+  SessionTreeEntryKind.TOOL_MESSAGE,
+  SessionTreeEntryKind.CUSTOM_MESSAGE,
+  SessionTreeEntryKind.THINKING_LEVEL,
+  SessionTreeEntryKind.MODEL_CHANGE,
+  SessionTreeEntryKind.COMPACTION,
+  SessionTreeEntryKind.BRANCH_SUMMARY,
+  SessionTreeEntryKind.CUSTOM,
+  SessionTreeEntryKind.LABEL,
+  SessionTreeEntryKind.SESSION_INFO,
+]);
+const knownSessionTreeMutationOperations =
+  new Set<SessionTreeMutationOperation>([
+    SessionTreeMutationOperation.NAVIGATE,
+    SessionTreeMutationOperation.FORK,
+    SessionTreeMutationOperation.CLONE,
+  ]);
 const knownTransferDirections = new Set<TransferDirection>([
   TransferDirection.UPLOAD,
   TransferDirection.DOWNLOAD,
@@ -211,7 +235,10 @@ export function validateTransportFrame(frame: PiTransportFrame): void {
     case "getProjectBootstrapResponse":
       validateRequestId(operation.value.requestId);
       validatePath("home_directory", operation.value.homeDirectory);
-      requireProjectSnapshot("project bootstrap", operation.value.defaultProject);
+      requireProjectSnapshot(
+        "project bootstrap",
+        operation.value.defaultProject,
+      );
       return;
     case "browseDirectoryRequest":
       validateRequestId(operation.value.requestId);
@@ -225,7 +252,10 @@ export function validateTransportFrame(frame: PiTransportFrame): void {
       return;
     case "browseDirectoryResponse":
       validateRequestId(operation.value.requestId);
-      requireDirectoryListing("browse directory response", operation.value.directory);
+      requireDirectoryListing(
+        "browse directory response",
+        operation.value.directory,
+      );
       return;
     case "validateProjectRequest":
       validateRequestId(operation.value.requestId);
@@ -233,7 +263,10 @@ export function validateTransportFrame(frame: PiTransportFrame): void {
       return;
     case "validateProjectResponse":
       validateRequestId(operation.value.requestId);
-      requireProjectSnapshot("validate project response", operation.value.project);
+      requireProjectSnapshot(
+        "validate project response",
+        operation.value.project,
+      );
       return;
     case "listKnownProjectsRequest":
       validateRequestId(operation.value.requestId);
@@ -251,8 +284,16 @@ export function validateTransportFrame(frame: PiTransportFrame): void {
       }
       for (const known of operation.value.projects) {
         requireProjectSnapshot("known project", known.project);
-        validatePositiveUint64("last_session_at_unix_millis", known.lastSessionAtUnixMillis);
-        validateBoundedUint32("session_count", known.sessionCount, 0xffff_ffff, false);
+        validatePositiveUint64(
+          "last_session_at_unix_millis",
+          known.lastSessionAtUnixMillis,
+        );
+        validateBoundedUint32(
+          "session_count",
+          known.sessionCount,
+          0xffff_ffff,
+          false,
+        );
       }
       return;
     case "approveProjectTrustRequest":
@@ -301,6 +342,60 @@ export function validateTransportFrame(frame: PiTransportFrame): void {
       validateRequestId(operation.value.requestId);
       requireSessionDetail("create session response", operation.value.session);
       return;
+    case "getSessionTreeRequest":
+      validateRequestId(operation.value.requestId);
+      validateIdentifier("project_id", operation.value.projectId);
+      validateIdentifier("session_id", operation.value.sessionId);
+      return;
+    case "getSessionTreeResponse":
+      validateRequestId(operation.value.requestId);
+      requireSessionTree("get session tree response", operation.value.tree);
+      return;
+    case "navigateSessionTreeCommand":
+      validateSessionTreeMutationCommand(operation.value);
+      validateIdentifier("entry_id", operation.value.entryId);
+      return;
+    case "forkSessionCommand":
+      validateSessionTreeMutationCommand(operation.value);
+      validateIdentifier("user_entry_id", operation.value.userEntryId);
+      return;
+    case "cloneSessionCommand":
+      validateSessionTreeMutationCommand(operation.value);
+      return;
+    case "sessionTreeMutationOutcome": {
+      const mutation = operation.value;
+      validateRequestId(mutation.requestId);
+      validateIdentifier("command_id", mutation.commandId);
+      validateKnownEnum(
+        "session tree mutation operation",
+        mutation.operation,
+        knownSessionTreeMutationOperations,
+      );
+      switch (mutation.outcome.case) {
+        case "result": {
+          const result = mutation.outcome.value;
+          requireSessionDetail("session tree mutation result", result.session);
+          requireSessionTree("session tree mutation result", result.tree);
+          if (result.session?.summary?.sessionId !== result.tree?.sessionId) {
+            fail("session tree mutation result identities must match");
+          }
+          validateContentText(
+            "session tree editor text",
+            result.editorText,
+            false,
+          );
+          return;
+        }
+        case "error":
+          requireStableError(
+            "session tree mutation outcome",
+            mutation.outcome.value,
+          );
+          return;
+        case undefined:
+          fail("session tree mutation outcome must contain a typed result");
+      }
+    }
     case "promptCommand":
       validateRequestId(operation.value.requestId);
       validateIdentifier("command_id", operation.value.commandId);
@@ -321,7 +416,10 @@ export function validateTransportFrame(frame: PiTransportFrame): void {
       return;
     case "autoNameSessionCommand":
       validateSessionAdminCommand(operation.value);
-      if (operation.value.timeoutMillis < 1_000 || operation.value.timeoutMillis > 30_000) {
+      if (
+        operation.value.timeoutMillis < 1_000 ||
+        operation.value.timeoutMillis > 30_000
+      ) {
         fail("auto-name timeout is outside the supported bounds");
       }
       return;
@@ -332,8 +430,14 @@ export function validateTransportFrame(frame: PiTransportFrame): void {
         fail("delete session command must contain confirmation evidence");
       }
       validateIdentifier("confirmation session_id", confirmation.sessionId);
-      validateIdentifier("confirmation admin_revision", confirmation.adminRevision);
-      validateRequiredShortText("confirmation displayed_title", confirmation.displayedTitle);
+      validateIdentifier(
+        "confirmation admin_revision",
+        confirmation.adminRevision,
+      );
+      validateRequiredShortText(
+        "confirmation displayed_title",
+        confirmation.displayedTitle,
+      );
       if (
         !confirmation.destructiveActionAcknowledged ||
         confirmation.sessionId !== operation.value.sessionId
@@ -357,13 +461,19 @@ export function validateTransportFrame(frame: PiTransportFrame): void {
           }
           return;
         case "deletion":
-          validateIdentifier("deleted session_id", admin.outcome.value.sessionId);
+          validateIdentifier(
+            "deleted session_id",
+            admin.outcome.value.sessionId,
+          );
           if (admin.operation !== SessionAdminOperation.DELETE) {
             fail("only delete outcomes may contain deletion evidence");
           }
           return;
         case "error":
-          requireStableError("session administration outcome", admin.outcome.value);
+          requireStableError(
+            "session administration outcome",
+            admin.outcome.value,
+          );
           return;
         case undefined:
           fail("session administration outcome must contain a typed result");
@@ -432,7 +542,11 @@ export function validateTransportFrame(frame: PiTransportFrame): void {
             stream.event.value.status,
             knownHealthStatuses,
           );
-          validateShortText("health summary", stream.event.value.summary, false);
+          validateShortText(
+            "health summary",
+            stream.event.value.summary,
+            false,
+          );
           return;
         case "streamClosed":
           validateStreamClosed(stream.event.value);
@@ -498,10 +612,7 @@ export function validateTransportFrame(frame: PiTransportFrame): void {
     }
     case "transferChunk":
       validateIdentifier("transfer_id", operation.value.transferId);
-      validatePositiveUint64(
-        "chunk_sequence",
-        operation.value.chunkSequence,
-      );
+      validatePositiveUint64("chunk_sequence", operation.value.chunkSequence);
       if (
         operation.value.data.length === 0 ||
         operation.value.data.length > MAX_TRANSFER_CHUNK_BYTES
@@ -630,13 +741,23 @@ function requireDirectoryListing(
   }
 }
 
-function requireProjectSnapshot(label: string, project: ProjectSnapshot | undefined): void {
-  if (project === undefined || project.identity === undefined || project.trust === undefined) {
+function requireProjectSnapshot(
+  label: string,
+  project: ProjectSnapshot | undefined,
+): void {
+  if (
+    project === undefined ||
+    project.identity === undefined ||
+    project.trust === undefined
+  ) {
     fail(`${label} must contain project identity and trust snapshots`);
   }
   const identity = project.identity;
   validateIdentifier("project_id", identity.projectId);
-  validatePath("canonical_working_directory", identity.canonicalWorkingDirectory);
+  validatePath(
+    "canonical_working_directory",
+    identity.canonicalWorkingDirectory,
+  );
   validateIdentifier("worktree_id", identity.worktreeId);
   validateIdentifier("main_project_id", identity.mainProjectId);
   if (identity.isGitRepository) {
@@ -657,7 +778,11 @@ function requireProjectSnapshot(label: string, project: ProjectSnapshot | undefi
   }
 
   const trust = project.trust;
-  validateKnownEnum("project trust status", trust.status, knownProjectTrustStatuses);
+  validateKnownEnum(
+    "project trust status",
+    trust.status,
+    knownProjectTrustStatuses,
+  );
   validateIdentifier("project trust revision", trust.revision);
   const reasons = new Set<ProjectTrustReason>();
   for (const reason of trust.reasons) {
@@ -667,10 +792,16 @@ function requireProjectSnapshot(label: string, project: ProjectSnapshot | undefi
     }
     reasons.add(reason);
   }
-  if (trust.status === ProjectTrustStatus.NOT_REQUIRED && trust.reasons.length > 0) {
+  if (
+    trust.status === ProjectTrustStatus.NOT_REQUIRED &&
+    trust.reasons.length > 0
+  ) {
     fail("a not-required project trust snapshot must not contain reasons");
   }
-  if (trust.status !== ProjectTrustStatus.NOT_REQUIRED && trust.reasons.length === 0) {
+  if (
+    trust.status !== ProjectTrustStatus.NOT_REQUIRED &&
+    trust.reasons.length === 0
+  ) {
     fail("a restricted or trusted project must contain a trust reason");
   }
 }
@@ -703,6 +834,116 @@ function validateSessionDetail(detail: SessionDetailSnapshot): void {
   }
 }
 
+function validateSessionTreeMutationCommand(command: {
+  readonly requestId: bigint;
+  readonly commandId: string;
+  readonly projectId: string;
+  readonly sessionId: string;
+  readonly expectedAdminRevision: string;
+}): void {
+  validateRequestId(command.requestId);
+  validateIdentifier("command_id", command.commandId);
+  validateIdentifier("project_id", command.projectId);
+  validateIdentifier("session_id", command.sessionId);
+  validateIdentifier("expected_admin_revision", command.expectedAdminRevision);
+}
+
+function requireSessionTree(
+  label: string,
+  tree: SessionTreeSnapshot | undefined,
+): void {
+  if (tree === undefined) {
+    fail(`${label} must contain a session tree snapshot`);
+  }
+  validateSessionTree(tree);
+}
+
+function validateSessionTree(tree: SessionTreeSnapshot): void {
+  validateIdentifier("session tree session_id", tree.sessionId);
+  validateIdentifier("session tree admin_revision", tree.adminRevision);
+  if (tree.nodes.length > MAX_MESSAGES_PER_SESSION_SNAPSHOT) {
+    fail("session tree entry count exceeds the local hard limit");
+  }
+  const byId = new Map(tree.nodes.map((node) => [node.entryId, node]));
+  if (byId.size !== tree.nodes.length) {
+    fail("session tree contains a duplicate entry_id");
+  }
+  for (const node of tree.nodes) {
+    validateIdentifier("session tree entry_id", node.entryId);
+    if (node.parentEntryId.length > 0) {
+      validateIdentifier("session tree parent_entry_id", node.parentEntryId);
+      if (node.parentEntryId === node.entryId) {
+        fail("session tree entry cannot parent itself");
+      }
+    }
+    validateKnownEnum(
+      "session tree entry kind",
+      node.kind,
+      knownSessionTreeEntryKinds,
+    );
+    validateContentText("session tree entry text", node.text, false);
+    validatePositiveUint64(
+      "session tree entry created_at_unix_millis",
+      node.createdAtUnixMillis,
+    );
+    if (node.label.length > 0) {
+      validateRequiredShortText("session tree entry label", node.label);
+    }
+    validateBoundedUint32("session tree depth", node.depth, 0xffff_ffff, true);
+    const isUser = node.kind === SessionTreeEntryKind.USER_MESSAGE;
+    if ((node.canEditFromHere || node.canFork) && !isUser) {
+      fail("only user-message entries can expose edit or fork actions");
+    }
+  }
+
+  const activeIds = new Set<string>();
+  let previous: string | undefined;
+  let activeContainsUser = false;
+  for (const entryId of tree.activePathEntryIds) {
+    validateIdentifier("active path entry_id", entryId);
+    if (activeIds.has(entryId)) {
+      fail("active path contains a duplicate entry_id");
+    }
+    activeIds.add(entryId);
+    const node = byId.get(entryId);
+    if (node === undefined) {
+      fail("active path references an unknown entry_id");
+    }
+    if (previous === undefined) {
+      if (node.parentEntryId.length > 0 && byId.has(node.parentEntryId)) {
+        fail("active path must begin at a tree root");
+      }
+    } else if (node.parentEntryId !== previous) {
+      fail("active path parent linkage is not contiguous");
+    }
+    if (!node.isOnActivePath) {
+      fail("active path entry must be marked active");
+    }
+    activeContainsUser ||= node.kind === SessionTreeEntryKind.USER_MESSAGE;
+    previous = entryId;
+  }
+  for (const node of tree.nodes) {
+    if (node.isOnActivePath !== activeIds.has(node.entryId)) {
+      fail(
+        "session tree active-path flags disagree with active_path_entry_ids",
+      );
+    }
+  }
+  if (tree.activePathEntryIds.length === 0) {
+    if (tree.activeLeafEntryId.length > 0 || tree.canCloneActiveBranch) {
+      fail("an empty active path cannot expose a leaf or clone action");
+    }
+  } else {
+    validateIdentifier("active_leaf_entry_id", tree.activeLeafEntryId);
+    if (tree.activeLeafEntryId !== tree.activePathEntryIds.at(-1)) {
+      fail("active leaf must be the final active path entry");
+    }
+    if (tree.canCloneActiveBranch && !activeContainsUser) {
+      fail("a cloneable active branch must contain a user message");
+    }
+  }
+}
+
 function validateSessionAdminCommand(command: {
   readonly requestId: bigint;
   readonly commandId: string;
@@ -718,16 +959,16 @@ function validateSessionAdminCommand(command: {
 function validateSessionSummary(summary: SessionSummarySnapshot): void {
   validateIdentifier("session_id", summary.sessionId);
   validateIdentifier("admin_revision", summary.adminRevision);
+  if (summary.parentSessionId.length > 0) {
+    validateIdentifier("parent_session_id", summary.parentSessionId);
+    if (summary.parentSessionId === summary.sessionId) {
+      fail("a session cannot be its own parent");
+    }
+  }
   validateRequiredShortText("session title", summary.title);
   validatePath("working_directory", summary.workingDirectory);
-  validatePositiveUint64(
-    "created_at_unix_millis",
-    summary.createdAtUnixMillis,
-  );
-  validatePositiveUint64(
-    "updated_at_unix_millis",
-    summary.updatedAtUnixMillis,
-  );
+  validatePositiveUint64("created_at_unix_millis", summary.createdAtUnixMillis);
+  validatePositiveUint64("updated_at_unix_millis", summary.updatedAtUnixMillis);
   if (summary.updatedAtUnixMillis < summary.createdAtUnixMillis) {
     fail("session updated time must not precede its created time");
   }
@@ -737,10 +978,7 @@ function validateMessageSnapshot(message: MessageSnapshot): void {
   validateIdentifier("message_id", message.messageId);
   validateKnownEnum("message role", message.role, knownMessageRoles);
   validateContentText("message text", message.text, false);
-  validatePositiveUint64(
-    "created_at_unix_millis",
-    message.createdAtUnixMillis,
-  );
+  validatePositiveUint64("created_at_unix_millis", message.createdAtUnixMillis);
 }
 
 function validateCompletionError(
@@ -801,7 +1039,11 @@ function validateBoundedUint32(
   maximum: number,
   allowZero: boolean,
 ): void {
-  if (!Number.isSafeInteger(value) || value < (allowZero ? 0 : 1) || value > maximum) {
+  if (
+    !Number.isSafeInteger(value) ||
+    value < (allowZero ? 0 : 1) ||
+    value > maximum
+  ) {
     fail(`${label} is outside the local uint32 limit`);
   }
 }

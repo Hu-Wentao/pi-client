@@ -167,6 +167,27 @@ final class LazyHostedPiNodeApi
       _requireConnectedApi().createSession(request);
 
   @override
+  Future<PiSessionTree> getSessionTree(
+    PiProjectId projectId,
+    PiSessionId sessionId,
+  ) => _requireConnectedApi().getSessionTree(projectId, sessionId);
+
+  @override
+  Future<PiSessionTreeMutationResult> navigateSessionTree(
+    PiNavigateSessionTreeCommand command,
+  ) => _requireConnectedApi().navigateSessionTree(command);
+
+  @override
+  Future<PiSessionTreeMutationResult> forkSession(
+    PiForkSessionCommand command,
+  ) => _requireConnectedApi().forkSession(command);
+
+  @override
+  Future<PiSessionTreeMutationResult> cloneSession(
+    PiCloneSessionCommand command,
+  ) => _requireConnectedApi().cloneSession(command);
+
+  @override
   Future<PiSessionAdminResult> renameSession(PiRenameSessionCommand command) =>
       _requireConnectedApi().renameSession(command);
 
@@ -380,6 +401,27 @@ final class UnavailablePiNodeApi
   @override
   Future<PiSessionDetail> createSession(PiCreateSessionRequest request) =>
       Future<PiSessionDetail>.error(_failure);
+
+  @override
+  Future<PiSessionTree> getSessionTree(
+    PiProjectId projectId,
+    PiSessionId sessionId,
+  ) => Future<PiSessionTree>.error(_failure);
+
+  @override
+  Future<PiSessionTreeMutationResult> navigateSessionTree(
+    PiNavigateSessionTreeCommand command,
+  ) => Future<PiSessionTreeMutationResult>.error(_failure);
+
+  @override
+  Future<PiSessionTreeMutationResult> forkSession(
+    PiForkSessionCommand command,
+  ) => Future<PiSessionTreeMutationResult>.error(_failure);
+
+  @override
+  Future<PiSessionTreeMutationResult> cloneSession(
+    PiCloneSessionCommand command,
+  ) => Future<PiSessionTreeMutationResult>.error(_failure);
 
   @override
   Future<PiSessionAdminResult> renameSession(PiRenameSessionCommand command) =>

@@ -53,8 +53,14 @@ enum PiTransportFrame_Operation {
   autoNameSessionCommand,
   deleteSessionCommand,
   sessionAdminCommandOutcome,
+  getSessionTreeRequest,
+  getSessionTreeResponse,
   sessionEventStream,
   eventStream,
+  navigateSessionTreeCommand,
+  forkSessionCommand,
+  cloneSessionCommand,
+  sessionTreeMutationOutcome,
   cancel,
   windowUpdate,
   transferOpen,
@@ -103,8 +109,14 @@ class PiTransportFrame extends $pb.GeneratedMessage {
     AutoNameSessionCommand? autoNameSessionCommand,
     DeleteSessionCommand? deleteSessionCommand,
     SessionAdminCommandOutcome? sessionAdminCommandOutcome,
+    GetSessionTreeRequest? getSessionTreeRequest,
+    GetSessionTreeResponse? getSessionTreeResponse,
     SessionEventStreamEnvelope? sessionEventStream,
     EventStreamEnvelope? eventStream,
+    NavigateSessionTreeCommand? navigateSessionTreeCommand,
+    ForkSessionCommand? forkSessionCommand,
+    CloneSessionCommand? cloneSessionCommand,
+    SessionTreeMutationOutcome? sessionTreeMutationOutcome,
     Cancel? cancel,
     WindowUpdate? windowUpdate,
     TransferOpen? transferOpen,
@@ -170,9 +182,21 @@ class PiTransportFrame extends $pb.GeneratedMessage {
       result.deleteSessionCommand = deleteSessionCommand;
     if (sessionAdminCommandOutcome != null)
       result.sessionAdminCommandOutcome = sessionAdminCommandOutcome;
+    if (getSessionTreeRequest != null)
+      result.getSessionTreeRequest = getSessionTreeRequest;
+    if (getSessionTreeResponse != null)
+      result.getSessionTreeResponse = getSessionTreeResponse;
     if (sessionEventStream != null)
       result.sessionEventStream = sessionEventStream;
     if (eventStream != null) result.eventStream = eventStream;
+    if (navigateSessionTreeCommand != null)
+      result.navigateSessionTreeCommand = navigateSessionTreeCommand;
+    if (forkSessionCommand != null)
+      result.forkSessionCommand = forkSessionCommand;
+    if (cloneSessionCommand != null)
+      result.cloneSessionCommand = cloneSessionCommand;
+    if (sessionTreeMutationOutcome != null)
+      result.sessionTreeMutationOutcome = sessionTreeMutationOutcome;
     if (cancel != null) result.cancel = cancel;
     if (windowUpdate != null) result.windowUpdate = windowUpdate;
     if (transferOpen != null) result.transferOpen = transferOpen;
@@ -226,8 +250,14 @@ class PiTransportFrame extends $pb.GeneratedMessage {
     45: PiTransportFrame_Operation.autoNameSessionCommand,
     46: PiTransportFrame_Operation.deleteSessionCommand,
     47: PiTransportFrame_Operation.sessionAdminCommandOutcome,
+    48: PiTransportFrame_Operation.getSessionTreeRequest,
+    49: PiTransportFrame_Operation.getSessionTreeResponse,
     50: PiTransportFrame_Operation.sessionEventStream,
     51: PiTransportFrame_Operation.eventStream,
+    52: PiTransportFrame_Operation.navigateSessionTreeCommand,
+    53: PiTransportFrame_Operation.forkSessionCommand,
+    54: PiTransportFrame_Operation.cloneSessionCommand,
+    55: PiTransportFrame_Operation.sessionTreeMutationOutcome,
     60: PiTransportFrame_Operation.cancel,
     61: PiTransportFrame_Operation.windowUpdate,
     70: PiTransportFrame_Operation.transferOpen,
@@ -275,8 +305,14 @@ class PiTransportFrame extends $pb.GeneratedMessage {
       45,
       46,
       47,
+      48,
+      49,
       50,
       51,
+      52,
+      53,
+      54,
+      55,
       60,
       61,
       70,
@@ -371,11 +407,27 @@ class PiTransportFrame extends $pb.GeneratedMessage {
     ..aOM<SessionAdminCommandOutcome>(
         47, _omitFieldNames ? '' : 'sessionAdminCommandOutcome',
         subBuilder: SessionAdminCommandOutcome.create)
+    ..aOM<GetSessionTreeRequest>(
+        48, _omitFieldNames ? '' : 'getSessionTreeRequest',
+        subBuilder: GetSessionTreeRequest.create)
+    ..aOM<GetSessionTreeResponse>(
+        49, _omitFieldNames ? '' : 'getSessionTreeResponse',
+        subBuilder: GetSessionTreeResponse.create)
     ..aOM<SessionEventStreamEnvelope>(
         50, _omitFieldNames ? '' : 'sessionEventStream',
         subBuilder: SessionEventStreamEnvelope.create)
     ..aOM<EventStreamEnvelope>(51, _omitFieldNames ? '' : 'eventStream',
         subBuilder: EventStreamEnvelope.create)
+    ..aOM<NavigateSessionTreeCommand>(
+        52, _omitFieldNames ? '' : 'navigateSessionTreeCommand',
+        subBuilder: NavigateSessionTreeCommand.create)
+    ..aOM<ForkSessionCommand>(53, _omitFieldNames ? '' : 'forkSessionCommand',
+        subBuilder: ForkSessionCommand.create)
+    ..aOM<CloneSessionCommand>(54, _omitFieldNames ? '' : 'cloneSessionCommand',
+        subBuilder: CloneSessionCommand.create)
+    ..aOM<SessionTreeMutationOutcome>(
+        55, _omitFieldNames ? '' : 'sessionTreeMutationOutcome',
+        subBuilder: SessionTreeMutationOutcome.create)
     ..aOM<Cancel>(60, _omitFieldNames ? '' : 'cancel',
         subBuilder: Cancel.create)
     ..aOM<WindowUpdate>(61, _omitFieldNames ? '' : 'windowUpdate',
@@ -444,8 +496,14 @@ class PiTransportFrame extends $pb.GeneratedMessage {
   @$pb.TagNumber(45)
   @$pb.TagNumber(46)
   @$pb.TagNumber(47)
+  @$pb.TagNumber(48)
+  @$pb.TagNumber(49)
   @$pb.TagNumber(50)
   @$pb.TagNumber(51)
+  @$pb.TagNumber(52)
+  @$pb.TagNumber(53)
+  @$pb.TagNumber(54)
+  @$pb.TagNumber(55)
   @$pb.TagNumber(60)
   @$pb.TagNumber(61)
   @$pb.TagNumber(70)
@@ -487,8 +545,14 @@ class PiTransportFrame extends $pb.GeneratedMessage {
   @$pb.TagNumber(45)
   @$pb.TagNumber(46)
   @$pb.TagNumber(47)
+  @$pb.TagNumber(48)
+  @$pb.TagNumber(49)
   @$pb.TagNumber(50)
   @$pb.TagNumber(51)
+  @$pb.TagNumber(52)
+  @$pb.TagNumber(53)
+  @$pb.TagNumber(54)
+  @$pb.TagNumber(55)
   @$pb.TagNumber(60)
   @$pb.TagNumber(61)
   @$pb.TagNumber(70)
@@ -867,116 +931,186 @@ class PiTransportFrame extends $pb.GeneratedMessage {
   @$pb.TagNumber(47)
   SessionAdminCommandOutcome ensureSessionAdminCommandOutcome() => $_ensure(31);
 
+  @$pb.TagNumber(48)
+  GetSessionTreeRequest get getSessionTreeRequest => $_getN(32);
+  @$pb.TagNumber(48)
+  set getSessionTreeRequest(GetSessionTreeRequest value) =>
+      $_setField(48, value);
+  @$pb.TagNumber(48)
+  $core.bool hasGetSessionTreeRequest() => $_has(32);
+  @$pb.TagNumber(48)
+  void clearGetSessionTreeRequest() => $_clearField(48);
+  @$pb.TagNumber(48)
+  GetSessionTreeRequest ensureGetSessionTreeRequest() => $_ensure(32);
+
+  @$pb.TagNumber(49)
+  GetSessionTreeResponse get getSessionTreeResponse => $_getN(33);
+  @$pb.TagNumber(49)
+  set getSessionTreeResponse(GetSessionTreeResponse value) =>
+      $_setField(49, value);
+  @$pb.TagNumber(49)
+  $core.bool hasGetSessionTreeResponse() => $_has(33);
+  @$pb.TagNumber(49)
+  void clearGetSessionTreeResponse() => $_clearField(49);
+  @$pb.TagNumber(49)
+  GetSessionTreeResponse ensureGetSessionTreeResponse() => $_ensure(33);
+
   @$pb.TagNumber(50)
-  SessionEventStreamEnvelope get sessionEventStream => $_getN(32);
+  SessionEventStreamEnvelope get sessionEventStream => $_getN(34);
   @$pb.TagNumber(50)
   set sessionEventStream(SessionEventStreamEnvelope value) =>
       $_setField(50, value);
   @$pb.TagNumber(50)
-  $core.bool hasSessionEventStream() => $_has(32);
+  $core.bool hasSessionEventStream() => $_has(34);
   @$pb.TagNumber(50)
   void clearSessionEventStream() => $_clearField(50);
   @$pb.TagNumber(50)
-  SessionEventStreamEnvelope ensureSessionEventStream() => $_ensure(32);
+  SessionEventStreamEnvelope ensureSessionEventStream() => $_ensure(34);
 
   @$pb.TagNumber(51)
-  EventStreamEnvelope get eventStream => $_getN(33);
+  EventStreamEnvelope get eventStream => $_getN(35);
   @$pb.TagNumber(51)
   set eventStream(EventStreamEnvelope value) => $_setField(51, value);
   @$pb.TagNumber(51)
-  $core.bool hasEventStream() => $_has(33);
+  $core.bool hasEventStream() => $_has(35);
   @$pb.TagNumber(51)
   void clearEventStream() => $_clearField(51);
   @$pb.TagNumber(51)
-  EventStreamEnvelope ensureEventStream() => $_ensure(33);
+  EventStreamEnvelope ensureEventStream() => $_ensure(35);
+
+  @$pb.TagNumber(52)
+  NavigateSessionTreeCommand get navigateSessionTreeCommand => $_getN(36);
+  @$pb.TagNumber(52)
+  set navigateSessionTreeCommand(NavigateSessionTreeCommand value) =>
+      $_setField(52, value);
+  @$pb.TagNumber(52)
+  $core.bool hasNavigateSessionTreeCommand() => $_has(36);
+  @$pb.TagNumber(52)
+  void clearNavigateSessionTreeCommand() => $_clearField(52);
+  @$pb.TagNumber(52)
+  NavigateSessionTreeCommand ensureNavigateSessionTreeCommand() => $_ensure(36);
+
+  @$pb.TagNumber(53)
+  ForkSessionCommand get forkSessionCommand => $_getN(37);
+  @$pb.TagNumber(53)
+  set forkSessionCommand(ForkSessionCommand value) => $_setField(53, value);
+  @$pb.TagNumber(53)
+  $core.bool hasForkSessionCommand() => $_has(37);
+  @$pb.TagNumber(53)
+  void clearForkSessionCommand() => $_clearField(53);
+  @$pb.TagNumber(53)
+  ForkSessionCommand ensureForkSessionCommand() => $_ensure(37);
+
+  @$pb.TagNumber(54)
+  CloneSessionCommand get cloneSessionCommand => $_getN(38);
+  @$pb.TagNumber(54)
+  set cloneSessionCommand(CloneSessionCommand value) => $_setField(54, value);
+  @$pb.TagNumber(54)
+  $core.bool hasCloneSessionCommand() => $_has(38);
+  @$pb.TagNumber(54)
+  void clearCloneSessionCommand() => $_clearField(54);
+  @$pb.TagNumber(54)
+  CloneSessionCommand ensureCloneSessionCommand() => $_ensure(38);
+
+  @$pb.TagNumber(55)
+  SessionTreeMutationOutcome get sessionTreeMutationOutcome => $_getN(39);
+  @$pb.TagNumber(55)
+  set sessionTreeMutationOutcome(SessionTreeMutationOutcome value) =>
+      $_setField(55, value);
+  @$pb.TagNumber(55)
+  $core.bool hasSessionTreeMutationOutcome() => $_has(39);
+  @$pb.TagNumber(55)
+  void clearSessionTreeMutationOutcome() => $_clearField(55);
+  @$pb.TagNumber(55)
+  SessionTreeMutationOutcome ensureSessionTreeMutationOutcome() => $_ensure(39);
 
   @$pb.TagNumber(60)
-  Cancel get cancel => $_getN(34);
+  Cancel get cancel => $_getN(40);
   @$pb.TagNumber(60)
   set cancel(Cancel value) => $_setField(60, value);
   @$pb.TagNumber(60)
-  $core.bool hasCancel() => $_has(34);
+  $core.bool hasCancel() => $_has(40);
   @$pb.TagNumber(60)
   void clearCancel() => $_clearField(60);
   @$pb.TagNumber(60)
-  Cancel ensureCancel() => $_ensure(34);
+  Cancel ensureCancel() => $_ensure(40);
 
   @$pb.TagNumber(61)
-  WindowUpdate get windowUpdate => $_getN(35);
+  WindowUpdate get windowUpdate => $_getN(41);
   @$pb.TagNumber(61)
   set windowUpdate(WindowUpdate value) => $_setField(61, value);
   @$pb.TagNumber(61)
-  $core.bool hasWindowUpdate() => $_has(35);
+  $core.bool hasWindowUpdate() => $_has(41);
   @$pb.TagNumber(61)
   void clearWindowUpdate() => $_clearField(61);
   @$pb.TagNumber(61)
-  WindowUpdate ensureWindowUpdate() => $_ensure(35);
+  WindowUpdate ensureWindowUpdate() => $_ensure(41);
 
   @$pb.TagNumber(70)
-  TransferOpen get transferOpen => $_getN(36);
+  TransferOpen get transferOpen => $_getN(42);
   @$pb.TagNumber(70)
   set transferOpen(TransferOpen value) => $_setField(70, value);
   @$pb.TagNumber(70)
-  $core.bool hasTransferOpen() => $_has(36);
+  $core.bool hasTransferOpen() => $_has(42);
   @$pb.TagNumber(70)
   void clearTransferOpen() => $_clearField(70);
   @$pb.TagNumber(70)
-  TransferOpen ensureTransferOpen() => $_ensure(36);
+  TransferOpen ensureTransferOpen() => $_ensure(42);
 
   @$pb.TagNumber(71)
-  TransferChunk get transferChunk => $_getN(37);
+  TransferChunk get transferChunk => $_getN(43);
   @$pb.TagNumber(71)
   set transferChunk(TransferChunk value) => $_setField(71, value);
   @$pb.TagNumber(71)
-  $core.bool hasTransferChunk() => $_has(37);
+  $core.bool hasTransferChunk() => $_has(43);
   @$pb.TagNumber(71)
   void clearTransferChunk() => $_clearField(71);
   @$pb.TagNumber(71)
-  TransferChunk ensureTransferChunk() => $_ensure(37);
+  TransferChunk ensureTransferChunk() => $_ensure(43);
 
   @$pb.TagNumber(72)
-  TransferAck get transferAck => $_getN(38);
+  TransferAck get transferAck => $_getN(44);
   @$pb.TagNumber(72)
   set transferAck(TransferAck value) => $_setField(72, value);
   @$pb.TagNumber(72)
-  $core.bool hasTransferAck() => $_has(38);
+  $core.bool hasTransferAck() => $_has(44);
   @$pb.TagNumber(72)
   void clearTransferAck() => $_clearField(72);
   @$pb.TagNumber(72)
-  TransferAck ensureTransferAck() => $_ensure(38);
+  TransferAck ensureTransferAck() => $_ensure(44);
 
   @$pb.TagNumber(73)
-  TransferComplete get transferComplete => $_getN(39);
+  TransferComplete get transferComplete => $_getN(45);
   @$pb.TagNumber(73)
   set transferComplete(TransferComplete value) => $_setField(73, value);
   @$pb.TagNumber(73)
-  $core.bool hasTransferComplete() => $_has(39);
+  $core.bool hasTransferComplete() => $_has(45);
   @$pb.TagNumber(73)
   void clearTransferComplete() => $_clearField(73);
   @$pb.TagNumber(73)
-  TransferComplete ensureTransferComplete() => $_ensure(39);
+  TransferComplete ensureTransferComplete() => $_ensure(45);
 
   @$pb.TagNumber(74)
-  TransferAbort get transferAbort => $_getN(40);
+  TransferAbort get transferAbort => $_getN(46);
   @$pb.TagNumber(74)
   set transferAbort(TransferAbort value) => $_setField(74, value);
   @$pb.TagNumber(74)
-  $core.bool hasTransferAbort() => $_has(40);
+  $core.bool hasTransferAbort() => $_has(46);
   @$pb.TagNumber(74)
   void clearTransferAbort() => $_clearField(74);
   @$pb.TagNumber(74)
-  TransferAbort ensureTransferAbort() => $_ensure(40);
+  TransferAbort ensureTransferAbort() => $_ensure(46);
 
   @$pb.TagNumber(80)
-  ErrorEnvelope get error => $_getN(41);
+  ErrorEnvelope get error => $_getN(47);
   @$pb.TagNumber(80)
   set error(ErrorEnvelope value) => $_setField(80, value);
   @$pb.TagNumber(80)
-  $core.bool hasError() => $_has(41);
+  $core.bool hasError() => $_has(47);
   @$pb.TagNumber(80)
   void clearError() => $_clearField(80);
   @$pb.TagNumber(80)
-  ErrorEnvelope ensureError() => $_ensure(41);
+  ErrorEnvelope ensureError() => $_ensure(47);
 }
 
 /// ProtocolVersion is the numeric SemVer core used for exact wire negotiation.
@@ -4200,6 +4334,722 @@ class SessionAdminCommandOutcome extends $pb.GeneratedMessage {
   StableError ensureError() => $_ensure(5);
 }
 
+class GetSessionTreeRequest extends $pb.GeneratedMessage {
+  factory GetSessionTreeRequest({
+    $fixnum.Int64? requestId,
+    $core.String? projectId,
+    $core.String? sessionId,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (projectId != null) result.projectId = projectId;
+    if (sessionId != null) result.sessionId = sessionId;
+    return result;
+  }
+
+  GetSessionTreeRequest._();
+
+  factory GetSessionTreeRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory GetSessionTreeRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetSessionTreeRequest',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(2, _omitFieldNames ? '' : 'projectId')
+    ..aOS(3, _omitFieldNames ? '' : 'sessionId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetSessionTreeRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetSessionTreeRequest copyWith(
+          void Function(GetSessionTreeRequest) updates) =>
+      super.copyWith((message) => updates(message as GetSessionTreeRequest))
+          as GetSessionTreeRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GetSessionTreeRequest create() => GetSessionTreeRequest._();
+  @$core.override
+  GetSessionTreeRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static GetSessionTreeRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetSessionTreeRequest>(create);
+  static GetSessionTreeRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get projectId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set projectId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasProjectId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearProjectId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get sessionId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set sessionId($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSessionId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSessionId() => $_clearField(3);
+}
+
+class GetSessionTreeResponse extends $pb.GeneratedMessage {
+  factory GetSessionTreeResponse({
+    $fixnum.Int64? requestId,
+    SessionTreeSnapshot? tree,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (tree != null) result.tree = tree;
+    return result;
+  }
+
+  GetSessionTreeResponse._();
+
+  factory GetSessionTreeResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory GetSessionTreeResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetSessionTreeResponse',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOM<SessionTreeSnapshot>(2, _omitFieldNames ? '' : 'tree',
+        subBuilder: SessionTreeSnapshot.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetSessionTreeResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetSessionTreeResponse copyWith(
+          void Function(GetSessionTreeResponse) updates) =>
+      super.copyWith((message) => updates(message as GetSessionTreeResponse))
+          as GetSessionTreeResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GetSessionTreeResponse create() => GetSessionTreeResponse._();
+  @$core.override
+  GetSessionTreeResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static GetSessionTreeResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetSessionTreeResponse>(create);
+  static GetSessionTreeResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  SessionTreeSnapshot get tree => $_getN(1);
+  @$pb.TagNumber(2)
+  set tree(SessionTreeSnapshot value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasTree() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearTree() => $_clearField(2);
+  @$pb.TagNumber(2)
+  SessionTreeSnapshot ensureTree() => $_ensure(1);
+}
+
+class NavigateSessionTreeCommand extends $pb.GeneratedMessage {
+  factory NavigateSessionTreeCommand({
+    $fixnum.Int64? requestId,
+    $core.String? commandId,
+    $core.String? projectId,
+    $core.String? sessionId,
+    $core.String? entryId,
+    $core.String? expectedAdminRevision,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (commandId != null) result.commandId = commandId;
+    if (projectId != null) result.projectId = projectId;
+    if (sessionId != null) result.sessionId = sessionId;
+    if (entryId != null) result.entryId = entryId;
+    if (expectedAdminRevision != null)
+      result.expectedAdminRevision = expectedAdminRevision;
+    return result;
+  }
+
+  NavigateSessionTreeCommand._();
+
+  factory NavigateSessionTreeCommand.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory NavigateSessionTreeCommand.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'NavigateSessionTreeCommand',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(2, _omitFieldNames ? '' : 'commandId')
+    ..aOS(3, _omitFieldNames ? '' : 'projectId')
+    ..aOS(4, _omitFieldNames ? '' : 'sessionId')
+    ..aOS(5, _omitFieldNames ? '' : 'entryId')
+    ..aOS(6, _omitFieldNames ? '' : 'expectedAdminRevision')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NavigateSessionTreeCommand clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NavigateSessionTreeCommand copyWith(
+          void Function(NavigateSessionTreeCommand) updates) =>
+      super.copyWith(
+              (message) => updates(message as NavigateSessionTreeCommand))
+          as NavigateSessionTreeCommand;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static NavigateSessionTreeCommand create() => NavigateSessionTreeCommand._();
+  @$core.override
+  NavigateSessionTreeCommand createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static NavigateSessionTreeCommand getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<NavigateSessionTreeCommand>(create);
+  static NavigateSessionTreeCommand? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get commandId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set commandId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasCommandId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCommandId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get projectId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set projectId($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasProjectId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearProjectId() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get sessionId => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set sessionId($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSessionId() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSessionId() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get entryId => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set entryId($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasEntryId() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearEntryId() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get expectedAdminRevision => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set expectedAdminRevision($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasExpectedAdminRevision() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearExpectedAdminRevision() => $_clearField(6);
+}
+
+class ForkSessionCommand extends $pb.GeneratedMessage {
+  factory ForkSessionCommand({
+    $fixnum.Int64? requestId,
+    $core.String? commandId,
+    $core.String? projectId,
+    $core.String? sessionId,
+    $core.String? userEntryId,
+    $core.String? expectedAdminRevision,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (commandId != null) result.commandId = commandId;
+    if (projectId != null) result.projectId = projectId;
+    if (sessionId != null) result.sessionId = sessionId;
+    if (userEntryId != null) result.userEntryId = userEntryId;
+    if (expectedAdminRevision != null)
+      result.expectedAdminRevision = expectedAdminRevision;
+    return result;
+  }
+
+  ForkSessionCommand._();
+
+  factory ForkSessionCommand.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ForkSessionCommand.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ForkSessionCommand',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(2, _omitFieldNames ? '' : 'commandId')
+    ..aOS(3, _omitFieldNames ? '' : 'projectId')
+    ..aOS(4, _omitFieldNames ? '' : 'sessionId')
+    ..aOS(5, _omitFieldNames ? '' : 'userEntryId')
+    ..aOS(6, _omitFieldNames ? '' : 'expectedAdminRevision')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ForkSessionCommand clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ForkSessionCommand copyWith(void Function(ForkSessionCommand) updates) =>
+      super.copyWith((message) => updates(message as ForkSessionCommand))
+          as ForkSessionCommand;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ForkSessionCommand create() => ForkSessionCommand._();
+  @$core.override
+  ForkSessionCommand createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ForkSessionCommand getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ForkSessionCommand>(create);
+  static ForkSessionCommand? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get commandId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set commandId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasCommandId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCommandId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get projectId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set projectId($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasProjectId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearProjectId() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get sessionId => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set sessionId($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSessionId() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSessionId() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get userEntryId => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set userEntryId($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasUserEntryId() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearUserEntryId() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get expectedAdminRevision => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set expectedAdminRevision($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasExpectedAdminRevision() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearExpectedAdminRevision() => $_clearField(6);
+}
+
+class CloneSessionCommand extends $pb.GeneratedMessage {
+  factory CloneSessionCommand({
+    $fixnum.Int64? requestId,
+    $core.String? commandId,
+    $core.String? projectId,
+    $core.String? sessionId,
+    $core.String? expectedAdminRevision,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (commandId != null) result.commandId = commandId;
+    if (projectId != null) result.projectId = projectId;
+    if (sessionId != null) result.sessionId = sessionId;
+    if (expectedAdminRevision != null)
+      result.expectedAdminRevision = expectedAdminRevision;
+    return result;
+  }
+
+  CloneSessionCommand._();
+
+  factory CloneSessionCommand.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CloneSessionCommand.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CloneSessionCommand',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(2, _omitFieldNames ? '' : 'commandId')
+    ..aOS(3, _omitFieldNames ? '' : 'projectId')
+    ..aOS(4, _omitFieldNames ? '' : 'sessionId')
+    ..aOS(5, _omitFieldNames ? '' : 'expectedAdminRevision')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CloneSessionCommand clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CloneSessionCommand copyWith(void Function(CloneSessionCommand) updates) =>
+      super.copyWith((message) => updates(message as CloneSessionCommand))
+          as CloneSessionCommand;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CloneSessionCommand create() => CloneSessionCommand._();
+  @$core.override
+  CloneSessionCommand createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CloneSessionCommand getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CloneSessionCommand>(create);
+  static CloneSessionCommand? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get commandId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set commandId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasCommandId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCommandId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get projectId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set projectId($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasProjectId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearProjectId() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get sessionId => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set sessionId($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSessionId() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSessionId() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get expectedAdminRevision => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set expectedAdminRevision($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasExpectedAdminRevision() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearExpectedAdminRevision() => $_clearField(5);
+}
+
+class SessionTreeMutationResult extends $pb.GeneratedMessage {
+  factory SessionTreeMutationResult({
+    SessionDetailSnapshot? session,
+    SessionTreeSnapshot? tree,
+    $core.String? editorText,
+  }) {
+    final result = create();
+    if (session != null) result.session = session;
+    if (tree != null) result.tree = tree;
+    if (editorText != null) result.editorText = editorText;
+    return result;
+  }
+
+  SessionTreeMutationResult._();
+
+  factory SessionTreeMutationResult.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SessionTreeMutationResult.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SessionTreeMutationResult',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOM<SessionDetailSnapshot>(1, _omitFieldNames ? '' : 'session',
+        subBuilder: SessionDetailSnapshot.create)
+    ..aOM<SessionTreeSnapshot>(2, _omitFieldNames ? '' : 'tree',
+        subBuilder: SessionTreeSnapshot.create)
+    ..aOS(3, _omitFieldNames ? '' : 'editorText')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SessionTreeMutationResult clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SessionTreeMutationResult copyWith(
+          void Function(SessionTreeMutationResult) updates) =>
+      super.copyWith((message) => updates(message as SessionTreeMutationResult))
+          as SessionTreeMutationResult;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SessionTreeMutationResult create() => SessionTreeMutationResult._();
+  @$core.override
+  SessionTreeMutationResult createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SessionTreeMutationResult getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SessionTreeMutationResult>(create);
+  static SessionTreeMutationResult? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  SessionDetailSnapshot get session => $_getN(0);
+  @$pb.TagNumber(1)
+  set session(SessionDetailSnapshot value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSession() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSession() => $_clearField(1);
+  @$pb.TagNumber(1)
+  SessionDetailSnapshot ensureSession() => $_ensure(0);
+
+  @$pb.TagNumber(2)
+  SessionTreeSnapshot get tree => $_getN(1);
+  @$pb.TagNumber(2)
+  set tree(SessionTreeSnapshot value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasTree() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearTree() => $_clearField(2);
+  @$pb.TagNumber(2)
+  SessionTreeSnapshot ensureTree() => $_ensure(1);
+
+  @$pb.TagNumber(3)
+  $core.String get editorText => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set editorText($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasEditorText() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearEditorText() => $_clearField(3);
+}
+
+enum SessionTreeMutationOutcome_Outcome { result, error, notSet }
+
+class SessionTreeMutationOutcome extends $pb.GeneratedMessage {
+  factory SessionTreeMutationOutcome({
+    $fixnum.Int64? requestId,
+    $core.String? commandId,
+    SessionTreeMutationOperation? operation,
+    SessionTreeMutationResult? result,
+    StableError? error,
+  }) {
+    final result$ = create();
+    if (requestId != null) result$.requestId = requestId;
+    if (commandId != null) result$.commandId = commandId;
+    if (operation != null) result$.operation = operation;
+    if (result != null) result$.result = result;
+    if (error != null) result$.error = error;
+    return result$;
+  }
+
+  SessionTreeMutationOutcome._();
+
+  factory SessionTreeMutationOutcome.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SessionTreeMutationOutcome.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static const $core.Map<$core.int, SessionTreeMutationOutcome_Outcome>
+      _SessionTreeMutationOutcome_OutcomeByTag = {
+    10: SessionTreeMutationOutcome_Outcome.result,
+    11: SessionTreeMutationOutcome_Outcome.error,
+    0: SessionTreeMutationOutcome_Outcome.notSet
+  };
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SessionTreeMutationOutcome',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..oo(0, [10, 11])
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(2, _omitFieldNames ? '' : 'commandId')
+    ..aE<SessionTreeMutationOperation>(3, _omitFieldNames ? '' : 'operation',
+        enumValues: SessionTreeMutationOperation.values)
+    ..aOM<SessionTreeMutationResult>(10, _omitFieldNames ? '' : 'result',
+        subBuilder: SessionTreeMutationResult.create)
+    ..aOM<StableError>(11, _omitFieldNames ? '' : 'error',
+        subBuilder: StableError.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SessionTreeMutationOutcome clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SessionTreeMutationOutcome copyWith(
+          void Function(SessionTreeMutationOutcome) updates) =>
+      super.copyWith(
+              (message) => updates(message as SessionTreeMutationOutcome))
+          as SessionTreeMutationOutcome;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SessionTreeMutationOutcome create() => SessionTreeMutationOutcome._();
+  @$core.override
+  SessionTreeMutationOutcome createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SessionTreeMutationOutcome getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SessionTreeMutationOutcome>(create);
+  static SessionTreeMutationOutcome? _defaultInstance;
+
+  @$pb.TagNumber(10)
+  @$pb.TagNumber(11)
+  SessionTreeMutationOutcome_Outcome whichOutcome() =>
+      _SessionTreeMutationOutcome_OutcomeByTag[$_whichOneof(0)]!;
+  @$pb.TagNumber(10)
+  @$pb.TagNumber(11)
+  void clearOutcome() => $_clearField($_whichOneof(0));
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get commandId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set commandId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasCommandId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCommandId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  SessionTreeMutationOperation get operation => $_getN(2);
+  @$pb.TagNumber(3)
+  set operation(SessionTreeMutationOperation value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasOperation() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearOperation() => $_clearField(3);
+
+  @$pb.TagNumber(10)
+  SessionTreeMutationResult get result => $_getN(3);
+  @$pb.TagNumber(10)
+  set result(SessionTreeMutationResult value) => $_setField(10, value);
+  @$pb.TagNumber(10)
+  $core.bool hasResult() => $_has(3);
+  @$pb.TagNumber(10)
+  void clearResult() => $_clearField(10);
+  @$pb.TagNumber(10)
+  SessionTreeMutationResult ensureResult() => $_ensure(3);
+
+  @$pb.TagNumber(11)
+  StableError get error => $_getN(4);
+  @$pb.TagNumber(11)
+  set error(StableError value) => $_setField(11, value);
+  @$pb.TagNumber(11)
+  $core.bool hasError() => $_has(4);
+  @$pb.TagNumber(11)
+  void clearError() => $_clearField(11);
+  @$pb.TagNumber(11)
+  StableError ensureError() => $_ensure(4);
+}
+
 class RequestRejected extends $pb.GeneratedMessage {
   factory RequestRejected({
     $fixnum.Int64? requestId,
@@ -4436,6 +5286,7 @@ class SessionSummarySnapshot extends $pb.GeneratedMessage {
     $core.bool? hasUnread,
     $core.String? adminRevision,
     $core.bool? hasCustomName,
+    $core.String? parentSessionId,
   }) {
     final result = create();
     if (sessionId != null) result.sessionId = sessionId;
@@ -4449,6 +5300,7 @@ class SessionSummarySnapshot extends $pb.GeneratedMessage {
     if (hasUnread != null) result.hasUnread = hasUnread;
     if (adminRevision != null) result.adminRevision = adminRevision;
     if (hasCustomName != null) result.hasCustomName = hasCustomName;
+    if (parentSessionId != null) result.parentSessionId = parentSessionId;
     return result;
   }
 
@@ -4479,6 +5331,7 @@ class SessionSummarySnapshot extends $pb.GeneratedMessage {
     ..aOB(7, _omitFieldNames ? '' : 'hasUnread')
     ..aOS(8, _omitFieldNames ? '' : 'adminRevision')
     ..aOB(9, _omitFieldNames ? '' : 'hasCustomName')
+    ..aOS(10, _omitFieldNames ? '' : 'parentSessionId')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4581,6 +5434,15 @@ class SessionSummarySnapshot extends $pb.GeneratedMessage {
   $core.bool hasHasCustomName() => $_has(8);
   @$pb.TagNumber(9)
   void clearHasCustomName() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.String get parentSessionId => $_getSZ(9);
+  @$pb.TagNumber(10)
+  set parentSessionId($core.String value) => $_setString(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasParentSessionId() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearParentSessionId() => $_clearField(10);
 }
 
 class SessionDetailSnapshot extends $pb.GeneratedMessage {
@@ -4754,6 +5616,292 @@ class MessageSnapshot extends $pb.GeneratedMessage {
   $core.bool hasIsStreaming() => $_has(4);
   @$pb.TagNumber(5)
   void clearIsStreaming() => $_clearField(5);
+}
+
+class SessionTreeNodeSnapshot extends $pb.GeneratedMessage {
+  factory SessionTreeNodeSnapshot({
+    $core.String? entryId,
+    $core.String? parentEntryId,
+    SessionTreeEntryKind? kind,
+    $core.String? text,
+    $fixnum.Int64? createdAtUnixMillis,
+    $core.String? label,
+    $core.int? depth,
+    $core.bool? isOnActivePath,
+    $core.bool? hasChildren,
+    $core.bool? canEditFromHere,
+    $core.bool? canFork,
+  }) {
+    final result = create();
+    if (entryId != null) result.entryId = entryId;
+    if (parentEntryId != null) result.parentEntryId = parentEntryId;
+    if (kind != null) result.kind = kind;
+    if (text != null) result.text = text;
+    if (createdAtUnixMillis != null)
+      result.createdAtUnixMillis = createdAtUnixMillis;
+    if (label != null) result.label = label;
+    if (depth != null) result.depth = depth;
+    if (isOnActivePath != null) result.isOnActivePath = isOnActivePath;
+    if (hasChildren != null) result.hasChildren = hasChildren;
+    if (canEditFromHere != null) result.canEditFromHere = canEditFromHere;
+    if (canFork != null) result.canFork = canFork;
+    return result;
+  }
+
+  SessionTreeNodeSnapshot._();
+
+  factory SessionTreeNodeSnapshot.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SessionTreeNodeSnapshot.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SessionTreeNodeSnapshot',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'entryId')
+    ..aOS(2, _omitFieldNames ? '' : 'parentEntryId')
+    ..aE<SessionTreeEntryKind>(3, _omitFieldNames ? '' : 'kind',
+        enumValues: SessionTreeEntryKind.values)
+    ..aOS(4, _omitFieldNames ? '' : 'text')
+    ..a<$fixnum.Int64>(
+        5, _omitFieldNames ? '' : 'createdAtUnixMillis', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(6, _omitFieldNames ? '' : 'label')
+    ..aI(7, _omitFieldNames ? '' : 'depth', fieldType: $pb.PbFieldType.OU3)
+    ..aOB(8, _omitFieldNames ? '' : 'isOnActivePath')
+    ..aOB(9, _omitFieldNames ? '' : 'hasChildren')
+    ..aOB(10, _omitFieldNames ? '' : 'canEditFromHere')
+    ..aOB(11, _omitFieldNames ? '' : 'canFork')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SessionTreeNodeSnapshot clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SessionTreeNodeSnapshot copyWith(
+          void Function(SessionTreeNodeSnapshot) updates) =>
+      super.copyWith((message) => updates(message as SessionTreeNodeSnapshot))
+          as SessionTreeNodeSnapshot;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SessionTreeNodeSnapshot create() => SessionTreeNodeSnapshot._();
+  @$core.override
+  SessionTreeNodeSnapshot createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SessionTreeNodeSnapshot getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SessionTreeNodeSnapshot>(create);
+  static SessionTreeNodeSnapshot? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get entryId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set entryId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasEntryId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearEntryId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get parentEntryId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set parentEntryId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasParentEntryId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearParentEntryId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  SessionTreeEntryKind get kind => $_getN(2);
+  @$pb.TagNumber(3)
+  set kind(SessionTreeEntryKind value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasKind() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearKind() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get text => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set text($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasText() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearText() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get createdAtUnixMillis => $_getI64(4);
+  @$pb.TagNumber(5)
+  set createdAtUnixMillis($fixnum.Int64 value) => $_setInt64(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasCreatedAtUnixMillis() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearCreatedAtUnixMillis() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get label => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set label($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasLabel() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearLabel() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.int get depth => $_getIZ(6);
+  @$pb.TagNumber(7)
+  set depth($core.int value) => $_setUnsignedInt32(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasDepth() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearDepth() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.bool get isOnActivePath => $_getBF(7);
+  @$pb.TagNumber(8)
+  set isOnActivePath($core.bool value) => $_setBool(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasIsOnActivePath() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearIsOnActivePath() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.bool get hasChildren => $_getBF(8);
+  @$pb.TagNumber(9)
+  set hasChildren($core.bool value) => $_setBool(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasHasChildren() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearHasChildren() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.bool get canEditFromHere => $_getBF(9);
+  @$pb.TagNumber(10)
+  set canEditFromHere($core.bool value) => $_setBool(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasCanEditFromHere() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearCanEditFromHere() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $core.bool get canFork => $_getBF(10);
+  @$pb.TagNumber(11)
+  set canFork($core.bool value) => $_setBool(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasCanFork() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearCanFork() => $_clearField(11);
+}
+
+class SessionTreeSnapshot extends $pb.GeneratedMessage {
+  factory SessionTreeSnapshot({
+    $core.String? sessionId,
+    $core.Iterable<SessionTreeNodeSnapshot>? nodes,
+    $core.Iterable<$core.String>? activePathEntryIds,
+    $core.String? activeLeafEntryId,
+    $core.bool? canCloneActiveBranch,
+    $core.String? adminRevision,
+  }) {
+    final result = create();
+    if (sessionId != null) result.sessionId = sessionId;
+    if (nodes != null) result.nodes.addAll(nodes);
+    if (activePathEntryIds != null)
+      result.activePathEntryIds.addAll(activePathEntryIds);
+    if (activeLeafEntryId != null) result.activeLeafEntryId = activeLeafEntryId;
+    if (canCloneActiveBranch != null)
+      result.canCloneActiveBranch = canCloneActiveBranch;
+    if (adminRevision != null) result.adminRevision = adminRevision;
+    return result;
+  }
+
+  SessionTreeSnapshot._();
+
+  factory SessionTreeSnapshot.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SessionTreeSnapshot.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SessionTreeSnapshot',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'sessionId')
+    ..pPM<SessionTreeNodeSnapshot>(2, _omitFieldNames ? '' : 'nodes',
+        subBuilder: SessionTreeNodeSnapshot.create)
+    ..pPS(3, _omitFieldNames ? '' : 'activePathEntryIds')
+    ..aOS(4, _omitFieldNames ? '' : 'activeLeafEntryId')
+    ..aOB(5, _omitFieldNames ? '' : 'canCloneActiveBranch')
+    ..aOS(6, _omitFieldNames ? '' : 'adminRevision')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SessionTreeSnapshot clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SessionTreeSnapshot copyWith(void Function(SessionTreeSnapshot) updates) =>
+      super.copyWith((message) => updates(message as SessionTreeSnapshot))
+          as SessionTreeSnapshot;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SessionTreeSnapshot create() => SessionTreeSnapshot._();
+  @$core.override
+  SessionTreeSnapshot createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SessionTreeSnapshot getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SessionTreeSnapshot>(create);
+  static SessionTreeSnapshot? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get sessionId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set sessionId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSessionId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSessionId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $pb.PbList<SessionTreeNodeSnapshot> get nodes => $_getList(1);
+
+  @$pb.TagNumber(3)
+  $pb.PbList<$core.String> get activePathEntryIds => $_getList(2);
+
+  @$pb.TagNumber(4)
+  $core.String get activeLeafEntryId => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set activeLeafEntryId($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasActiveLeafEntryId() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearActiveLeafEntryId() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.bool get canCloneActiveBranch => $_getBF(4);
+  @$pb.TagNumber(5)
+  set canCloneActiveBranch($core.bool value) => $_setBool(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasCanCloneActiveBranch() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearCanCloneActiveBranch() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get adminRevision => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set adminRevision($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasAdminRevision() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearAdminRevision() => $_clearField(6);
 }
 
 enum SessionEventStreamEnvelope_Event {

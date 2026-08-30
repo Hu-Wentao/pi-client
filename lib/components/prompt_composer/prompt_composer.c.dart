@@ -7,7 +7,7 @@
 /// - none
 /// State Ownership: none
 /// Capabilities:
-/// - Compose and submit first-party Pi prompts with an optional externally owned draft controller, Enter-to-send and Shift+Enter newline behavior, progress feedback, and a stop action.
+/// - Compose and submit first-party Pi prompts with an optional externally owned draft controller, generation-guarded branch text restoration, Enter-to-send and Shift+Enter newline behavior, progress feedback, and a stop action.
 /// Public Views:
 /// - [PromptComposerView] — responsive prompt editor driven only by ordinary inputs and callbacks.
 /// Widget Tree:

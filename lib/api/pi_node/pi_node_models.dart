@@ -33,6 +33,23 @@ final class PiMessageId {
   String toString() => 'PiMessageId(<redacted>)';
 }
 
+final class PiSessionTreeEntryId {
+  PiSessionTreeEntryId(String value)
+    : value = _validatedOpaqueId(value, 'sessionTreeEntryId');
+
+  final String value;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PiSessionTreeEntryId && value == other.value;
+
+  @override
+  int get hashCode => value.hashCode;
+
+  @override
+  String toString() => 'PiSessionTreeEntryId(<redacted>)';
+}
+
 final class PiSessionAdminRevision {
   PiSessionAdminRevision(String value)
     : value = _validatedOpaqueId(value, 'adminRevision');
@@ -536,6 +553,7 @@ final class PiSessionSummary {
     required this.hasUnread,
     required this.adminRevision,
     required this.hasCustomName,
+    this.parentSessionId,
   }) : title = _validatedText(title, 'title', allowEmpty: false),
        workingDirectory = _validatedPath(workingDirectory),
        createdAt = _validatedUtcInstant(createdAt, 'createdAt'),
@@ -554,6 +572,7 @@ final class PiSessionSummary {
   final bool hasUnread;
   final PiSessionAdminRevision adminRevision;
   final bool hasCustomName;
+  final PiSessionId? parentSessionId;
 
   @override
   bool operator ==(Object other) =>
@@ -566,7 +585,8 @@ final class PiSessionSummary {
       isRunning == other.isRunning &&
       hasUnread == other.hasUnread &&
       adminRevision == other.adminRevision &&
-      hasCustomName == other.hasCustomName;
+      hasCustomName == other.hasCustomName &&
+      parentSessionId == other.parentSessionId;
 
   @override
   int get hashCode => Object.hash(
@@ -579,6 +599,7 @@ final class PiSessionSummary {
     hasUnread,
     adminRevision,
     hasCustomName,
+    parentSessionId,
   );
 
   @override
@@ -609,6 +630,126 @@ final class PiSessionDetail {
 
   @override
   String toString() => 'PiSessionDetail(<redacted>)';
+}
+
+enum PiSessionTreeEntryKind {
+  userMessage,
+  assistantMessage,
+  toolMessage,
+  customMessage,
+  thinkingLevel,
+  modelChange,
+  compaction,
+  branchSummary,
+  custom,
+  label,
+  sessionInfo,
+}
+
+final class PiSessionTreeNode {
+  PiSessionTreeNode({
+    required this.id,
+    this.parentId,
+    required this.kind,
+    required String text,
+    required DateTime createdAt,
+    this.label,
+    required int depth,
+    required this.isOnActivePath,
+    required this.hasChildren,
+    required this.canEditFromHere,
+    required this.canFork,
+  }) : text = _validatedText(text, 'text'),
+       createdAt = _validatedUtcInstant(createdAt, 'createdAt'),
+       depth = _validatedBoundedCount(depth, 'depth', 0xffffffff) {
+    if (label != null) _validatedText(label!, 'label', allowEmpty: false);
+  }
+
+  final PiSessionTreeEntryId id;
+  final PiSessionTreeEntryId? parentId;
+  final PiSessionTreeEntryKind kind;
+  final String text;
+  final DateTime createdAt;
+  final String? label;
+  final int depth;
+  final bool isOnActivePath;
+  final bool hasChildren;
+  final bool canEditFromHere;
+  final bool canFork;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PiSessionTreeNode &&
+      id == other.id &&
+      parentId == other.parentId &&
+      kind == other.kind &&
+      text == other.text &&
+      createdAt == other.createdAt &&
+      label == other.label &&
+      depth == other.depth &&
+      isOnActivePath == other.isOnActivePath &&
+      hasChildren == other.hasChildren &&
+      canEditFromHere == other.canEditFromHere &&
+      canFork == other.canFork;
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    parentId,
+    kind,
+    text,
+    createdAt,
+    label,
+    depth,
+    isOnActivePath,
+    hasChildren,
+    canEditFromHere,
+    canFork,
+  );
+}
+
+final class PiSessionTree {
+  PiSessionTree({
+    required this.sessionId,
+    required Iterable<PiSessionTreeNode> nodes,
+    required Iterable<PiSessionTreeEntryId> activePathEntryIds,
+    this.activeLeafEntryId,
+    required this.canCloneActiveBranch,
+    required this.adminRevision,
+  }) : nodes = List<PiSessionTreeNode>.unmodifiable(nodes),
+       activePathEntryIds = List<PiSessionTreeEntryId>.unmodifiable(
+         activePathEntryIds,
+       );
+
+  final PiSessionId sessionId;
+  final List<PiSessionTreeNode> nodes;
+  final List<PiSessionTreeEntryId> activePathEntryIds;
+  final PiSessionTreeEntryId? activeLeafEntryId;
+  final bool canCloneActiveBranch;
+  final PiSessionAdminRevision adminRevision;
+
+  PiSessionTreeNode? nodeById(PiSessionTreeEntryId id) =>
+      nodes.where((node) => node.id == id).firstOrNull;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PiSessionTree &&
+      sessionId == other.sessionId &&
+      _sameList(nodes, other.nodes) &&
+      _sameList(activePathEntryIds, other.activePathEntryIds) &&
+      activeLeafEntryId == other.activeLeafEntryId &&
+      canCloneActiveBranch == other.canCloneActiveBranch &&
+      adminRevision == other.adminRevision;
+
+  @override
+  int get hashCode => Object.hash(
+    sessionId,
+    Object.hashAll(nodes),
+    Object.hashAll(activePathEntryIds),
+    activeLeafEntryId,
+    canCloneActiveBranch,
+    adminRevision,
+  );
 }
 
 final class PiCreateSessionRequest {
@@ -760,6 +901,99 @@ final class PiSessionAdminRejected extends PiSessionAdminResult {
 
 final class PiSessionAdminUncertain extends PiSessionAdminResult {
   const PiSessionAdminUncertain({
+    required super.commandId,
+    required super.operation,
+    required this.error,
+  });
+
+  final PiNodeException error;
+}
+
+enum PiSessionTreeMutationOperation { navigate, fork, clone }
+
+sealed class PiSessionTreeMutationCommand {
+  const PiSessionTreeMutationCommand({
+    required this.commandId,
+    required this.projectId,
+    required this.sessionId,
+    required this.expectedAdminRevision,
+  });
+
+  final PiCommandId commandId;
+  final PiProjectId projectId;
+  final PiSessionId sessionId;
+  final PiSessionAdminRevision expectedAdminRevision;
+}
+
+final class PiNavigateSessionTreeCommand extends PiSessionTreeMutationCommand {
+  const PiNavigateSessionTreeCommand({
+    required super.commandId,
+    required super.projectId,
+    required super.sessionId,
+    required super.expectedAdminRevision,
+    required this.entryId,
+  });
+
+  final PiSessionTreeEntryId entryId;
+}
+
+final class PiForkSessionCommand extends PiSessionTreeMutationCommand {
+  const PiForkSessionCommand({
+    required super.commandId,
+    required super.projectId,
+    required super.sessionId,
+    required super.expectedAdminRevision,
+    required this.userEntryId,
+  });
+
+  final PiSessionTreeEntryId userEntryId;
+}
+
+final class PiCloneSessionCommand extends PiSessionTreeMutationCommand {
+  const PiCloneSessionCommand({
+    required super.commandId,
+    required super.projectId,
+    required super.sessionId,
+    required super.expectedAdminRevision,
+  });
+}
+
+sealed class PiSessionTreeMutationResult {
+  const PiSessionTreeMutationResult({
+    required this.commandId,
+    required this.operation,
+  });
+
+  final PiCommandId commandId;
+  final PiSessionTreeMutationOperation operation;
+}
+
+final class PiSessionTreeMutationUpdated extends PiSessionTreeMutationResult {
+  const PiSessionTreeMutationUpdated({
+    required super.commandId,
+    required super.operation,
+    required this.session,
+    required this.tree,
+    this.editorText,
+  });
+
+  final PiSessionDetail session;
+  final PiSessionTree tree;
+  final String? editorText;
+}
+
+final class PiSessionTreeMutationRejected extends PiSessionTreeMutationResult {
+  const PiSessionTreeMutationRejected({
+    required super.commandId,
+    required super.operation,
+    required this.error,
+  });
+
+  final PiNodeException error;
+}
+
+final class PiSessionTreeMutationUncertain extends PiSessionTreeMutationResult {
+  const PiSessionTreeMutationUncertain({
     required super.commandId,
     required super.operation,
     required this.error,

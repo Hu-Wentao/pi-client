@@ -124,6 +124,18 @@ final class PiProtocolCreateSessionRequest extends PiProtocolRequestMessage {
       'PiProtocolCreateSessionRequest(requestId: $requestId, <redacted>)';
 }
 
+final class PiProtocolGetSessionTreeRequest extends PiProtocolRequestMessage {
+  PiProtocolGetSessionTreeRequest({
+    required super.requestId,
+    required String projectId,
+    required String sessionId,
+  }) : projectId = _validatedOpaqueId(projectId, 'projectId'),
+       sessionId = _validatedOpaqueId(sessionId, 'sessionId');
+
+  final String projectId;
+  final String sessionId;
+}
+
 sealed class PiProtocolCommandRequest extends PiProtocolRequestMessage {
   PiProtocolCommandRequest({
     required super.requestId,
@@ -164,6 +176,65 @@ final class PiProtocolAbortCommandRequest extends PiProtocolCommandRequest {
 }
 
 enum PiProtocolSessionAdminOperation { rename, clearName, autoName, delete }
+
+enum PiProtocolSessionTreeMutationOperation { navigate, fork, clone }
+
+sealed class PiProtocolSessionTreeMutationCommandRequest
+    extends PiProtocolCommandRequest {
+  PiProtocolSessionTreeMutationCommandRequest({
+    required super.requestId,
+    required super.commandId,
+    required super.sessionId,
+    required String projectId,
+    required String expectedAdminRevision,
+  }) : projectId = _validatedOpaqueId(projectId, 'projectId'),
+       expectedAdminRevision = _validatedOpaqueId(
+         expectedAdminRevision,
+         'expectedAdminRevision',
+       );
+
+  final String projectId;
+  final String expectedAdminRevision;
+}
+
+final class PiProtocolNavigateSessionTreeCommandRequest
+    extends PiProtocolSessionTreeMutationCommandRequest {
+  PiProtocolNavigateSessionTreeCommandRequest({
+    required super.requestId,
+    required super.commandId,
+    required super.projectId,
+    required super.sessionId,
+    required super.expectedAdminRevision,
+    required String entryId,
+  }) : entryId = _validatedOpaqueId(entryId, 'entryId');
+
+  final String entryId;
+}
+
+final class PiProtocolForkSessionCommandRequest
+    extends PiProtocolSessionTreeMutationCommandRequest {
+  PiProtocolForkSessionCommandRequest({
+    required super.requestId,
+    required super.commandId,
+    required super.projectId,
+    required super.sessionId,
+    required super.expectedAdminRevision,
+    required String userEntryId,
+  }) : userEntryId = _validatedOpaqueId(userEntryId, 'userEntryId');
+
+  final String userEntryId;
+}
+
+final class PiProtocolCloneSessionCommandRequest
+    extends PiProtocolSessionTreeMutationCommandRequest {
+  PiProtocolCloneSessionCommandRequest({
+    required super.requestId,
+    required super.commandId,
+    required super.projectId,
+    required super.sessionId,
+    required super.expectedAdminRevision,
+  });
+}
 
 sealed class PiProtocolSessionAdminCommandRequest
     extends PiProtocolCommandRequest {
@@ -267,6 +338,7 @@ enum PiProtocolCapability {
   projectDiscovery,
   projectTrust,
   sessionAdmin,
+  sessionTree,
 }
 
 final class PiProtocolHandshakeAcceptedMessage extends PiServerProtocolMessage {
@@ -367,6 +439,12 @@ final class PiProtocolSessionCreatedResponse extends PiProtocolResponseMessage {
   final PiProtocolSessionDetail session;
 }
 
+final class PiProtocolSessionTreeResponse extends PiProtocolResponseMessage {
+  PiProtocolSessionTreeResponse({required super.requestId, required this.tree});
+
+  final PiProtocolSessionTreeSnapshot tree;
+}
+
 sealed class PiProtocolSessionAdminOutcome {
   const PiProtocolSessionAdminOutcome();
 }
@@ -411,6 +489,43 @@ final class PiProtocolSessionAdminOutcomeMessage
 
   final PiProtocolSessionAdminOperation operation;
   final PiProtocolSessionAdminOutcome outcome;
+}
+
+sealed class PiProtocolSessionTreeMutationOutcome {
+  const PiProtocolSessionTreeMutationOutcome();
+}
+
+final class PiProtocolSessionTreeMutationUpdated
+    extends PiProtocolSessionTreeMutationOutcome {
+  const PiProtocolSessionTreeMutationUpdated({
+    required this.session,
+    required this.tree,
+    this.editorText,
+  });
+
+  final PiProtocolSessionDetail session;
+  final PiProtocolSessionTreeSnapshot tree;
+  final String? editorText;
+}
+
+final class PiProtocolSessionTreeMutationFailed
+    extends PiProtocolSessionTreeMutationOutcome {
+  const PiProtocolSessionTreeMutationFailed(this.failure);
+
+  final PiProtocolFailure failure;
+}
+
+final class PiProtocolSessionTreeMutationOutcomeMessage
+    extends PiProtocolCommandResponseMessage {
+  PiProtocolSessionTreeMutationOutcomeMessage({
+    required super.requestId,
+    required super.commandId,
+    required this.operation,
+    required this.outcome,
+  });
+
+  final PiProtocolSessionTreeMutationOperation operation;
+  final PiProtocolSessionTreeMutationOutcome outcome;
 }
 
 final class PiProtocolRequestRejectedMessage extends PiProtocolResponseMessage {
@@ -671,12 +786,16 @@ final class PiProtocolSessionSummary {
     required this.hasUnread,
     required String adminRevision,
     required this.hasCustomName,
+    String? parentSessionId,
   }) : id = _validatedOpaqueId(id, 'sessionId'),
        title = _validatedText(title, 'title', allowEmpty: false),
        workingDirectory = _validatedPath(workingDirectory),
        createdAt = _validatedUtcInstant(createdAt, 'createdAt'),
        updatedAt = _validatedUtcInstant(updatedAt, 'updatedAt'),
-       adminRevision = _validatedOpaqueId(adminRevision, 'adminRevision') {
+       adminRevision = _validatedOpaqueId(adminRevision, 'adminRevision'),
+       parentSessionId = parentSessionId == null
+           ? null
+           : _validatedOpaqueId(parentSessionId, 'parentSessionId') {
     if (updatedAt.isBefore(createdAt)) {
       throw ArgumentError('updatedAt must not be before createdAt.');
     }
@@ -691,6 +810,7 @@ final class PiProtocolSessionSummary {
   final bool hasUnread;
   final String adminRevision;
   final bool hasCustomName;
+  final String? parentSessionId;
 
   @override
   String toString() => 'PiProtocolSessionSummary(<redacted>)';
@@ -728,6 +848,85 @@ final class PiProtocolMessageSnapshot {
 
   @override
   String toString() => 'PiProtocolMessageSnapshot(role: $role, <redacted>)';
+}
+
+enum PiProtocolSessionTreeEntryKind {
+  userMessage,
+  assistantMessage,
+  toolMessage,
+  customMessage,
+  thinkingLevel,
+  modelChange,
+  compaction,
+  branchSummary,
+  custom,
+  label,
+  sessionInfo,
+}
+
+final class PiProtocolSessionTreeNodeSnapshot {
+  PiProtocolSessionTreeNodeSnapshot({
+    required String entryId,
+    String? parentEntryId,
+    required this.kind,
+    required String text,
+    required DateTime createdAt,
+    String? label,
+    required int depth,
+    required this.isOnActivePath,
+    required this.hasChildren,
+    required this.canEditFromHere,
+    required this.canFork,
+  }) : entryId = _validatedOpaqueId(entryId, 'entryId'),
+       parentEntryId = parentEntryId == null
+           ? null
+           : _validatedOpaqueId(parentEntryId, 'parentEntryId'),
+       text = _validatedText(text, 'text'),
+       createdAt = _validatedUtcInstant(createdAt, 'createdAt'),
+       label = label == null
+           ? null
+           : _validatedText(label, 'label', allowEmpty: false),
+       depth = _validatedBoundedCount(depth, 'depth', 0xffffffff);
+
+  final String entryId;
+  final String? parentEntryId;
+  final PiProtocolSessionTreeEntryKind kind;
+  final String text;
+  final DateTime createdAt;
+  final String? label;
+  final int depth;
+  final bool isOnActivePath;
+  final bool hasChildren;
+  final bool canEditFromHere;
+  final bool canFork;
+}
+
+final class PiProtocolSessionTreeSnapshot {
+  PiProtocolSessionTreeSnapshot({
+    required String sessionId,
+    required Iterable<PiProtocolSessionTreeNodeSnapshot> nodes,
+    required Iterable<String> activePathEntryIds,
+    String? activeLeafEntryId,
+    required this.canCloneActiveBranch,
+    required String adminRevision,
+  }) : sessionId = _validatedOpaqueId(sessionId, 'sessionId'),
+       nodes = List<PiProtocolSessionTreeNodeSnapshot>.unmodifiable(nodes),
+       activePathEntryIds = List<String>.unmodifiable(
+         activePathEntryIds.map(
+           (entryId) => _validatedOpaqueId(entryId, 'activePathEntryId'),
+         ),
+       ),
+       activeLeafEntryId = activeLeafEntryId == null
+           ? null
+           : _validatedOpaqueId(activeLeafEntryId, 'activeLeafEntryId'),
+       adminRevision = _validatedOpaqueId(adminRevision, 'adminRevision');
+
+  final String sessionId;
+  final List<PiProtocolSessionTreeNodeSnapshot> nodes;
+  final List<String> activePathEntryIds;
+  final String? activeLeafEntryId;
+  final bool canCloneActiveBranch;
+  final String adminRevision;
 }
 
 sealed class PiProtocolSessionEventPayload {

@@ -28,6 +28,7 @@ export {
   type PiNodePromptExecution,
   type PiNodeSessionBackendEvent,
   type PiNodeSessionAdministrationBackend,
+  type PiNodeSessionBackendMutationResult,
   type PiNodeSessionBackendSnapshot,
   type PiNodeSessionDeleteConfirmation,
   type PiNodeSessionDeleteResult,
@@ -35,6 +36,10 @@ export {
   type PiNodeSessionEventListener,
   type PiNodeSessionSnapshot,
   type PiNodeSessionSummary,
+  type PiNodeSessionTreeEntryKind,
+  type PiNodeSessionTreeMutationResult,
+  type PiNodeSessionTreeNode,
+  type PiNodeSessionTreeSnapshot,
 } from "./pi-node-domain.js";
 export {
   InMemoryPiNodeSessionOwnershipRegistry,
@@ -57,6 +62,7 @@ export {
 } from "./pi-sdk-session-administration.js";
 export {
   normalizePiSdkMessage,
+  sessionManagerToTreeSnapshot,
   PiSdkDomainAdapterError,
   PublicPiSdkDomainSessionFactory,
   type PiSdkDomainAdapterErrorCode,
@@ -131,6 +137,7 @@ export {
   toProtocolProjectSnapshot,
   toProtocolSessionDetail,
   toProtocolSessionSummary,
+  toProtocolSessionTree,
 } from "./protocol/protobuf-domain-adapter.js";
 export {
   RedactedStderrLogger,

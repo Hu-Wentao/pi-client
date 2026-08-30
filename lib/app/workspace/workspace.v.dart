@@ -16,10 +16,14 @@ class _WorkspaceViewBody extends StatefulWidget {
 
 class _WorkspaceViewBodyState extends State<_WorkspaceViewBody> {
   final TextEditingController _promptController = TextEditingController();
+  final FocusNode _promptFocusNode = FocusNode(
+    debugLabel: 'workspace prompt composer',
+  );
 
   @override
   void dispose() {
     _promptController.dispose();
+    _promptFocusNode.dispose();
     super.dispose();
   }
 
@@ -124,26 +128,98 @@ class _WorkspaceViewBodyState extends State<_WorkspaceViewBody> {
         creating: model.creatingSession,
         onCreate: () => _requestCreateSession(viewModel, model.selectedProject),
       );
+      final editableMessageIds =
+          model.sessionTree?.nodes
+              .where((node) => node.canEditFromHere)
+              .map((node) => PiMessageId(node.id.value))
+              .toSet() ??
+          const <PiMessageId>{};
+      final forkableMessageIds =
+          model.sessionTree?.nodes
+              .where((node) => node.canFork)
+              .map((node) => PiMessageId(node.id.value))
+              .toSet() ??
+          const <PiMessageId>{};
+      final branchActionsEnabled =
+          connected &&
+          selectedSession != null &&
+          !running &&
+          !model.conversationLoading &&
+          !model.sessionTreeLoading &&
+          !model.sessionAdminLoading &&
+          !model.sessionTreeMutationLoading;
       final conversation = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
-            child: ConversationView(
-              session: selectedSession,
-              messages: model.messages,
-              isLoading: model.conversationLoading,
-              errorMessage: model.conversationError,
-              onRetry: model.selectedSessionId == null
-                  ? null
-                  : () => viewModel.add(
-                      WorkspaceSessionSelected(model.selectedSessionId!),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                BranchNavigatorView(
+                  tree: model.sessionTree,
+                  isLoading:
+                      model.sessionTreeLoading ||
+                      model.sessionTreeMutationLoading,
+                  errorMessage: model.sessionTreeError,
+                  onRetry: model.selectedSessionId == null
+                      ? null
+                      : () => viewModel.add(
+                          WorkspaceSessionSelected(model.selectedSessionId!),
+                        ),
+                  onNavigate: branchActionsEnabled
+                      ? (node) => viewModel.add(
+                          WorkspaceSessionTreeNavigated(node.id),
+                        )
+                      : null,
+                  onFork: branchActionsEnabled
+                      ? (node) => viewModel.add(WorkspaceSessionForked(node.id))
+                      : null,
+                  onClone:
+                      branchActionsEnabled &&
+                          model.sessionTree?.canCloneActiveBranch == true
+                      ? () => viewModel.add(const WorkspaceSessionCloned())
+                      : null,
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: ConversationView(
+                    session: selectedSession,
+                    messages: model.messages,
+                    isLoading: model.conversationLoading,
+                    errorMessage: model.conversationError,
+                    onRetry: model.selectedSessionId == null
+                        ? null
+                        : () => viewModel.add(
+                            WorkspaceSessionSelected(model.selectedSessionId!),
+                          ),
+                    editableMessageIds: editableMessageIds,
+                    forkableMessageIds: forkableMessageIds,
+                    branchActionsEnabled: branchActionsEnabled,
+                    onEditFromHere: (message) => viewModel.add(
+                      WorkspaceSessionTreeNavigated(
+                        PiSessionTreeEntryId(message.id.value),
+                      ),
                     ),
+                    onForkFromHere: (message) => viewModel.add(
+                      WorkspaceSessionForked(
+                        PiSessionTreeEntryId(message.id.value),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           _WorkspaceStatusLine(model: model),
           PromptComposerView(
             controller: _promptController,
-            enabled: connected && selectedSession != null,
+            focusNode: _promptFocusNode,
+            restoredText: model.composerDraft,
+            restoreGeneration: model.composerDraftGeneration,
+            enabled:
+                connected &&
+                selectedSession != null &&
+                !model.sessionTreeMutationLoading,
             isSubmitting: model.sending,
             isRunning: running || model.stopping,
             errorMessage: model.promptError,
@@ -332,6 +408,7 @@ class _WorkspaceStatusLine extends StatelessWidget {
         model.sending ||
         model.stopping ||
         model.sessionAdminLoading ||
+        model.sessionTreeMutationLoading ||
         model.conversationLoading ||
         model.eventStatus == WorkspaceEventStatus.recovering;
     return Container(

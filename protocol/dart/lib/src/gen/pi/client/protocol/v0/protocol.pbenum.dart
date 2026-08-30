@@ -41,6 +41,8 @@ class Capability extends $pb.ProtobufEnum {
       Capability._(11, _omitEnumNames ? '' : 'CAPABILITY_PROJECT_TRUST');
   static const Capability CAPABILITY_SESSION_ADMIN =
       Capability._(12, _omitEnumNames ? '' : 'CAPABILITY_SESSION_ADMIN');
+  static const Capability CAPABILITY_SESSION_TREE =
+      Capability._(13, _omitEnumNames ? '' : 'CAPABILITY_SESSION_TREE');
 
   static const $core.List<Capability> values = <Capability>[
     CAPABILITY_UNSPECIFIED,
@@ -56,10 +58,11 @@ class Capability extends $pb.ProtobufEnum {
     CAPABILITY_PROJECT_DISCOVERY,
     CAPABILITY_PROJECT_TRUST,
     CAPABILITY_SESSION_ADMIN,
+    CAPABILITY_SESSION_TREE,
   ];
 
   static final $core.List<Capability?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 12);
+      $pb.ProtobufEnum.$_initByValueList(values, 13);
   static Capability? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 
@@ -214,6 +217,37 @@ class SessionAdminOperation extends $pb.ProtobufEnum {
   const SessionAdminOperation._(super.value, super.name);
 }
 
+class SessionTreeMutationOperation extends $pb.ProtobufEnum {
+  static const SessionTreeMutationOperation
+      SESSION_TREE_MUTATION_OPERATION_UNSPECIFIED =
+      SessionTreeMutationOperation._(0,
+          _omitEnumNames ? '' : 'SESSION_TREE_MUTATION_OPERATION_UNSPECIFIED');
+  static const SessionTreeMutationOperation
+      SESSION_TREE_MUTATION_OPERATION_NAVIGATE = SessionTreeMutationOperation._(
+          1, _omitEnumNames ? '' : 'SESSION_TREE_MUTATION_OPERATION_NAVIGATE');
+  static const SessionTreeMutationOperation
+      SESSION_TREE_MUTATION_OPERATION_FORK = SessionTreeMutationOperation._(
+          2, _omitEnumNames ? '' : 'SESSION_TREE_MUTATION_OPERATION_FORK');
+  static const SessionTreeMutationOperation
+      SESSION_TREE_MUTATION_OPERATION_CLONE = SessionTreeMutationOperation._(
+          3, _omitEnumNames ? '' : 'SESSION_TREE_MUTATION_OPERATION_CLONE');
+
+  static const $core.List<SessionTreeMutationOperation> values =
+      <SessionTreeMutationOperation>[
+    SESSION_TREE_MUTATION_OPERATION_UNSPECIFIED,
+    SESSION_TREE_MUTATION_OPERATION_NAVIGATE,
+    SESSION_TREE_MUTATION_OPERATION_FORK,
+    SESSION_TREE_MUTATION_OPERATION_CLONE,
+  ];
+
+  static final $core.List<SessionTreeMutationOperation?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 3);
+  static SessionTreeMutationOperation? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const SessionTreeMutationOperation._(super.value, super.name);
+}
+
 class MessageRole extends $pb.ProtobufEnum {
   static const MessageRole MESSAGE_ROLE_UNSPECIFIED =
       MessageRole._(0, _omitEnumNames ? '' : 'MESSAGE_ROLE_UNSPECIFIED');
@@ -240,6 +274,67 @@ class MessageRole extends $pb.ProtobufEnum {
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 
   const MessageRole._(super.value, super.name);
+}
+
+class SessionTreeEntryKind extends $pb.ProtobufEnum {
+  static const SessionTreeEntryKind SESSION_TREE_ENTRY_KIND_UNSPECIFIED =
+      SessionTreeEntryKind._(
+          0, _omitEnumNames ? '' : 'SESSION_TREE_ENTRY_KIND_UNSPECIFIED');
+  static const SessionTreeEntryKind SESSION_TREE_ENTRY_KIND_USER_MESSAGE =
+      SessionTreeEntryKind._(
+          1, _omitEnumNames ? '' : 'SESSION_TREE_ENTRY_KIND_USER_MESSAGE');
+  static const SessionTreeEntryKind SESSION_TREE_ENTRY_KIND_ASSISTANT_MESSAGE =
+      SessionTreeEntryKind._(
+          2, _omitEnumNames ? '' : 'SESSION_TREE_ENTRY_KIND_ASSISTANT_MESSAGE');
+  static const SessionTreeEntryKind SESSION_TREE_ENTRY_KIND_TOOL_MESSAGE =
+      SessionTreeEntryKind._(
+          3, _omitEnumNames ? '' : 'SESSION_TREE_ENTRY_KIND_TOOL_MESSAGE');
+  static const SessionTreeEntryKind SESSION_TREE_ENTRY_KIND_CUSTOM_MESSAGE =
+      SessionTreeEntryKind._(
+          4, _omitEnumNames ? '' : 'SESSION_TREE_ENTRY_KIND_CUSTOM_MESSAGE');
+  static const SessionTreeEntryKind SESSION_TREE_ENTRY_KIND_THINKING_LEVEL =
+      SessionTreeEntryKind._(
+          5, _omitEnumNames ? '' : 'SESSION_TREE_ENTRY_KIND_THINKING_LEVEL');
+  static const SessionTreeEntryKind SESSION_TREE_ENTRY_KIND_MODEL_CHANGE =
+      SessionTreeEntryKind._(
+          6, _omitEnumNames ? '' : 'SESSION_TREE_ENTRY_KIND_MODEL_CHANGE');
+  static const SessionTreeEntryKind SESSION_TREE_ENTRY_KIND_COMPACTION =
+      SessionTreeEntryKind._(
+          7, _omitEnumNames ? '' : 'SESSION_TREE_ENTRY_KIND_COMPACTION');
+  static const SessionTreeEntryKind SESSION_TREE_ENTRY_KIND_BRANCH_SUMMARY =
+      SessionTreeEntryKind._(
+          8, _omitEnumNames ? '' : 'SESSION_TREE_ENTRY_KIND_BRANCH_SUMMARY');
+  static const SessionTreeEntryKind SESSION_TREE_ENTRY_KIND_CUSTOM =
+      SessionTreeEntryKind._(
+          9, _omitEnumNames ? '' : 'SESSION_TREE_ENTRY_KIND_CUSTOM');
+  static const SessionTreeEntryKind SESSION_TREE_ENTRY_KIND_LABEL =
+      SessionTreeEntryKind._(
+          10, _omitEnumNames ? '' : 'SESSION_TREE_ENTRY_KIND_LABEL');
+  static const SessionTreeEntryKind SESSION_TREE_ENTRY_KIND_SESSION_INFO =
+      SessionTreeEntryKind._(
+          11, _omitEnumNames ? '' : 'SESSION_TREE_ENTRY_KIND_SESSION_INFO');
+
+  static const $core.List<SessionTreeEntryKind> values = <SessionTreeEntryKind>[
+    SESSION_TREE_ENTRY_KIND_UNSPECIFIED,
+    SESSION_TREE_ENTRY_KIND_USER_MESSAGE,
+    SESSION_TREE_ENTRY_KIND_ASSISTANT_MESSAGE,
+    SESSION_TREE_ENTRY_KIND_TOOL_MESSAGE,
+    SESSION_TREE_ENTRY_KIND_CUSTOM_MESSAGE,
+    SESSION_TREE_ENTRY_KIND_THINKING_LEVEL,
+    SESSION_TREE_ENTRY_KIND_MODEL_CHANGE,
+    SESSION_TREE_ENTRY_KIND_COMPACTION,
+    SESSION_TREE_ENTRY_KIND_BRANCH_SUMMARY,
+    SESSION_TREE_ENTRY_KIND_CUSTOM,
+    SESSION_TREE_ENTRY_KIND_LABEL,
+    SESSION_TREE_ENTRY_KIND_SESSION_INFO,
+  ];
+
+  static final $core.List<SessionTreeEntryKind?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 11);
+  static SessionTreeEntryKind? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const SessionTreeEntryKind._(super.value, super.name);
 }
 
 class TransferDirection extends $pb.ProtobufEnum {

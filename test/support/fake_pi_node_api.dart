@@ -8,10 +8,16 @@ final class FakePiNodeApi implements PiNodeApi {
     Iterable<PiSessionSummary> sessions = const <PiSessionSummary>[],
     Map<PiSessionId, PiSessionDetail> details =
         const <PiSessionId, PiSessionDetail>{},
+    Map<PiSessionId, PiSessionTree> trees =
+        const <PiSessionId, PiSessionTree>{},
     PiProject? defaultProject,
     Iterable<PiKnownProject> knownProjects = const <PiKnownProject>[],
   }) : sessions = List<PiSessionSummary>.of(sessions),
        details = Map<PiSessionId, PiSessionDetail>.of(details),
+       trees = <PiSessionId, PiSessionTree>{
+         for (final entry in details.entries) entry.key: fakeTree(entry.value),
+         ...trees,
+       },
        defaultProject = defaultProject ?? fakeProject('/Projects/default'),
        knownProjects = List<PiKnownProject>.of(knownProjects);
 
@@ -22,6 +28,7 @@ final class FakePiNodeApi implements PiNodeApi {
 
   List<PiSessionSummary> sessions;
   Map<PiSessionId, PiSessionDetail> details;
+  Map<PiSessionId, PiSessionTree> trees;
   PiProject defaultProject;
   List<PiKnownProject> knownProjects;
   Future<PiProjectBootstrap> Function()? projectBootstrapHandler;
@@ -36,6 +43,16 @@ final class FakePiNodeApi implements PiNodeApi {
   Future<PiSessionDetail> Function(PiSessionId sessionId)? getSessionHandler;
   Future<PiSessionDetail> Function(PiCreateSessionRequest request)?
   createSessionHandler;
+  Future<PiSessionTree> Function(PiProjectId projectId, PiSessionId sessionId)?
+  getSessionTreeHandler;
+  Future<PiSessionTreeMutationResult> Function(
+    PiNavigateSessionTreeCommand command,
+  )?
+  navigateSessionTreeHandler;
+  Future<PiSessionTreeMutationResult> Function(PiForkSessionCommand command)?
+  forkSessionHandler;
+  Future<PiSessionTreeMutationResult> Function(PiCloneSessionCommand command)?
+  cloneSessionHandler;
   Future<PiSessionAdminResult> Function(PiRenameSessionCommand command)?
   renameSessionHandler;
   Future<PiSessionAdminResult> Function(PiClearSessionNameCommand command)?
@@ -58,6 +75,10 @@ final class FakePiNodeApi implements PiNodeApi {
   int listCalls = 0;
   int getCalls = 0;
   int createCalls = 0;
+  int treeCalls = 0;
+  int navigateTreeCalls = 0;
+  int forkCalls = 0;
+  int cloneCalls = 0;
   int renameCalls = 0;
   int clearNameCalls = 0;
   int autoNameCalls = 0;
@@ -69,6 +90,7 @@ final class FakePiNodeApi implements PiNodeApi {
   PiPromptCommand? lastPrompt;
   PiAbortCommand? lastAbort;
   PiSessionAdminCommand? lastSessionAdminCommand;
+  PiSessionTreeMutationCommand? lastSessionTreeMutationCommand;
   bool _closed = false;
 
   @override
@@ -97,6 +119,8 @@ final class FakePiNodeApi implements PiNodeApi {
         PiProtocolCapability.sessionEvents,
         PiProtocolCapability.projectDiscovery,
         PiProtocolCapability.projectTrust,
+        PiProtocolCapability.sessionAdmin,
+        PiProtocolCapability.sessionTree,
       },
     );
     _setConnection(connected);
@@ -176,7 +200,12 @@ final class FakePiNodeApi implements PiNodeApi {
   ) async {
     getCalls += 1;
     final handler = getSessionHandler;
-    if (handler != null) return handler(sessionId);
+    if (handler != null) {
+      final detail = await handler(sessionId);
+      details[sessionId] = detail;
+      trees[sessionId] = fakeTree(detail);
+      return detail;
+    }
     final detail = details[sessionId];
     if (detail == null) {
       throw const PiNodeException(PiNodeErrorCode.notFound, retryable: false);
@@ -211,7 +240,76 @@ final class FakePiNodeApi implements PiNodeApi {
     );
     sessions = <PiSessionSummary>[summary, ...sessions];
     details[summary.id] = detail;
+    trees[summary.id] = fakeTree(detail);
     return detail;
+  }
+
+  @override
+  Future<PiSessionTree> getSessionTree(
+    PiProjectId projectId,
+    PiSessionId sessionId,
+  ) async {
+    treeCalls += 1;
+    final handler = getSessionTreeHandler;
+    if (handler != null) return handler(projectId, sessionId);
+    final tree = trees[sessionId];
+    if (tree == null) {
+      throw const PiNodeException(PiNodeErrorCode.notFound, retryable: false);
+    }
+    return tree;
+  }
+
+  @override
+  Future<PiSessionTreeMutationResult> navigateSessionTree(
+    PiNavigateSessionTreeCommand command,
+  ) async {
+    navigateTreeCalls += 1;
+    lastSessionTreeMutationCommand = command;
+    final handler = navigateSessionTreeHandler;
+    if (handler != null) return handler(command);
+    final detail = details[command.sessionId]!;
+    final tree = trees[command.sessionId]!;
+    final node = tree.nodeById(command.entryId)!;
+    return PiSessionTreeMutationUpdated(
+      commandId: command.commandId,
+      operation: PiSessionTreeMutationOperation.navigate,
+      session: detail,
+      tree: tree,
+      editorText: node.canEditFromHere ? node.text : null,
+    );
+  }
+
+  @override
+  Future<PiSessionTreeMutationResult> forkSession(
+    PiForkSessionCommand command,
+  ) async {
+    forkCalls += 1;
+    lastSessionTreeMutationCommand = command;
+    final handler = forkSessionHandler;
+    if (handler != null) return handler(command);
+    return _copySessionBranch(
+      commandId: command.commandId,
+      operation: PiSessionTreeMutationOperation.fork,
+      sourceSessionId: command.sessionId,
+      editorEntryId: command.userEntryId,
+      newSessionId: PiSessionId('forked-$forkCalls'),
+    );
+  }
+
+  @override
+  Future<PiSessionTreeMutationResult> cloneSession(
+    PiCloneSessionCommand command,
+  ) async {
+    cloneCalls += 1;
+    lastSessionTreeMutationCommand = command;
+    final handler = cloneSessionHandler;
+    if (handler != null) return handler(command);
+    return _copySessionBranch(
+      commandId: command.commandId,
+      operation: PiSessionTreeMutationOperation.clone,
+      sourceSessionId: command.sessionId,
+      newSessionId: PiSessionId('cloned-$cloneCalls'),
+    );
   }
 
   @override
@@ -314,6 +412,7 @@ final class FakePiNodeApi implements PiNodeApi {
         .where((session) => session.id != command.sessionId)
         .toList(growable: false);
     details.remove(command.sessionId);
+    trees.remove(command.sessionId);
     return PiSessionAdminDeleted(
       commandId: command.commandId,
       sessionId: command.sessionId,
@@ -362,7 +461,48 @@ final class FakePiNodeApi implements PiNodeApi {
 
   void updateDetail(PiSessionDetail detail) {
     details[detail.summary.id] = detail;
+    trees[detail.summary.id] = fakeTree(detail);
     _replaceSummary(detail.summary);
+  }
+
+  PiSessionTreeMutationResult _copySessionBranch({
+    required PiCommandId commandId,
+    required PiSessionTreeMutationOperation operation,
+    required PiSessionId sourceSessionId,
+    required PiSessionId newSessionId,
+    PiSessionTreeEntryId? editorEntryId,
+  }) {
+    final source = details[sourceSessionId]!;
+    final now = DateTime.now().toUtc();
+    final summary = PiSessionSummary(
+      id: newSessionId,
+      title: operation == PiSessionTreeMutationOperation.fork
+          ? 'Forked session'
+          : 'Cloned session',
+      workingDirectory: source.summary.workingDirectory,
+      createdAt: now,
+      updatedAt: now,
+      isRunning: false,
+      hasUnread: false,
+      adminRevision: PiSessionAdminRevision('revision-${newSessionId.value}-1'),
+      hasCustomName: false,
+      parentSessionId: sourceSessionId,
+    );
+    final detail = PiSessionDetail(summary: summary, messages: source.messages);
+    final tree = fakeTree(detail);
+    sessions = <PiSessionSummary>[summary, ...sessions];
+    details[newSessionId] = detail;
+    trees[newSessionId] = tree;
+    final editorText = editorEntryId == null
+        ? null
+        : trees[sourceSessionId]?.nodeById(editorEntryId)?.text;
+    return PiSessionTreeMutationUpdated(
+      commandId: commandId,
+      operation: operation,
+      session: detail,
+      tree: tree,
+      editorText: editorText,
+    );
   }
 
   void _replaceSummary(PiSessionSummary summary) {
@@ -479,7 +619,42 @@ PiSessionSummary _updatedSession(
     '${current.adminRevision.value}-${title.hashCode}-${hasCustomName ? "custom" : "fallback"}',
   ),
   hasCustomName: hasCustomName,
+  parentSessionId: current.parentSessionId,
 );
+
+PiSessionTree fakeTree(PiSessionDetail detail) {
+  final nodes = detail.messages.indexed
+      .map(
+        (indexed) => PiSessionTreeNode(
+          id: PiSessionTreeEntryId(indexed.$2.id.value),
+          parentId: indexed.$1 == 0
+              ? null
+              : PiSessionTreeEntryId(detail.messages[indexed.$1 - 1].id.value),
+          kind: switch (indexed.$2.role) {
+            PiMessageRole.user => PiSessionTreeEntryKind.userMessage,
+            PiMessageRole.assistant => PiSessionTreeEntryKind.assistantMessage,
+            PiMessageRole.tool => PiSessionTreeEntryKind.toolMessage,
+            PiMessageRole.system => PiSessionTreeEntryKind.customMessage,
+          },
+          text: indexed.$2.text,
+          createdAt: indexed.$2.createdAt,
+          depth: indexed.$1,
+          isOnActivePath: true,
+          hasChildren: indexed.$1 + 1 < detail.messages.length,
+          canEditFromHere: indexed.$2.role == PiMessageRole.user,
+          canFork: indexed.$2.role == PiMessageRole.user,
+        ),
+      )
+      .toList(growable: false);
+  return PiSessionTree(
+    sessionId: detail.summary.id,
+    nodes: nodes,
+    activePathEntryIds: nodes.map((node) => node.id),
+    activeLeafEntryId: nodes.lastOrNull?.id,
+    canCloneActiveBranch: nodes.any((node) => node.canFork),
+    adminRevision: detail.summary.adminRevision,
+  );
+}
 
 PiMessage fakeMessage({
   required String id,

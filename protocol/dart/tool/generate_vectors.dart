@@ -72,4 +72,19 @@ void main() {
   File.fromUri(
     vectorDirectory.uri.resolve('dart_delete_session_command.pb'),
   ).writeAsBytesSync(encodeTransportFrame(deleteCommand));
+
+  final forkCommand = PiTransportFrame(
+    frameSequence: Int64(10),
+    forkSessionCommand: ForkSessionCommand(
+      requestId: Int64(14),
+      commandId: 'tree-command-dart-1',
+      projectId: 'project-dart-1',
+      sessionId: 'session-dart-parent-1',
+      userEntryId: 'entry-dart-user-1',
+      expectedAdminRevision: 'revision-session-dart-parent-1',
+    ),
+  );
+  File.fromUri(
+    vectorDirectory.uri.resolve('dart_fork_session_command.pb'),
+  ).writeAsBytesSync(encodeTransportFrame(forkCommand));
 }

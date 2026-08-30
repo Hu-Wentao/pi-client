@@ -70,6 +70,7 @@ export interface PiNodeSessionSummary {
   readonly sessionId: string;
   readonly cwd: string;
   readonly name?: string;
+  readonly parentSessionId?: string;
   readonly createdAtMs: number;
   readonly modifiedAtMs: number;
   readonly messageCount: number;
@@ -234,6 +235,56 @@ export interface PiNodePromptExecution {
   readonly completion: Promise<PiNodeCommandCompletion>;
 }
 
+export type PiNodeSessionTreeEntryKind =
+  | "user-message"
+  | "assistant-message"
+  | "tool-message"
+  | "custom-message"
+  | "thinking-level"
+  | "model-change"
+  | "compaction"
+  | "branch-summary"
+  | "custom"
+  | "label"
+  | "session-info";
+
+export interface PiNodeSessionTreeNode {
+  readonly entryId: string;
+  readonly parentEntryId?: string;
+  readonly kind: PiNodeSessionTreeEntryKind;
+  readonly text: string;
+  readonly createdAtMs: number;
+  readonly label?: string;
+  readonly depth: number;
+  readonly isOnActivePath: boolean;
+  readonly hasChildren: boolean;
+  readonly canEditFromHere: boolean;
+  readonly canFork: boolean;
+}
+
+export interface PiNodeSessionTreeSnapshot {
+  readonly sessionId: string;
+  readonly nodes: readonly PiNodeSessionTreeNode[];
+  readonly activePathEntryIds: readonly string[];
+  readonly activeLeafEntryId?: string;
+  readonly canCloneActiveBranch: boolean;
+  readonly adminRevision: string;
+}
+
+export interface PiNodeSessionTreeMutationResult {
+  readonly previousSessionId: string;
+  readonly session: PiNodeSessionSnapshot;
+  readonly tree: PiNodeSessionTreeSnapshot;
+  readonly editorText?: string;
+}
+
+export interface PiNodeSessionBackendMutationResult {
+  readonly previousSessionId: string;
+  readonly session: PiNodeSessionBackendSnapshot;
+  readonly tree: PiNodeSessionTreeSnapshot;
+  readonly editorText?: string;
+}
+
 export interface PiNodeDomainSessionBackend {
   readonly sessionId: string;
   readonly cwd: string;
@@ -243,6 +294,18 @@ export interface PiNodeDomainSessionBackend {
   subscribe(listener: (event: PiNodeSessionBackendEvent) => void): () => void;
   startPrompt(input: { readonly text: string }): Promise<PiNodePromptExecution>;
   abort(): Promise<boolean>;
+  getTreeSnapshot(): PiNodeSessionTreeSnapshot;
+  navigateSessionTree(input: {
+    readonly entryId: string;
+    readonly expectedAdminRevision: string;
+  }): Promise<PiNodeSessionBackendMutationResult>;
+  forkFromUserEntry(input: {
+    readonly userEntryId: string;
+    readonly expectedAdminRevision: string;
+  }): Promise<PiNodeSessionBackendMutationResult>;
+  cloneActiveBranch(input: {
+    readonly expectedAdminRevision: string;
+  }): Promise<PiNodeSessionBackendMutationResult>;
   dispose(): Promise<void>;
 }
 
@@ -331,6 +394,11 @@ export type PiNodeDomainErrorCode =
   | "session-auto-name-timeout"
   | "session-auto-name-cancelled"
   | "session-auto-name-failed"
+  | "session-tree-entry-invalid"
+  | "session-clone-ineligible"
+  | "session-mutation-conflict"
+  | "session-mutation-locked"
+  | "session-mutation-failed"
   | "abort-failed";
 
 export class PiNodeDomainError extends Error {

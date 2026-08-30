@@ -115,6 +115,57 @@ void main() {
       closeTo(scrollController.position.maxScrollExtent, 1),
     );
   });
+
+  testWidgets(
+    'offers accessible edit-from-here and fork actions only for eligible user entries',
+    (tester) async {
+      final user = testMessage(
+        'user-entry',
+        role: PiMessageRole.user,
+        text: 'Try another approach',
+      );
+      final assistant = testMessage('assistant-entry', text: 'Current answer');
+      PiMessage? edited;
+      PiMessage? forked;
+
+      await tester.pumpWidget(
+        componentTestApp(
+          SizedBox(
+            height: 500,
+            child: ConversationView(
+              session: testSession('conversation-session'),
+              messages: <PiMessage>[user, assistant],
+              editableMessageIds: <PiMessageId>{user.id},
+              forkableMessageIds: <PiMessageId>{user.id},
+              onEditFromHere: (message) => edited = message,
+              onForkFromHere: (message) => forked = message,
+            ),
+          ),
+        ),
+      );
+
+      expect(
+        find.bySemanticsLabel('Branch actions for user message'),
+        findsOneWidget,
+      );
+      expect(find.text('Edit from here'), findsOneWidget);
+      expect(find.text('Fork'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey<String>('messageEditFromHere-user-entry')),
+      );
+      await tester.tap(
+        find.byKey(const ValueKey<String>('messageForkFromHere-user-entry')),
+      );
+      expect(edited, user);
+      expect(forked, user);
+      expect(
+        find.byKey(
+          const ValueKey<String>('messageEditFromHere-assistant-entry'),
+        ),
+        findsNothing,
+      );
+    },
+  );
 }
 
 class _ConversationHarness extends StatefulWidget {

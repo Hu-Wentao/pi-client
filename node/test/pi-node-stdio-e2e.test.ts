@@ -35,6 +35,7 @@ function operationOffer(minor = 1): FrameOperationInit {
         Capability.PROJECT_DISCOVERY,
         Capability.PROJECT_TRUST,
         Capability.SESSION_ADMIN,
+        Capability.SESSION_TREE,
       ],
       clientInstanceId: "stdio-e2e-client",
       implementationName: "Pi Client E2E",
@@ -199,6 +200,95 @@ test("binary stdio E2E covers handshake, sessions, prompt events, abort, and dis
   assert.deepEqual(exit, { code: 0, signal: null });
   assert.match(client.stderrText, /handshake-accepted/u);
   assert.equal(client.stderrText.includes("private runtime detail"), false);
+});
+
+test("binary stdio E2E covers session tree navigation, fork, and clone", async (t) => {
+  const client = spawnFixture();
+  t.after(() => client.forceStop());
+
+  await client.send(1n, operationOffer());
+  assert.equal((await client.next()).operation.case, "serverHandshakeAccepted");
+  await client.send(2n, {
+    case: "getProjectBootstrapRequest",
+    value: { requestId: 1n },
+  });
+  const bootstrap = await client.next();
+  const projectId =
+    bootstrap.operation.case === "getProjectBootstrapResponse"
+      ? bootstrap.operation.value.defaultProject?.identity?.projectId
+      : undefined;
+  assert.ok(projectId);
+  await client.send(3n, {
+    case: "getSessionRequest",
+    value: { requestId: 2n, projectId, sessionId: "session-1" },
+  });
+  const loaded = await client.next();
+  const revision =
+    loaded.operation.case === "getSessionResponse"
+      ? loaded.operation.value.session?.summary?.adminRevision
+      : undefined;
+  assert.ok(revision);
+  await client.send(4n, {
+    case: "getSessionTreeRequest",
+    value: { requestId: 3n, projectId, sessionId: "session-1" },
+  });
+  const tree = await client.next();
+  const userEntryId =
+    tree.operation.case === "getSessionTreeResponse"
+      ? tree.operation.value.tree?.nodes.find((node) => node.canFork)?.entryId
+      : undefined;
+  assert.ok(userEntryId);
+  await client.send(5n, {
+    case: "navigateSessionTreeCommand",
+    value: {
+      requestId: 4n,
+      commandId: "stdio-tree-navigate",
+      projectId,
+      sessionId: "session-1",
+      entryId: userEntryId,
+      expectedAdminRevision: revision,
+    },
+  });
+  const navigated = await client.next();
+  assert.equal(navigated.operation.case, "sessionTreeMutationOutcome");
+  await client.send(6n, {
+    case: "forkSessionCommand",
+    value: {
+      requestId: 5n,
+      commandId: "stdio-tree-fork",
+      projectId,
+      sessionId: "session-1",
+      userEntryId,
+      expectedAdminRevision: revision,
+    },
+  });
+  const forked = await client.next();
+  const forkedSessionId =
+    forked.operation.case === "sessionTreeMutationOutcome" &&
+    forked.operation.value.outcome.case === "result"
+      ? forked.operation.value.outcome.value.session?.summary?.sessionId
+      : undefined;
+  const forkedRevision =
+    forked.operation.case === "sessionTreeMutationOutcome" &&
+    forked.operation.value.outcome.case === "result"
+      ? forked.operation.value.outcome.value.session?.summary?.adminRevision
+      : undefined;
+  assert.ok(forkedSessionId);
+  assert.ok(forkedRevision);
+  await client.send(7n, {
+    case: "cloneSessionCommand",
+    value: {
+      requestId: 6n,
+      commandId: "stdio-tree-clone",
+      projectId,
+      sessionId: forkedSessionId,
+      expectedAdminRevision: forkedRevision,
+    },
+  });
+  const cloned = await client.next();
+  assert.equal(cloned.operation.case, "sessionTreeMutationOutcome");
+  client.endInput();
+  assert.deepEqual(await client.exit(), { code: 0, signal: null });
 });
 
 test("binary stdio rejects unsupported unpublished v0 versions", async (t) => {

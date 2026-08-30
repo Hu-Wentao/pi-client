@@ -18,6 +18,7 @@ const _expectedCapabilities = <PiProtocolCapability>{
   PiProtocolCapability.projectDiscovery,
   PiProtocolCapability.projectTrust,
   PiProtocolCapability.sessionAdmin,
+  PiProtocolCapability.sessionTree,
 };
 
 void main() {
@@ -81,6 +82,156 @@ void main() {
             ),
           ),
         );
+      },
+      timeout: const Timeout(Duration(seconds: 60)),
+    );
+
+    test(
+      'navigates, forks, and clones a real public-SDK session over stdio',
+      () async {
+        final root = await Directory.systemTemp.createTemp(
+          'pi-client-session-tree-e2e-',
+        );
+        addTearDown(() => root.delete(recursive: true));
+        final cwd = await Directory('${root.path}/project').create();
+        final canonicalCwd = await cwd.resolveSymbolicLinks();
+        final agentDir = await Directory('${root.path}/agent').create();
+        final sessionDir = await Directory('${root.path}/sessions').create();
+        await File('${agentDir.path}/settings.json').writeAsString(
+          '${jsonEncode(<String, Object>{'sessionDir': sessionDir.path, 'enableAnalytics': false})}\n',
+        );
+        final seed = File('${sessionDir.path}/seed-session.jsonl');
+        final assistant = <String, Object?>{
+          'role': 'assistant',
+          'content': <Object?>[
+            <String, Object?>{'type': 'text', 'text': 'Seed answer'},
+          ],
+          'api': 'anthropic-messages',
+          'provider': 'anthropic',
+          'model': 'offline-model',
+          'usage': <String, Object?>{
+            'input': 1,
+            'output': 1,
+            'cacheRead': 0,
+            'cacheWrite': 0,
+            'totalTokens': 2,
+            'cost': <String, Object?>{
+              'input': 0,
+              'output': 0,
+              'cacheRead': 0,
+              'cacheWrite': 0,
+              'total': 0,
+            },
+          },
+          'stopReason': 'stop',
+          'timestamp': 2,
+        };
+        await seed.writeAsString(
+          <String>[
+            jsonEncode(<String, Object?>{
+              'type': 'session',
+              'version': 3,
+              'id': 'tree-e2e-session',
+              'timestamp': '2026-08-30T10:00:00.000Z',
+              'cwd': canonicalCwd,
+            }),
+            jsonEncode(<String, Object?>{
+              'type': 'message',
+              'id': '11111111',
+              'parentId': null,
+              'timestamp': '2026-08-30T10:00:01.000Z',
+              'message': <String, Object?>{
+                'role': 'user',
+                'content': 'Initial prompt',
+                'timestamp': 1,
+              },
+            }),
+            jsonEncode(<String, Object?>{
+              'type': 'message',
+              'id': '22222222',
+              'parentId': '11111111',
+              'timestamp': '2026-08-30T10:00:02.000Z',
+              'message': assistant,
+            }),
+            jsonEncode(<String, Object?>{
+              'type': 'message',
+              'id': '33333333',
+              'parentId': '22222222',
+              'timestamp': '2026-08-30T10:00:03.000Z',
+              'message': <String, Object?>{
+                'role': 'user',
+                'content': 'Restore this follow-up',
+                'timestamp': 3,
+              },
+            }),
+          ].join('\n'),
+        );
+
+        final harness = await _startProductionNode(
+          cwd: cwd.path,
+          agentDir: agentDir.path,
+        );
+        addTearDown(harness.client.close);
+        _expectSupportedHandshake(await harness.client.connect());
+        final projectId = (await harness.client.getProjectBootstrap())
+            .defaultProject
+            .identity
+            .projectId;
+        final listed = await harness.client.listSessions(projectId);
+        final source = listed.singleWhere(
+          (session) => session.id == PiSessionId('tree-e2e-session'),
+        );
+        await harness.client.getSession(projectId, source.id);
+        final tree = await harness.client.getSessionTree(projectId, source.id);
+        expect(tree.nodes.length, greaterThanOrEqualTo(3));
+        expect(
+          tree.nodes.map((node) => node.id),
+          contains(PiSessionTreeEntryId('33333333')),
+        );
+
+        final navigated = await harness.client.navigateSessionTree(
+          PiNavigateSessionTreeCommand(
+            commandId: PiCommandId('tree-e2e-navigate'),
+            projectId: projectId,
+            sessionId: source.id,
+            expectedAdminRevision: tree.adminRevision,
+            entryId: PiSessionTreeEntryId('33333333'),
+          ),
+        );
+        expect(navigated, isA<PiSessionTreeMutationUpdated>());
+        final navigatedState = navigated as PiSessionTreeMutationUpdated;
+        expect(navigatedState.editorText, 'Restore this follow-up');
+        expect(navigatedState.session.messages, hasLength(2));
+
+        final forked = await harness.client.forkSession(
+          PiForkSessionCommand(
+            commandId: PiCommandId('tree-e2e-fork'),
+            projectId: projectId,
+            sessionId: source.id,
+            expectedAdminRevision: navigatedState.tree.adminRevision,
+            userEntryId: PiSessionTreeEntryId('33333333'),
+          ),
+        );
+        expect(forked, isA<PiSessionTreeMutationUpdated>());
+        final forkedState = forked as PiSessionTreeMutationUpdated;
+        expect(forkedState.session.summary.parentSessionId, source.id);
+        expect(forkedState.editorText, 'Restore this follow-up');
+
+        final cloned = await harness.client.cloneSession(
+          PiCloneSessionCommand(
+            commandId: PiCommandId('tree-e2e-clone'),
+            projectId: projectId,
+            sessionId: forkedState.session.summary.id,
+            expectedAdminRevision: forkedState.tree.adminRevision,
+          ),
+        );
+        expect(cloned, isA<PiSessionTreeMutationUpdated>());
+        final clonedState = cloned as PiSessionTreeMutationUpdated;
+        expect(
+          clonedState.session.summary.parentSessionId,
+          forkedState.session.summary.id,
+        );
+        expect(clonedState.tree.sessionId, clonedState.session.summary.id);
       },
       timeout: const Timeout(Duration(seconds: 60)),
     );

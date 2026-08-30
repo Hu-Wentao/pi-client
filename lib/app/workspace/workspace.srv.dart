@@ -58,6 +58,57 @@ final class WorkspaceService {
   Future<PiSessionDetail> createSession(PiProjectId projectId) =>
       _api.createSession(PiCreateSessionRequest(projectId: projectId));
 
+  Future<PiSessionTree> loadSessionTree(
+    PiProjectId projectId,
+    PiSessionId sessionId,
+  ) => _api.getSessionTree(projectId, sessionId);
+
+  Future<PiSessionTreeMutationResult> navigateSessionTree({
+    required PiCommandId commandId,
+    required PiProjectId projectId,
+    required PiSessionId sessionId,
+    required PiSessionAdminRevision expectedAdminRevision,
+    required PiSessionTreeEntryId entryId,
+  }) => _api.navigateSessionTree(
+    PiNavigateSessionTreeCommand(
+      commandId: commandId,
+      projectId: projectId,
+      sessionId: sessionId,
+      expectedAdminRevision: expectedAdminRevision,
+      entryId: entryId,
+    ),
+  );
+
+  Future<PiSessionTreeMutationResult> forkSession({
+    required PiCommandId commandId,
+    required PiProjectId projectId,
+    required PiSessionId sessionId,
+    required PiSessionAdminRevision expectedAdminRevision,
+    required PiSessionTreeEntryId userEntryId,
+  }) => _api.forkSession(
+    PiForkSessionCommand(
+      commandId: commandId,
+      projectId: projectId,
+      sessionId: sessionId,
+      expectedAdminRevision: expectedAdminRevision,
+      userEntryId: userEntryId,
+    ),
+  );
+
+  Future<PiSessionTreeMutationResult> cloneSession({
+    required PiCommandId commandId,
+    required PiProjectId projectId,
+    required PiSessionId sessionId,
+    required PiSessionAdminRevision expectedAdminRevision,
+  }) => _api.cloneSession(
+    PiCloneSessionCommand(
+      commandId: commandId,
+      projectId: projectId,
+      sessionId: sessionId,
+      expectedAdminRevision: expectedAdminRevision,
+    ),
+  );
+
   Future<PiSessionAdminResult> renameSession({
     required PiCommandId commandId,
     required PiProjectId projectId,
