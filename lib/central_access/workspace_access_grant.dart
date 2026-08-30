@@ -1,12 +1,12 @@
 import 'dart:typed_data';
 
-import '../transport/pi_transport.dart';
+import '../protocol/pi_protocol.dart';
 import 'central_access_models.dart';
 
 final class WorkspaceAccessGrantRequest {
   WorkspaceAccessGrantRequest({
     required String clientKeyThumbprint,
-    required this.protocolVersion,
+    required this.protocolOffer,
   }) : clientKeyThumbprint = _validatedOpaqueValue(
          clientKeyThumbprint,
          'clientKeyThumbprint',
@@ -17,11 +17,11 @@ final class WorkspaceAccessGrantRequest {
   /// The request intentionally contains no user or Workspace selector. Friday
   /// Relay derives both from the authenticated personal Workspace session.
   final String clientKeyThumbprint;
-  final PiProtocolVersion protocolVersion;
+  final PiProtocolOffer protocolOffer;
 
   @override
   String toString() =>
-      'WorkspaceAccessGrantRequest(protocolVersion: $protocolVersion, '
+      'WorkspaceAccessGrantRequest(protocolOffer: $protocolOffer, '
       '<redacted>)';
 }
 
@@ -60,7 +60,7 @@ final class WorkspaceAccessGrant {
          'nodeKeyThumbprint',
        ),
        clientKeyThumbprint = request.clientKeyThumbprint,
-       protocolVersion = request.protocolVersion,
+       protocolOffer = request.protocolOffer,
        connectUri = _validatedConnectUri(
          connectUri,
          workspace.origin,
@@ -74,7 +74,7 @@ final class WorkspaceAccessGrant {
   final String workspaceId;
   final String nodeKeyThumbprint;
   final String clientKeyThumbprint;
-  final PiProtocolVersion protocolVersion;
+  final PiProtocolOffer protocolOffer;
   final Uri workspaceOrigin;
   final Uri connectUri;
   final DateTime issuedAt;
