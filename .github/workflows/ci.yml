@@ -219,11 +219,17 @@ jobs:
           unzip -q build/app/outputs/flutter-apk/app-debug.apk -d "$APK_ROOT"
           node .github/scripts/assert-connect-only-artifact.mjs android "$APK_ROOT"
 
-      - name: Build Web release bundle
+      - name: Build Web JavaScript release bundle
         run: fvm flutter build web --release --no-pub
 
-      - name: Verify Web remains a connect-only artifact
+      - name: Verify Web JavaScript remains a connect-only artifact
         run: node .github/scripts/assert-connect-only-artifact.mjs web build/web
+
+      - name: Build WebAssembly release bundle
+        run: fvm flutter build web --wasm --release --no-pub
+
+      - name: Verify WebAssembly remains a no-secret connect-only artifact
+        run: node .github/scripts/assert-connect-only-artifact.mjs web-wasm build/web
 
       - name: Build Linux debug bundle
         run: fvm flutter build linux --debug --no-pub

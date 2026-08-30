@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pi_client/core/app_storage.dart';
+import 'package:pi_client/core/app_storage_web.dart' as web_storage;
 import 'package:pi_client/platform/platform_capabilities.dart';
 
 void main() {
@@ -21,6 +22,54 @@ void main() {
         () => AppDistributionChannel.parse('preview'),
         throwsArgumentError,
       );
+    });
+  });
+
+  group('AppStorageBoundary', () {
+    test('keeps protected native storage persistent', () {
+      expect(
+        AppStorageBoundary.nativePlatformProtected.semantics,
+        AppStorageSemantics.nativePlatformProtected,
+      );
+      expect(
+        AppStorageBoundary.nativePlatformProtected.persistsAcrossRestarts,
+        isTrue,
+      );
+      expect(
+        AppStorageBoundary.nativePlatformProtected.allowsSecretPersistence,
+        isTrue,
+      );
+    });
+
+    test('marks public-key native stores as preferences-only', () {
+      expect(
+        AppStorageBoundary.nativePublicKeyPreferencesOnly.semantics,
+        AppStorageSemantics.nativePublicKeyPreferencesOnly,
+      );
+      expect(
+        AppStorageBoundary
+            .nativePublicKeyPreferencesOnly
+            .persistsAcrossRestarts,
+        isTrue,
+      );
+      expect(
+        AppStorageBoundary
+            .nativePublicKeyPreferencesOnly
+            .allowsSecretPersistence,
+        isFalse,
+      );
+    });
+
+    test('keeps Web storage no-secret and non-persistent', () async {
+      final boundary = await web_storage.initializePlatformAppStorage(
+        distributionChannel: AppDistributionChannel.unsignedPreview,
+        debugMode: false,
+      );
+
+      expect(boundary, same(AppStorageBoundary.webNoSecretNoPersistence));
+      expect(boundary.semantics, AppStorageSemantics.webNoSecretNoPersistence);
+      expect(boundary.persistsAcrossRestarts, isFalse);
+      expect(boundary.allowsSecretPersistence, isFalse);
     });
   });
 
