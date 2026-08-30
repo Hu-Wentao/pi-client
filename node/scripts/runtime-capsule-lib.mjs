@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import {
@@ -205,9 +206,125 @@ async function collectDirectory(root, relativeDirectory, output) {
   }
 }
 
+export async function normalizeCapsuleFileModes(capsuleRoot, runtimeExecutable, options = {}) {
+  if (process.platform === "win32") return;
+  const normalizedExecutable = normalizeCapsulePath(runtimeExecutable, "runtime executable");
+  await visitTree(capsuleRoot, async (path, metadata) => {
+    if (metadata.isSymbolicLink()) return;
+    if (metadata.isDirectory()) {
+      await chmod(path, 0o755);
+      return;
+    }
+    const relativePath = relative(capsuleRoot, path).split(sep).join("/");
+    if (options.leaveManifestWritable && relativePath === CAPSULE_MANIFEST_NAME) {
+      await chmod(path, 0o644);
+      return;
+    }
+    await chmod(path, relativePath === normalizedExecutable ? 0o555 : 0o444);
+  });
+}
+
+export async function assertCapsuleFileModes(capsuleRoot, runtimeExecutable) {
+  if (process.platform === "win32") return;
+  const normalizedExecutable = normalizeCapsulePath(runtimeExecutable, "runtime executable");
+  await visitTree(capsuleRoot, async (path, metadata) => {
+    if (metadata.isSymbolicLink()) return;
+    const relativePath = relative(capsuleRoot, path).split(sep).join("/");
+    const mode = metadata.mode & 0o777;
+    if (metadata.isDirectory()) {
+      if (mode !== 0o555) {
+        throw new Error(`Capsule directory mode must be 0555: ${relativePath || "."}.`);
+      }
+      return;
+    }
+    const expectedMode = relativePath === normalizedExecutable ? 0o555 : 0o444;
+    if (mode !== expectedMode) {
+      throw new Error(
+        `Capsule file mode mismatch at ${relativePath}: expected ${expectedMode.toString(8)}, found ${mode.toString(8)}.`,
+      );
+    }
+  });
+}
+
+export async function collectNativeCodeInventory(capsuleRoot, target) {
+  const objects = [];
+  await visitTree(capsuleRoot, async (path, metadata) => {
+    if (!metadata.isFile() || metadata.isSymbolicLink()) return;
+    const relativePath = relative(capsuleRoot, path).split(sep).join("/");
+    const nativeAddon = relativePath.endsWith(".node");
+    const runtimeExecutable = relativePath === target.executable;
+    const description = runFileDescription(path);
+    const machO = description.includes("Mach-O");
+    if (!nativeAddon && !runtimeExecutable && !machO) return;
+    const architectures = machO ? readMachOArchitectures(path) : [];
+    objects.push({
+      path: relativePath,
+      kind:
+        relativePath === target.executable
+          ? "runtime-executable"
+          : nativeAddon
+            ? "native-addon"
+            : description.includes("dynamically linked shared library")
+              ? "dynamic-library"
+              : "executable",
+      format: machO ? "mach-o" : description.includes("PE32") ? "pe-coff" : "unknown",
+      architectures,
+    });
+  });
+  objects.sort((left, right) => compareText(left.path, right.path));
+  return {
+    format: target.platform === "darwin" ? "mach-o" : "platform-native",
+    objects,
+    signingOrder: expectedNativeSigningOrder(objects),
+  };
+}
+
+function expectedNativeSigningOrder(objects) {
+  return objects
+    .filter((entry) => entry.format === "mach-o")
+    .sort((left, right) => {
+      const leftRuntime = left.kind === "runtime-executable";
+      const rightRuntime = right.kind === "runtime-executable";
+      if (leftRuntime !== rightRuntime) return leftRuntime ? 1 : -1;
+      const depthDifference = right.path.split("/").length - left.path.split("/").length;
+      return depthDifference || compareText(left.path, right.path);
+    })
+    .map((entry) => entry.path);
+}
+
+function runFileDescription(path) {
+  const executable = process.platform === "darwin" ? "/usr/bin/file" : "file";
+  const result = spawnSync(executable, ["-b", path], { encoding: "utf8" });
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error(`file failed for ${path}: ${(result.stderr ?? "").trim()}`);
+  }
+  return result.stdout.trim();
+}
+
+function readMachOArchitectures(path) {
+  if (process.platform !== "darwin") {
+    throw new Error("Mach-O architecture inventory requires macOS lipo.");
+  }
+  const result = spawnSync("/usr/bin/lipo", ["-archs", path], { encoding: "utf8" });
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error(`lipo failed for ${path}: ${(result.stderr ?? "").trim()}`);
+  }
+  const discovered = new Set(
+    result.stdout
+      .trim()
+      .split(/\s+/u)
+      .filter(Boolean)
+      .map((architecture) => (architecture === "x86_64" ? "x64" : architecture)),
+  );
+  const ordered = ["arm64", "x64"].filter((architecture) => discovered.delete(architecture));
+  return [...ordered, ...[...discovered].sort(compareText)];
+}
+
 export async function createCapsuleManifest(capsuleRoot, metadata) {
-  const files = await collectPayloadEntries(capsuleRoot);
-  const payloadSize = files.reduce((total, entry) => total + entry.size, 0);
+  const integrity = await createIntegrityRecord(capsuleRoot);
+  const nativeCode = await collectNativeCodeInventory(capsuleRoot, metadata.target);
   return {
     schemaVersion: CAPSULE_SCHEMA_VERSION,
     capsuleKind: "pi-node-runtime",
@@ -216,6 +333,7 @@ export async function createCapsuleManifest(capsuleRoot, metadata) {
       id: metadata.target.id,
       platform: metadata.target.platform,
       architecture: metadata.target.architecture,
+      architectures: [...metadata.target.architectures],
     },
     versions: {
       piNode: metadata.piNodeVersion,
@@ -241,11 +359,14 @@ export async function createCapsuleManifest(capsuleRoot, metadata) {
       },
     ],
     runtime: {
-      archiveName: metadata.target.archiveName,
-      archiveUrl: metadata.target.archiveUrl,
-      checksumsUrl: NODE_SHASUMS_URL,
-      archiveSha256: metadata.archiveSha256,
-      checksumsSha256: metadata.checksumsSha256,
+      distributions: metadata.target.distributions.map((distribution) => ({
+        architecture: distribution.architecture,
+        archiveName: distribution.archiveName,
+        archiveUrl: distribution.archiveUrl,
+        checksumsUrl: NODE_SHASUMS_URL,
+        archiveSha256: distribution.archiveSha256,
+        checksumsSha256: metadata.checksumsSha256,
+      })),
       executable: metadata.target.executable,
       npmCli: metadata.target.npmCli,
       licenses: [metadata.target.nodeLicense, metadata.target.npmLicense],
@@ -256,13 +377,42 @@ export async function createCapsuleManifest(capsuleRoot, metadata) {
       protocolPackagePath: PROTOCOL_PACKAGE_PATH,
       launch: [metadata.target.executable, APPLICATION_ENTRYPOINT],
     },
-    integrity: {
-      algorithm: "sha256",
-      manifestExcludedPath: CAPSULE_MANIFEST_NAME,
-      payloadFileCount: files.length,
-      payloadSize,
-      files,
-    },
+    nativeCode,
+    integrity,
+  };
+}
+
+export async function resealCapsuleManifest(capsuleRoot) {
+  const manifestPath = resolve(capsuleRoot, CAPSULE_MANIFEST_NAME);
+  const manifest = await readJson(manifestPath);
+  const target = validateManifestDocument(manifest);
+  await normalizeCapsuleFileModes(capsuleRoot, target.executable, {
+    leaveManifestWritable: true,
+  });
+  const nativeCode = await collectNativeCodeInventory(capsuleRoot, target);
+  if (stableStringify(nativeCode) !== stableStringify(manifest.nativeCode)) {
+    throw new Error("Capsule native-code inventory changed while signing.");
+  }
+  const resealed = {
+    ...manifest,
+    nativeCode,
+    integrity: await createIntegrityRecord(capsuleRoot),
+  };
+  await writeDeterministicJson(manifestPath, resealed);
+  if (process.platform !== "win32") {
+    await chmod(manifestPath, 0o444);
+  }
+  return resealed;
+}
+
+async function createIntegrityRecord(capsuleRoot) {
+  const files = await collectPayloadEntries(capsuleRoot);
+  return {
+    algorithm: "sha256",
+    manifestExcludedPath: CAPSULE_MANIFEST_NAME,
+    payloadFileCount: files.length,
+    payloadSize: files.reduce((total, entry) => total + entry.size, 0),
+    files,
   };
 }
 
@@ -279,6 +429,7 @@ export function validateManifestDocument(manifest) {
       "locks",
       "runtime",
       "application",
+      "nativeCode",
       "integrity",
     ],
     "manifest",
@@ -294,11 +445,17 @@ export function validateManifestDocument(manifest) {
   }
 
   requireRecord(manifest.target, "manifest.target");
-  requireExactKeys(manifest.target, ["id", "platform", "architecture"], "manifest.target");
+  requireExactKeys(
+    manifest.target,
+    ["id", "platform", "architecture", "architectures"],
+    "manifest.target",
+  );
   const target = resolveNodeDistribution(manifest.target.id);
   if (
     manifest.target.platform !== target.platform ||
-    manifest.target.architecture !== target.architecture
+    manifest.target.architecture !== target.architecture ||
+    !Array.isArray(manifest.target.architectures) ||
+    stableStringify(manifest.target.architectures) !== stableStringify(target.architectures)
   ) {
     throw new Error("Capsule target metadata does not match its target identifier.");
   }
@@ -359,25 +516,55 @@ export function validateManifestDocument(manifest) {
   requireRecord(manifest.runtime, "manifest.runtime");
   requireExactKeys(
     manifest.runtime,
-    [
-      "archiveName",
-      "archiveUrl",
-      "checksumsUrl",
-      "archiveSha256",
-      "checksumsSha256",
-      "executable",
-      "npmCli",
-      "licenses",
-    ],
+    ["distributions", "executable", "npmCli", "licenses"],
     "manifest.runtime",
   );
-  requireExactString(manifest.runtime.archiveName, target.archiveName, "runtime archiveName");
-  requireExactString(manifest.runtime.archiveUrl, target.archiveUrl, "runtime archiveUrl");
-  requireExactString(manifest.runtime.checksumsUrl, NODE_SHASUMS_URL, "runtime checksumsUrl");
+  if (
+    !Array.isArray(manifest.runtime.distributions) ||
+    manifest.runtime.distributions.length !== target.distributions.length
+  ) {
+    throw new Error("Capsule runtime distribution provenance is incomplete.");
+  }
+  for (const [index, runtimeDistribution] of manifest.runtime.distributions.entries()) {
+    const expectedDistribution = target.distributions[index];
+    requireRecord(runtimeDistribution, "runtime distribution");
+    requireExactKeys(
+      runtimeDistribution,
+      [
+        "architecture",
+        "archiveName",
+        "archiveUrl",
+        "checksumsUrl",
+        "archiveSha256",
+        "checksumsSha256",
+      ],
+      "runtime distribution",
+    );
+    requireExactString(
+      runtimeDistribution.architecture,
+      expectedDistribution.architecture,
+      "runtime distribution architecture",
+    );
+    requireExactString(
+      runtimeDistribution.archiveName,
+      expectedDistribution.archiveName,
+      "runtime archiveName",
+    );
+    requireExactString(
+      runtimeDistribution.archiveUrl,
+      expectedDistribution.archiveUrl,
+      "runtime archiveUrl",
+    );
+    requireExactString(runtimeDistribution.checksumsUrl, NODE_SHASUMS_URL, "runtime checksumsUrl");
+    requireExactString(
+      runtimeDistribution.archiveSha256,
+      expectedDistribution.archiveSha256,
+      "runtime archiveSha256",
+    );
+    requireSha256(runtimeDistribution.checksumsSha256, "runtime checksumsSha256");
+  }
   requireExactString(manifest.runtime.executable, target.executable, "runtime executable");
   requireExactString(manifest.runtime.npmCli, target.npmCli, "runtime npmCli");
-  requireExactString(manifest.runtime.archiveSha256, target.archiveSha256, "runtime archiveSha256");
-  requireSha256(manifest.runtime.checksumsSha256, "runtime checksumsSha256");
   if (
     !Array.isArray(manifest.runtime.licenses) ||
     manifest.runtime.licenses.length !== 2 ||
@@ -428,6 +615,8 @@ export function validateManifestDocument(manifest) {
     normalizeCapsulePath(path, "application path");
   }
 
+  validateNativeCodeDocument(manifest.nativeCode, target);
+
   requireRecord(manifest.integrity, "manifest.integrity");
   requireExactKeys(
     manifest.integrity,
@@ -476,6 +665,9 @@ export function validateManifestDocument(manifest) {
       if (typeof entry.executable !== "boolean" || "target" in entry) {
         throw new Error(`Capsule file ${entry.path} has invalid file metadata.`);
       }
+      if (entry.executable !== (entry.path === target.executable)) {
+        throw new Error(`Capsule file ${entry.path} violates the executable-mode allowlist.`);
+      }
     } else if (entry.type === "symlink") {
       requireExactKeys(
         entry,
@@ -499,7 +691,88 @@ export function validateManifestDocument(manifest) {
   if (manifest.integrity.payloadSize !== totalSize) {
     throw new Error("Capsule payloadSize does not match the sealed file list.");
   }
+  const nativePaths = new Set(manifest.nativeCode.objects.map((entry) => entry.path));
+  for (const entry of manifest.integrity.files) {
+    if (entry.type === "file" && entry.path.endsWith(".node") && !nativePaths.has(entry.path)) {
+      throw new Error(`Capsule native addon ${entry.path} is absent from nativeCode inventory.`);
+    }
+  }
+  for (const nativeObject of manifest.nativeCode.objects) {
+    const entry = manifest.integrity.files.find(
+      (candidate) => candidate.path === nativeObject.path,
+    );
+    if (!entry || entry.type !== "file") {
+      throw new Error(`Capsule native-code object ${nativeObject.path} is absent from integrity.`);
+    }
+  }
   return target;
+}
+
+function validateNativeCodeDocument(nativeCode, target) {
+  requireRecord(nativeCode, "manifest.nativeCode");
+  requireExactKeys(nativeCode, ["format", "objects", "signingOrder"], "manifest.nativeCode");
+  const expectedFormat = target.platform === "darwin" ? "mach-o" : "platform-native";
+  requireExactString(nativeCode.format, expectedFormat, "nativeCode format");
+  if (!Array.isArray(nativeCode.objects) || !Array.isArray(nativeCode.signingOrder)) {
+    throw new Error("Capsule native-code inventory must contain arrays.");
+  }
+  let previousPath = "";
+  const objects = [];
+  for (const entry of nativeCode.objects) {
+    requireRecord(entry, "native-code object");
+    requireExactKeys(entry, ["path", "kind", "format", "architectures"], "native-code object");
+    const path = normalizeCapsulePath(entry.path, "native-code path");
+    if (previousPath && compareText(previousPath, path) >= 0) {
+      throw new Error("Capsule native-code inventory must be uniquely path-sorted.");
+    }
+    previousPath = path;
+    if (
+      !["runtime-executable", "native-addon", "dynamic-library", "executable"].includes(
+        entry.kind,
+      ) ||
+      !["mach-o", "pe-coff", "unknown"].includes(entry.format) ||
+      !Array.isArray(entry.architectures) ||
+      entry.architectures.some(
+        (architecture, index) =>
+          !["arm64", "x64"].includes(architecture) ||
+          entry.architectures.indexOf(architecture) !== index,
+      )
+    ) {
+      throw new Error(`Capsule native-code metadata is invalid at ${path}.`);
+    }
+    if (entry.format === "mach-o" && entry.architectures.length === 0) {
+      throw new Error(`Mach-O object ${path} has no architecture inventory.`);
+    }
+    if (entry.format !== "mach-o" && entry.architectures.length !== 0) {
+      throw new Error(`Non-Mach-O object ${path} declares Mach-O architectures.`);
+    }
+    if ((entry.kind === "native-addon") !== path.endsWith(".node")) {
+      throw new Error(`Capsule native-addon classification is invalid at ${path}.`);
+    }
+    if ((entry.kind === "runtime-executable") !== (path === target.executable)) {
+      throw new Error(`Capsule runtime executable classification is invalid at ${path}.`);
+    }
+    objects.push({
+      path,
+      kind: entry.kind,
+      format: entry.format,
+      architectures: [...entry.architectures],
+    });
+  }
+  const runtimeObject = objects.find((entry) => entry.kind === "runtime-executable");
+  if (
+    !runtimeObject ||
+    runtimeObject.format !== (target.platform === "darwin" ? "mach-o" : runtimeObject.format) ||
+    (target.platform === "darwin" &&
+      stableStringify(runtimeObject.architectures) !== stableStringify(target.architectures))
+  ) {
+    throw new Error("Capsule runtime executable architecture inventory is incomplete.");
+  }
+  const expectedOrder = expectedNativeSigningOrder(objects);
+  if (stableStringify(nativeCode.signingOrder) !== stableStringify(expectedOrder)) {
+    throw new Error("Capsule native-code signing order is not deterministic inside-out order.");
+  }
+  return objects;
 }
 
 export async function verifyPayloadIntegrity(capsuleRoot, manifest) {
@@ -566,7 +839,7 @@ export async function removeTreeEvenIfReadOnly(path) {
   await rm(path, { recursive: true, force: true });
 }
 
-async function makeTreeOwnerWritable(path) {
+export async function makeTreeOwnerWritable(path) {
   const metadata = await lstat(path);
   if (metadata.isSymbolicLink()) {
     return;
@@ -894,7 +1167,7 @@ export async function verifyRuntimeMetadata(capsuleRoot, manifest) {
     runtimeMetadata.piSdkVersion !== REQUIRED_PI_SDK_VERSION ||
     runtimeMetadata.nodeVersion !== NODE_RUNTIME_VERSION ||
     runtimeMetadata.platform !== manifest.target.platform ||
-    runtimeMetadata.architecture !== manifest.target.architecture
+    !manifest.target.architectures.includes(runtimeMetadata.architecture)
   ) {
     throw new Error("Capsule runtime metadata does not match its sealed versions and target.");
   }

@@ -41,6 +41,28 @@ void main() {
       expect(configuration.toString(), isNot(contains(fixture.capsule.path)));
     });
 
+    test(
+      'accepts a Universal Capsule for the current macOS architecture',
+      () async {
+        if (!Platform.isMacOS) return;
+        final fixture = await _CapsuleFixture.create(universal: true);
+        addTearDown(fixture.dispose);
+
+        final configuration = await PlatformPiNodeRuntimeLocator(
+          bundledCapsuleDirectory: fixture.capsule,
+          expectedSourceCommit: fixture.sourceCommit,
+          expectedTargetId: _currentTargetId(),
+          homeDirectory: fixture.home.path,
+          agentDirectory: fixture.agent.path,
+        ).locate();
+
+        expect(
+          configuration.transportConfiguration.executable,
+          '${fixture.capsule.path}/runtime/bin/node',
+        );
+      },
+    );
+
     test('fails closed when the bundled capsule is missing', () async {
       if (!Platform.isMacOS) return;
       final root = await Directory.systemTemp.createTemp(
@@ -190,14 +212,21 @@ final class _CapsuleFixture {
     required this.targetId,
   });
 
-  static Future<_CapsuleFixture> create() async {
+  static Future<_CapsuleFixture> create({bool universal = false}) async {
     final root = await Directory.systemTemp.createTemp('pi-node-runtime-');
     final capsule = Directory('${root.path}/PiNode')..createSync();
     final home = Directory('${root.path}/home')..createSync();
     final agent = Directory('${root.path}/agent')..createSync();
     final sourceCommit = 'a' * 40;
-    final targetId = _currentTargetId();
-    final targetArchitecture = targetId == 'darwin-arm64' ? 'arm64' : 'x64';
+    final currentTargetId = _currentTargetId();
+    final currentArchitecture = currentTargetId == 'darwin-arm64'
+        ? 'arm64'
+        : 'x64';
+    final targetId = universal ? 'darwin-universal' : currentTargetId;
+    final targetArchitecture = universal ? 'universal' : currentArchitecture;
+    final targetArchitectures = universal
+        ? const <String>['arm64', 'x64']
+        : <String>[currentArchitecture];
     final files = <String, String>{
       'app/dist/stdio-main.js': 'export const server = true;\n',
       'app/package.json': jsonEncode(<String, Object>{
@@ -253,13 +282,14 @@ final class _CapsuleFixture {
       (total, entry) => total + (entry['size']! as int),
     );
     final manifest = <String, Object>{
-      'schemaVersion': 1,
+      'schemaVersion': 2,
       'capsuleKind': 'pi-node-runtime',
       'sourceCommit': sourceCommit,
-      'target': <String, String>{
+      'target': <String, Object>{
         'id': targetId,
         'platform': 'darwin',
         'architecture': targetArchitecture,
+        'architectures': targetArchitectures,
       },
       'versions': <String, String>{
         'piNode': '0.1.0-dev.0',
@@ -288,11 +318,18 @@ final class _CapsuleFixture {
         },
       ],
       'runtime': <String, Object>{
-        'archiveName': 'node-v22.19.0-$targetId.tar.gz',
-        'archiveUrl': 'https://nodejs.org/dist/v22.19.0/runtime.tar.gz',
-        'checksumsUrl': 'https://nodejs.org/dist/v22.19.0/SHASUMS256.txt',
-        'archiveSha256': 'b' * 64,
-        'checksumsSha256': 'c' * 64,
+        'distributions': <Map<String, String>>[
+          for (final architecture in targetArchitectures)
+            <String, String>{
+              'architecture': architecture,
+              'archiveName': 'node-v22.19.0-darwin-$architecture.tar.gz',
+              'archiveUrl':
+                  'https://nodejs.org/dist/v22.19.0/node-$architecture.tar.gz',
+              'checksumsUrl': 'https://nodejs.org/dist/v22.19.0/SHASUMS256.txt',
+              'archiveSha256': 'b' * 64,
+              'checksumsSha256': 'c' * 64,
+            },
+        ],
         'executable': 'runtime/bin/node',
         'npmCli': 'runtime/lib/node_modules/npm/bin/npm-cli.js',
         'licenses': <String>[
@@ -305,6 +342,18 @@ final class _CapsuleFixture {
         'entrypoint': 'app/dist/stdio-main.js',
         'protocolPackagePath': 'app/node_modules/@pi-client/protocol',
         'launch': <String>['runtime/bin/node', 'app/dist/stdio-main.js'],
+      },
+      'nativeCode': <String, Object>{
+        'format': 'mach-o',
+        'objects': <Map<String, Object>>[
+          <String, Object>{
+            'path': 'runtime/bin/node',
+            'kind': 'runtime-executable',
+            'format': 'mach-o',
+            'architectures': targetArchitectures,
+          },
+        ],
+        'signingOrder': <String>['runtime/bin/node'],
       },
       'integrity': <String, Object>{
         'algorithm': 'sha256',

@@ -2,13 +2,15 @@
 
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { mkdir, rm, stat, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
   CAPSULE_MANIFEST_NAME,
+  assertCapsuleFileModes,
   assertReadOnlyTree,
   isolatedRuntimeEnvironment,
   readJson,
@@ -41,11 +43,7 @@ async function main() {
   }
   const manifest = await readJson(resolve(capsuleRoot, CAPSULE_MANIFEST_NAME));
   const target = validateManifestDocument(manifest);
-  if (target.id !== currentCapsuleTargetId()) {
-    throw new Error(
-      `Runtime E2E verification requires host target ${currentCapsuleTargetId()}; capsule is ${target.id}.`,
-    );
-  }
+  assertHostCanExecuteTarget(target);
   const expectedSourceCommit = process.env.PI_RUNTIME_CAPSULE_EXPECTED_SOURCE_COMMIT;
   if (expectedSourceCommit && manifest.sourceCommit !== expectedSourceCommit) {
     throw new Error(
@@ -54,6 +52,7 @@ async function main() {
   }
 
   await assertReadOnlyTree(capsuleRoot);
+  await assertCapsuleFileModes(capsuleRoot, manifest.runtime.executable);
   await verifyPayloadIntegrity(capsuleRoot, manifest);
   await verifyLockCopies(capsuleRoot, manifest);
   const packages = await verifyPackageMetadata(capsuleRoot, manifest);
@@ -65,6 +64,7 @@ async function main() {
     }
   }
   const runtime = await verifyRuntimeMetadata(capsuleRoot, manifest);
+  const architectureFixtures = await runArchitectureFixtures(capsuleRoot, manifest, runtime);
   const e2e = await runRuntimeProtocolE2e(capsuleRoot, manifest, runtime);
 
   process.stdout.write(
@@ -81,6 +81,8 @@ async function main() {
         piSdkVersion: manifest.versions.piSdk,
         protocolVersion: manifest.versions.protocol,
         runtimeE2e: e2e,
+        architectureFixtures,
+        nativeCode: manifest.nativeCode,
         readOnly: true,
         path: runtime.isolatedEnvironment.PATH,
       },
@@ -90,12 +92,157 @@ async function main() {
   );
 }
 
-async function runRuntimeProtocolE2e(capsule, capsuleManifest, runtime) {
-  const verificationRoot = resolve(
-    repositoryRoot,
-    "build/temp",
-    `runtime-capsule-e2e-${process.pid}-${randomUUID()}`,
+function assertHostCanExecuteTarget(target) {
+  if (target.platform !== process.platform) {
+    throw new Error(
+      `Runtime E2E requires ${target.platform}; current platform is ${process.platform}.`,
+    );
+  }
+  if (target.platform !== "darwin") return;
+  for (const architecture of target.architectures) {
+    const archName = architecture === "x64" ? "x86_64" : architecture;
+    const result = spawnArchitectureSync("/usr/bin/true", [], architecture);
+    if (result.status !== 0) {
+      throw new Error(
+        `Runtime E2E lacks executable ${archName} evidence for capsule ${target.id}.`,
+      );
+    }
+  }
+}
+
+async function runArchitectureFixtures(capsule, manifest, runtime) {
+  if (manifest.target.platform !== "darwin") return [];
+  const fixtures = [];
+  const piTuiAddons = manifest.nativeCode.objects.filter(
+    (entry) =>
+      entry.kind === "native-addon" &&
+      entry.path.includes("@earendil-works/pi-tui/native/darwin/prebuilds/") &&
+      entry.format === "mach-o",
   );
+  const clipboardAddon = manifest.nativeCode.objects.find(
+    (entry) =>
+      entry.kind === "native-addon" &&
+      entry.path.includes("@mariozechner/clipboard-darwin-universal/") &&
+      entry.format === "mach-o" &&
+      manifest.target.architectures.every((architecture) =>
+        entry.architectures.includes(architecture),
+      ),
+  );
+  if (!clipboardAddon) {
+    throw new Error("Capsule is missing the Universal clipboard native-addon fixture.");
+  }
+
+  for (const architecture of manifest.target.architectures) {
+    const piTuiAddon = piTuiAddons.find(
+      (entry) => entry.architectures.length === 1 && entry.architectures[0] === architecture,
+    );
+    if (!piTuiAddon) {
+      throw new Error(`Capsule is missing a Pi TUI ${architecture} native-addon fixture.`);
+    }
+    const fixtureRoot = resolve(
+      tmpdir(),
+      `pi-capsule-architecture-${architecture}-${process.pid}-${randomUUID()}`,
+    );
+    const extensionPath = resolve(fixtureRoot, "native-addon-extension.js");
+    await mkdir(fixtureRoot, { recursive: true });
+    const piTuiAddonPath = resolveCapsulePath(capsule, piTuiAddon.path, "Pi TUI native addon");
+    const clipboardPackagePath = resolve(
+      capsule,
+      "app/node_modules/@mariozechner/clipboard/index.js",
+    );
+    await writeFile(
+      extensionPath,
+      [
+        'import { createRequire } from "node:module";',
+        "const require = createRequire(import.meta.url);",
+        `const addon = require(${JSON.stringify(piTuiAddonPath)});`,
+        'if (typeof addon.isModifierPressed !== "function") throw new Error("native addon API missing");',
+        "export default function capsuleNativeAddonExtension() {}",
+      ].join("\n"),
+      "utf8",
+    );
+    const environment = {
+      ...runtime.isolatedEnvironment,
+      HOME: fixtureRoot,
+      TMPDIR: fixtureRoot,
+    };
+    const fixtureScript = [
+      'import { createRequire } from "node:module";',
+      "const require = createRequire(import.meta.url);",
+      `const directAddon = require(${JSON.stringify(piTuiAddonPath)});`,
+      'if (typeof directAddon.isModifierPressed !== "function") throw new Error("Pi TUI addon API missing");',
+      `const clipboard = require(${JSON.stringify(clipboardPackagePath)});`,
+      'if (typeof clipboard !== "object" || clipboard === null) throw new Error("clipboard addon load failed");',
+      `const sdk = await import(${JSON.stringify(
+        pathToFileURL(
+          resolve(capsule, "app/node_modules/@earendil-works/pi-coding-agent/dist/index.js"),
+        ).href,
+      )});`,
+      `const loaded = await sdk.loadExtensions([${JSON.stringify(extensionPath)}], ${JSON.stringify(fixtureRoot)});`,
+      "if (loaded.errors.length !== 0 || loaded.extensions.length !== 1) throw new Error(JSON.stringify(loaded.errors));",
+      "process.stdout.write(JSON.stringify({architecture: process.arch, directNativeAddon: true, clipboardNativeAddon: true, extensionNativeAddon: true}));",
+    ].join("\n");
+    try {
+      const nodeVersion = await runCapturedForArchitecture(
+        runtime.executable,
+        ["--version"],
+        architecture,
+        { cwd: fixtureRoot, env: environment },
+      );
+      if (nodeVersion.stdout.trim() !== `v${manifest.versions.node}`) {
+        throw new Error(`${architecture} Node startup reported ${nodeVersion.stdout.trim()}.`);
+      }
+      const npmCli = resolveCapsulePath(capsule, manifest.runtime.npmCli, "runtime npm CLI");
+      const npmVersion = await runCapturedForArchitecture(
+        runtime.executable,
+        [npmCli, "--version"],
+        architecture,
+        { cwd: fixtureRoot, env: environment },
+      );
+      if (npmVersion.stdout.trim() !== manifest.versions.npm) {
+        throw new Error(`${architecture} npm startup reported ${npmVersion.stdout.trim()}.`);
+      }
+      const result = await runCapturedForArchitecture(
+        runtime.executable,
+        ["--input-type=module", "--eval", fixtureScript],
+        architecture,
+        { cwd: fixtureRoot, env: environment },
+      );
+      const loaded = JSON.parse(result.stdout);
+      if (loaded.architecture !== architecture) {
+        throw new Error(
+          `Architecture fixture requested ${architecture} but Node reported ${loaded.architecture}.`,
+        );
+      }
+      fixtures.push({
+        ...loaded,
+        nodeVersion: nodeVersion.stdout.trim(),
+        npmVersion: npmVersion.stdout.trim(),
+        piTuiAddon: piTuiAddon.path,
+        clipboardAddon: clipboardAddon.path,
+      });
+    } finally {
+      await rm(fixtureRoot, { recursive: true, force: true });
+    }
+  }
+  return fixtures;
+}
+
+function runCapturedForArchitecture(executable, arguments_, architecture, options) {
+  if (process.platform !== "darwin") return runCaptured(executable, arguments_, options);
+  const archName = architecture === "x64" ? "x86_64" : architecture;
+  return runCaptured("/usr/bin/arch", [`-${archName}`, executable, ...arguments_], options);
+}
+
+function spawnArchitectureSync(executable, arguments_, architecture) {
+  const archName = architecture === "x64" ? "x86_64" : architecture;
+  return spawnSync("/usr/bin/arch", [`-${archName}`, executable, ...arguments_], {
+    stdio: "ignore",
+  });
+}
+
+async function runRuntimeProtocolE2e(capsule, capsuleManifest, runtime) {
+  const verificationRoot = resolve(tmpdir(), `pi-capsule-e2e-${process.pid}-${randomUUID()}`);
   const cwd = resolve(verificationRoot, "project");
   const agentDir = resolve(verificationRoot, "agent");
   const sessionDir = resolve(verificationRoot, "sessions");

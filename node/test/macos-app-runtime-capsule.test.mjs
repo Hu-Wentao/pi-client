@@ -38,8 +38,10 @@ test("installs a verified capsule at the fixed macOS app-bundle layout", async (
     "node\n",
   );
   const installedMode = (await stat(resolve(installed.capsulePath, "runtime/bin/node"))).mode;
-  assert.equal(installedMode & 0o222, 0);
-  assert.notEqual(installedMode & 0o111, 0);
+  assert.equal(installedMode & 0o777, 0o555);
+  const entrypointMode = (await stat(resolve(installed.capsulePath, "app/dist/stdio-main.js")))
+    .mode;
+  assert.equal(entrypointMode & 0o777, 0o444);
 
   const verifiedInstalled = await verifyInstalledRuntimeCapsule({
     appBundle: fixture.app,

@@ -1,4 +1,4 @@
-name: Release independent unsigned macOS preview
+name: Release independent ad-hoc macOS preview
 
 on:
   workflow_dispatch:
@@ -116,11 +116,17 @@ jobs:
           bun install --frozen-lockfile
           bun run check
 
-      - name: Build and verify the explicit host-targeted runtime capsule
+      - name: Build and verify the truthful architecture runtime capsule
         working-directory: node
         env:
           CAPSULE_TARGET: ${{ steps.metadata.outputs.capsuleTarget }}
         run: bun run capsule:build --target "$CAPSULE_TARGET"
+
+      - name: Prove minimum ad-hoc Hardened Runtime entitlements
+        working-directory: node
+        env:
+          CAPSULE_DIRECTORY: ${{ steps.metadata.outputs.capsuleDirectory }}
+        run: bun run capsule:probe:macos-hardening --capsule "$GITHUB_WORKSPACE/$CAPSULE_DIRECTORY"
 
       - name: Configure unsigned independent Release build
         env:
@@ -135,9 +141,9 @@ jobs:
             --dart-define=PI_CLIENT_DISTRIBUTION_CHANNEL=unsigned-preview \
             --dart-define=PI_CLIENT_RUNTIME_CAPSULE_SOURCE_COMMIT="$GITHUB_SHA"
 
-      - name: Build unsigned architecture-matched app with bundled capsule
+      - name: Build unsigned architecture-selected app with bundled capsule
         env:
-          APP_ARCHITECTURE: ${{ steps.metadata.outputs.appArchitecture }}
+          APP_ARCHITECTURES: ${{ steps.metadata.outputs.appArchitectures }}
           CAPSULE_DIRECTORY: ${{ steps.metadata.outputs.capsuleDirectory }}
           DERIVED_DATA: ${{ runner.temp }}/pi-client-derived-data
         run: |
@@ -147,18 +153,17 @@ jobs:
             -scheme Runner \
             -configuration Release \
             -derivedDataPath "$DERIVED_DATA" \
-            -arch "$APP_ARCHITECTURE" \
-            ONLY_ACTIVE_ARCH=YES \
+            ARCHS="$APP_ARCHITECTURES" \
+            ONLY_ACTIVE_ARCH=NO \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             PI_CLIENT_RUNTIME_CAPSULE_PATH="$GITHUB_WORKSPACE/$CAPSULE_DIRECTORY" \
             PI_CLIENT_RUNTIME_CAPSULE_EXPECTED_SOURCE_COMMIT="$GITHUB_SHA" \
             build | tee "$RUNNER_TEMP/xcodebuild.log"
 
-      - name: Verify app identity, architecture, entitlements, and capsule
+      - name: Verify unsigned app identity, capsule, and expected rejection
         id: app
         env:
-          APP_ARCHITECTURE: ${{ steps.metadata.outputs.appArchitecture }}
           BUILD_NUMBER: ${{ steps.metadata.outputs.buildNumber }}
           DERIVED_DATA: ${{ runner.temp }}/pi-client-derived-data
           VERSION: ${{ steps.metadata.outputs.version }}
@@ -175,30 +180,46 @@ jobs:
           [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PLIST")" == "$BUILD_NUMBER" ]]
           [[ "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$PLIST")" == '11.0' ]]
           ! grep -Eq 'app-sandbox|disable-library-validation|allow-unsigned-executable-memory' macos/Runner/Release.entitlements
-
-          MACH_O_COUNT=0
-          while IFS= read -r -d '' BINARY; do
-            if file "$BINARY" | grep -q 'Mach-O'; then
-              MACH_O_COUNT=$((MACH_O_COUNT + 1))
-              ARCHS="$(lipo -archs "$BINARY")"
-              [[ " $ARCHS " == *" $APP_ARCHITECTURE "* ]]
-              [[ "$(wc -w <<<"$ARCHS" | tr -d ' ')" == '1' ]]
-            fi
-          done < <(find "$APP/Contents" -type f -perm -111 -print0)
-          [[ "$MACH_O_COUNT" -gt 0 ]]
+          ! grep -q 'allow-unsigned-executable-memory' macos/Runner/PiNode.entitlements
+          ! grep -q 'allow-unsigned-executable-memory' macos/Runner/PiNodeAdHoc.entitlements
 
           node node/scripts/verify-macos-app-runtime-capsule.mjs \
             --app "$APP" \
             --expected-source-commit "$GITHUB_SHA"
-          if codesign --verify --deep --strict "$APP" >/dev/null 2>&1; then
-            echo 'Expected an unsigned app, but code-sign verification passed.' >&2
+          if codesign --verify --strict "$APP" >/dev/null 2>&1; then
+            echo 'Expected the pre-signing app to be unsigned.' >&2
             exit 1
           fi
           if spctl --assess --type execute "$APP" >/dev/null 2>&1; then
-            echo 'Expected Gatekeeper to reject the unsigned preview.' >&2
+            echo 'Expected Gatekeeper to reject the unsigned pre-signing app.' >&2
             exit 1
           fi
           echo "path=$APP" >> "$GITHUB_OUTPUT"
+
+      - name: Sign bundled app inside-out with ad-hoc Hardened Runtime
+        env:
+          APP: ${{ steps.app.outputs.path }}
+        run: |
+          node node/scripts/sign-macos-app.mjs \
+            --app "$APP" \
+            --identity - \
+            --timestamp none \
+            --expected-source-commit "$GITHUB_SHA" \
+            --gatekeeper reject
+
+      - name: Verify strict signatures, entitlements, manifest, and tamper gates
+        env:
+          APP: ${{ steps.app.outputs.path }}
+        run: |
+          node node/scripts/verify-macos-app-code-signing.mjs \
+            --app "$APP" \
+            --expected-source-commit "$GITHUB_SHA" \
+            --expected-signing-kind ad-hoc \
+            --gatekeeper reject
+          node node/scripts/test-macos-app-signing-tamper.mjs \
+            --app "$APP" \
+            --expected-source-commit "$GITHUB_SHA" \
+            --expected-signing-kind ad-hoc
 
       - name: Launch installed app with system Node removed from PATH
         env:
@@ -246,9 +267,9 @@ jobs:
           cat > "$NOTES" <<EOF
           This is the first independent Pi Client preview. It bundles the verified first-party Pi Node runtime capsule and does not require pi-web or a system Node.js installation.
 
-          This ${ARCHITECTURE} app is unsigned and not notarized. Verify the published SHA-256 checksum and expect Gatekeeper to reject ordinary launch until you explicitly approve the app. The unsigned-preview storage directory and public non-secret storage key remain isolated from future signed releases.
+          This ${ARCHITECTURE} app is ad-hoc signed with Hardened Runtime but has no Developer ID identity and is not notarized. Verify the published SHA-256 checksum and expect Gatekeeper to reject ordinary launch until you explicitly approve the app. The unsigned-preview storage directory and public non-secret storage key remain isolated from future Developer ID releases.
 
-          A Universal binary, Developer ID signing, notarization, and DMG packaging remain blocked until both architecture capsules and signed nested-runtime validation are available.
+          A Universal label is emitted only when both arm64 and x64 Node startup plus native-addon/extension fixtures pass. Developer ID signing, notarization, and DMG packaging remain external release gates.
           EOF
           gh release create "$TAG" \
             "artifacts/$ASSET" \
@@ -256,7 +277,7 @@ jobs:
             --verify-tag \
             --draft \
             --prerelease \
-            --title "Pi Client ${VERSION} independent unsigned macOS ${ARCHITECTURE} preview" \
+            --title "Pi Client ${VERSION} independent ad-hoc macOS ${ARCHITECTURE} preview" \
             --notes-file "$NOTES"
 
       - name: Verify and publish GitHub prerelease
