@@ -54,31 +54,35 @@ Reference: `https://github.com/agegr/pi-web`, commit `28bab3c25f5f6770c9b0b745eb
 ## BENCH-PI-004 - File, Git, and worktree tools
 
 - Status: Deferred
-- Disposition: Known difference
+- Disposition: Deferred candidate
 - Pi-web behavior: file browser/upload/watch/preview, Git status/diff, and worktree operations.
 - Pi Client scope: not implemented in MVP.
 - Reason: these features require additional filesystem, upload, preview, and destructive-operation contracts beyond the core agent loop.
+- Governance: This comparison entry is a candidate only; implementation requires explicit acceptance in a current requirement or plan.
 
 ## BENCH-PI-005 - Models, skills, plugins, and subagents
 
 - Status: Deferred
-- Disposition: Known difference
+- Disposition: Deferred candidate
 - Pi-web behavior: provider login/API keys, model discovery/testing, skill/plugin management, subagents, system prompt, and tool selection.
 - Pi Client scope: not implemented in MVP.
 - Reason: the MVP assumes pi-web/pi is already configured and does not copy credential-management surfaces.
+- Governance: This comparison entry is a candidate only; implementation requires explicit acceptance in a current requirement or plan.
 
 ## BENCH-PI-006 - Advanced conversation features
 
 - Status: Deferred
-- Disposition: Known difference
+- Disposition: Deferred candidate
 - Pi-web behavior: branch/fork, rename/delete/export, compaction, queues, extension UI, bash, rich Markdown/media, notifications, and multi-panel file tabs.
 - Pi Client scope: historical bash/tool text can render, but advanced controls and rich presentation are deferred.
 - Reason: P0 freezes the smallest complete find/continue/run/stop flow.
+- Governance: This comparison entry is a candidate only; implementation requires explicit acceptance in a current requirement or plan.
 
 ## BENCH-PI-007 - Platform matrix
 
 - Status: Deferred
-- Disposition: Known difference
+- Disposition: Deferred candidate
 - Pi-web behavior: browser/PWA layouts across desktop and mobile browsers.
 - Pi Client scope: macOS 11+ only for MVP.
 - Reason: local pi/web gateway access is directly testable on desktop without introducing mobile network and filesystem boundaries.
+- Governance: This comparison does not authorize platform work. Native platform expansion and Flutter WebAssembly are accepted only through `PLAN-PI-002`; PWA behavior remains a deferred candidate.

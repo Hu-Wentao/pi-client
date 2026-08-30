@@ -63,3 +63,35 @@ mdq:
 - Owner: fr-mvvm-contract validator, build_runner, Flutter analyzer/test/build
 - Evidence: `workspace.page.dart` passes contract and final phases; generated Freezed/JSON/typed-route files are current; analysis has no issues; all Flutter tests pass; macOS Debug `.app` builds and launches.
 - Scope limit: Release signing, Apple Team identity, notarization, and distribution are outside MVP.
+
+## VER-PI-006 - PLAN-PI-002 R0 client contract surface
+
+- Status: PASS
+- Requirements: REQ-PI-006, REQ-PI-007, REQ-PI-008, REQ-PI-009
+- Owner: `test/central_access_contract_test.dart`, `test/platform_auth_adapter_test.dart`, `test/pi_transport_contract_test.dart`, and mdq contract checks
+- Evidence: The pure Dart central projection, auth adapter, opaque grant, error, protocol-version, and transport interfaces compile; focused tests cover safe projection invariants, configured Workspace-origin authority, server-owned access Decisions, stable error mapping, grant redaction and trusted TTL/path/thumbprint binding contracts, defensive frame copies, and Local Direct independence; governed R0 records remain uniquely queryable.
+- Scope limit: This PASS proves only the pi-client contract surface; it does not prove Pi Node, Friday Relay, platform authentication, socket/tunnel, grant issuance, E2EE, or product runtime behavior.
+
+## VER-PI-007 - Local Direct and transport conformance runtime
+
+- Status: PLANNED
+- Requirements: REQ-PI-006, REQ-PI-009
+- Owner: future pi-client and Pi Node integration/conformance suite
+- Planned evidence: Run the same accepted Pi behavior fixtures through Local Direct and the unified transport contract while Friday Relay is unavailable.
+- Gap: Pi Node, the versioned Pi protocol, Local Direct transport, and runtime conformance fixtures are not implemented in this repository.
+
+## VER-PI-008 - Friday Workspace and private tunnel runtime
+
+- Status: BLOCKED
+- Requirements: REQ-PI-007, REQ-PI-009
+- Owner: future cross-project friday-relay, pi-client, and Pi Node integration
+- Planned evidence: Verify one-Workspace ownership, exact Host denial, entitlement outcomes, Node binding, grant renewal/revocation, tunnel routing, E2EE opacity, and Direct/remote equivalence.
+- Blocker: Friday Relay requirements and exact Workspace host, grant, E2EE, and protocol decisions are not available; no external implementation is claimed.
+
+## VER-PI-009 - Native and WebAssembly Friday authentication runtime
+
+- Status: BLOCKED
+- Requirements: REQ-PI-008
+- Owner: future friday-relay authentication tests plus pi-client platform integration and manual platform verification
+- Planned evidence: Verify native system-browser PKCE and secure storage, WebAssembly canonical handoff and host-only session, callback/handoff denial, and absence of browser-readable long-lived credentials.
+- Blocker: Friday Relay requirements and exact native callback, Workspace callback, session handoff, token, and public-client profile decisions are not available; no external implementation is claimed.

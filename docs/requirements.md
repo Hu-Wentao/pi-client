@@ -77,3 +77,43 @@ Default review level: L6. Requirements derived directly from the user-provided M
 - Constraints: No friday-swarm or friday-relay dependency; no copied pi-web branding or production data.
 - Source: MVP plan, `DEC-003`, and `DEC-005`.
 - Acceptance: README, LICENSE, benchmark, differences, contribution instructions, and per-choice decision records are present and queryable.
+
+## REQ-PI-006 - Keep Local Direct independent
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: A user can connect a native Pi Client to their own local or LAN Pi Node without a Friday Relay identity, subscription, or available central service.
+- Constraints: Local Direct uses a node-local pairing and authorization boundary; Friday Workspace entitlement must not disable or change an existing Local Direct capability.
+- Source: `PLAN-PI-002` and `DEC-013`.
+- Acceptance: The Local Direct flow can be verified with Friday Relay unavailable and without a Friday account or paid entitlement.
+
+## REQ-PI-007 - Provide one personal Friday Workspace
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: An authenticated Friday Relay user can access at most one personal Pi Workspace at its unique platform-managed origin.
+- Constraints: Friday Relay owns identity, paid entitlement, Workspace ownership, hostname, and Node binding; Pi Client consumes only safe projections and does not infer authorization from billing or identity data.
+- Source: `PLAN-PI-002` and `DEC-013`.
+- Acceptance: The client exposes anonymous, provisioning, subscription-required, active, suspended, and node-offline outcomes for the server-selected personal Workspace; another user, hostname, Workspace, or Node is denied.
+
+## REQ-PI-008 - Use platform-safe Friday authentication
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: Native and WebAssembly Pi Clients can authenticate with Friday Relay without embedding a client secret or implementing Friday password, Passkey, or account-recovery logic.
+- Constraints: Native authentication uses a system browser and public-client PKCE with credentials restricted to OS secure storage; WebAssembly uses canonical Friday authentication and a host-only Workspace session without browser-readable long-lived tokens.
+- Source: `PLAN-PI-002` and `DEC-013`.
+- Acceptance: Platform adapters keep native and WebAssembly authentication surfaces separate, reject unapproved callbacks or handoffs, and expose only the safe session projection required by Pi Client.
+
+## REQ-PI-009 - Use one private Pi transport contract
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: A user receives equivalent Pi product behavior whether the client reaches Pi Node through Local Direct or Friday Workspace.
+- Constraints: Product features depend on one versioned Pi transport contract; Friday Relay may authorize and route remote access but must not persist, log, or decrypt Pi payloads; the E2EE protocol must use an evaluated standard rather than custom cryptography.
+- Source: `PLAN-PI-002` and `DEC-013`.
+- Acceptance: Direct and remote transports pass the same Pi behavior conformance suite, while remote evidence also proves grant binding, encrypted payload opacity, tamper rejection, and bounded revocation.

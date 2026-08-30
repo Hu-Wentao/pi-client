@@ -486,6 +486,13 @@ friday-relay 新增能力必须在其独立治理流程和隔离 worktree 中实
 
 退出条件：所有 owner 和反向依赖明确；无 pi-client 自有中心 Identity/Billing 实现。
 
+#### R0 证据与关闭状态
+
+- pi-client 侧合同面已实现：`REQ-PI-006` 至 `REQ-PI-009` 固定 Local Direct、单一 Friday Workspace、平台安全鉴权和统一私有 Pi transport 产品边界；`lib/central_access/`、`lib/platform/auth/` 和 `lib/transport/` 固定无具体网络实现的安全 projection、adapter、opaque grant、error、protocol version 和 frame transport 接口。
+- `VER-PI-006` 的 PASS 只证明本仓库纯 Dart interface、focused tests 与治理记录，不证明 Pi Node、friday-relay、平台鉴权、grant 签发、socket tunnel、E2EE 或跨项目 runtime 已实现。
+- 跨项目 R0 仍为 BLOCKED：friday-relay 尚无可引用的新 requirements；精确 Workspace host/base domain、Web/Native callback 与 session handoff、grant claims/续租/撤权、E2EE suite/test vectors 和 Pi Protocol version/conformance decisions 尚未固定。
+- 因此 `PLAN-PI-002` 继续保持 Planned，不能声明 R0 已关闭，也不能推定 friday-relay 已实现任何外部能力。
+
 #### R1 - Friday Relay Workspace control plane
 
 - 实现 Workspace、slug/hostname、paid entitlement、User Console 和 exact Host resolution。
