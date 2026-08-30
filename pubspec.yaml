@@ -9,6 +9,7 @@ environment:
 dependencies:
   dio: ^5.11.0
   efficient_dio_logger: ^2.0.2
+  fixnum: 1.1.1
   flowr: ^6.2.1
   flutter:
     sdk: flutter
@@ -23,6 +24,8 @@ dependencies:
   go_router: ^17.5.0
   json_annotation: ^4.12.0
   path_provider: ^2.1.6
+  pi_client_protocol_spike:
+    path: protocol/dart
   retrofit: ^4.10.0
 
 dev_dependencies:
