@@ -87,3 +87,15 @@ Default review level: L6.
 - The Landing Page uses the Pi Client-owned SVG and sanitized Flutter screenshot. It must not use Flutter/pi-web branding, production paths, credentials, private prompts, or real tool output.
 - GitHub Pages may deploy only while its exact current-version GitHub Release asset is public. A passing local site build is not publication evidence.
 - Current pi-web compatibility is transitional and does not authorize a WebAssembly build or weaken the planned independent, versioned Pi SDK/transport boundary.
+
+## BASE-PI-008 - Cross-platform build and Preview release integrity
+
+- Status: Active
+- Review level: L6
+- Pull requests and main changes use shared generation, formatting, analysis, test, release-contract, and site gates before platform builds; Android, iOS, macOS, Windows, Linux, and Web build on an appropriate native GitHub runner.
+- `pubspec.yaml` is the version and build-number authority. `release/release.json` selects a versioned Artifact Profile but must not redefine version identity; the current `macos-preview-v1` remains bound to the immutable macOS-only `v0.0.2` history.
+- A future six-platform Preview is built from one full commit, standardized by project-owned scripts, and aggregated before publication. Missing, extra, duplicate, symbolic-link, or zero-byte artifacts are release failures.
+- Every aggregated Preview records product version, build number, full commit, Flutter version, platform, architecture, execution role, host-runtime inclusion and filename-boundary evidence, runtime baseline, signing state, installability, size, and SHA-256 in `artifact-manifest.json`; `SHA256SUMS` is a deterministic checksum projection.
+- Android, iOS, and Web release metadata must remain `remote-client-only`; macOS, Windows, and Linux may remain `agent-host-capable`, but all artifacts record `hostRuntimeIncluded: false` until a separately accepted Pi SDK Host implementation exists. Current evidence scans package path names, contained framework symlink targets, and reserved future Host names; it does not claim semantic inspection of arbitrary binary contents.
+- Preview signing state is fail-closed and explicit: Android Release must not fall back to Debug signing; iOS is no-codesign; macOS and Windows remain unsigned until their respective identity and trust workflows are configured. Web uses the standard JavaScript target until a separate WASM compatibility decision and evidence exist.
+- Publishing remains a manual, separately authorized transition. The candidate version must be stable and monotonic. It creates an annotated immutable Tag only after qualification or resumes only the same annotated Tag/full commit with the original qualification run ID and exact retained aggregate bundle. A matching Draft may receive missing assets after existing bytes are verified; only one failed `starter/0-byte` expected asset may be deleted under a revalidated Draft boundary, while uploaded assets and every public Release are read-only. Draft publication and annotated-Tag-bound Pages deployment occur only after exact service-set and downloaded-byte verification.

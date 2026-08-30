@@ -1,0 +1,935 @@
+name: Release unsigned cross-platform preview
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Qualify artifacts only, or publish after every gate passes.
+        required: true
+        default: qualify
+        type: choice
+        options:
+          - qualify
+          - publish
+      resume_run_id:
+        description: Completed release-preview run that owns the exact qualified bundle for publish recovery.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: release-preview
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
+      buildNumber: ${{ steps.metadata.outputs.buildNumber }}
+      tag: ${{ steps.metadata.outputs.tag }}
+      asset: ${{ steps.metadata.outputs.asset }}
+      checksumAsset: ${{ steps.metadata.outputs.checksumAsset }}
+      artifactProfile: ${{ steps.metadata.outputs.artifactProfile }}
+      expectedAssetsJson: ${{ steps.metadata.outputs.expectedAssetsJson }}
+      releaseTitle: ${{ steps.metadata.outputs.releaseTitle }}
+      releaseNotesPath: ${{ steps.metadata.outputs.releaseNotesPath }}
+      freshBundleRequired: ${{ steps.recovery-input.outputs.freshBundleRequired }}
+      resumeRunId: ${{ steps.recovery-input.outputs.resumeRunId }}
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Freeze six-platform release metadata
+        id: metadata
+        run: node tool/release_metadata.mjs --require-profile six-platform-preview-v1 --github-output "$GITHUB_OUTPUT"
+
+      - name: Validate and freeze recovery input mode
+        id: recovery-input
+        env:
+          MODE: ${{ inputs.mode }}
+          RESUME_RUN_ID: ${{ inputs.resume_run_id }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$RESUME_RUN_ID" && "$MODE" != 'publish' ]]; then
+            echo 'resume_run_id is valid only in publish mode.' >&2
+            exit 1
+          fi
+          if [[ -n "$RESUME_RUN_ID" ]]; then
+            [[ "$RESUME_RUN_ID" =~ ^[1-9][0-9]*$ ]] || {
+              echo 'resume_run_id must be a positive numeric Actions run ID.' >&2
+              exit 1
+            }
+            FRESH_BUNDLE_REQUIRED=false
+          else
+            FRESH_BUNDLE_REQUIRED=true
+          fi
+          {
+            echo "freshBundleRequired=$FRESH_BUNDLE_REQUIRED"
+            echo "resumeRunId=$RESUME_RUN_ID"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Admit new or exact-bundle recovery release state
+        id: admission
+        if: inputs.mode == 'publish'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.metadata.outputs.tag }}
+          RESUME_RUN_ID: ${{ inputs.resume_run_id }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]] || {
+            echo "Publish must run from refs/heads/main; received $GITHUB_REF." >&2
+            exit 1
+          }
+          REMOTE_TAGS="$RUNNER_TEMP/remote-tags.txt"
+          if git ls-remote --tags origin > "$REMOTE_TAGS"; then
+            :
+          else
+            STATUS=$?
+            echo "git ls-remote failed with exit code $STATUS; remote state is unknown." >&2
+            exit "$STATUS"
+          fi
+          node tool/release_metadata.mjs \
+            --require-profile six-platform-preview-v1 \
+            --remote-tags-file "$REMOTE_TAGS" \
+            --candidate-commit "$GITHUB_SHA" > "$RUNNER_TEMP/remote-tag-state.json"
+          TAG_STATE="$(jq -r '.remoteTagState' "$RUNNER_TEMP/remote-tag-state.json")"
+
+          RELEASE_PAGES="$RUNNER_TEMP/release-pages.json"
+          RELEASE_MATCHES="$RUNNER_TEMP/release-matches.json"
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RELEASE_PAGES"
+          jq -c --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)]' \
+            "$RELEASE_PAGES" > "$RELEASE_MATCHES"
+          RELEASE_COUNT="$(jq 'length' "$RELEASE_MATCHES")"
+          if [[ "$RELEASE_COUNT" -gt 1 ]]; then
+            echo "Duplicate GitHub Releases use $TAG." >&2
+            exit 1
+          fi
+
+          REMOTE_IDENTITY_PRESENT=false
+          if [[ "$TAG_STATE" != 'absent' || "$RELEASE_COUNT" -eq 1 ]]; then
+            REMOTE_IDENTITY_PRESENT=true
+          fi
+          if [[ "$REMOTE_IDENTITY_PRESENT" == 'true' && -z "$RESUME_RUN_ID" ]]; then
+            echo "Existing remote Tag or Release for $TAG requires resume_run_id from the exact qualified run." >&2
+            exit 1
+          fi
+          if [[ "$REMOTE_IDENTITY_PRESENT" == 'false' && -n "$RESUME_RUN_ID" ]]; then
+            echo "resume_run_id must be empty when neither remote Tag nor Release exists for $TAG." >&2
+            exit 1
+          fi
+          if [[ "$RELEASE_COUNT" -eq 1 && "$TAG_STATE" == 'absent' ]]; then
+            echo "GitHub Release $TAG exists without its immutable annotated tag." >&2
+            exit 1
+          fi
+          if [[ "$RELEASE_COUNT" -eq 1 ]]; then
+            RELEASE_STATE="$(jq -r '.[0] | if .draft then "draft" else "public" end' "$RELEASE_MATCHES")"
+            echo "Resuming recoverable $RELEASE_STATE release state for $TAG from run $RESUME_RUN_ID."
+          elif [[ "$TAG_STATE" == 'existing-annotated' ]]; then
+            echo "Resuming annotated Tag $TAG without a Release from run $RESUME_RUN_ID."
+          else
+            echo "No remote identity exists for $TAG; this run must build its own qualified bundle."
+          fi
+
+          if [[ -n "$RESUME_RUN_ID" ]]; then
+            RUN_JSON="$RUNNER_TEMP/resume-run.json"
+            ARTIFACT_PAGES="$RUNNER_TEMP/resume-artifact-pages.json"
+            MATCHING_ARTIFACTS="$RUNNER_TEMP/resume-matching-artifacts.json"
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RESUME_RUN_ID" > "$RUN_JSON"
+            jq -e \
+              --arg repository "$GITHUB_REPOSITORY" \
+              --arg workflowPath '.github/workflows/release-preview.yml' \
+              --arg workflowName 'Release unsigned cross-platform preview' \
+              --arg headSha "$GITHUB_SHA" \
+              '.repository.full_name == $repository and
+               .path == $workflowPath and
+               .name == $workflowName and
+               .head_sha == $headSha and
+               .status == "completed"' \
+              "$RUN_JSON" >/dev/null || {
+                echo "resume_run_id $RESUME_RUN_ID is not a completed exact-commit run of this release-preview workflow." >&2
+                exit 1
+              }
+            gh api --paginate --slurp \
+              "repos/$GITHUB_REPOSITORY/actions/runs/$RESUME_RUN_ID/artifacts?per_page=100" \
+              > "$ARTIFACT_PAGES"
+            jq -c --arg name "release-preview-$GITHUB_SHA" \
+              '[.[].artifacts[] | select(.name == $name)]' \
+              "$ARTIFACT_PAGES" > "$MATCHING_ARTIFACTS"
+            [[ "$(jq 'length' "$MATCHING_ARTIFACTS")" == '1' ]] || {
+              echo "resume_run_id $RESUME_RUN_ID must contain exactly one release-preview-$GITHUB_SHA artifact." >&2
+              exit 1
+            }
+            jq -e '.[0].expired == false and .[0].size_in_bytes > 0' \
+              "$MATCHING_ARTIFACTS" >/dev/null || {
+                echo "The exact qualified bundle on resume_run_id $RESUME_RUN_ID is expired or empty." >&2
+                exit 1
+              }
+          fi
+
+  qualification:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Set up Flutter
+        uses: ./.github/actions/setup-flutter
+
+      - name: Resolve Flutter dependencies
+        run: fvm flutter pub get
+
+      - name: Verify generated source drift
+        run: |
+          fvm dart run build_runner build
+          git diff --exit-code -- lib test
+
+      - name: Format, analyze, and test
+        run: |
+          fvm dart format --output=none --set-exit-if-changed lib test tool
+          fvm flutter analyze
+          fvm flutter test
+          node --test test/release_contract_test.mjs test/preview_artifacts_test.mjs test/workflow_policy_test.mjs
+          node tool/release_metadata.mjs --require-profile six-platform-preview-v1
+
+      - name: Set up Bun 1.4.0
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.0
+
+      - name: Validate landing site
+        working-directory: site
+        env:
+          ASTRO_TELEMETRY_DISABLED: '1'
+        run: |
+          bun install --frozen-lockfile
+          bun run check
+          bun run build
+          bun run validate
+
+  build:
+    if: needs.prepare.outputs.freshBundleRequired == 'true'
+    name: Build ${{ matrix.platform }} preview
+    needs: [prepare, qualification]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: android
+            os: ubuntu-24.04
+          - platform: ios
+            os: macos-15
+          - platform: macos
+            os: macos-15
+          - platform: windows
+            os: windows-2025
+          - platform: linux
+            os: ubuntu-24.04
+          - platform: web
+            os: ubuntu-24.04
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 70
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Install Linux packaging dependencies
+        if: matrix.platform == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y binutils clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev
+
+      - name: Set up Flutter
+        uses: ./.github/actions/setup-flutter
+
+      - name: Resolve Flutter dependencies
+        shell: bash
+        run: fvm flutter pub get
+
+      - name: Build, prove platform identity, and stage artifact
+        shell: bash
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          PROFILE: ${{ needs.prepare.outputs.artifactProfile }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          BUILD_NUMBER: ${{ needs.prepare.outputs.buildNumber }}
+          STAGE: ${{ github.workspace }}/.release-staging/${{ matrix.platform }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$STAGE"
+          case "$PLATFORM" in
+            android)
+              fvm flutter build apk --release --split-per-abi \
+                --build-name "$VERSION" --build-number "$BUILD_NUMBER"
+              APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+              AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+              test -x "$APKSIGNER"
+              test -x "$AAPT"
+              for SPEC in \
+                'armeabi-v7a:app-armeabi-v7a-release.apk:android-armeabi-v7a:1000' \
+                'arm64-v8a:app-arm64-v8a-release.apk:android-arm64-v8a:2000' \
+                'x86_64:app-x86_64-release.apk:android-x86_64:4000'; do
+                IFS=: read -r ABI FILE TARGET VERSION_CODE_OFFSET <<< "$SPEC"
+                mapfile -t APK_CANDIDATES < <(find build/app/outputs/flutter-apk -maxdepth 1 -type f \
+                  \( -name "$FILE" -o -name "${FILE%.apk}-unsigned.apk" \) | sort)
+                [[ "${#APK_CANDIDATES[@]}" == '1' ]]
+                APK="${APK_CANDIDATES[0]}"
+                test -s "$APK"
+                if "$APKSIGNER" verify "$APK" >/dev/null 2>&1; then
+                  echo "$APK is signed; unsigned preview APKs must fail apksigner verification." >&2
+                  exit 1
+                fi
+                ZIP_LIST="$(unzip -l "$APK")"
+                grep -Eq "lib/$ABI/[^/]+\\.so" <<< "$ZIP_LIST"
+                for OTHER in armeabi-v7a arm64-v8a x86_64; do
+                  if [[ "$OTHER" != "$ABI" ]] && grep -q "lib/$OTHER/" <<< "$ZIP_LIST"; then
+                    echo "$APK contains unexpected ABI $OTHER." >&2
+                    exit 1
+                  fi
+                done
+                BADGING="$("$AAPT" dump badging "$APK")"
+                [[ "$(sed -n "s/^package: name='\\([^']*\\)'.*/\\1/p" <<< "$BADGING")" == 'io.github.huwentao.pi_client' ]]
+                EXPECTED_VERSION_CODE=$((VERSION_CODE_OFFSET + BUILD_NUMBER))
+                grep -Fq "versionCode='$EXPECTED_VERSION_CODE'" <<< "$BADGING"
+                grep -Fq "versionName='$VERSION'" <<< "$BADGING"
+                APK_CONTENTS="$RUNNER_TEMP/apk-contents-$TARGET"
+                rm -rf "$APK_CONTENTS"
+                mkdir -p "$APK_CONTENTS"
+                unzip -q "$APK" -d "$APK_CONTENTS"
+                node tool/preview_artifacts.mjs stage \
+                  --profile "$PROFILE" \
+                  --target "$TARGET" \
+                  --input "$APK" \
+                  --contents-root "$APK_CONTENTS" \
+                  --output-dir "$STAGE"
+              done
+              ;;
+            ios)
+              fvm flutter build ios --release --no-codesign --config-only \
+                --build-name "$VERSION" --build-number "$BUILD_NUMBER"
+              ARCHIVE="$RUNNER_TEMP/Pi-Client.xcarchive"
+              xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner -configuration Release \
+                -archivePath "$ARCHIVE" -destination 'generic/platform=iOS' \
+                CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' archive
+              APP="$ARCHIVE/Products/Applications/Runner.app"
+              PLIST="$APP/Info.plist"
+              EXECUTABLE="$APP/Runner"
+              test -x "$EXECUTABLE"
+              [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$PLIST")" == 'Pi Client' ]]
+              [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$PLIST")" == 'io.github.huwentao.piClient' ]]
+              [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST")" == "$VERSION" ]]
+              [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PLIST")" == "$BUILD_NUMBER" ]]
+              [[ "$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$PLIST")" == '15.0' ]]
+              [[ "$(lipo -archs "$EXECUTABLE")" == 'arm64' ]]
+              if codesign --verify --deep --strict "$APP" >/dev/null 2>&1; then
+                echo 'Expected a no-codesign iOS archive.' >&2
+                exit 1
+              fi
+              IOS_ZIP="$RUNNER_TEMP/Pi-Client-iOS.xcarchive.zip"
+              ditto -c -k --sequesterRsrc --keepParent "$ARCHIVE" "$IOS_ZIP"
+              unzip -t "$IOS_ZIP"
+              node tool/preview_artifacts.mjs stage \
+                --profile "$PROFILE" \
+                --target ios-arm64 \
+                --input "$IOS_ZIP" \
+                --contents-root "$ARCHIVE" \
+                --output-dir "$STAGE"
+              ;;
+            macos)
+              fvm flutter build macos --release --config-only \
+                --build-name "$VERSION" --build-number "$BUILD_NUMBER" \
+                --dart-define=PI_CLIENT_DISTRIBUTION_CHANNEL=unsigned-preview
+              DERIVED_DATA="$RUNNER_TEMP/pi-client-derived-data"
+              xcodebuild -workspace macos/Runner.xcworkspace -scheme Runner -configuration Release \
+                -derivedDataPath "$DERIVED_DATA" -arch arm64 -arch x86_64 ONLY_ACTIVE_ARCH=NO \
+                CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
+              APP="$DERIVED_DATA/Build/Products/Release/Pi Client.app"
+              PLIST="$APP/Contents/Info.plist"
+              EXECUTABLE="$APP/Contents/MacOS/Pi Client"
+              test -x "$EXECUTABLE"
+              [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$PLIST")" == 'Pi Client' ]]
+              [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$PLIST")" == 'Pi Client' ]]
+              [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$PLIST")" == 'io.github.huwentao.piClient' ]]
+              [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST")" == "$VERSION" ]]
+              [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PLIST")" == "$BUILD_NUMBER" ]]
+              [[ "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$PLIST")" == '11.0' ]]
+              [[ "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.security.network.client' macos/Runner/Release.entitlements)" == 'true' ]]
+              MACH_O_COUNT=0
+              while IFS= read -r -d '' BINARY; do
+                if file "$BINARY" | grep -q 'Mach-O'; then
+                  MACH_O_COUNT=$((MACH_O_COUNT + 1))
+                  ARCHS="$(lipo -archs "$BINARY")"
+                  [[ " $ARCHS " == *" arm64 "* ]]
+                  [[ " $ARCHS " == *" x86_64 "* ]]
+                fi
+              done < <(find "$APP/Contents" -type f -perm -111 -print0)
+              [[ "$MACH_O_COUNT" -gt 0 ]]
+              if codesign --verify --deep --strict "$APP" >/dev/null 2>&1; then
+                echo 'Expected an unsigned macOS app.' >&2
+                exit 1
+              fi
+              if spctl --assess --type execute "$APP" >/dev/null 2>&1; then
+                echo 'Expected Gatekeeper to reject the unsigned macOS preview.' >&2
+                exit 1
+              fi
+              LOG="$RUNNER_TEMP/pi-client-launch.log"
+              "$EXECUTABLE" > "$LOG" 2>&1 & PID=$!
+              sleep 8
+              if ! kill -0 "$PID" >/dev/null 2>&1; then
+                cat "$LOG"
+                echo 'Pi Client exited during the unsigned-preview launch check.' >&2
+                exit 1
+              fi
+              kill "$PID"
+              wait "$PID" || true
+              if grep -Eiq -- '-34018|errSecMissingEntitlement|keychain.*entitlement' "$LOG"; then
+                cat "$LOG"
+                exit 1
+              fi
+              MAC_ZIP="$RUNNER_TEMP/Pi-Client-macOS.zip"
+              ditto -c -k --sequesterRsrc --keepParent "$APP" "$MAC_ZIP"
+              unzip -t "$MAC_ZIP"
+              node tool/preview_artifacts.mjs stage \
+                --profile "$PROFILE" \
+                --target macos-universal \
+                --input "$MAC_ZIP" \
+                --contents-root "$APP" \
+                --output-dir "$STAGE"
+              ;;
+            windows)
+              fvm flutter build windows --release --build-name "$VERSION" --build-number "$BUILD_NUMBER"
+              BUNDLE='build/windows/x64/runner/Release'
+              EXE="$BUNDLE/pi_client.exe"
+              test -s "$EXE"
+              file "$EXE" | grep -Eq 'PE32\+.*x86-64'
+              powershell -NoProfile -Command \
+                "\$v=(Get-Item -LiteralPath '$EXE').VersionInfo; if (\$v.ProductName -ne 'Pi Client' -or \$v.ProductVersion -ne '$VERSION') { throw 'Windows identity or version mismatch.' }; if ((Get-AuthenticodeSignature -LiteralPath '$EXE').Status -ne 'NotSigned') { throw 'Expected NotSigned Windows executable.' }"
+              WIN_ZIP="$RUNNER_TEMP/Pi-Client-Windows.zip"
+              powershell -NoProfile -Command \
+                "Compress-Archive -Path '$BUNDLE/*' -DestinationPath '$WIN_ZIP' -CompressionLevel Optimal"
+              unzip -t "$WIN_ZIP"
+              node tool/preview_artifacts.mjs stage \
+                --profile "$PROFILE" \
+                --target windows-amd64-portable \
+                --input "$WIN_ZIP" \
+                --contents-root "$BUNDLE" \
+                --output-dir "$STAGE"
+              ;;
+            linux)
+              fvm flutter build linux --release --build-name "$VERSION" --build-number "$BUILD_NUMBER"
+              BUNDLE='build/linux/x64/release/bundle'
+              EXE="$BUNDLE/pi_client"
+              test -x "$EXE"
+              file "$EXE" | grep -Eq 'ELF 64-bit.*x86-64'
+              readelf -h "$EXE" | grep -Eq 'Machine:[[:space:]]+Advanced Micro Devices X86-64'
+              strings "$EXE" > "$RUNNER_TEMP/pi-client-linux-strings.txt"
+              grep -Fq 'io.github.huwentao.pi_client' "$RUNNER_TEMP/pi-client-linux-strings.txt"
+
+              REQUIRED_SYMBOLS="$RUNNER_TEMP/linux-required-symbols.txt"
+              : > "$REQUIRED_SYMBOLS"
+              ELF_COUNT=0
+              while IFS= read -r -d '' ELF; do
+                if file -b "$ELF" | grep -q '^ELF '; then
+                  ELF_COUNT=$((ELF_COUNT + 1))
+                  LDD_OUTPUT="$RUNNER_TEMP/ldd-$ELF_COUNT.txt"
+                  if ! ldd "$ELF" > "$LDD_OUTPUT" 2>&1; then
+                    cat "$LDD_OUTPUT" >&2
+                    echo "ldd failed for $ELF." >&2
+                    exit 1
+                  fi
+                  if grep -Fq 'not found' "$LDD_OUTPUT"; then
+                    cat "$LDD_OUTPUT" >&2
+                    echo "Unresolved Linux runtime dependency in $ELF." >&2
+                    exit 1
+                  fi
+                  VERSION_INFO="$RUNNER_TEMP/readelf-version-$ELF_COUNT.txt"
+                  if ! readelf --version-info "$ELF" > "$VERSION_INFO"; then
+                    echo "readelf --version-info failed for $ELF." >&2
+                    exit 1
+                  fi
+                  grep -oE 'GLIBCXX_[0-9]+(\.[0-9]+)*|GLIBC_[0-9]+(\.[0-9]+)*' \
+                    "$VERSION_INFO" >> "$REQUIRED_SYMBOLS" || true
+                fi
+              done < <(find "$BUNDLE" -type f -print0)
+              [[ "$ELF_COUNT" -gt 0 ]]
+
+              MAX_GLIBC="$(grep '^GLIBC_' "$REQUIRED_SYMBOLS" | sort -V | tail -1 || true)"
+              MAX_GLIBCXX="$(grep '^GLIBCXX_' "$REQUIRED_SYMBOLS" | sort -V | tail -1 || true)"
+              GLIBC_BASELINE='GLIBC_2.39'
+              GLIBCXX_BASELINE='GLIBCXX_3.4.33'
+              if [[ -n "$MAX_GLIBC" && "$(printf '%s\n%s\n' "$MAX_GLIBC" "$GLIBC_BASELINE" | sort -V | tail -1)" != "$GLIBC_BASELINE" ]]; then
+                echo "Required $MAX_GLIBC exceeds Ubuntu 24.04 baseline $GLIBC_BASELINE." >&2
+                exit 1
+              fi
+              if [[ -n "$MAX_GLIBCXX" && "$(printf '%s\n%s\n' "$MAX_GLIBCXX" "$GLIBCXX_BASELINE" | sort -V | tail -1)" != "$GLIBCXX_BASELINE" ]]; then
+                echo "Required $MAX_GLIBCXX exceeds Ubuntu 24.04 baseline $GLIBCXX_BASELINE." >&2
+                exit 1
+              fi
+
+              LINUX_TAR="$RUNNER_TEMP/Pi-Client-Linux.tar.gz"
+              tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner \
+                -C "$BUNDLE" -czf "$LINUX_TAR" .
+              tar -tzf "$LINUX_TAR" >/dev/null
+              node tool/preview_artifacts.mjs stage \
+                --profile "$PROFILE" \
+                --target linux-amd64 \
+                --input "$LINUX_TAR" \
+                --contents-root "$BUNDLE" \
+                --output-dir "$STAGE"
+              ;;
+            web)
+              fvm flutter build web --release --build-name "$VERSION" --build-number "$BUILD_NUMBER"
+              test -s build/web/main.dart.js
+              node -e "const m=require('./build/web/manifest.json'); if (m.name !== 'Pi Client' || m.short_name !== 'Pi Client') process.exit(1)"
+              if [[ -e build/web/main.dart.wasm || -e build/web/main.dart.wasm.map ]]; then
+                echo 'Web preview must compile the Dart application to main.dart.js, not main.dart.wasm.' >&2
+                exit 1
+              fi
+              WEB_ZIP="$RUNNER_TEMP/Pi-Client-Web.zip"
+              (cd build/web && zip -qr "$WEB_ZIP" .)
+              unzip -t "$WEB_ZIP"
+              node tool/preview_artifacts.mjs stage \
+                --profile "$PROFILE" \
+                --target web-js \
+                --input "$WEB_ZIP" \
+                --contents-root build/web \
+                --output-dir "$STAGE"
+              ;;
+            *)
+              echo "Unknown platform: $PLATFORM" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Upload staged platform artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: preview-${{ matrix.platform }}-${{ github.sha }}
+          path: .release-staging/${{ matrix.platform }}/*
+          if-no-files-found: error
+          retention-days: 7
+
+  assemble:
+    if: needs.prepare.outputs.freshBundleRequired == 'true'
+    needs: [prepare, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Download isolated staged platform artifacts
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          pattern: preview-*-${{ github.sha }}
+          path: .release-staging/sources
+
+      - name: Assemble and verify exact release bundle
+        env:
+          PROFILE: ${{ needs.prepare.outputs.artifactProfile }}
+        run: |
+          node tool/preview_artifacts.mjs assemble \
+            --profile "$PROFILE" \
+            --input-dir .release-staging/sources \
+            --source-layout workflow \
+            --output-dir release-bundle \
+            --commit "$GITHUB_SHA" \
+            --flutter-version 3.41.6
+          node tool/preview_artifacts.mjs verify \
+            --profile "$PROFILE" \
+            --directory release-bundle \
+            --commit "$GITHUB_SHA" \
+            --flutter-version 3.41.6
+
+      - name: Upload qualified release bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-preview-${{ github.sha }}
+          path: release-bundle/*
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    if: >-
+      ${{
+        always() &&
+        inputs.mode == 'publish' &&
+        needs.prepare.result == 'success' &&
+        needs.qualification.result == 'success' &&
+        (
+          (needs.prepare.outputs.resumeRunId != '' &&
+           needs.build.result == 'skipped' &&
+           needs.assemble.result == 'skipped') ||
+          (needs.prepare.outputs.resumeRunId == '' &&
+           needs.build.result == 'success' &&
+           needs.assemble.result == 'success')
+        )
+      }}
+    needs: [prepare, qualification, build, assemble]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Download qualified release bundle from this run
+        if: needs.prepare.outputs.resumeRunId == ''
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: release-preview-${{ github.sha }}
+          path: release-bundle
+
+      - name: Download exact qualified release bundle from recovery run
+        if: needs.prepare.outputs.resumeRunId != ''
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: release-preview-${{ github.sha }}
+          path: release-bundle
+          run-id: ${{ needs.prepare.outputs.resumeRunId }}
+          github-token: ${{ github.token }}
+
+      - name: Reverify bundle and create or validate the immutable annotated tag
+        env:
+          PROFILE: ${{ needs.prepare.outputs.artifactProfile }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]]
+          node tool/preview_artifacts.mjs verify \
+            --profile "$PROFILE" \
+            --directory release-bundle \
+            --commit "$GITHUB_SHA" \
+            --flutter-version 3.41.6
+
+          REMOTE_TAGS="$RUNNER_TEMP/final-remote-tags.txt"
+          if git ls-remote --tags origin > "$REMOTE_TAGS"; then
+            :
+          else
+            STATUS=$?
+            echo "git ls-remote failed with exit code $STATUS; final remote state is unknown." >&2
+            exit "$STATUS"
+          fi
+          node tool/release_metadata.mjs \
+            --require-profile six-platform-preview-v1 \
+            --remote-tags-file "$REMOTE_TAGS" \
+            --candidate-commit "$GITHUB_SHA" > "$RUNNER_TEMP/final-tag-state.json"
+          TAG_STATE="$(jq -r '.remoteTagState' "$RUNNER_TEMP/final-tag-state.json")"
+          REMOTE_TAG_REF='refs/pi-client-release/validated-tag'
+          if git show-ref --verify --quiet "$REMOTE_TAG_REF"; then
+            echo "Temporary validation ref $REMOTE_TAG_REF unexpectedly exists." >&2
+            exit 1
+          else
+            STATUS=$?
+            [[ "$STATUS" -eq 1 ]] || {
+              echo "git show-ref failed with exit code $STATUS while checking $REMOTE_TAG_REF." >&2
+              exit "$STATUS"
+            }
+          fi
+
+          if [[ "$TAG_STATE" == 'absent' ]]; then
+            if git show-ref --verify --quiet "refs/tags/$TAG"; then
+              echo "Local tag $TAG exists while the remote tag is absent; refusing to move or delete it." >&2
+              exit 1
+            else
+              STATUS=$?
+              [[ "$STATUS" -eq 1 ]] || {
+                echo "git show-ref failed with exit code $STATUS while checking local tag $TAG." >&2
+                exit "$STATUS"
+              }
+            fi
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git tag -a "$TAG" "$GITHUB_SHA" -m "Pi Client $VERSION"
+            [[ "$(git cat-file -t "refs/tags/$TAG")" == 'tag' ]]
+            [[ "$(git rev-parse "refs/tags/$TAG^{}")" == "$GITHUB_SHA" ]]
+            git push origin "refs/tags/$TAG"
+          elif [[ "$TAG_STATE" != 'existing-annotated' ]]; then
+            echo "Unknown remote tag state: $TAG_STATE." >&2
+            exit 1
+          fi
+
+          git fetch --no-tags origin "refs/tags/$TAG:$REMOTE_TAG_REF"
+          [[ "$(git cat-file -t "$REMOTE_TAG_REF")" == 'tag' ]] || {
+            echo "Existing $TAG is not an annotated tag object." >&2
+            exit 1
+          }
+          [[ "$(git rev-parse "$REMOTE_TAG_REF^{}")" == "$GITHUB_SHA" ]] || {
+            echo "Existing $TAG does not peel to qualified commit $GITHUB_SHA." >&2
+            exit 1
+          }
+
+      - name: Create or reuse Draft, verify service assets, and publish last
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          TITLE: ${{ needs.prepare.outputs.releaseTitle }}
+          NOTES: ${{ needs.prepare.outputs.releaseNotesPath }}
+          PROFILE: ${{ needs.prepare.outputs.artifactProfile }}
+          EXPECTED_ASSETS: ${{ needs.prepare.outputs.expectedAssetsJson }}
+        run: |
+          set -euo pipefail
+          RELEASE_PAGES="$RUNNER_TEMP/final-release-pages.json"
+          RELEASE_MATCHES="$RUNNER_TEMP/final-release-matches.json"
+          RELEASE_JSON="$RUNNER_TEMP/final-release.json"
+          EXPECTED_NAMES="$RUNNER_TEMP/final-expected-assets.txt"
+          ACTUAL_NAMES="$RUNNER_TEMP/final-actual-assets.txt"
+          SERVICE_NAMES="$RUNNER_TEMP/final-service-assets.txt"
+          ASSET_ROWS="$RUNNER_TEMP/final-asset-rows.tsv"
+          jq -r '.[]' <<< "$EXPECTED_ASSETS" | sort > "$EXPECTED_NAMES"
+
+          assert_release_identity() {
+            local file="$1"
+            local expected_draft="$2"
+            jq -e \
+              --arg id "$RELEASE_ID" \
+              --arg tag "$TAG" \
+              --arg title "$TITLE" \
+              --rawfile notes "$NOTES" \
+              --argjson expectedDraft "$expected_draft" \
+              '(.id | tostring) == $id and
+               .tag_name == $tag and
+               .name == $title and
+               .body == $notes and
+               .prerelease == true and
+               .draft == $expectedDraft' \
+              "$file" >/dev/null
+          }
+
+          assert_exact_assets() {
+            local file="$1"
+            jq -e '[.assets[].name] as $names | ($names | length) == ($names | unique | length)' \
+              "$file" >/dev/null
+            jq -r '.assets[].name' "$file" | sort > "$ACTUAL_NAMES"
+            diff -u "$EXPECTED_NAMES" "$ACTUAL_NAMES"
+            [[ "$(jq '[.assets[] | select(.size <= 0 or .state != "uploaded")] | length' "$file")" == '0' ]]
+          }
+
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RELEASE_PAGES"
+          jq -c --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)]' \
+            "$RELEASE_PAGES" > "$RELEASE_MATCHES"
+          RELEASE_COUNT="$(jq 'length' "$RELEASE_MATCHES")"
+          if [[ "$RELEASE_COUNT" -gt 1 ]]; then
+            echo "Duplicate GitHub Releases use $TAG." >&2
+            exit 1
+          fi
+          if [[ "$RELEASE_COUNT" -eq 0 ]]; then
+            jq -n \
+              --arg tag "$TAG" \
+              --arg commit "$GITHUB_SHA" \
+              --arg title "$TITLE" \
+              --rawfile body "$NOTES" \
+              '{tag_name: $tag, target_commitish: $commit, name: $title, body: $body, draft: true, prerelease: true}' \
+              > "$RUNNER_TEMP/create-release.json"
+            gh api --method POST "repos/$GITHUB_REPOSITORY/releases" \
+              --input "$RUNNER_TEMP/create-release.json" > "$RUNNER_TEMP/created-release.json"
+            gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RELEASE_PAGES"
+            jq -c --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)]' \
+              "$RELEASE_PAGES" > "$RELEASE_MATCHES"
+            RELEASE_COUNT="$(jq 'length' "$RELEASE_MATCHES")"
+          fi
+          [[ "$RELEASE_COUNT" -eq 1 ]] || {
+            echo "Expected exactly one GitHub Release for $TAG after Draft admission." >&2
+            exit 1
+          }
+          jq -c '.[0]' "$RELEASE_MATCHES" > "$RELEASE_JSON"
+          jq -e \
+            --arg tag "$TAG" \
+            --arg title "$TITLE" \
+            --rawfile notes "$NOTES" \
+            '((.id | type) == "number") and
+             .tag_name == $tag and
+             .name == $title and
+             .body == $notes and
+             .prerelease == true and
+             ((.draft | type) == "boolean")' \
+            "$RELEASE_JSON" >/dev/null
+
+          RELEASE_ID="$(jq -r '.id' "$RELEASE_JSON")"
+          RELEASE_IS_DRAFT="$(jq -r '.draft' "$RELEASE_JSON")"
+          RAW_UPLOAD_URL="$(jq -r '.upload_url' "$RELEASE_JSON")"
+          EXPECTED_UPLOAD_URL="https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets{?name,label}"
+          [[ "$RAW_UPLOAD_URL" == "$EXPECTED_UPLOAD_URL" ]] || {
+            echo "Release upload URL does not match the expected GitHub draft upload boundary." >&2
+            exit 1
+          }
+          UPLOAD_URL="${RAW_UPLOAD_URL%\{\?name,label\}}"
+          jq -e '[.assets[].name] as $names | ($names | length) == ($names | unique | length)' \
+            "$RELEASE_JSON" >/dev/null
+          jq -r '.assets[].name' "$RELEASE_JSON" > "$SERVICE_NAMES"
+          while IFS= read -r SERVICE_NAME; do
+            [[ "$SERVICE_NAME" =~ ^[A-Za-z0-9._-]+$ ]] || {
+              echo "Unsafe service asset name: $SERVICE_NAME." >&2
+              exit 1
+            }
+            jq -e --arg name "$SERVICE_NAME" --argjson expected "$EXPECTED_ASSETS" \
+              '$expected | index($name) != null' <<< '{}' >/dev/null || {
+              echo "Unexpected existing service asset $SERVICE_NAME; refusing to overwrite or delete." >&2
+              exit 1
+            }
+          done < "$SERVICE_NAMES"
+
+          if [[ "$RELEASE_IS_DRAFT" == 'true' ]]; then
+            STARTER_ASSET_COUNT="$(jq '[.assets[] | select(.state == "starter" and .size == 0)] | length' "$RELEASE_JSON")"
+            [[ "$STARTER_ASSET_COUNT" -le 1 ]] || {
+              echo "Draft $TAG contains multiple failed starter assets; refusing ambiguous recovery deletion." >&2
+              exit 1
+            }
+          fi
+
+          rm -rf "$RUNNER_TEMP/existing-assets"
+          mkdir -p "$RUNNER_TEMP/existing-assets"
+          while IFS= read -r NAME; do
+            [[ "$NAME" =~ ^[A-Za-z0-9._-]+$ ]]
+            LOCAL_FILE="release-bundle/$NAME"
+            test -s "$LOCAL_FILE"
+            SAME_NAME_COUNT="$(jq --arg name "$NAME" '[.assets[] | select(.name == $name)] | length' "$RELEASE_JSON")"
+            if [[ "$SAME_NAME_COUNT" -gt 1 ]]; then
+              echo "Duplicate same-name service assets exist for $NAME." >&2
+              exit 1
+            fi
+            if [[ "$SAME_NAME_COUNT" -eq 1 ]]; then
+              ASSET_ID="$(jq -r --arg name "$NAME" '.assets[] | select(.name == $name) | .id' "$RELEASE_JSON")"
+              ASSET_SIZE="$(jq -r --arg name "$NAME" '.assets[] | select(.name == $name) | .size' "$RELEASE_JSON")"
+              ASSET_STATE="$(jq -r --arg name "$NAME" '.assets[] | select(.name == $name) | .state' "$RELEASE_JSON")"
+              if [[ "$ASSET_STATE" == 'starter' && "$ASSET_SIZE" == '0' ]]; then
+                [[ "$RELEASE_IS_DRAFT" == 'true' ]] || {
+                  echo "Public release $TAG contains failed starter asset $NAME; refusing deletion." >&2
+                  exit 1
+                }
+                gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
+                  > "$RUNNER_TEMP/starter-delete-admission.json"
+                assert_release_identity "$RUNNER_TEMP/starter-delete-admission.json" true
+                jq -e --arg name "$NAME" --arg id "$ASSET_ID" \
+                  '[.assets[] | select(.name == $name)] as $matches |
+                   ($matches | length) == 1 and
+                   ($matches[0].id | tostring) == $id and
+                   $matches[0].state == "starter" and
+                   $matches[0].size == 0' \
+                  "$RUNNER_TEMP/starter-delete-admission.json" >/dev/null || {
+                    echo "Failed starter asset $NAME changed before bounded recovery deletion." >&2
+                    exit 1
+                  }
+                gh api --method DELETE \
+                  "repos/$GITHUB_REPOSITORY/releases/assets/$ASSET_ID"
+                gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
+                  > "$RUNNER_TEMP/starter-delete-readback.json"
+                assert_release_identity "$RUNNER_TEMP/starter-delete-readback.json" true
+                [[ "$(jq --arg name "$NAME" '[.assets[] | select(.name == $name)] | length' "$RUNNER_TEMP/starter-delete-readback.json")" == '0' ]] || {
+                  echo "Failed starter asset $NAME still exists after bounded recovery deletion." >&2
+                  exit 1
+                }
+                SAME_NAME_COUNT=0
+              elif [[ "$ASSET_STATE" == 'uploaded' && "$ASSET_SIZE" -gt 0 ]]; then
+                gh api "repos/$GITHUB_REPOSITORY/releases/assets/$ASSET_ID" \
+                  -H 'Accept: application/octet-stream' > "$RUNNER_TEMP/existing-assets/$NAME"
+                [[ "$(stat -c '%s' "$RUNNER_TEMP/existing-assets/$NAME")" == "$ASSET_SIZE" ]]
+                [[ "$(sha256sum "$LOCAL_FILE" | cut -d' ' -f1)" == "$(sha256sum "$RUNNER_TEMP/existing-assets/$NAME" | cut -d' ' -f1)" ]] || {
+                  echo "Existing service asset $NAME differs from the qualified local artifact; refusing overwrite." >&2
+                  exit 1
+                }
+              else
+                echo "Existing service asset $NAME has non-recoverable state=$ASSET_STATE size=$ASSET_SIZE; refusing overwrite or deletion." >&2
+                exit 1
+              fi
+            fi
+            if [[ "$SAME_NAME_COUNT" -eq 0 ]]; then
+              [[ "$RELEASE_IS_DRAFT" == 'true' ]] || {
+                echo "Published release $TAG is missing $NAME and must not be mutated." >&2
+                exit 1
+              }
+              gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
+                > "$RUNNER_TEMP/upload-admission.json"
+              assert_release_identity "$RUNNER_TEMP/upload-admission.json" true
+              [[ "$(jq --arg name "$NAME" '[.assets[] | select(.name == $name)] | length' "$RUNNER_TEMP/upload-admission.json")" == '0' ]] || {
+                echo "Service asset $NAME appeared concurrently; refusing overwrite." >&2
+                exit 1
+              }
+              ENCODED_NAME="$(jq -rn --arg name "$NAME" '$name | @uri')"
+              gh api --method POST "$UPLOAD_URL?name=$ENCODED_NAME" \
+                -H 'Content-Type: application/octet-stream' \
+                --input "$LOCAL_FILE" > "$RUNNER_TEMP/uploaded-asset.json"
+              jq -e --arg name "$NAME" \
+                '.name == $name and .state == "uploaded" and .size > 0' \
+                "$RUNNER_TEMP/uploaded-asset.json" >/dev/null
+            fi
+          done < "$EXPECTED_NAMES"
+
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RELEASE_PAGES"
+          jq -c --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)]' \
+            "$RELEASE_PAGES" > "$RELEASE_MATCHES"
+          [[ "$(jq 'length' "$RELEASE_MATCHES")" -eq 1 ]]
+          jq -c '.[0]' "$RELEASE_MATCHES" > "$RELEASE_JSON"
+          if [[ "$RELEASE_IS_DRAFT" == 'true' ]]; then
+            assert_release_identity "$RELEASE_JSON" true || {
+              echo "Draft $TAG was changed or published concurrently before this workflow's final PATCH." >&2
+              exit 1
+            }
+          else
+            assert_release_identity "$RELEASE_JSON" false
+          fi
+          assert_exact_assets "$RELEASE_JSON"
+
+          rm -rf downloaded
+          mkdir downloaded
+          jq -r '.assets[] | [.id, .name] | @tsv' "$RELEASE_JSON" > "$ASSET_ROWS"
+          while IFS=$'\t' read -r ID NAME; do
+            [[ "$NAME" =~ ^[A-Za-z0-9._-]+$ ]]
+            gh api "repos/$GITHUB_REPOSITORY/releases/assets/$ID" \
+              -H 'Accept: application/octet-stream' > "downloaded/$NAME"
+          done < "$ASSET_ROWS"
+          node tool/preview_artifacts.mjs verify \
+            --profile "$PROFILE" \
+            --directory downloaded \
+            --commit "$GITHUB_SHA" \
+            --flutter-version 3.41.6
+          for FILE in release-bundle/*; do
+            NAME="$(basename "$FILE")"
+            [[ "$(sha256sum "$FILE" | cut -d' ' -f1)" == "$(sha256sum "downloaded/$NAME" | cut -d' ' -f1)" ]]
+          done
+
+          if [[ "$RELEASE_IS_DRAFT" == 'true' ]]; then
+            gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
+              > "$RUNNER_TEMP/pre-publish-release.json"
+            assert_release_identity "$RUNNER_TEMP/pre-publish-release.json" true || {
+              echo "Draft $TAG became public or changed before this workflow's final PATCH." >&2
+              exit 1
+            }
+            assert_exact_assets "$RUNNER_TEMP/pre-publish-release.json"
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
+              -F draft=false -F prerelease=true > "$RUNNER_TEMP/published-release.json"
+            assert_release_identity "$RUNNER_TEMP/published-release.json" false
+            assert_exact_assets "$RUNNER_TEMP/published-release.json"
+          else
+            echo "Release $TAG was initially public; verified without mutation."
+          fi
+
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RELEASE_PAGES"
+          jq -c --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)]' \
+            "$RELEASE_PAGES" > "$RELEASE_MATCHES"
+          [[ "$(jq 'length' "$RELEASE_MATCHES")" -eq 1 ]]
+          jq -c '.[0]' "$RELEASE_MATCHES" > "$RELEASE_JSON"
+          assert_release_identity "$RELEASE_JSON" false
+          assert_exact_assets "$RELEASE_JSON"
+
+      - name: Request frozen-source Pages deployment after publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh workflow run pages.yml --ref "$TAG" \
+            -f source_commit="$GITHUB_SHA" \
+            -f release_tag="$TAG"

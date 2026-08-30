@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 1,
+  "artifactProfile": "macos-preview-v1",
+  "primaryTarget": "macos-universal"
+}

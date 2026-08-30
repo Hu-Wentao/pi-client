@@ -1,0 +1,39 @@
+name: Set up pinned Flutter toolchain
+description: Install Dart 3.11.4, FVM 4.0.5, and Flutter 3.41.6.
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Dart 3.11.4
+      uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1
+      with:
+        sdk: 3.11.4
+
+    - name: Cache Flutter SDK
+      uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+      with:
+        path: ~/fvm/versions/3.41.6
+        key: ${{ runner.os }}-${{ runner.arch }}-fvm-flutter-3.41.6
+
+    - name: Install FVM 4.0.5 and Flutter 3.41.6
+      shell: bash
+      run: |
+        set -euo pipefail
+        dart pub global activate fvm 4.0.5
+        dart pub global run fvm:main install 3.41.6
+        dart pub global run fvm:main use 3.41.6 --force
+
+        TEMP_ROOT="$RUNNER_TEMP"
+        if command -v cygpath >/dev/null 2>&1; then
+          TEMP_ROOT="$(cygpath -u "$RUNNER_TEMP")"
+        fi
+        FVM_BIN="$TEMP_ROOT/pi-client-fvm-bin"
+        mkdir -p "$FVM_BIN"
+        printf '%s\n' \
+          '#!/usr/bin/env bash' \
+          'exec dart pub global run fvm:main "$@"' > "$FVM_BIN/fvm"
+        chmod +x "$FVM_BIN/fvm"
+        echo "$FVM_BIN" >> "$GITHUB_PATH"
+
+        dart pub global run fvm:main flutter --version --machine > "$TEMP_ROOT/flutter-version.json"
+        grep -Eq '"frameworkVersion"[[:space:]]*:[[:space:]]*"3\.41\.6"' "$TEMP_ROOT/flutter-version.json"

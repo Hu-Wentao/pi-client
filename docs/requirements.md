@@ -147,3 +147,13 @@ Default review level: L6. Requirements derived directly from the user-provided M
 - Constraints: The Landing Page must describe only delivered behavior; pi-web `0.8.11` is identified as transitional; unsigned and unnotarized assets disclose Gatekeeper risk; WebAssembly, signed DMG, and planned Pi SDK/transport features are not presented as available.
 - Source: `DEC-015` and `PLAN-PI-003`.
 - Acceptance: GitHub Pages serves `/pi-client/` and `/pi-client/zh-cn/`; both routes link to the published `v0.0.2/Pi-Client-0.0.2-macOS-universal.zip`; the ZIP and SHA-256 are public; production metadata, responsive behavior, keyboard access, and representative Safari/Chrome rendering are verified.
+
+## REQ-PI-013 - Qualify and publish an auditable cross-platform Preview
+
+- Status: Planned
+- Priority: Must
+- Review level: L6
+- Actor and goal: A contributor can qualify one Pi Client commit across Android, iOS, macOS, Windows, Linux, and Web and, with separate publication authority, expose the exact resulting Preview artifacts through one auditable GitHub Prerelease.
+- Constraints: Every platform uses the shared version and an appropriate native runner; current `v0.0.2` remains macOS-only and immutable; unsigned/no-codesign state is explicit; Android Release never falls back to Debug signing; Android, iOS, and Web remain connect-only; no artifact contains Pi SDK or Agent Host runtime until that implementation is separately accepted.
+- Source: `DEC-016` and `PLAN-PI-004`.
+- Acceptance: Shared quality gates and all six platform builds pass for the same full commit; the selected monotonic Artifact Profile yields the exact expected application files, platform-owned stage evidence, deterministic manifest, and checksums; missing, unexpected, duplicate, wrong-source, unsafe Host-name, or zero-byte assets fail qualification; publication creates or resumes only the same annotated Tag/commit, never overwrites an existing asset, and exposes a Draft only after service-side asset and downloaded-digest verification.

@@ -1,0 +1,130 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Set up Flutter
+        uses: ./.github/actions/setup-flutter
+
+      - name: Resolve Flutter dependencies
+        run: fvm flutter pub get
+
+      - name: Verify generated source drift
+        run: |
+          fvm dart run build_runner build
+          if ! git diff --exit-code -- lib test; then
+            echo 'Generated Dart sources are stale.' >&2
+            exit 1
+          fi
+
+      - name: Format, analyze, and test Flutter source
+        run: |
+          fvm dart format --output=none --set-exit-if-changed lib test tool
+          fvm flutter analyze
+          fvm flutter test
+
+      - name: Test release automation
+        run: node --test test/release_contract_test.mjs test/preview_artifacts_test.mjs test/workflow_policy_test.mjs
+
+      - name: Validate release metadata
+        run: node tool/release_metadata.mjs
+
+      - name: Set up Bun 1.4.0
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.0
+
+      - name: Install site dependencies
+        working-directory: site
+        run: bun install --frozen-lockfile
+
+      - name: Check and build Astro site
+        working-directory: site
+        env:
+          ASTRO_TELEMETRY_DISABLED: '1'
+        run: |
+          bun run check
+          bun run build
+          bun run validate
+
+  platform-build:
+    needs: quality
+    name: ${{ matrix.name }} debug build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Android
+            os: ubuntu-24.04
+            target: android
+          - name: iOS
+            os: macos-15
+            target: ios
+          - name: macOS
+            os: macos-15
+            target: macos
+          - name: Windows
+            os: windows-2025
+            target: windows
+          - name: Linux
+            os: ubuntu-24.04
+            target: linux
+          - name: Web JavaScript
+            os: ubuntu-24.04
+            target: web
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Install Linux build dependencies
+        if: matrix.target == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev
+
+      - name: Set up Flutter
+        uses: ./.github/actions/setup-flutter
+
+      - name: Resolve Flutter dependencies
+        shell: bash
+        run: fvm flutter pub get
+
+      - name: Build platform debug target
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          case "$TARGET" in
+            android) fvm flutter build apk --debug ;;
+            ios) fvm flutter build ios --debug --no-codesign ;;
+            macos) fvm flutter build macos --debug ;;
+            windows) fvm flutter build windows --debug ;;
+            linux) fvm flutter build linux --debug ;;
+            web)
+              fvm flutter build web --debug
+              test -s build/web/main.dart.js
+              if [[ -e build/web/main.dart.wasm || -e build/web/main.dart.wasm.map ]]; then
+                echo 'Expected the Dart application to be compiled to main.dart.js, not main.dart.wasm.' >&2
+                exit 1
+              fi
+              ;;
+            *) echo "Unknown platform target: $TARGET" >&2; exit 1 ;;
+          esac

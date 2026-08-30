@@ -2,10 +2,11 @@ import { access, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { loadReleaseContract } from '../../tool/release_contract.mjs';
+
 const siteRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const dist = resolve(siteRoot, 'dist');
-const expectedDownload =
-  'https://github.com/Hu-Wentao/pi-client/releases/download/v0.0.2/Pi-Client-0.0.2-macOS-universal.zip';
+const expectedDownload = (await loadReleaseContract()).downloadUrl;
 const pages = [
   {
     path: resolve(dist, 'index.html'),
