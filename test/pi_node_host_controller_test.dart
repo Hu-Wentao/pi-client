@@ -54,9 +54,9 @@ void main() {
 
     test('loads bundled process configuration lazily only once', () async {
       final configuration = PiNodeDesktopProcessConfiguration(
-        nodeExecutable: '/bundle/Contents/Helpers/PiNode/runtime/bin/node',
+        nodeExecutable: '/bundle/Contents/Resources/PiNode/runtime/bin/node',
         serverArguments: const <String>[
-          '/bundle/Contents/Helpers/PiNode/app/dist/stdio-main.js',
+          '/bundle/Contents/Resources/PiNode/app/dist/stdio-main.js',
         ],
       );
       final transport = _TrackingTransport();

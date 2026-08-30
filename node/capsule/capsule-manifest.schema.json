@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://pi-client.dev/schemas/pi-node-runtime-capsule-manifest-v1.json",
+  "$id": "https://pi-client.dev/schemas/pi-node-runtime-capsule-manifest-v2.json",
   "title": "Pi Node Runtime Capsule Manifest",
   "type": "object",
   "additionalProperties": false,
@@ -13,11 +13,12 @@
     "locks",
     "runtime",
     "application",
+    "nativeCode",
     "integrity"
   ],
   "properties": {
     "schemaVersion": {
-      "const": 1
+      "const": 2
     },
     "capsuleKind": {
       "const": "pi-node-runtime"
@@ -29,16 +30,25 @@
     "target": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "platform", "architecture"],
+      "required": ["id", "platform", "architecture", "architectures"],
       "properties": {
         "id": {
-          "enum": ["darwin-arm64", "darwin-x64", "linux-x64", "win32-x64"]
+          "enum": ["darwin-arm64", "darwin-x64", "darwin-universal", "linux-x64", "win32-x64"]
         },
         "platform": {
           "enum": ["darwin", "linux", "win32"]
         },
         "architecture": {
-          "enum": ["arm64", "x64"]
+          "enum": ["arm64", "x64", "universal"]
+        },
+        "architectures": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["arm64", "x64"]
+          }
         }
       }
     },
@@ -100,34 +110,23 @@
     "runtime": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "archiveName",
-        "archiveUrl",
-        "checksumsUrl",
-        "archiveSha256",
-        "checksumsSha256",
-        "executable",
-        "npmCli",
-        "licenses"
-      ],
+      "required": ["distributions", "architectureArguments", "executable", "npmCli", "licenses"],
       "properties": {
-        "archiveName": {
-          "type": "string",
-          "minLength": 1
+        "distributions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "items": {
+            "$ref": "#/$defs/runtimeDistribution"
+          }
         },
-        "archiveUrl": {
-          "type": "string",
-          "format": "uri",
-          "pattern": "^https://nodejs\\.org/dist/v22\\.19\\.0/"
-        },
-        "checksumsUrl": {
-          "const": "https://nodejs.org/dist/v22.19.0/SHASUMS256.txt"
-        },
-        "archiveSha256": {
-          "$ref": "#/$defs/sha256"
-        },
-        "checksumsSha256": {
-          "$ref": "#/$defs/sha256"
+        "architectureArguments": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "items": {
+            "$ref": "#/$defs/runtimeArchitectureArguments"
+          }
         },
         "executable": {
           "$ref": "#/$defs/relativePath"
@@ -163,6 +162,28 @@
           "type": "array",
           "minItems": 2,
           "maxItems": 2,
+          "items": {
+            "$ref": "#/$defs/relativePath"
+          }
+        }
+      }
+    },
+    "nativeCode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "objects", "signingOrder"],
+      "properties": {
+        "format": {
+          "enum": ["mach-o", "platform-native"]
+        },
+        "objects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nativeCodeObject"
+          }
+        },
+        "signingOrder": {
+          "type": "array",
           "items": {
             "$ref": "#/$defs/relativePath"
           }
@@ -213,6 +234,79 @@
     "sha256": {
       "type": "string",
       "pattern": "^[0-9a-f]{64}$"
+    },
+    "runtimeDistribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "architecture",
+        "archiveName",
+        "archiveUrl",
+        "checksumsUrl",
+        "archiveSha256",
+        "checksumsSha256"
+      ],
+      "properties": {
+        "architecture": {
+          "enum": ["arm64", "x64"]
+        },
+        "archiveName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "archiveUrl": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://nodejs\\.org/dist/v22\\.19\\.0/"
+        },
+        "checksumsUrl": {
+          "const": "https://nodejs.org/dist/v22.19.0/SHASUMS256.txt"
+        },
+        "archiveSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "checksumsSha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "runtimeArchitectureArguments": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["architecture", "arguments"],
+      "properties": {
+        "architecture": {
+          "enum": ["arm64", "x64"]
+        },
+        "arguments": {
+          "type": "array",
+          "maxItems": 0
+        }
+      }
+    },
+    "nativeCodeObject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "kind", "format", "architectures"],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "kind": {
+          "enum": ["runtime-executable", "native-addon", "dynamic-library", "executable"]
+        },
+        "format": {
+          "enum": ["mach-o", "pe-coff", "unknown"]
+        },
+        "architectures": {
+          "type": "array",
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["arm64", "x64"]
+          }
+        }
+      }
     },
     "fileEntry": {
       "type": "object",

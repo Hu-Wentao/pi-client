@@ -3,6 +3,8 @@
 import { appendFile, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
+import { resolveMacosArchitectureStrategy } from "../../node/scripts/macos-architecture-strategy.mjs";
+
 const repositoryRoot = resolve(import.meta.dirname, "../..");
 const [nodePackage, protocolPackage] = await Promise.all([
   readPackage("node/package.json"),
@@ -20,9 +22,9 @@ if (
 
 const releaseVersion = "0.1.0";
 const buildNumber = "3";
-const architecture = resolveArchitecture(process.platform, process.arch);
+const architecture = resolveMacosArchitectureStrategy();
 const tag = `v${releaseVersion}`;
-const asset = `Pi-Client-${releaseVersion}-macOS-${architecture.asset}-unsigned-preview.zip`;
+const asset = `Pi-Client-${releaseVersion}-macOS-${architecture.asset}-ad-hoc-preview.zip`;
 const checksumAsset = `${asset}.sha256`;
 const capsuleDirectory = `build/pi-node-runtime-capsule-${architecture.capsuleTarget}`;
 const metadata = {
@@ -33,8 +35,12 @@ const metadata = {
   checksumAsset,
   capsuleTarget: architecture.capsuleTarget,
   capsuleDirectory,
-  appArchitecture: architecture.xcode,
+  appArchitectures: architecture.xcodeArchitectures,
+  architectures: architecture.architectures,
   architecture: architecture.asset,
+  universal: architecture.universal,
+  architectureEvidence: architecture.evidence,
+  signingKind: "ad-hoc",
 };
 
 const outputArgument = process.argv.indexOf("--github-output");
@@ -52,27 +58,4 @@ process.stdout.write(`${JSON.stringify(metadata, null, 2)}\n`);
 
 async function readPackage(path) {
   return JSON.parse(await readFile(resolve(repositoryRoot, path), "utf8"));
-}
-
-function resolveArchitecture(platform, architecture) {
-  if (platform !== "darwin") {
-    throw new Error(
-      `The independent macOS preview cannot build on ${platform}.`,
-    );
-  }
-  if (architecture === "arm64") {
-    return {
-      asset: "arm64",
-      capsuleTarget: "darwin-arm64",
-      xcode: "arm64",
-    };
-  }
-  if (architecture === "x64") {
-    return {
-      asset: "x64",
-      capsuleTarget: "darwin-x64",
-      xcode: "x86_64",
-    };
-  }
-  throw new Error(`Unsupported macOS preview architecture ${architecture}.`);
 }

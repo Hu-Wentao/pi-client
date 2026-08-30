@@ -150,6 +150,13 @@ final class PlatformPiNodeRuntimeLocator implements PiNodeRuntimeLocator {
       manifest.applicationEntrypoint,
     );
     final runtimeBin = File(executable).parent.path;
+    final runtimeArchitecture = _targetArchitecture(expectedTargetId);
+    final runtimeArguments = manifest.runtimeArguments[runtimeArchitecture];
+    if (runtimeArguments == null) {
+      throw const PiNodeRuntimeLocationException(
+        PiNodeRuntimeLocationErrorCode.incompatibleCapsule,
+      );
+    }
     final inheritedPath = parentEnvironment['PATH'];
     final isolatedRuntimeFirstPath =
         inheritedPath == null || inheritedPath.isEmpty
@@ -163,6 +170,7 @@ final class PlatformPiNodeRuntimeLocator implements PiNodeRuntimeLocator {
     return PiNodeDesktopProcessConfiguration(
       nodeExecutable: executable,
       serverArguments: <String>[
+        ...runtimeArguments,
         entrypoint,
         '--cwd',
         homeDirectory,
@@ -235,10 +243,17 @@ final class PlatformPiNodeRuntimeLocator implements PiNodeRuntimeLocator {
         PiNodeRuntimeLocationErrorCode.incompatibleCapsule,
       );
     }
-    if (manifest.targetId != expectedTargetId ||
+    final expectedArchitecture = _targetArchitecture(expectedTargetId);
+    final targetMatches =
+        manifest.targetId == expectedTargetId ||
+        (manifest.targetId == 'darwin-universal' &&
+            expectedArchitecture.isNotEmpty &&
+            manifest.targetArchitectures.contains(expectedArchitecture));
+    if (!targetMatches ||
         manifest.targetPlatform != 'darwin' ||
-        (manifest.targetArchitecture != 'arm64' &&
-            manifest.targetArchitecture != 'x64')) {
+        !manifest.targetArchitectures.contains(expectedArchitecture) ||
+        (manifest.targetArchitecture != expectedArchitecture &&
+            manifest.targetArchitecture != 'universal')) {
       throw const PiNodeRuntimeLocationException(
         PiNodeRuntimeLocationErrorCode.incompatibleCapsule,
       );
@@ -263,7 +278,12 @@ final class PlatformPiNodeRuntimeLocator implements PiNodeRuntimeLocator {
         executableEntry.type != _CapsuleEntryType.file ||
         !executableEntry.executable ||
         entrypointEntry == null ||
-        entrypointEntry.type != _CapsuleEntryType.file) {
+        entrypointEntry.type != _CapsuleEntryType.file ||
+        entrypointEntry.executable ||
+        manifest.entries.values.any(
+          (entry) =>
+              entry.executable != (entry.path == manifest.runtimeExecutable),
+        )) {
       throw const PiNodeRuntimeLocationException(
         PiNodeRuntimeLocationErrorCode.invalidManifest,
       );
@@ -448,6 +468,7 @@ final class _CapsuleManifest {
     required this.targetId,
     required this.targetPlatform,
     required this.targetArchitecture,
+    required this.targetArchitectures,
     required this.piNodeVersion,
     required this.protocolVersion,
     required this.piSdkVersion,
@@ -459,6 +480,7 @@ final class _CapsuleManifest {
     required this.protocolPackagePath,
     required this.applicationLaunch,
     required this.runtimeExecutable,
+    required this.runtimeArguments,
     required this.runtimeLicenses,
     required this.lockDigests,
     required this.payloadSize,
@@ -476,14 +498,20 @@ final class _CapsuleManifest {
       'locks',
       'runtime',
       'application',
+      'nativeCode',
       'integrity',
     });
-    if (root['schemaVersion'] != 1 ||
+    if (root['schemaVersion'] != 2 ||
         root['capsuleKind'] != 'pi-node-runtime') {
       throw const FormatException('Unsupported capsule manifest.');
     }
     final target = _asRecord(root['target'], 'target');
-    _expectExactKeys(target, const <String>{'id', 'platform', 'architecture'});
+    _expectExactKeys(target, const <String>{
+      'id',
+      'platform',
+      'architecture',
+      'architectures',
+    });
     final versions = _asRecord(root['versions'], 'versions');
     _expectExactKeys(versions, const <String>{
       'piNode',
@@ -496,15 +524,92 @@ final class _CapsuleManifest {
     });
     final runtime = _asRecord(root['runtime'], 'runtime');
     _expectExactKeys(runtime, const <String>{
-      'archiveName',
-      'archiveUrl',
-      'checksumsUrl',
-      'archiveSha256',
-      'checksumsSha256',
+      'distributions',
+      'architectureArguments',
       'executable',
       'npmCli',
       'licenses',
     });
+    final rawTargetArchitectures = _asList(
+      target['architectures'],
+      'target architectures',
+    );
+    final targetArchitectures = rawTargetArchitectures
+        .map((value) => _stringValue(value, 'target architecture'))
+        .toList(growable: false);
+    final targetArchitecture = _stringValue(
+      target['architecture'],
+      'target architecture',
+    );
+    final expectedArchitectures = targetArchitecture == 'universal'
+        ? const <String>['arm64', 'x64']
+        : <String>[targetArchitecture];
+    if (targetArchitectures.isEmpty ||
+        targetArchitectures.length > 2 ||
+        targetArchitectures.toSet().length != targetArchitectures.length ||
+        targetArchitectures.any(
+          (architecture) => architecture != 'arm64' && architecture != 'x64',
+        ) ||
+        !_listEquals(targetArchitectures, expectedArchitectures)) {
+      throw const FormatException('Invalid target architecture inventory.');
+    }
+    final distributions = _asList(
+      runtime['distributions'],
+      'runtime distributions',
+    );
+    if (distributions.length != targetArchitectures.length) {
+      throw const FormatException('Invalid runtime distribution inventory.');
+    }
+    for (var index = 0; index < distributions.length; index += 1) {
+      final distribution = _asRecord(
+        distributions[index],
+        'runtime distribution',
+      );
+      _expectExactKeys(distribution, const <String>{
+        'architecture',
+        'archiveName',
+        'archiveUrl',
+        'checksumsUrl',
+        'archiveSha256',
+        'checksumsSha256',
+      });
+      if (distribution['architecture'] != targetArchitectures[index]) {
+        throw const FormatException('Invalid runtime distribution ordering.');
+      }
+      _stringValue(distribution['archiveName'], 'archive name');
+      _stringValue(distribution['archiveUrl'], 'archive URL');
+      _stringValue(distribution['checksumsUrl'], 'checksums URL');
+      _sha256Value(distribution['archiveSha256'], 'archive digest');
+      _sha256Value(distribution['checksumsSha256'], 'checksums digest');
+    }
+    final architectureArguments = _asList(
+      runtime['architectureArguments'],
+      'runtime architecture arguments',
+    );
+    if (architectureArguments.length != targetArchitectures.length) {
+      throw const FormatException('Invalid runtime argument inventory.');
+    }
+    final runtimeArguments = <String, List<String>>{};
+    for (var index = 0; index < architectureArguments.length; index += 1) {
+      final entry = _asRecord(
+        architectureArguments[index],
+        'runtime architecture arguments',
+      );
+      _expectExactKeys(entry, const <String>{'architecture', 'arguments'});
+      final architecture = _stringValue(
+        entry['architecture'],
+        'runtime argument architecture',
+      );
+      final arguments = _asList(entry['arguments'], 'runtime arguments')
+          .map((value) => _stringValue(value, 'runtime argument'))
+          .toList(growable: false);
+      const expectedArguments = <String>[];
+      if (architecture != targetArchitectures[index] ||
+          !_listEquals(arguments, expectedArguments)) {
+        throw const FormatException('Invalid runtime architecture arguments.');
+      }
+      runtimeArguments[architecture] = List<String>.unmodifiable(arguments);
+    }
     final application = _asRecord(root['application'], 'application');
     _expectExactKeys(application, const <String>{
       'packagePath',
@@ -543,6 +648,75 @@ final class _CapsuleManifest {
       previousPath = entry.path;
     }
 
+    final runtimeExecutable = _relativePathValue(
+      runtime['executable'],
+      'runtime executable',
+    );
+    final nativeCode = _asRecord(root['nativeCode'], 'native code');
+    _expectExactKeys(nativeCode, const <String>{
+      'format',
+      'objects',
+      'signingOrder',
+    });
+    if (nativeCode['format'] !=
+        (target['platform'] == 'darwin' ? 'mach-o' : 'platform-native')) {
+      throw const FormatException('Invalid native-code format.');
+    }
+    final nativeObjects = <String, _NativeCodeObject>{};
+    var previousNativePath = '';
+    for (final value in _asList(nativeCode['objects'], 'native objects')) {
+      final object = _NativeCodeObject.parse(value);
+      if (nativeObjects.containsKey(object.path) ||
+          (previousNativePath.isNotEmpty &&
+              previousNativePath.compareTo(object.path) >= 0)) {
+        throw const FormatException('Invalid native-code object ordering.');
+      }
+      final payloadEntry = entries[object.path];
+      if (payloadEntry == null || payloadEntry.type != _CapsuleEntryType.file) {
+        throw const FormatException(
+          'Native-code object is absent from payload.',
+        );
+      }
+      if ((object.kind == 'native-addon') != object.path.endsWith('.node') ||
+          (object.kind == 'runtime-executable') !=
+              (object.path == runtimeExecutable)) {
+        throw const FormatException('Invalid native-code classification.');
+      }
+      nativeObjects[object.path] = object;
+      previousNativePath = object.path;
+    }
+    final runtimeObject = nativeObjects[runtimeExecutable];
+    if (runtimeObject == null ||
+        (target['platform'] == 'darwin' &&
+            (runtimeObject.format != 'mach-o' ||
+                !_listEquals(
+                  runtimeObject.architectures,
+                  targetArchitectures,
+                )))) {
+      throw const FormatException('Invalid runtime native-code inventory.');
+    }
+    for (final entry in entries.values) {
+      if (entry.path.endsWith('.node') &&
+          !nativeObjects.containsKey(entry.path)) {
+        throw const FormatException('Native addon is absent from inventory.');
+      }
+    }
+    final signingOrder = _asList(
+      nativeCode['signingOrder'],
+      'native signing order',
+    ).map((value) => _relativePathValue(value, 'signing path')).toList();
+    final expectedSigningOrder =
+        nativeObjects.values
+            .where((object) => object.format == 'mach-o')
+            .toList()
+          ..sort(_compareNativeSigningOrder);
+    if (!_listEquals(
+      signingOrder,
+      expectedSigningOrder.map((object) => object.path).toList(),
+    )) {
+      throw const FormatException('Invalid native-code signing order.');
+    }
+
     final locks = _asList(root['locks'], 'locks');
     if (locks.length != 2) {
       throw const FormatException('Invalid capsule locks.');
@@ -576,10 +750,8 @@ final class _CapsuleManifest {
       sourceCommit: _stringValue(root['sourceCommit'], 'sourceCommit'),
       targetId: _stringValue(target['id'], 'target id'),
       targetPlatform: _stringValue(target['platform'], 'target platform'),
-      targetArchitecture: _stringValue(
-        target['architecture'],
-        'target architecture',
-      ),
+      targetArchitecture: targetArchitecture,
+      targetArchitectures: List<String>.unmodifiable(targetArchitectures),
       piNodeVersion: _stringValue(versions['piNode'], 'Pi Node version'),
       protocolVersion: _stringValue(versions['protocol'], 'protocol version'),
       piSdkVersion: _stringValue(versions['piSdk'], 'Pi SDK version'),
@@ -604,9 +776,9 @@ final class _CapsuleManifest {
       applicationLaunch: _asList(application['launch'], 'application launch')
           .map((value) => _relativePathValue(value, 'launch path'))
           .toList(growable: false),
-      runtimeExecutable: _relativePathValue(
-        runtime['executable'],
-        'runtime executable',
+      runtimeExecutable: runtimeExecutable,
+      runtimeArguments: Map<String, List<String>>.unmodifiable(
+        runtimeArguments,
       ),
       runtimeLicenses: runtimeLicenses,
       lockDigests: Map<String, String>.unmodifiable(lockDigests),
@@ -619,6 +791,7 @@ final class _CapsuleManifest {
   final String targetId;
   final String targetPlatform;
   final String targetArchitecture;
+  final List<String> targetArchitectures;
   final String piNodeVersion;
   final String protocolVersion;
   final String piSdkVersion;
@@ -630,10 +803,80 @@ final class _CapsuleManifest {
   final String protocolPackagePath;
   final List<String> applicationLaunch;
   final String runtimeExecutable;
+  final Map<String, List<String>> runtimeArguments;
   final List<String> runtimeLicenses;
   final Map<String, String> lockDigests;
   final int payloadSize;
   final Map<String, _CapsuleEntry> entries;
+}
+
+final class _NativeCodeObject {
+  const _NativeCodeObject({
+    required this.path,
+    required this.kind,
+    required this.format,
+    required this.architectures,
+  });
+
+  factory _NativeCodeObject.parse(Object? value) {
+    final object = _asRecord(value, 'native-code object');
+    _expectExactKeys(object, const <String>{
+      'path',
+      'kind',
+      'format',
+      'architectures',
+    });
+    final kind = _stringValue(object['kind'], 'native-code kind');
+    final format = _stringValue(object['format'], 'native-code format');
+    final architectures = _asList(
+      object['architectures'],
+      'native-code architectures',
+    ).map((value) => _stringValue(value, 'native-code architecture')).toList();
+    if (!const <String>{
+          'runtime-executable',
+          'native-addon',
+          'dynamic-library',
+          'executable',
+        }.contains(kind) ||
+        !const <String>{'mach-o', 'pe-coff', 'unknown'}.contains(format) ||
+        architectures.toSet().length != architectures.length ||
+        architectures.any(
+          (architecture) => architecture != 'arm64' && architecture != 'x64',
+        ) ||
+        (format == 'mach-o') != architectures.isNotEmpty) {
+      throw const FormatException('Invalid native-code object.');
+    }
+    return _NativeCodeObject(
+      path: _relativePathValue(object['path'], 'native-code path'),
+      kind: kind,
+      format: format,
+      architectures: List<String>.unmodifiable(architectures),
+    );
+  }
+
+  final String path;
+  final String kind;
+  final String format;
+  final List<String> architectures;
+}
+
+int _compareNativeSigningOrder(
+  _NativeCodeObject left,
+  _NativeCodeObject right,
+) {
+  final leftRuntime = left.kind == 'runtime-executable';
+  final rightRuntime = right.kind == 'runtime-executable';
+  if (leftRuntime != rightRuntime) return leftRuntime ? 1 : -1;
+  final depth = right.path.split('/').length - left.path.split('/').length;
+  return depth != 0 ? depth : left.path.compareTo(right.path);
+}
+
+bool _listEquals<T>(List<T> left, List<T> right) {
+  if (left.length != right.length) return false;
+  for (var index = 0; index < left.length; index += 1) {
+    if (left[index] != right[index]) return false;
+  }
+  return true;
 }
 
 enum _CapsuleEntryType { file, symlink }
@@ -746,13 +989,24 @@ Directory _defaultBundledCapsuleDirectory() {
   final executable = File(Platform.resolvedExecutable);
   final contents = executable.parent.parent;
   return Directory(
-    '${contents.path}${Platform.pathSeparator}Helpers${Platform.pathSeparator}PiNode',
+    '${contents.path}${Platform.pathSeparator}Resources${Platform.pathSeparator}PiNode',
   );
 }
 
 String _currentCapsuleTargetId() => switch (Abi.current()) {
   Abi.macosArm64 => 'darwin-arm64',
   Abi.macosX64 => 'darwin-x64',
+  _ => '',
+};
+
+String _targetArchitecture(String targetId) => switch (targetId) {
+  'darwin-arm64' => 'arm64',
+  'darwin-x64' => 'x64',
+  'darwin-universal' => switch (Abi.current()) {
+    Abi.macosArm64 => 'arm64',
+    Abi.macosX64 => 'x64',
+    _ => '',
+  },
   _ => '',
 };
 

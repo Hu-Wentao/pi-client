@@ -29,17 +29,19 @@ test("installs a verified capsule at the fixed macOS app-bundle layout", async (
     verifyCapsule,
   });
 
-  assert.equal(installed.capsulePath, resolve(fixture.app, "Contents/Helpers/PiNode"));
-  assert.equal(installed.layout, "Contents/Helpers/PiNode");
+  assert.equal(installed.capsulePath, resolve(fixture.app, "Contents/Resources/PiNode"));
+  assert.equal(installed.layout, "Contents/Resources/PiNode");
   assert.equal(installed.sourceCommit, fixture.sourceCommit);
-  assert.deepEqual(verified, [fixture.capsule, resolve(fixture.app, "Contents/Helpers/PiNode")]);
+  assert.deepEqual(verified, [fixture.capsule, resolve(fixture.app, "Contents/Resources/PiNode")]);
   assert.equal(
     await readFile(resolve(installed.capsulePath, "runtime/bin/node"), "utf8"),
     "node\n",
   );
   const installedMode = (await stat(resolve(installed.capsulePath, "runtime/bin/node"))).mode;
-  assert.equal(installedMode & 0o222, 0);
-  assert.notEqual(installedMode & 0o111, 0);
+  assert.equal(installedMode & 0o777, 0o555);
+  const entrypointMode = (await stat(resolve(installed.capsulePath, "app/dist/stdio-main.js")))
+    .mode;
+  assert.equal(entrypointMode & 0o777, 0o444);
 
   const verifiedInstalled = await verifyInstalledRuntimeCapsule({
     appBundle: fixture.app,
