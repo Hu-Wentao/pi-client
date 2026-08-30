@@ -100,7 +100,7 @@ Keep changes focused. Update requirements, baselines, comparison scope, tests, g
 - Status: Active
 
 - Edit `assets/brand/pi-client-mark.svg` as the product-mark source, then run `cd site && bun run brand`. Commit the generated favicon, social card, and every macOS App Icon size together.
-- Generate the marketing screenshot with `fvm flutter test test/marketing_screenshot_test.dart --update-goldens`. Use only synthetic paths, sessions, prompts, and output; inspect the final pixels before committing.
+- Generate the marketing screenshot with `fvm flutter test test/marketing_screenshot_test.dart --update-goldens`. Use only synthetic paths, sessions, prompts, and output; inspect the final pixels before committing. Its comparator permits at most 0.02% cross-host font raster variance and must still reject structural changes.
 - Keep release metadata synchronized across `pubspec.yaml`, `site/package.json`, `site/src/content/copy.ts`, release notes, and workflow-generated asset names.
 - Do not manually move, overwrite, or delete a release tag or published asset. The manual Release workflow owns admission, Universal build checks, ZIP/checksum upload, and publication.
 - The `unsigned-preview` channel is not signed, notarized, or effectively sandboxed. Do not remove its Gatekeeper disclosure, claim that its public fixed key is secret, or merge its preferences directory with the future signed channel.

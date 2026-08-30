@@ -8,6 +8,13 @@ import 'package:pi_client/app/workspace/workspace.dart';
 import 'package:pi_client/app/workspace/workspace.srv.dart';
 
 void main() {
+  final defaultComparator = goldenFileComparator;
+  goldenFileComparator = _ThresholdGoldenComparator(
+    Uri.file('${Directory.current.path}/test/marketing_screenshot_test.dart'),
+    threshold: 0.0002,
+  );
+  tearDownAll(() => goldenFileComparator = defaultComparator);
+
   testWidgets('renders the sanitized real-text marketing screenshot', (
     tester,
   ) async {
@@ -98,6 +105,27 @@ Future<void> _waitUntil(bool Function() predicate) async {
       throw TimeoutException('Marketing screenshot condition was not met.');
     }
     await Future<void>.delayed(Duration.zero);
+  }
+}
+
+final class _ThresholdGoldenComparator extends LocalFileComparator {
+  _ThresholdGoldenComparator(super.testFile, {required this.threshold});
+
+  final double threshold;
+
+  @override
+  Future<bool> compare(Uint8List imageBytes, Uri golden) async {
+    final result = await GoldenFileComparator.compareLists(
+      imageBytes,
+      await getGoldenBytes(golden),
+    );
+    if (result.passed || result.diffPercent <= threshold) {
+      result.dispose();
+      return true;
+    }
+    final error = await generateFailureOutput(result, golden, basedir);
+    result.dispose();
+    throw FlutterError(error);
   }
 }
 
