@@ -5,6 +5,7 @@ import test from "node:test";
 
 import {
   createCapsuleManifest,
+  stripTrailingCommas,
   validateManifestDocument,
   verifyPayloadIntegrity,
 } from "../scripts/runtime-capsule-lib.mjs";
@@ -54,6 +55,17 @@ test("archive mapping rejects unsupported targets", () => {
     () => resolveNodeDistribution("linux-arm64"),
     /Unsupported Pi Node capsule target/u,
   );
+});
+
+test("Bun lock parsing removes only trailing commas outside strings", () => {
+  const parsed = JSON.parse(
+    stripTrailingCommas('{"value":"literal,}","array":[1,2,],"object":{"ok":true,},}'),
+  );
+  assert.deepEqual(parsed, {
+    value: "literal,}",
+    array: [1, 2],
+    object: { ok: true },
+  });
 });
 
 test("manifest validation rejects unexpected mutable fields", async (t) => {

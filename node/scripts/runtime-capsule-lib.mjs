@@ -38,6 +38,49 @@ export async function readJson(path) {
   return JSON.parse(await readFile(path, "utf8"));
 }
 
+export async function readBunLock(path) {
+  return JSON.parse(stripTrailingCommas(await readFile(path, "utf8")));
+}
+
+export function stripTrailingCommas(text) {
+  let output = "";
+  let inString = false;
+  let escaped = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (inString) {
+      output += character;
+      if (escaped) {
+        escaped = false;
+      } else if (character === "\\") {
+        escaped = true;
+      } else if (character === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (character === '"') {
+      inString = true;
+      output += character;
+      continue;
+    }
+    if (character === ",") {
+      let lookahead = index + 1;
+      while (lookahead < text.length && /\s/u.test(text[lookahead])) {
+        lookahead += 1;
+      }
+      if (text[lookahead] === "}" || text[lookahead] === "]") {
+        continue;
+      }
+    }
+    output += character;
+  }
+  if (inString || escaped) {
+    throw new Error("Bun lock contains an unterminated JSON string.");
+  }
+  return output;
+}
+
 export async function writeDeterministicJson(path, value) {
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${stableStringify(value)}\n`, "utf8");

@@ -14,6 +14,7 @@ import {
   createCapsuleManifest,
   makeTreeReadOnly,
   parseOfficialShasums,
+  readBunLock,
   readJson,
   removeTreeEvenIfReadOnly,
   scanForbiddenArtifacts,
@@ -213,8 +214,8 @@ async function verifySourceMetadata() {
   const [nodePackage, protocolPackage, nodeLock, protocolLock] = await Promise.all([
     readJson(resolve(nodeRoot, "package.json")),
     readJson(resolve(protocolRoot, "package.json")),
-    readJson(resolve(nodeRoot, "bun.lock")),
-    readJson(resolve(protocolRoot, "bun.lock")),
+    readBunLock(resolve(nodeRoot, "bun.lock")),
+    readBunLock(resolve(protocolRoot, "bun.lock")),
   ]);
   requireExact(nodePackage.packageManager, `bun@${REQUIRED_BUN_VERSION}`, "Node packageManager");
   requireExact(
