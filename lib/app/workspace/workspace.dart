@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import '../../api/pi_node/pi_node.dart';
+import '../../components/branch_navigator/branch_navigator.dart';
 import '../../components/conversation/conversation.dart';
 import '../../components/node_connection/node_connection.dart';
 import '../../components/project_browser/project_browser.dart';

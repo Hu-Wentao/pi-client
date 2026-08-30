@@ -498,6 +498,170 @@ void main() {
   );
 
   test(
+    'navigates, forks, clones, restores editor text, and refreshes authoritative state',
+    () async {
+      final source = fakeSession(
+        id: 'tree-source',
+        title: 'Tree source',
+        workingDirectory: '/Projects/tree',
+      );
+      final user = fakeMessage(
+        id: 'tree-user',
+        role: PiMessageRole.user,
+        text: 'Restore and edit this prompt',
+      );
+      final assistant = fakeMessage(
+        id: 'tree-assistant',
+        role: PiMessageRole.assistant,
+        text: 'Existing answer',
+      );
+      final api = FakePiNodeApi(
+        sessions: <PiSessionSummary>[source],
+        details: <PiSessionId, PiSessionDetail>{
+          source.id: fakeDetail(source, messages: <PiMessage>[user, assistant]),
+        },
+      );
+      final viewModel = WorkspaceViewModel(service: WorkspaceService(api));
+
+      viewModel.add(const WorkspaceStarted());
+      await _waitFor(
+        viewModel,
+        (state) => state.connection.status == PiNodeConnectionStatus.connected,
+      );
+      viewModel.add(WorkspaceSessionSelected(source.id));
+      await _waitFor(
+        viewModel,
+        (state) =>
+            state.sessionTree != null &&
+            state.eventStatus == WorkspaceEventStatus.listening,
+      );
+
+      viewModel.add(
+        WorkspaceSessionTreeNavigated(PiSessionTreeEntryId(user.id.value)),
+      );
+      await _waitFor(
+        viewModel,
+        (state) =>
+            !state.sessionTreeMutationLoading &&
+            state.composerDraft == 'Restore and edit this prompt',
+      );
+      expect(viewModel.state.selectedSessionId, source.id);
+      expect(api.navigateTreeCalls, 1);
+
+      final navigateDraftGeneration = viewModel.state.composerDraftGeneration;
+      viewModel.add(
+        WorkspaceSessionForked(PiSessionTreeEntryId(user.id.value)),
+      );
+      await _waitFor(
+        viewModel,
+        (state) =>
+            state.selectedSessionId?.value.startsWith('forked-') == true &&
+            !state.sessionTreeMutationLoading &&
+            state.eventStatus == WorkspaceEventStatus.listening,
+      );
+      final forkedId = viewModel.state.selectedSessionId!;
+      expect(_selectedSummary(viewModel.state)?.parentSessionId, source.id);
+      expect(viewModel.state.composerDraft, 'Restore and edit this prompt');
+      expect(
+        viewModel.state.composerDraftGeneration,
+        greaterThan(navigateDraftGeneration),
+      );
+
+      final forkDraftGeneration = viewModel.state.composerDraftGeneration;
+      viewModel.add(const WorkspaceSessionCloned());
+      await _waitFor(
+        viewModel,
+        (state) =>
+            state.selectedSessionId?.value.startsWith('cloned-') == true &&
+            !state.sessionTreeMutationLoading &&
+            state.eventStatus == WorkspaceEventStatus.listening,
+      );
+      expect(_selectedSummary(viewModel.state)?.parentSessionId, forkedId);
+      expect(viewModel.state.composerDraft, '');
+      expect(
+        viewModel.state.composerDraftGeneration,
+        greaterThan(forkDraftGeneration),
+      );
+      expect(api.forkCalls, 1);
+      expect(api.cloneCalls, 1);
+      expect(api.treeCalls, greaterThanOrEqualTo(4));
+
+      await viewModel.close();
+      await api.close();
+    },
+  );
+
+  test(
+    'ignores a stale fork result after the selected project changes',
+    () async {
+      final source = fakeSession(
+        id: 'stale-tree-source',
+        title: 'Stale tree source',
+        workingDirectory: '/Projects/stale-tree',
+      );
+      final user = fakeMessage(
+        id: 'stale-tree-user',
+        role: PiMessageRole.user,
+        text: 'Stale prompt',
+      );
+      final completion = Completer<PiSessionTreeMutationResult>();
+      final api = FakePiNodeApi(
+        sessions: <PiSessionSummary>[source],
+        details: <PiSessionId, PiSessionDetail>{
+          source.id: fakeDetail(source, messages: <PiMessage>[user]),
+        },
+      )..forkSessionHandler = (command) => completion.future;
+      final viewModel = WorkspaceViewModel(service: WorkspaceService(api));
+
+      viewModel.add(const WorkspaceStarted());
+      await _waitFor(
+        viewModel,
+        (state) => state.connection.status == PiNodeConnectionStatus.connected,
+      );
+      viewModel.add(WorkspaceSessionSelected(source.id));
+      await _waitFor(viewModel, (state) => state.sessionTree != null);
+      viewModel.add(
+        WorkspaceSessionForked(PiSessionTreeEntryId(user.id.value)),
+      );
+      await _waitUntil(() => api.forkCalls == 1);
+
+      final nextProject = fakeProject('/Projects/tree-next');
+      viewModel.add(WorkspaceProjectSelected(nextProject));
+      await _waitFor(
+        viewModel,
+        (state) =>
+            state.selectedProject == nextProject && !state.sessionsLoading,
+      );
+      final replacement = fakeSession(
+        id: 'stale-fork-result',
+        title: 'Stale fork result',
+        workingDirectory: '/Projects/stale-tree',
+      );
+      final replacementDetail = fakeDetail(
+        replacement,
+        messages: <PiMessage>[user],
+      );
+      completion.complete(
+        PiSessionTreeMutationUpdated(
+          commandId: PiCommandId('stale-fork-command'),
+          operation: PiSessionTreeMutationOperation.fork,
+          session: replacementDetail,
+          tree: fakeTree(replacementDetail),
+          editorText: user.text,
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(viewModel.state.selectedProject, nextProject);
+      expect(viewModel.state.selectedSessionId, isNull);
+      expect(viewModel.state.composerDraft, isEmpty);
+
+      await viewModel.close();
+      await api.close();
+    },
+  );
+
+  test(
     'ignores a stale session rename after the selected project changes',
     () async {
       final session = fakeSession(
@@ -617,6 +781,12 @@ void main() {
     await viewModel.close();
     await api.close();
   });
+}
+
+PiSessionSummary? _selectedSummary(WorkspaceModel model) {
+  final sessionId = model.selectedSessionId;
+  if (sessionId == null) return null;
+  return model.sessions.where((session) => session.id == sessionId).firstOrNull;
 }
 
 Future<WorkspaceModel> _waitFor(

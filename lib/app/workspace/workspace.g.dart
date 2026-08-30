@@ -14,6 +14,9 @@ Map<String, dynamic> _$WorkspaceModelToJson(
   'eventStatus': _$WorkspaceEventStatusEnumMap[instance.eventStatus]!,
   'promptAdmissionStatus':
       _$WorkspacePromptAdmissionStatusEnumMap[instance.promptAdmissionStatus]!,
+  'sessionTreeLoading': instance.sessionTreeLoading,
+  'sessionTreeMutationLoading': instance.sessionTreeMutationLoading,
+  'composerDraftGeneration': instance.composerDraftGeneration,
   'projectLoading': instance.projectLoading,
   'projectBrowsing': instance.projectBrowsing,
   'projectValidating': instance.projectValidating,
@@ -28,6 +31,7 @@ Map<String, dynamic> _$WorkspaceModelToJson(
   'projectError': instance.projectError,
   'sessionError': instance.sessionError,
   'sessionAdminError': instance.sessionAdminError,
+  'sessionTreeError': instance.sessionTreeError,
   'conversationError': instance.conversationError,
   'promptError': instance.promptError,
   'statusMessage': instance.statusMessage,

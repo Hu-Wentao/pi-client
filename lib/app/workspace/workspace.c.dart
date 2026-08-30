@@ -10,7 +10,8 @@
 /// - [WorkspaceView] — typed Page primary View.
 /// Widget Tree: [WorkspaceView] > [NodeConnectionView],
 ///   [ProjectBrowserView], [SessionBrowserView],
-///   [ConversationView] > [PiMessageBubble] × N, [PromptComposerView],
+///   [BranchNavigatorView], [ConversationView] > [PiMessageBubble] × N,
+///   [PromptComposerView],
 ///   [ProjectTrustDialog] (conditional)
 /// Theme: material
 /// Events: [WorkspaceStarted], [WorkspaceConnectionRetried],
@@ -19,8 +20,9 @@
 ///   [WorkspaceSessionsRefreshed], [WorkspaceSessionSelected],
 ///   [WorkspaceNewSessionRequested], [WorkspaceSessionRenamed],
 ///   [WorkspaceSessionCustomNameCleared], [WorkspaceSessionAutoNamed],
-///   [WorkspaceSessionDeleted], [WorkspacePromptSubmitted],
-///   [WorkspaceAgentStopped]
+///   [WorkspaceSessionDeleted], [WorkspaceSessionTreeNavigated],
+///   [WorkspaceSessionForked], [WorkspaceSessionCloned],
+///   [WorkspacePromptSubmitted], [WorkspaceAgentStopped]
 /// Startup Event: [WorkspaceStarted]
 /// ViewModels: [WorkspaceViewModel]
 /// Models: [WorkspaceModel]
@@ -33,7 +35,10 @@
 ///   explicit trust approval, refresh, session selection, creation, rename,
 ///   custom-name clearing, bounded model-assisted naming, confirmed deletion,
 ///   prompt admission, ordered events, sequence-gap recovery, abort, and clean
-///   close remain observable. Local-host, remote-node-required, unsupported,
+///   close remain observable. Flat session-tree loading, same-session branch
+///   navigation, recoverable edit-from-here text, independent fork, active-branch
+///   clone, runtime replacement, and authoritative history/tree refresh are
+///   generation-guarded. Local-host, remote-node-required, unsupported,
 ///   empty, rejected, uncertain, disconnected, retry, and stale-result-safe
 ///   states never invent runtime data. Optimistic prompts are removed only for
 ///   definitive rejection and retained for uncertain admission. Synchronous
@@ -73,6 +78,13 @@ abstract class WorkspaceModel with _$WorkspaceModel {
     @JsonKey(includeToJson: false)
     @Default(<PiMessage>[])
     List<PiMessage> messages,
+    @JsonKey(includeToJson: false) PiSessionTree? sessionTree,
+    @JsonKey(includeToJson: false)
+    PiSessionTreeMutationOperation? sessionTreeMutationOperation,
+    @Default(false) bool sessionTreeLoading,
+    @Default(false) bool sessionTreeMutationLoading,
+    @Default(0) int composerDraftGeneration,
+    @JsonKey(includeToJson: false) String? composerDraft,
     @Default(false) bool projectLoading,
     @Default(false) bool projectBrowsing,
     @Default(false) bool projectValidating,
@@ -87,6 +99,7 @@ abstract class WorkspaceModel with _$WorkspaceModel {
     String? projectError,
     String? sessionError,
     String? sessionAdminError,
+    String? sessionTreeError,
     String? conversationError,
     String? promptError,
     String? statusMessage,
@@ -170,6 +183,22 @@ final class WorkspaceSessionDeleted extends WorkspaceEvent {
   const WorkspaceSessionDeleted(this.confirmation);
 
   final PiDeleteSessionConfirmation confirmation;
+}
+
+final class WorkspaceSessionTreeNavigated extends WorkspaceEvent {
+  const WorkspaceSessionTreeNavigated(this.entryId);
+
+  final PiSessionTreeEntryId entryId;
+}
+
+final class WorkspaceSessionForked extends WorkspaceEvent {
+  const WorkspaceSessionForked(this.userEntryId);
+
+  final PiSessionTreeEntryId userEntryId;
+}
+
+final class WorkspaceSessionCloned extends WorkspaceEvent {
+  const WorkspaceSessionCloned();
 }
 
 final class WorkspacePromptSubmitted extends WorkspaceEvent {

@@ -25,6 +25,7 @@ final _knownCapabilities = <Capability>{
   Capability.CAPABILITY_PROJECT_DISCOVERY,
   Capability.CAPABILITY_PROJECT_TRUST,
   Capability.CAPABILITY_SESSION_ADMIN,
+  Capability.CAPABILITY_SESSION_TREE,
 };
 final _knownHealthStatuses = <HealthStatus>{
   HealthStatus.HEALTH_STATUS_STARTING,
@@ -322,6 +323,88 @@ void validateTransportFrame(PiTransportFrame frame) {
         response.session,
       );
       return;
+    case PiTransportFrame_Operation.getSessionTreeRequest:
+      final request = frame.getSessionTreeRequest;
+      _validateRequestId(request.requestId);
+      _validateIdentifier('project_id', request.projectId);
+      _validateIdentifier('session_id', request.sessionId);
+      return;
+    case PiTransportFrame_Operation.getSessionTreeResponse:
+      final response = frame.getSessionTreeResponse;
+      _validateRequestId(response.requestId);
+      if (!response.hasTree()) {
+        _fail('get session tree response must contain a tree snapshot');
+      }
+      _validateSessionTree(response.tree);
+      return;
+    case PiTransportFrame_Operation.navigateSessionTreeCommand:
+      final command = frame.navigateSessionTreeCommand;
+      _validateSessionTreeMutationCommand(
+        command.requestId,
+        command.commandId,
+        command.projectId,
+        command.sessionId,
+        command.expectedAdminRevision,
+      );
+      _validateIdentifier('entry_id', command.entryId);
+      return;
+    case PiTransportFrame_Operation.forkSessionCommand:
+      final command = frame.forkSessionCommand;
+      _validateSessionTreeMutationCommand(
+        command.requestId,
+        command.commandId,
+        command.projectId,
+        command.sessionId,
+        command.expectedAdminRevision,
+      );
+      _validateIdentifier('user_entry_id', command.userEntryId);
+      return;
+    case PiTransportFrame_Operation.cloneSessionCommand:
+      final command = frame.cloneSessionCommand;
+      _validateSessionTreeMutationCommand(
+        command.requestId,
+        command.commandId,
+        command.projectId,
+        command.sessionId,
+        command.expectedAdminRevision,
+      );
+      return;
+    case PiTransportFrame_Operation.sessionTreeMutationOutcome:
+      final outcome = frame.sessionTreeMutationOutcome;
+      _validateRequestId(outcome.requestId);
+      _validateIdentifier('command_id', outcome.commandId);
+      if (outcome.operation ==
+          SessionTreeMutationOperation
+              .SESSION_TREE_MUTATION_OPERATION_UNSPECIFIED) {
+        _fail('session tree mutation outcome must identify its operation');
+      }
+      switch (outcome.whichOutcome()) {
+        case SessionTreeMutationOutcome_Outcome.result:
+          if (!outcome.result.hasSession() || !outcome.result.hasTree()) {
+            _fail('session tree mutation result must contain session and tree');
+          }
+          _validateSessionDetail(outcome.result.session);
+          _validateSessionTree(outcome.result.tree);
+          if (outcome.result.session.summary.sessionId !=
+              outcome.result.tree.sessionId) {
+            _fail('session tree mutation result identities must match');
+          }
+          _validateContentText(
+            'session tree editor text',
+            outcome.result.editorText,
+            required: false,
+          );
+          return;
+        case SessionTreeMutationOutcome_Outcome.error:
+          _requireStableError(
+            'session tree mutation outcome',
+            outcome.hasError(),
+            outcome.error,
+          );
+          return;
+        case SessionTreeMutationOutcome_Outcome.notSet:
+          _fail('session tree mutation outcome must contain a typed result');
+      }
     case PiTransportFrame_Operation.promptCommand:
       final command = frame.promptCommand;
       _validateRequestId(command.requestId);
@@ -785,9 +868,116 @@ void _validateSessionAdminCommand(
   _validateIdentifier('session_id', sessionId);
 }
 
+void _validateSessionTreeMutationCommand(
+  Int64 requestId,
+  String commandId,
+  String projectId,
+  String sessionId,
+  String expectedAdminRevision,
+) {
+  _validateRequestId(requestId);
+  _validateIdentifier('command_id', commandId);
+  _validateIdentifier('project_id', projectId);
+  _validateIdentifier('session_id', sessionId);
+  _validateIdentifier('expected_admin_revision', expectedAdminRevision);
+}
+
+void _validateSessionTree(SessionTreeSnapshot tree) {
+  _validateIdentifier('session tree session_id', tree.sessionId);
+  _validateIdentifier('session tree admin_revision', tree.adminRevision);
+  if (tree.nodes.length > maxMessagesPerSessionSnapshot) {
+    _fail('session tree entry count exceeds the local hard limit');
+  }
+  final byId = <String, SessionTreeNodeSnapshot>{};
+  for (final node in tree.nodes) {
+    _validateIdentifier('session tree entry_id', node.entryId);
+    if (byId.containsKey(node.entryId)) {
+      _fail('session tree contains a duplicate entry_id');
+    }
+    byId[node.entryId] = node;
+    if (node.parentEntryId.isNotEmpty) {
+      _validateIdentifier('session tree parent_entry_id', node.parentEntryId);
+      if (node.parentEntryId == node.entryId) {
+        _fail('session tree entry cannot parent itself');
+      }
+    }
+    if (node.kind == SessionTreeEntryKind.SESSION_TREE_ENTRY_KIND_UNSPECIFIED) {
+      _fail('session tree entry kind must be specified');
+    }
+    _validateContentText('session tree entry text', node.text, required: false);
+    _validatePositiveUint64(
+      'session tree entry created_at_unix_millis',
+      node.createdAtUnixMillis,
+    );
+    if (node.label.isNotEmpty) {
+      _validateRequiredShortText('session tree entry label', node.label);
+    }
+    final isUser =
+        node.kind == SessionTreeEntryKind.SESSION_TREE_ENTRY_KIND_USER_MESSAGE;
+    if ((node.canEditFromHere || node.canFork) && !isUser) {
+      _fail('only user-message entries can expose edit or fork actions');
+    }
+  }
+
+  final activeIds = <String>{};
+  String? previous;
+  var activeContainsUser = false;
+  for (final entryId in tree.activePathEntryIds) {
+    _validateIdentifier('active path entry_id', entryId);
+    if (!activeIds.add(entryId)) {
+      _fail('active path contains a duplicate entry_id');
+    }
+    final node = byId[entryId];
+    if (node == null) {
+      _fail('active path references an unknown entry_id');
+    }
+    if (previous == null) {
+      if (node.parentEntryId.isNotEmpty &&
+          byId.containsKey(node.parentEntryId)) {
+        _fail('active path must begin at a tree root');
+      }
+    } else if (node.parentEntryId != previous) {
+      _fail('active path parent linkage is not contiguous');
+    }
+    if (!node.isOnActivePath) {
+      _fail('active path entry must be marked active');
+    }
+    activeContainsUser =
+        activeContainsUser ||
+        node.kind == SessionTreeEntryKind.SESSION_TREE_ENTRY_KIND_USER_MESSAGE;
+    previous = entryId;
+  }
+  for (final node in tree.nodes) {
+    if (node.isOnActivePath != activeIds.contains(node.entryId)) {
+      _fail(
+        'session tree active-path flags disagree with active_path_entry_ids',
+      );
+    }
+  }
+  if (tree.activePathEntryIds.isEmpty) {
+    if (tree.activeLeafEntryId.isNotEmpty || tree.canCloneActiveBranch) {
+      _fail('an empty active path cannot expose a leaf or clone action');
+    }
+  } else {
+    _validateIdentifier('active_leaf_entry_id', tree.activeLeafEntryId);
+    if (tree.activeLeafEntryId != tree.activePathEntryIds.last) {
+      _fail('active leaf must be the final active path entry');
+    }
+    if (tree.canCloneActiveBranch && !activeContainsUser) {
+      _fail('a cloneable active branch must contain a user message');
+    }
+  }
+}
+
 void _validateSessionSummary(SessionSummarySnapshot summary) {
   _validateIdentifier('session_id', summary.sessionId);
   _validateIdentifier('admin_revision', summary.adminRevision);
+  if (summary.parentSessionId.isNotEmpty) {
+    _validateIdentifier('parent_session_id', summary.parentSessionId);
+    if (summary.parentSessionId == summary.sessionId) {
+      _fail('a session cannot be its own parent');
+    }
+  }
   _validateRequiredShortText('session title', summary.title);
   _validatePath('working_directory', summary.workingDirectory);
   _validatePositiveUint64(

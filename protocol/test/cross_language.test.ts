@@ -41,7 +41,9 @@ describe("cross-language Protobuf vectors", () => {
       "/tmp/pi-client-projects",
     );
     expect(frame.operation.value.directory?.children).toHaveLength(2);
-    expect(frame.operation.value.directory?.children[1]?.isSymbolicLink).toBeTrue();
+    expect(
+      frame.operation.value.directory?.children[1]?.isSymbolicLink,
+    ).toBeTrue();
     expect(frame.operation.value.directory?.truncated).toBeTrue();
   });
 
@@ -58,7 +60,25 @@ describe("cross-language Protobuf vectors", () => {
     expect(frame.operation.value.confirmation?.adminRevision).toBe(
       "revision-session-dart-delete-1",
     );
-    expect(frame.operation.value.confirmation?.destructiveActionAcknowledged).toBeTrue();
+    expect(
+      frame.operation.value.confirmation?.destructiveActionAcknowledged,
+    ).toBeTrue();
+  });
+
+  test("decodes Dart revision-bound fork commands", () => {
+    const frame = decodeTransportFrame(
+      readFileSync(resolve(vectors, "dart_fork_session_command.pb")),
+    );
+
+    expect(frame.operation.case).toBe("forkSessionCommand");
+    if (frame.operation.case !== "forkSessionCommand") {
+      throw new Error("expected fork session command");
+    }
+    expect(frame.operation.value.projectId).toBe("project-dart-1");
+    expect(frame.operation.value.userEntryId).toBe("entry-dart-user-1");
+    expect(frame.operation.value.expectedAdminRevision).toBe(
+      "revision-session-dart-parent-1",
+    );
   });
 
   test("preserves unknown fields when decoded and re-encoded by Protobuf-ES", () => {
@@ -67,12 +87,16 @@ describe("cross-language Protobuf vectors", () => {
     const output = toBinary(PiTransportFrameSchema, decoded);
 
     expect(containsSubsequence(output, unknownSuffix)).toBeTrue();
-    expect(decodeTransportFrame(output).operation.case).toBe("getSessionResponse");
+    expect(decodeTransportFrame(output).operation.case).toBe(
+      "getSessionResponse",
+    );
   });
 
   test("rejects unknown operation and enum vectors", () => {
     expect(() =>
-      decodeTransportFrame(readFileSync(resolve(vectors, "unknown_operation.pb"))),
+      decodeTransportFrame(
+        readFileSync(resolve(vectors, "unknown_operation.pb")),
+      ),
     ).toThrow(FrameValidationError);
     expect(() =>
       decodeTransportFrame(readFileSync(resolve(vectors, "unknown_enum.pb"))),
@@ -80,8 +104,15 @@ describe("cross-language Protobuf vectors", () => {
   });
 });
 
-function containsSubsequence(haystack: Uint8Array, needle: Uint8Array): boolean {
-  outer: for (let start = 0; start <= haystack.length - needle.length; start++) {
+function containsSubsequence(
+  haystack: Uint8Array,
+  needle: Uint8Array,
+): boolean {
+  outer: for (
+    let start = 0;
+    start <= haystack.length - needle.length;
+    start++
+  ) {
     for (let offset = 0; offset < needle.length; offset++) {
       if (haystack[start + offset] !== needle[offset]) {
         continue outer;

@@ -11,6 +11,8 @@ import type {
   PiNodeSessionEventListener,
   PiNodeSessionSnapshot,
   PiNodeSessionSummary,
+  PiNodeSessionTreeMutationResult,
+  PiNodeSessionTreeSnapshot,
 } from "../pi-node-domain.js";
 import type { PiNodeDomainService, PiNodeSessionObservation } from "../pi-node-domain-service.js";
 
@@ -34,6 +36,27 @@ export interface PiNodeProtocolDomain {
     readonly sessionId: string;
   }): Promise<PiNodeSessionSnapshot>;
   createSession(input: { readonly cwd: string }): Promise<PiNodeSessionSnapshot>;
+  getSessionTree(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+  }): Promise<PiNodeSessionTreeSnapshot>;
+  navigateSessionTree(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+    readonly entryId: string;
+    readonly expectedAdminRevision: string;
+  }): Promise<PiNodeSessionTreeMutationResult>;
+  forkSession(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+    readonly userEntryId: string;
+    readonly expectedAdminRevision: string;
+  }): Promise<PiNodeSessionTreeMutationResult>;
+  cloneSession(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+    readonly expectedAdminRevision: string;
+  }): Promise<PiNodeSessionTreeMutationResult>;
   observeSession(sessionId: string, listener: PiNodeSessionEventListener): PiNodeSessionObservation;
   submitPrompt(input: {
     readonly sessionId: string;
@@ -108,6 +131,39 @@ export class PiNodeDomainServiceProtocolAdapter implements PiNodeProtocolDomain 
 
   createSession(input: { readonly cwd: string }): Promise<PiNodeSessionSnapshot> {
     return this.domainService.createPersistentSession(input);
+  }
+
+  getSessionTree(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+  }): Promise<PiNodeSessionTreeSnapshot> {
+    return this.domainService.getLoadedSessionTree(input);
+  }
+
+  navigateSessionTree(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+    readonly entryId: string;
+    readonly expectedAdminRevision: string;
+  }): Promise<PiNodeSessionTreeMutationResult> {
+    return this.domainService.navigateSessionTree(input);
+  }
+
+  forkSession(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+    readonly userEntryId: string;
+    readonly expectedAdminRevision: string;
+  }): Promise<PiNodeSessionTreeMutationResult> {
+    return this.domainService.forkSessionFromUserEntry(input);
+  }
+
+  cloneSession(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+    readonly expectedAdminRevision: string;
+  }): Promise<PiNodeSessionTreeMutationResult> {
+    return this.domainService.cloneSessionActiveBranch(input);
   }
 
   observeSession(

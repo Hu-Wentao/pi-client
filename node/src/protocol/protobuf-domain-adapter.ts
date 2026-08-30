@@ -17,6 +17,9 @@ import {
   ProjectTrustStatus,
   SessionDetailSnapshotSchema,
   SessionSummarySnapshotSchema,
+  SessionTreeEntryKind,
+  SessionTreeNodeSnapshotSchema,
+  SessionTreeSnapshotSchema,
   StableErrorSchema,
   type DirectoryListingSnapshot,
   type KnownProjectSnapshot,
@@ -24,6 +27,7 @@ import {
   type ProjectSnapshot,
   type SessionDetailSnapshot,
   type SessionSummarySnapshot,
+  type SessionTreeSnapshot,
   type StableError,
 } from "@pi-client/protocol";
 
@@ -37,6 +41,8 @@ import {
   type PiNodeProjectTrustReason,
   type PiNodeSessionSnapshot,
   type PiNodeSessionSummary,
+  type PiNodeSessionTreeEntryKind,
+  type PiNodeSessionTreeSnapshot,
 } from "../pi-node-domain.js";
 
 const textEncoder = new TextEncoder();
@@ -126,6 +132,10 @@ export function toProtocolSessionSummary(summary: PiNodeSessionSummary): Session
     hasUnread: false,
     adminRevision: requireIdentifier(summary.adminRevision, "session administration revision"),
     hasCustomName: summary.name?.trim().length !== undefined && summary.name.trim().length > 0,
+    parentSessionId:
+      summary.parentSessionId === undefined
+        ? ""
+        : requireIdentifier(summary.parentSessionId, "parent session identifier"),
   });
 }
 
@@ -133,6 +143,39 @@ export function toProtocolSessionDetail(snapshot: PiNodeSessionSnapshot): Sessio
   return create(SessionDetailSnapshotSchema, {
     summary: toProtocolSessionSummary(snapshot),
     messages: snapshot.messages.map((message) => toProtocolMessageSnapshot(message, false)),
+  });
+}
+
+export function toProtocolSessionTree(tree: PiNodeSessionTreeSnapshot): SessionTreeSnapshot {
+  return create(SessionTreeSnapshotSchema, {
+    sessionId: requireIdentifier(tree.sessionId, "session identifier"),
+    nodes: tree.nodes.map((node) =>
+      create(SessionTreeNodeSnapshotSchema, {
+        entryId: requireIdentifier(node.entryId, "session tree entry identifier"),
+        parentEntryId:
+          node.parentEntryId === undefined
+            ? ""
+            : requireIdentifier(node.parentEntryId, "parent session tree entry identifier"),
+        kind: toProtocolSessionTreeEntryKind(node.kind),
+        text: fitContentText(node.text),
+        createdAtUnixMillis: positiveMillis(node.createdAtMs),
+        label: node.label === undefined ? "" : fitShortText(node.label),
+        depth: positiveOrZeroUint32(node.depth),
+        isOnActivePath: node.isOnActivePath,
+        hasChildren: node.hasChildren,
+        canEditFromHere: node.canEditFromHere,
+        canFork: node.canFork,
+      }),
+    ),
+    activePathEntryIds: tree.activePathEntryIds.map((entryId) =>
+      requireIdentifier(entryId, "active path entry identifier"),
+    ),
+    activeLeafEntryId:
+      tree.activeLeafEntryId === undefined
+        ? ""
+        : requireIdentifier(tree.activeLeafEntryId, "active leaf entry identifier"),
+    canCloneActiveBranch: tree.canCloneActiveBranch,
+    adminRevision: requireIdentifier(tree.adminRevision, "session administration revision"),
   });
 }
 
@@ -244,6 +287,17 @@ export function mapDomainError(error: unknown): StableError {
       );
     case "session-auto-name-cancelled":
       return stableError(ErrorCode.CANCELLED, "Session naming was cancelled.");
+    case "session-tree-entry-invalid":
+      return stableError(ErrorCode.INVALID_REQUEST, "The selected session tree entry is invalid.");
+    case "session-clone-ineligible":
+      return stableError(
+        ErrorCode.FAILED_PRECONDITION,
+        "The active branch is not eligible for cloning.",
+      );
+    case "session-mutation-conflict":
+      return stableError(ErrorCode.CONFLICT, "The session changed. Refresh and try again.");
+    case "session-mutation-locked":
+      return stableError(ErrorCode.NODE_BUSY, "The session has an active mutation.", true);
     case "service-disposed":
       return stableError(ErrorCode.UNAVAILABLE, "The Pi Node service is unavailable.", true);
     case "project-trust-resolution-failed":
@@ -256,6 +310,7 @@ export function mapDomainError(error: unknown): StableError {
     case "session-dispose-failed":
     case "session-admin-failed":
     case "session-auto-name-failed":
+    case "session-mutation-failed":
     case "abort-failed":
       return stableError(ErrorCode.INTERNAL, "The Pi Node operation failed.");
   }
@@ -332,6 +387,33 @@ function toProtocolProjectTrustReason(reason: PiNodeProjectTrustReason): Project
       return ProjectTrustReason.SAVED_APPROVAL;
     case "saved-denial":
       return ProjectTrustReason.SAVED_DENIAL;
+  }
+}
+
+function toProtocolSessionTreeEntryKind(kind: PiNodeSessionTreeEntryKind): SessionTreeEntryKind {
+  switch (kind) {
+    case "user-message":
+      return SessionTreeEntryKind.USER_MESSAGE;
+    case "assistant-message":
+      return SessionTreeEntryKind.ASSISTANT_MESSAGE;
+    case "tool-message":
+      return SessionTreeEntryKind.TOOL_MESSAGE;
+    case "custom-message":
+      return SessionTreeEntryKind.CUSTOM_MESSAGE;
+    case "thinking-level":
+      return SessionTreeEntryKind.THINKING_LEVEL;
+    case "model-change":
+      return SessionTreeEntryKind.MODEL_CHANGE;
+    case "compaction":
+      return SessionTreeEntryKind.COMPACTION;
+    case "branch-summary":
+      return SessionTreeEntryKind.BRANCH_SUMMARY;
+    case "custom":
+      return SessionTreeEntryKind.CUSTOM;
+    case "label":
+      return SessionTreeEntryKind.LABEL;
+    case "session-info":
+      return SessionTreeEntryKind.SESSION_INFO;
   }
 }
 
@@ -417,6 +499,16 @@ function positiveMillis(value: number): bigint {
 function laterMillis(value: number, minimum: bigint): bigint {
   const candidate = positiveMillis(value);
   return candidate < minimum ? minimum : candidate;
+}
+
+function positiveOrZeroUint32(value: number): number {
+  if (!Number.isSafeInteger(value) || value < 0 || value > 0xffff_ffff) {
+    throw new PiNodeProtocolAdapterError(
+      "invalid-domain-data",
+      "The session tree depth is outside the protocol bounds.",
+    );
+  }
+  return value;
 }
 
 function positiveUint32(value: number): number {

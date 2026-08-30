@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -105,6 +105,11 @@ test("the real public SDK adapter lists and loads persistent sessions fully offl
     stopReason: "stop",
     timestamp: 2,
   });
+  const secondUserEntryId = sessionManager.appendMessage({
+    role: "user",
+    content: [{ type: "text", text: "offline follow-up" }],
+    timestamp: 3,
+  });
   const originalFetch = globalThis.fetch;
   let fetchCalls = 0;
   globalThis.fetch = (async () => {
@@ -138,12 +143,13 @@ test("the real public SDK adapter lists and loads persistent sessions fully offl
     sessionId: "offline-session",
   });
   assert.equal(loaded.persistence, "persistent");
-  assert.equal(loaded.messages.length, 2);
+  assert.equal(loaded.messages.length, 3);
   assert.deepEqual(
     loaded.messages.map((message) => message.parts[0]),
     [
       { type: "text", text: "offline question" },
       { type: "text", text: "offline answer" },
+      { type: "text", text: "offline follow-up" },
     ],
   );
 
@@ -151,6 +157,18 @@ test("the real public SDK adapter lists and loads persistent sessions fully offl
   assert.equal(created.persistence, "persistent");
   assert.equal(created.cwd, canonicalCwd);
   assert.equal(created.messages.length, 0);
+  const createdTree = await service.getLoadedSessionTree({
+    cwd: canonicalCwd,
+    sessionId: created.sessionId,
+  });
+  await assert.rejects(
+    service.cloneSessionActiveBranch({
+      cwd: canonicalCwd,
+      sessionId: created.sessionId,
+      expectedAdminRevision: createdTree.adminRevision,
+    }),
+    (error) => error instanceof PiNodeDomainError && error.code === "session-clone-ineligible",
+  );
 
   const admission = await service.submitPrompt({
     sessionId: "offline-session",
@@ -163,4 +181,67 @@ test("the real public SDK adapter lists and loads persistent sessions fully offl
       admission.failure?.code === "provider-auth-required",
   );
   assert.equal(fetchCalls, 0);
+
+  const initialTree = await service.getLoadedSessionTree({
+    cwd: canonicalCwd,
+    sessionId: "offline-session",
+  });
+  assert.ok(initialTree.nodes.length >= 3);
+  assert.ok(initialTree.nodes.some((node) => node.entryId === secondUserEntryId));
+
+  await assert.rejects(
+    service.navigateSessionTree({
+      cwd: canonicalCwd,
+      sessionId: "offline-session",
+      entryId: secondUserEntryId,
+      expectedAdminRevision: "stale-revision",
+    }),
+    (error) => error instanceof PiNodeDomainError && error.code === "session-mutation-conflict",
+  );
+
+  const filesBeforeNavigate = (await readdir(sessionDir)).filter((name) => name.endsWith(".jsonl"));
+  const navigated = await service.navigateSessionTree({
+    cwd: canonicalCwd,
+    sessionId: "offline-session",
+    entryId: secondUserEntryId,
+    expectedAdminRevision: initialTree.adminRevision,
+  });
+  assert.equal(navigated.session.sessionId, "offline-session");
+  assert.equal(navigated.editorText, "offline follow-up");
+  assert.equal(navigated.session.messages.length, 2);
+  assert.deepEqual(
+    (await readdir(sessionDir)).filter((name) => name.endsWith(".jsonl")),
+    filesBeforeNavigate,
+  );
+
+  const forked = await service.forkSessionFromUserEntry({
+    cwd: canonicalCwd,
+    sessionId: "offline-session",
+    userEntryId: secondUserEntryId,
+    expectedAdminRevision: navigated.tree.adminRevision,
+  });
+  assert.notEqual(forked.session.sessionId, "offline-session");
+  assert.equal(forked.session.parentSessionId, "offline-session");
+  assert.equal(forked.editorText, "offline follow-up");
+  assert.throws(
+    () => service.getLoadedSessionSnapshot("offline-session"),
+    (error) => error instanceof PiNodeDomainError && error.code === "session-not-loaded",
+  );
+
+  const cloned = await service.cloneSessionActiveBranch({
+    cwd: canonicalCwd,
+    sessionId: forked.session.sessionId,
+    expectedAdminRevision: forked.tree.adminRevision,
+  });
+  assert.notEqual(cloned.session.sessionId, forked.session.sessionId);
+  assert.equal(cloned.session.parentSessionId, forked.session.sessionId);
+  assert.throws(
+    () => service.getLoadedSessionSnapshot(forked.session.sessionId),
+    (error) => error instanceof PiNodeDomainError && error.code === "session-not-loaded",
+  );
+  const family = await service.listPersistentSessions({ cwd: canonicalCwd });
+  const forkSummary = family.find((session) => session.sessionId === forked.session.sessionId);
+  const cloneSummary = family.find((session) => session.sessionId === cloned.session.sessionId);
+  assert.equal(forkSummary?.parentSessionId, "offline-session");
+  assert.equal(cloneSummary?.parentSessionId, forked.session.sessionId);
 });

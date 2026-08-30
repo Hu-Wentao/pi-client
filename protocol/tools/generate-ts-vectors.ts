@@ -9,6 +9,8 @@ import {
   ProjectTrustReason,
   ProjectTrustStatus,
   SessionAdminOperation,
+  SessionTreeEntryKind,
+  SessionTreeMutationOperation,
 } from "../gen/ts/pi/client/protocol/v0/protocol_pb.ts";
 import { encodeTransportFrame } from "../src/frame_codec.ts";
 
@@ -48,10 +50,7 @@ const sessionResponse = create(PiTransportFrameSchema, {
   },
 });
 const sessionBytes = encodeTransportFrame(sessionResponse);
-writeFileSync(
-  resolve(vectorDirectory, "ts_session_response.pb"),
-  sessionBytes,
-);
+writeFileSync(resolve(vectorDirectory, "ts_session_response.pb"), sessionBytes);
 
 const projectSnapshot = create(PiTransportFrameSchema, {
   frameSequence: 7n,
@@ -78,7 +77,8 @@ const projectSnapshot = create(PiTransportFrameSchema, {
             ProjectTrustReason.PI_SETTINGS,
             ProjectTrustReason.AGENT_SKILLS,
           ],
-          revision: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          revision:
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         },
       },
     },
@@ -117,6 +117,63 @@ const sessionAdminOutcome = create(PiTransportFrameSchema, {
 writeFileSync(
   resolve(vectorDirectory, "ts_session_admin_outcome.pb"),
   encodeTransportFrame(sessionAdminOutcome),
+);
+
+const sessionTreeMutation = create(PiTransportFrameSchema, {
+  frameSequence: 20n,
+  operation: {
+    case: "sessionTreeMutationOutcome",
+    value: {
+      requestId: 24n,
+      commandId: "tree-command-ts-1",
+      operation: SessionTreeMutationOperation.FORK,
+      outcome: {
+        case: "result",
+        value: {
+          session: {
+            summary: {
+              sessionId: "session-ts-fork-1",
+              title: "Forked cross-language session",
+              workingDirectory: "/tmp/pi-client-tree-vector",
+              createdAtUnixMillis: 1_700_000_000_100n,
+              updatedAtUnixMillis: 1_700_000_000_101n,
+              isRunning: false,
+              hasUnread: false,
+              adminRevision: "revision-session-ts-fork-1",
+              hasCustomName: false,
+              parentSessionId: "session-ts-parent-1",
+            },
+            messages: [],
+          },
+          tree: {
+            sessionId: "session-ts-fork-1",
+            nodes: [
+              {
+                entryId: "entry-ts-user-1",
+                kind: SessionTreeEntryKind.USER_MESSAGE,
+                text: "Restore this prompt",
+                createdAtUnixMillis: 1_700_000_000_000n,
+                depth: 0,
+                isOnActivePath: true,
+                hasChildren: false,
+                canEditFromHere: true,
+                canFork: true,
+              },
+            ],
+            activePathEntryIds: ["entry-ts-user-1"],
+            activeLeafEntryId: "entry-ts-user-1",
+            canCloneActiveBranch: true,
+            adminRevision: "revision-session-ts-fork-1",
+          },
+          editorText: "Restore this prompt",
+        },
+      },
+    },
+  },
+});
+writeFileSync(
+  resolve(vectorDirectory, "ts_session_tree_mutation.pb"),
+  encodeTransportFrame(sessionTreeMutation),
 );
 
 // Unknown top-level field 19000, varint value 123. It is appended to a valid

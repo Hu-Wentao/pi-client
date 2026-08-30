@@ -7,6 +7,9 @@ class PromptComposerView extends StatefulWidget {
     this.focusNode,
     this.onChanged,
     this.onStop,
+    this.restoredText,
+    this.restoreGeneration = 0,
+    this.focusOnRestore = true,
     this.enabled = true,
     this.isSubmitting = false,
     this.isRunning = false,
@@ -22,6 +25,9 @@ class PromptComposerView extends StatefulWidget {
   final FocusNode? focusNode;
   final ValueChanged<String>? onChanged;
   final VoidCallback? onStop;
+  final String? restoredText;
+  final int restoreGeneration;
+  final bool focusOnRestore;
   final bool enabled;
   final bool isSubmitting;
   final bool isRunning;
@@ -39,6 +45,7 @@ class _PromptComposerViewState extends State<PromptComposerView> {
   late FocusNode _focusNode;
   late bool _ownsController;
   late bool _ownsFocusNode;
+  var _appliedRestoreGeneration = 0;
 
   @override
   void initState() {
@@ -48,6 +55,7 @@ class _PromptComposerViewState extends State<PromptComposerView> {
     _ownsFocusNode = widget.focusNode == null;
     _focusNode = widget.focusNode ?? FocusNode(debugLabel: 'prompt composer');
     _controller.addListener(_handleTextChanged);
+    _scheduleRestore();
   }
 
   @override
@@ -66,6 +74,22 @@ class _PromptComposerViewState extends State<PromptComposerView> {
       _ownsFocusNode = widget.focusNode == null;
       _focusNode = widget.focusNode ?? FocusNode(debugLabel: 'prompt composer');
     }
+    _scheduleRestore();
+  }
+
+  void _scheduleRestore() {
+    final generation = widget.restoreGeneration;
+    if (generation <= _appliedRestoreGeneration) return;
+    _appliedRestoreGeneration = generation;
+    final text = widget.restoredText ?? '';
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || generation != _appliedRestoreGeneration) return;
+      _controller.value = TextEditingValue(
+        text: text,
+        selection: TextSelection.collapsed(offset: text.length),
+      );
+      if (widget.focusOnRestore && text.isNotEmpty) _focusNode.requestFocus();
+    });
   }
 
   void _handleTextChanged() {

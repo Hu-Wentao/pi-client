@@ -1,9 +1,14 @@
+import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
 import {
   type AgentSession,
   type AgentSessionEvent,
+  type AgentSessionRuntime,
+  type CreateAgentSessionRuntimeFactory,
   createAgentSessionFromServices,
+  createAgentSessionRuntime,
   createAgentSessionServices,
   getAgentDir,
   type SessionEntry,
@@ -23,8 +28,12 @@ import {
   type PiNodeMessageUsage,
   type PiNodePromptExecution,
   type PiNodeSessionBackendEvent,
+  type PiNodeSessionBackendMutationResult,
   type PiNodeSessionBackendSnapshot,
   type PiNodeSessionSummary,
+  type PiNodeSessionTreeEntryKind,
+  type PiNodeSessionTreeNode,
+  type PiNodeSessionTreeSnapshot,
 } from "./pi-node-domain.js";
 import {
   assertProjectTrustAuthorization,
@@ -42,7 +51,13 @@ export type PiSdkDomainAdapterErrorCode =
   | "session-not-found"
   | "session-id-ambiguous"
   | "session-creation-failed"
-  | "session-disposal-failed";
+  | "session-disposal-failed"
+  | "session-tree-entry-invalid"
+  | "session-clone-ineligible"
+  | "session-mutation-conflict"
+  | "session-mutation-locked"
+  | "session-mutation-cancelled"
+  | "session-mutation-failed";
 
 export class PiSdkDomainAdapterError extends Error {
   constructor(
@@ -78,7 +93,10 @@ export class PublicPiSdkDomainSessionFactory implements PiNodeDomainSessionBacke
     });
     const sessionDir = resolveSessionDirectory(settingsManager, input.agentDir);
     const sessions = await SessionManager.list(input.authorization.cwd, sessionDir);
-    return Object.freeze(sessions.map(sessionInfoToSummary));
+    const parentIds = parentSessionIdsByChildPath(sessions);
+    return Object.freeze(
+      sessions.map((session) => sessionInfoToSummary(session, parentIds.get(session.path))),
+    );
   }
 
   renamePersistentSession(
@@ -128,9 +146,8 @@ export class PublicPiSdkDomainSessionFactory implements PiNodeDomainSessionBacke
       projectTrusted: input.authorization.projectResourcesAllowed,
     });
     const sessionDir = resolveSessionDirectory(settingsManager, input.agentDir);
-    const matches = (await SessionManager.list(input.authorization.cwd, sessionDir)).filter(
-      (session) => session.id === input.sessionId,
-    );
+    const sessions = await SessionManager.list(input.authorization.cwd, sessionDir);
+    const matches = sessions.filter((session) => session.id === input.sessionId);
     if (matches.length === 0) {
       throw new PiSdkDomainAdapterError(
         "session-not-found",
@@ -154,9 +171,9 @@ export class PublicPiSdkDomainSessionFactory implements PiNodeDomainSessionBacke
 
     return this.#createBackendWithSettings(
       input,
-      settingsManager,
       SessionManager.open(match.path, sessionDir, input.authorization.cwd),
       match,
+      parentSessionIdsByChildPath(sessions).get(match.path),
     );
   }
 
@@ -171,11 +188,7 @@ export class PublicPiSdkDomainSessionFactory implements PiNodeDomainSessionBacke
       projectTrusted: input.authorization.projectResourcesAllowed,
     });
     const sessionDir = resolveSessionDirectory(settingsManager, input.agentDir);
-    return this.#createBackendWithSettings(
-      input,
-      settingsManager,
-      createSessionManager(sessionDir),
-    );
+    return this.#createBackendWithSettings(input, createSessionManager(sessionDir));
   }
 
   async #createBackendWithSettings(
@@ -183,15 +196,28 @@ export class PublicPiSdkDomainSessionFactory implements PiNodeDomainSessionBacke
       readonly authorization: ProjectTrustAuthorization;
       readonly agentDir: string;
     },
-    settingsManager: SettingsManager,
     sessionManager: SessionManager,
     sessionInfo?: SessionInfo,
+    parentSessionId?: string,
   ): Promise<PiNodeDomainSessionBackend> {
-    let session: AgentSession | undefined;
-    try {
+    const createRuntime: CreateAgentSessionRuntimeFactory = async ({
+      cwd,
+      agentDir,
+      sessionManager: replacementManager,
+      sessionStartEvent,
+    }) => {
+      if (resolve(cwd) !== resolve(input.authorization.cwd)) {
+        throw new PiSdkDomainAdapterError(
+          "session-creation-failed",
+          "Session replacement crossed the authorized project boundary.",
+        );
+      }
+      const settingsManager = SettingsManager.create(cwd, agentDir, {
+        projectTrusted: input.authorization.projectResourcesAllowed,
+      });
       const services = await createAgentSessionServices({
-        cwd: input.authorization.cwd,
-        agentDir: input.agentDir,
+        cwd,
+        agentDir,
         settingsManager,
         resourceLoaderOptions: {
           noContextFiles: !input.authorization.projectResourcesAllowed,
@@ -199,30 +225,29 @@ export class PublicPiSdkDomainSessionFactory implements PiNodeDomainSessionBacke
       });
       const result = await createAgentSessionFromServices({
         services,
-        sessionManager,
+        sessionManager: replacementManager,
+        ...(sessionStartEvent === undefined ? {} : { sessionStartEvent }),
         noTools: "all",
       });
-      session = result.session;
-      return new PublicPiSdkDomainSession(session, settingsManager, sessionInfo, this.#clock);
+      return {
+        ...result,
+        services,
+        diagnostics: services.diagnostics,
+      };
+    };
+
+    try {
+      const runtime = await createAgentSessionRuntime(createRuntime, {
+        cwd: input.authorization.cwd,
+        agentDir: input.agentDir,
+        sessionManager,
+      });
+      return new PublicPiSdkDomainSession(runtime, sessionInfo, parentSessionId, this.#clock);
     } catch (error) {
-      const cleanupErrors: unknown[] = [error];
-      try {
-        session?.dispose();
-      } catch (disposeError) {
-        cleanupErrors.push(disposeError);
-      }
-      try {
-        await settingsManager.flush();
-      } catch (flushError) {
-        cleanupErrors.push(flushError);
-      }
-      for (const settingsError of settingsManager.drainErrors()) {
-        cleanupErrors.push(settingsError.error);
-      }
       throw new PiSdkDomainAdapterError(
         "session-creation-failed",
-        "The public Pi SDK session could not be created.",
-        { cause: cleanupErrors.length === 1 ? error : new AggregateError(cleanupErrors) },
+        "The public Pi SDK session runtime could not be created.",
+        { cause: error },
       );
     }
   }
@@ -230,32 +255,37 @@ export class PublicPiSdkDomainSessionFactory implements PiNodeDomainSessionBacke
 
 class PublicPiSdkDomainSession implements PiNodeDomainSessionBackend {
   readonly persistence = "persistent" as const;
-  readonly #session: AgentSession;
-  readonly #settingsManager: SettingsManager;
-  readonly #sessionInfo: SessionInfo | undefined;
+  readonly #runtime: AgentSessionRuntime;
+  readonly #initialSessionInfo: SessionInfo | undefined;
   readonly #clock: () => number;
   readonly #listeners = new Set<(event: PiNodeSessionBackendEvent) => void>();
-  readonly #messageIds = new WeakMap<object, string>();
-  readonly #unsubscribeSdk: () => void;
 
+  #parentSessionId: string | undefined;
+  #messageIds = new WeakMap<object, string>();
+  #unsubscribeSdk: () => void = () => {};
   #messageOrdinal = 0;
-  #running: boolean;
+  #running = false;
   #promptInFlight = false;
+  #mutationInFlight = false;
   #disposed = false;
   #disposePromise: Promise<void> | undefined;
 
   constructor(
-    session: AgentSession,
-    settingsManager: SettingsManager,
+    runtime: AgentSessionRuntime,
     sessionInfo: SessionInfo | undefined,
+    parentSessionId: string | undefined,
     clock: () => number,
   ) {
-    this.#session = session;
-    this.#settingsManager = settingsManager;
-    this.#sessionInfo = sessionInfo;
+    this.#runtime = runtime;
+    this.#initialSessionInfo = sessionInfo;
+    this.#parentSessionId = parentSessionId;
     this.#clock = clock;
-    this.#running = !session.isIdle;
-    this.#unsubscribeSdk = session.subscribe((event) => this.#handleSdkEvent(event));
+    this.#bindSdkSession(runtime.session);
+    runtime.setRebindSession(async (session) => this.#bindSdkSession(session));
+  }
+
+  get #session(): AgentSession {
+    return this.#runtime.session;
   }
 
   get sessionId(): string {
@@ -275,16 +305,19 @@ class PublicPiSdkDomainSession implements PiNodeDomainSessionBackend {
     const header = manager.getHeader();
     const entries = manager.getBranch();
     const messages = entries.flatMap((entry) => normalizeSessionEntry(entry, this.#clock));
+    const sessionInfo =
+      this.#initialSessionInfo?.id === this.sessionId ? this.#initialSessionInfo : undefined;
     const createdAtMs =
-      this.#sessionInfo?.created.getTime() ?? parseTimestamp(header?.timestamp, this.#clock());
+      sessionInfo?.created.getTime() ?? parseTimestamp(header?.timestamp, this.#clock());
     const modifiedAtMs =
-      this.#sessionInfo?.modified.getTime() ??
+      sessionInfo?.modified.getTime() ??
       parseTimestamp(entries.at(-1)?.timestamp ?? header?.timestamp, createdAtMs);
 
     const summary = {
       sessionId: this.sessionId,
       cwd: this.cwd,
       ...(this.#session.sessionName === undefined ? {} : { name: this.#session.sessionName }),
+      ...(this.#parentSessionId === undefined ? {} : { parentSessionId: this.#parentSessionId }),
       createdAtMs,
       modifiedAtMs,
       messageCount: messages.length,
@@ -314,7 +347,7 @@ class PublicPiSdkDomainSession implements PiNodeDomainSessionBackend {
 
   async startPrompt(input: { readonly text: string }): Promise<PiNodePromptExecution> {
     this.#assertNotDisposed();
-    if (this.isRunning) {
+    if (this.isRunning || this.#mutationInFlight) {
       const failure = Object.freeze({
         code: "session-busy" as const,
         message: "The session already has an active command.",
@@ -407,6 +440,101 @@ class PublicPiSdkDomainSession implements PiNodeDomainSessionBackend {
     return true;
   }
 
+  getTreeSnapshot(): PiNodeSessionTreeSnapshot {
+    this.#assertNotDisposed();
+    return sessionManagerToTreeSnapshot(this.#session.sessionManager, this.getSnapshot());
+  }
+
+  navigateSessionTree(input: {
+    readonly entryId: string;
+    readonly expectedAdminRevision: string;
+  }): Promise<PiNodeSessionBackendMutationResult> {
+    return this.#runSessionMutation(input.expectedAdminRevision, async () => {
+      const entry = this.#session.sessionManager.getEntry(input.entryId);
+      if (!entry) {
+        throw new PiSdkDomainAdapterError(
+          "session-tree-entry-invalid",
+          "The selected session tree entry does not exist.",
+        );
+      }
+      const result = await this.#session.navigateTree(input.entryId, { summarize: false });
+      if (result.cancelled || result.aborted) {
+        throw new PiSdkDomainAdapterError(
+          "session-mutation-cancelled",
+          "Session tree navigation was cancelled.",
+        );
+      }
+      return result.editorText;
+    });
+  }
+
+  forkFromUserEntry(input: {
+    readonly userEntryId: string;
+    readonly expectedAdminRevision: string;
+  }): Promise<PiNodeSessionBackendMutationResult> {
+    return this.#runSessionMutation(input.expectedAdminRevision, async () => {
+      const entry = this.#session.sessionManager.getEntry(input.userEntryId);
+      if (entry?.type !== "message" || entry.message.role !== "user") {
+        throw new PiSdkDomainAdapterError(
+          "session-tree-entry-invalid",
+          "Fork requires a user-message entry.",
+        );
+      }
+      const previousSessionId = this.sessionId;
+      const result = await this.#runtime.fork(input.userEntryId);
+      if (result.cancelled) {
+        throw new PiSdkDomainAdapterError(
+          "session-mutation-cancelled",
+          "Session fork was cancelled.",
+        );
+      }
+      if (this.sessionId === previousSessionId) {
+        throw new PiSdkDomainAdapterError(
+          "session-mutation-failed",
+          "Session fork did not replace the active runtime.",
+        );
+      }
+      this.#parentSessionId = previousSessionId;
+      return result.selectedText;
+    });
+  }
+
+  cloneActiveBranch(input: {
+    readonly expectedAdminRevision: string;
+  }): Promise<PiNodeSessionBackendMutationResult> {
+    return this.#runSessionMutation(input.expectedAdminRevision, async () => {
+      const manager = this.#session.sessionManager;
+      const leafId = manager.getLeafId();
+      if (
+        leafId === null ||
+        !manager
+          .getBranch()
+          .some((entry) => entry.type === "message" && entry.message.role === "user")
+      ) {
+        throw new PiSdkDomainAdapterError(
+          "session-clone-ineligible",
+          "The active branch does not contain a cloneable user turn.",
+        );
+      }
+      const previousSessionId = this.sessionId;
+      const result = await this.#runtime.fork(leafId, { position: "at" });
+      if (result.cancelled) {
+        throw new PiSdkDomainAdapterError(
+          "session-mutation-cancelled",
+          "Session clone was cancelled.",
+        );
+      }
+      if (this.sessionId === previousSessionId) {
+        throw new PiSdkDomainAdapterError(
+          "session-mutation-failed",
+          "Session clone did not replace the active runtime.",
+        );
+      }
+      this.#parentSessionId = previousSessionId;
+      return undefined;
+    });
+  }
+
   dispose(): Promise<void> {
     this.#disposePromise ??= this.#disposeOnce();
     return this.#disposePromise;
@@ -421,24 +549,18 @@ class PublicPiSdkDomainSession implements PiNodeDomainSessionBackend {
     this.#unsubscribeSdk();
     const errors: unknown[] = [];
 
-    if (!this.#session.isIdle) {
-      try {
-        await this.#session.abort();
-      } catch (error) {
-        errors.push(error);
-      }
-    }
     try {
-      this.#session.dispose();
+      await this.#runtime.dispose();
     } catch (error) {
       errors.push(error);
     }
+    const settingsManager = this.#runtime.services.settingsManager;
     try {
-      await this.#settingsManager.flush();
+      await settingsManager.flush();
     } catch (error) {
       errors.push(error);
     }
-    for (const settingsError of this.#settingsManager.drainErrors()) {
+    for (const settingsError of settingsManager.drainErrors()) {
       errors.push(settingsError.error);
     }
 
@@ -449,6 +571,65 @@ class PublicPiSdkDomainSession implements PiNodeDomainSessionBackend {
         { cause: new AggregateError(errors) },
       );
     }
+  }
+
+  async #runSessionMutation(
+    expectedAdminRevision: string,
+    mutate: () => Promise<string | undefined>,
+  ): Promise<PiNodeSessionBackendMutationResult> {
+    this.#assertNotDisposed();
+    if (this.#mutationInFlight) {
+      throw new PiSdkDomainAdapterError(
+        "session-mutation-locked",
+        "Another session mutation is already active.",
+      );
+    }
+    if (this.isRunning) {
+      throw new PiSdkDomainAdapterError(
+        "session-mutation-locked",
+        "The session must be idle before changing its active branch.",
+      );
+    }
+    const before = this.getSnapshot();
+    const treeBefore = this.getTreeSnapshot();
+    if (treeBefore.adminRevision !== expectedAdminRevision) {
+      throw new PiSdkDomainAdapterError(
+        "session-mutation-conflict",
+        "The session changed before the mutation began.",
+      );
+    }
+
+    this.#mutationInFlight = true;
+    try {
+      const editorText = await mutate();
+      const session = this.getSnapshot();
+      return Object.freeze({
+        previousSessionId: before.sessionId,
+        session,
+        tree: this.getTreeSnapshot(),
+        ...(editorText === undefined ? {} : { editorText }),
+      });
+    } catch (error) {
+      if (error instanceof PiSdkDomainAdapterError) {
+        throw error;
+      }
+      throw new PiSdkDomainAdapterError(
+        "session-mutation-failed",
+        "The public Pi SDK session mutation failed.",
+        { cause: error },
+      );
+    } finally {
+      this.#mutationInFlight = false;
+    }
+  }
+
+  #bindSdkSession(session: AgentSession): void {
+    this.#unsubscribeSdk();
+    this.#messageIds = new WeakMap<object, string>();
+    this.#messageOrdinal = 0;
+    this.#running = !session.isIdle;
+    this.#promptInFlight = false;
+    this.#unsubscribeSdk = session.subscribe((event) => this.#handleSdkEvent(event));
   }
 
   #handleSdkEvent(event: AgentSessionEvent): void {
@@ -613,6 +794,181 @@ function normalizeSessionEntry(entry: SessionEntry, clock: () => number): PiNode
     ];
   }
   return [];
+}
+
+function parentSessionIdsByChildPath(
+  sessions: readonly SessionInfo[],
+): ReadonlyMap<string, string> {
+  const idsByPath = new Map(sessions.map((session) => [resolve(session.path), session.id]));
+  const result = new Map<string, string>();
+  for (const session of sessions) {
+    if (session.parentSessionPath === undefined) continue;
+    const parentId = idsByPath.get(resolve(session.parentSessionPath));
+    if (parentId !== undefined) result.set(session.path, parentId);
+  }
+  return result;
+}
+
+export function sessionManagerToTreeSnapshot(
+  manager: SessionManager,
+  summary: PiNodeSessionSummary,
+): PiNodeSessionTreeSnapshot {
+  const entries = manager.getEntries();
+  const byId = new Map(entries.map((entry) => [entry.id, entry]));
+  const childrenById = new Map<string, string[]>();
+  const roots: string[] = [];
+  for (const entry of entries) {
+    const parentId = entry.parentId;
+    if (parentId === null || parentId === entry.id || !byId.has(parentId)) {
+      roots.push(entry.id);
+      continue;
+    }
+    const children = childrenById.get(parentId) ?? [];
+    children.push(entry.id);
+    childrenById.set(parentId, children);
+  }
+
+  const depthById = new Map<string, number>();
+  const queue = roots.map((entryId) => ({ entryId, depth: 0 }));
+  for (let index = 0; index < queue.length; index += 1) {
+    const current = queue[index]!;
+    if (depthById.has(current.entryId)) continue;
+    depthById.set(current.entryId, current.depth);
+    for (const childId of childrenById.get(current.entryId) ?? []) {
+      queue.push({ entryId: childId, depth: current.depth + 1 });
+    }
+  }
+  for (const entry of entries) {
+    if (!depthById.has(entry.id)) depthById.set(entry.id, 0);
+  }
+
+  const activePath = manager.getBranch();
+  const activePathEntryIds = activePath.map((entry) => entry.id);
+  const activeIds = new Set(activePathEntryIds);
+  const sessionFile = manager.getSessionFile();
+  const sourceFileAvailable =
+    !manager.isPersisted() || (sessionFile !== undefined && existsSync(sessionFile));
+  const nodes = entries.map((entry): PiNodeSessionTreeNode => {
+    const kind = sessionTreeEntryKind(entry);
+    const label = manager.getLabel(entry.id);
+    return Object.freeze({
+      entryId: entry.id,
+      ...(entry.parentId === null ? {} : { parentEntryId: entry.parentId }),
+      kind,
+      text: sessionTreeEntryText(entry),
+      createdAtMs: parseTimestamp(entry.timestamp, 1),
+      ...(label === undefined ? {} : { label }),
+      depth: depthById.get(entry.id) ?? 0,
+      isOnActivePath: activeIds.has(entry.id),
+      hasChildren: (childrenById.get(entry.id)?.length ?? 0) > 0,
+      canEditFromHere: kind === "user-message",
+      canFork: kind === "user-message" && (entry.parentId === null || sourceFileAvailable),
+    });
+  });
+  const canCloneActiveBranch =
+    sourceFileAvailable &&
+    manager.getLeafId() !== null &&
+    activePath.some((entry) => entry.type === "message" && entry.message.role === "user");
+  return Object.freeze({
+    sessionId: summary.sessionId,
+    nodes: Object.freeze(nodes),
+    activePathEntryIds: Object.freeze(activePathEntryIds),
+    ...(manager.getLeafId() === null ? {} : { activeLeafEntryId: manager.getLeafId()! }),
+    canCloneActiveBranch,
+    adminRevision: createSessionTreeRevision(
+      summary.adminRevision,
+      manager.getLeafId(),
+      entries.length,
+    ),
+  });
+}
+
+function createSessionTreeRevision(
+  sessionAdminRevision: string,
+  activeLeafEntryId: string | null,
+  entryCount: number,
+): string {
+  return createHash("sha256")
+    .update(JSON.stringify([sessionAdminRevision, activeLeafEntryId, entryCount]))
+    .digest("hex");
+}
+
+function sessionTreeEntryKind(entry: SessionEntry): PiNodeSessionTreeEntryKind {
+  switch (entry.type) {
+    case "message":
+      switch (entry.message.role) {
+        case "user":
+          return "user-message";
+        case "assistant":
+          return "assistant-message";
+        case "toolResult":
+          return "tool-message";
+        default:
+          return "custom-message";
+      }
+    case "custom_message":
+      return "custom-message";
+    case "thinking_level_change":
+      return "thinking-level";
+    case "model_change":
+      return "model-change";
+    case "compaction":
+      return "compaction";
+    case "branch_summary":
+      return "branch-summary";
+    case "custom":
+      return "custom";
+    case "label":
+      return "label";
+    case "session_info":
+      return "session-info";
+  }
+}
+
+function sessionTreeEntryText(entry: SessionEntry): string {
+  switch (entry.type) {
+    case "message":
+      return messageContentText(entry.message);
+    case "custom_message":
+      return contentText(entry.content);
+    case "thinking_level_change":
+      return `Thinking: ${entry.thinkingLevel}`;
+    case "model_change":
+      return `Model: ${entry.provider}/${entry.modelId}`;
+    case "compaction":
+      return entry.summary;
+    case "branch_summary":
+      return entry.summary;
+    case "custom":
+      return `Extension state: ${entry.customType}`;
+    case "label":
+      return entry.label?.trim() || "Label cleared";
+    case "session_info":
+      return entry.name?.trim() || "Session name cleared";
+  }
+}
+
+function messageContentText(message: unknown): string {
+  if (!isRecord(message)) return "";
+  if ("content" in message) return contentText(message.content);
+  if (typeof message.command === "string") return message.command;
+  return "";
+}
+
+function contentText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .filter(
+      (part): part is Record<string, unknown> =>
+        isRecord(part) &&
+        ((part.type === "text" && typeof part.text === "string") ||
+          (part.type === "thinking" && typeof part.thinking === "string")),
+    )
+    .map((part) =>
+      part.type === "thinking" ? String(part.thinking ?? "") : String(part.text ?? ""),
+    )
+    .join("");
 }
 
 function resolveSessionDirectory(

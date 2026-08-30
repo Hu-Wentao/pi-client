@@ -144,6 +144,74 @@ final class ProtobufPiProtocolCodec implements PiProtocolCodec {
             projectId: projectId,
           ),
         ),
+      PiProtocolGetSessionTreeRequest(
+        :final requestId,
+        :final projectId,
+        :final sessionId,
+      ) =>
+        wire.PiTransportFrame(
+          frameSequence: _wirePositiveInt(frameSequence),
+          getSessionTreeRequest: wire.GetSessionTreeRequest(
+            requestId: _wirePositiveInt(requestId),
+            projectId: projectId,
+            sessionId: sessionId,
+          ),
+        ),
+      PiProtocolNavigateSessionTreeCommandRequest(
+        :final requestId,
+        :final commandId,
+        :final projectId,
+        :final sessionId,
+        :final entryId,
+        :final expectedAdminRevision,
+      ) =>
+        wire.PiTransportFrame(
+          frameSequence: _wirePositiveInt(frameSequence),
+          navigateSessionTreeCommand: wire.NavigateSessionTreeCommand(
+            requestId: _wirePositiveInt(requestId),
+            commandId: commandId,
+            projectId: projectId,
+            sessionId: sessionId,
+            entryId: entryId,
+            expectedAdminRevision: expectedAdminRevision,
+          ),
+        ),
+      PiProtocolForkSessionCommandRequest(
+        :final requestId,
+        :final commandId,
+        :final projectId,
+        :final sessionId,
+        :final userEntryId,
+        :final expectedAdminRevision,
+      ) =>
+        wire.PiTransportFrame(
+          frameSequence: _wirePositiveInt(frameSequence),
+          forkSessionCommand: wire.ForkSessionCommand(
+            requestId: _wirePositiveInt(requestId),
+            commandId: commandId,
+            projectId: projectId,
+            sessionId: sessionId,
+            userEntryId: userEntryId,
+            expectedAdminRevision: expectedAdminRevision,
+          ),
+        ),
+      PiProtocolCloneSessionCommandRequest(
+        :final requestId,
+        :final commandId,
+        :final projectId,
+        :final sessionId,
+        :final expectedAdminRevision,
+      ) =>
+        wire.PiTransportFrame(
+          frameSequence: _wirePositiveInt(frameSequence),
+          cloneSessionCommand: wire.CloneSessionCommand(
+            requestId: _wirePositiveInt(requestId),
+            commandId: commandId,
+            projectId: projectId,
+            sessionId: sessionId,
+            expectedAdminRevision: expectedAdminRevision,
+          ),
+        ),
       PiProtocolPromptCommandRequest(
         :final requestId,
         :final commandId,
@@ -314,8 +382,12 @@ final class ProtobufPiProtocolCodec implements PiProtocolCodec {
       _decodeSessionResponse(frame.getSessionResponse),
     wire.PiTransportFrame_Operation.createSessionResponse =>
       _decodeSessionCreatedResponse(frame.createSessionResponse),
+    wire.PiTransportFrame_Operation.getSessionTreeResponse =>
+      _decodeSessionTreeResponse(frame.getSessionTreeResponse),
     wire.PiTransportFrame_Operation.sessionAdminCommandOutcome =>
       _decodeSessionAdminOutcome(frame.sessionAdminCommandOutcome),
+    wire.PiTransportFrame_Operation.sessionTreeMutationOutcome =>
+      _decodeSessionTreeMutationOutcome(frame.sessionTreeMutationOutcome),
     wire.PiTransportFrame_Operation.requestRejected => _decodeRequestRejected(
       frame.requestRejected,
     ),
@@ -429,6 +501,17 @@ final class ProtobufPiProtocolCodec implements PiProtocolCodec {
     );
   }
 
+  PiProtocolSessionTreeResponse _decodeSessionTreeResponse(
+    wire.GetSessionTreeResponse response,
+  ) {
+    final requestId = _semanticPositiveInt(response.requestId);
+    _requestCorrelations.remove(requestId);
+    return PiProtocolSessionTreeResponse(
+      requestId: requestId,
+      tree: _semanticSessionTree(response.tree),
+    );
+  }
+
   PiProtocolSessionAdminOutcomeMessage _decodeSessionAdminOutcome(
     wire.SessionAdminCommandOutcome response,
   ) {
@@ -455,6 +538,35 @@ final class ProtobufPiProtocolCodec implements PiProtocolCodec {
       requestId: requestId,
       commandId: response.commandId,
       operation: _semanticSessionAdminOperation(response.operation),
+      outcome: outcome,
+    );
+  }
+
+  PiProtocolSessionTreeMutationOutcomeMessage _decodeSessionTreeMutationOutcome(
+    wire.SessionTreeMutationOutcome response,
+  ) {
+    final requestId = _semanticPositiveInt(response.requestId);
+    _requestCorrelations.remove(requestId);
+    final outcome = switch (response.whichOutcome()) {
+      wire.SessionTreeMutationOutcome_Outcome.result =>
+        PiProtocolSessionTreeMutationUpdated(
+          session: _semanticSessionDetail(response.result.session),
+          tree: _semanticSessionTree(response.result.tree),
+          editorText: response.result.editorText.isEmpty
+              ? null
+              : response.result.editorText,
+        ),
+      wire.SessionTreeMutationOutcome_Outcome.error =>
+        PiProtocolSessionTreeMutationFailed(_semanticFailure(response.error)),
+      wire.SessionTreeMutationOutcome_Outcome.notSet =>
+        throw const PiProtocolCodecException(
+          PiProtocolCodecErrorCode.malformedFrame,
+        ),
+    };
+    return PiProtocolSessionTreeMutationOutcomeMessage(
+      requestId: requestId,
+      commandId: response.commandId,
+      operation: _semanticSessionTreeMutationOperation(response.operation),
       outcome: outcome,
     );
   }
@@ -609,6 +721,9 @@ final class ProtobufPiProtocolCodec implements PiProtocolCodec {
     hasUnread: summary.hasUnread,
     adminRevision: summary.adminRevision,
     hasCustomName: summary.hasCustomName,
+    parentSessionId: summary.parentSessionId.isEmpty
+        ? null
+        : summary.parentSessionId,
   );
 
   PiProtocolSessionDetail _semanticSessionDetail(
@@ -627,6 +742,33 @@ final class ProtobufPiProtocolCodec implements PiProtocolCodec {
         isStreaming: message.isStreaming,
       );
 
+  PiProtocolSessionTreeSnapshot _semanticSessionTree(
+    wire.SessionTreeSnapshot tree,
+  ) => PiProtocolSessionTreeSnapshot(
+    sessionId: tree.sessionId,
+    nodes: tree.nodes.map(
+      (node) => PiProtocolSessionTreeNodeSnapshot(
+        entryId: node.entryId,
+        parentEntryId: node.parentEntryId.isEmpty ? null : node.parentEntryId,
+        kind: _semanticSessionTreeEntryKind(node.kind),
+        text: node.text,
+        createdAt: _semanticInstant(node.createdAtUnixMillis),
+        label: node.label.isEmpty ? null : node.label,
+        depth: node.depth,
+        isOnActivePath: node.isOnActivePath,
+        hasChildren: node.hasChildren,
+        canEditFromHere: node.canEditFromHere,
+        canFork: node.canFork,
+      ),
+    ),
+    activePathEntryIds: tree.activePathEntryIds,
+    activeLeafEntryId: tree.activeLeafEntryId.isEmpty
+        ? null
+        : tree.activeLeafEntryId,
+    canCloneActiveBranch: tree.canCloneActiveBranch,
+    adminRevision: tree.adminRevision,
+  );
+
   void _recordRequest(PiClientProtocolMessage message) {
     final correlation = switch (message) {
       PiProtocolGetProjectBootstrapRequest() ||
@@ -636,10 +778,12 @@ final class ProtobufPiProtocolCodec implements PiProtocolCodec {
       PiProtocolApproveProjectTrustRequest() ||
       PiProtocolListSessionsRequest() ||
       PiProtocolGetSessionRequest() ||
-      PiProtocolCreateSessionRequest() => const _RegularRequestCorrelation(),
+      PiProtocolCreateSessionRequest() ||
+      PiProtocolGetSessionTreeRequest() => const _RegularRequestCorrelation(),
       PiProtocolPromptCommandRequest(:final commandId) ||
       PiProtocolAbortCommandRequest(:final commandId) ||
-      PiProtocolSessionAdminCommandRequest(
+      PiProtocolSessionAdminCommandRequest(:final commandId) ||
+      PiProtocolSessionTreeMutationCommandRequest(
         :final commandId,
       ) => _CommandCorrelation(commandId),
       PiProtocolHandshakeOfferMessage() => null,
@@ -700,6 +844,7 @@ final _clientCapabilities = <wire.Capability>[
   wire.Capability.CAPABILITY_PROJECT_DISCOVERY,
   wire.Capability.CAPABILITY_PROJECT_TRUST,
   wire.Capability.CAPABILITY_SESSION_ADMIN,
+  wire.Capability.CAPABILITY_SESSION_TREE,
 ];
 
 wire.ProtocolVersion _wireVersion(PiProtocolVersion version) {
@@ -785,6 +930,9 @@ PiProtocolCapability _semanticCapability(wire.Capability capability) {
   if (capability == wire.Capability.CAPABILITY_SESSION_ADMIN) {
     return PiProtocolCapability.sessionAdmin;
   }
+  if (capability == wire.Capability.CAPABILITY_SESSION_TREE) {
+    return PiProtocolCapability.sessionTree;
+  }
   throw const PiProtocolCodecException(
     PiProtocolCodecErrorCode.unsupportedOperation,
   );
@@ -862,6 +1010,73 @@ PiProtocolSessionAdminOperation _semanticSessionAdminOperation(
   }
   if (operation == wire.SessionAdminOperation.SESSION_ADMIN_OPERATION_DELETE) {
     return PiProtocolSessionAdminOperation.delete;
+  }
+  throw const PiProtocolCodecException(
+    PiProtocolCodecErrorCode.unsupportedOperation,
+  );
+}
+
+PiProtocolSessionTreeMutationOperation _semanticSessionTreeMutationOperation(
+  wire.SessionTreeMutationOperation operation,
+) {
+  if (operation ==
+      wire
+          .SessionTreeMutationOperation
+          .SESSION_TREE_MUTATION_OPERATION_NAVIGATE) {
+    return PiProtocolSessionTreeMutationOperation.navigate;
+  }
+  if (operation ==
+      wire.SessionTreeMutationOperation.SESSION_TREE_MUTATION_OPERATION_FORK) {
+    return PiProtocolSessionTreeMutationOperation.fork;
+  }
+  if (operation ==
+      wire.SessionTreeMutationOperation.SESSION_TREE_MUTATION_OPERATION_CLONE) {
+    return PiProtocolSessionTreeMutationOperation.clone;
+  }
+  throw const PiProtocolCodecException(
+    PiProtocolCodecErrorCode.unsupportedOperation,
+  );
+}
+
+PiProtocolSessionTreeEntryKind _semanticSessionTreeEntryKind(
+  wire.SessionTreeEntryKind kind,
+) {
+  if (kind == wire.SessionTreeEntryKind.SESSION_TREE_ENTRY_KIND_USER_MESSAGE) {
+    return PiProtocolSessionTreeEntryKind.userMessage;
+  }
+  if (kind ==
+      wire.SessionTreeEntryKind.SESSION_TREE_ENTRY_KIND_ASSISTANT_MESSAGE) {
+    return PiProtocolSessionTreeEntryKind.assistantMessage;
+  }
+  if (kind == wire.SessionTreeEntryKind.SESSION_TREE_ENTRY_KIND_TOOL_MESSAGE) {
+    return PiProtocolSessionTreeEntryKind.toolMessage;
+  }
+  if (kind ==
+      wire.SessionTreeEntryKind.SESSION_TREE_ENTRY_KIND_CUSTOM_MESSAGE) {
+    return PiProtocolSessionTreeEntryKind.customMessage;
+  }
+  if (kind ==
+      wire.SessionTreeEntryKind.SESSION_TREE_ENTRY_KIND_THINKING_LEVEL) {
+    return PiProtocolSessionTreeEntryKind.thinkingLevel;
+  }
+  if (kind == wire.SessionTreeEntryKind.SESSION_TREE_ENTRY_KIND_MODEL_CHANGE) {
+    return PiProtocolSessionTreeEntryKind.modelChange;
+  }
+  if (kind == wire.SessionTreeEntryKind.SESSION_TREE_ENTRY_KIND_COMPACTION) {
+    return PiProtocolSessionTreeEntryKind.compaction;
+  }
+  if (kind ==
+      wire.SessionTreeEntryKind.SESSION_TREE_ENTRY_KIND_BRANCH_SUMMARY) {
+    return PiProtocolSessionTreeEntryKind.branchSummary;
+  }
+  if (kind == wire.SessionTreeEntryKind.SESSION_TREE_ENTRY_KIND_CUSTOM) {
+    return PiProtocolSessionTreeEntryKind.custom;
+  }
+  if (kind == wire.SessionTreeEntryKind.SESSION_TREE_ENTRY_KIND_LABEL) {
+    return PiProtocolSessionTreeEntryKind.label;
+  }
+  if (kind == wire.SessionTreeEntryKind.SESSION_TREE_ENTRY_KIND_SESSION_INFO) {
+    return PiProtocolSessionTreeEntryKind.sessionInfo;
   }
   throw const PiProtocolCodecException(
     PiProtocolCodecErrorCode.unsupportedOperation,

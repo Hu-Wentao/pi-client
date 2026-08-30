@@ -23,6 +23,9 @@ class WorkspaceViewModel
     on<WorkspaceSessionCustomNameCleared>(_onSessionCustomNameCleared);
     on<WorkspaceSessionAutoNamed>(_onSessionAutoNamed);
     on<WorkspaceSessionDeleted>(_onSessionDeleted);
+    on<WorkspaceSessionTreeNavigated>(_onSessionTreeNavigated);
+    on<WorkspaceSessionForked>(_onSessionForked);
+    on<WorkspaceSessionCloned>(_onSessionCloned);
     on<WorkspacePromptSubmitted>(_onPromptSubmitted);
     on<WorkspaceAgentStopped>(_onAgentStopped);
     on<_WorkspaceConnectionSnapshotReceived>(_onConnectionSnapshotReceived);
@@ -47,6 +50,7 @@ class WorkspaceViewModel
   bool _refreshingSessions = false;
   bool _creatingSession = false;
   bool _sessionAdminInFlight = false;
+  bool _sessionTreeMutationInFlight = false;
   bool _promptInFlight = false;
   bool _abortInFlight = false;
   bool _closing = false;
@@ -55,6 +59,7 @@ class WorkspaceViewModel
   int _sessionListGeneration = 0;
   int _sessionLoadGeneration = 0;
   int _sessionAdminGeneration = 0;
+  int _sessionTreeMutationGeneration = 0;
   int _eventGeneration = 0;
   int _promptGeneration = 0;
   int _commandOrdinal = 0;
@@ -80,6 +85,8 @@ class WorkspaceViewModel
     _sessionLoadGeneration += 1;
     _sessionAdminGeneration += 1;
     _sessionAdminInFlight = false;
+    _sessionTreeMutationGeneration += 1;
+    _sessionTreeMutationInFlight = false;
     _promptGeneration += 1;
     _activePromptCommandId = null;
 
@@ -104,12 +111,17 @@ class WorkspaceViewModel
         sessionAdminSessionId: null,
         sessionAdminOperation: null,
         sessionAdminLoading: false,
+        sessionTree: null,
+        sessionTreeLoading: false,
+        sessionTreeMutationOperation: null,
+        sessionTreeMutationLoading: false,
         sessions: const <PiSessionSummary>[],
         messages: const <PiMessage>[],
         nodeError: null,
         projectError: null,
         sessionError: null,
         sessionAdminError: null,
+        sessionTreeError: null,
         conversationError: null,
         promptError: null,
         statusMessage: 'Connecting to the first-party Pi Node…',
@@ -295,6 +307,8 @@ class WorkspaceViewModel
     _sessionLoadGeneration += 1;
     _sessionAdminGeneration += 1;
     _sessionAdminInFlight = false;
+    _sessionTreeMutationGeneration += 1;
+    _sessionTreeMutationInFlight = false;
     _promptGeneration += 1;
     _activePromptCommandId = null;
     await _stopSessionEvents();
@@ -310,6 +324,10 @@ class WorkspaceViewModel
         sessionAdminSessionId: null,
         sessionAdminOperation: null,
         sessionAdminLoading: false,
+        sessionTree: null,
+        sessionTreeLoading: false,
+        sessionTreeMutationOperation: null,
+        sessionTreeMutationLoading: false,
         sessions: const <PiSessionSummary>[],
         messages: const <PiMessage>[],
         conversationLoading: false,
@@ -320,6 +338,7 @@ class WorkspaceViewModel
         projectError: null,
         sessionError: null,
         sessionAdminError: null,
+        sessionTreeError: null,
         conversationError: null,
         promptError: null,
         statusMessage: 'Loading the selected project…',
@@ -470,6 +489,8 @@ class WorkspaceViewModel
           sessions: sessions,
           selectedSessionId: selectedStillExists ? selectedSessionId : null,
           messages: selectedStillExists ? state.messages : const <PiMessage>[],
+          sessionTree: selectedStillExists ? state.sessionTree : null,
+          sessionTreeError: selectedStillExists ? state.sessionTreeError : null,
           eventStatus: selectedStillExists
               ? state.eventStatus
               : WorkspaceEventStatus.idle,
@@ -532,14 +553,19 @@ class WorkspaceViewModel
       state.copyWith(
         selectedSessionId: sessionId,
         conversationLoading: true,
+        sessionTreeLoading: true,
         messages: const <PiMessage>[],
+        sessionTree: null,
         eventStatus: WorkspaceEventStatus.idle,
         promptAdmissionStatus: WorkspacePromptAdmissionStatus.idle,
+        composerDraft: '',
+        composerDraftGeneration: state.composerDraftGeneration + 1,
         sending: false,
         stopping: false,
         conversationError: null,
+        sessionTreeError: null,
         promptError: null,
-        statusMessage: 'Loading the Pi conversation…',
+        statusMessage: 'Loading the Pi conversation and branch tree…',
       ),
     );
 
@@ -549,13 +575,21 @@ class WorkspaceViewModel
         sessionId,
       );
       if (!_isCurrentSessionLoad(generation, sessionId)) return;
+      final tree = await _service.loadSessionTree(
+        project.identity.projectId,
+        sessionId,
+      );
+      if (!_isCurrentSessionLoad(generation, sessionId)) return;
       emit(
         state.copyWith(
           conversationLoading: false,
+          sessionTreeLoading: false,
           sessions: _replaceSession(state.sessions, detail.summary),
           messages: detail.messages,
+          sessionTree: tree,
           conversationError: null,
-          statusMessage: 'Conversation loaded from Pi Node.',
+          sessionTreeError: null,
+          statusMessage: 'Conversation and branch tree loaded from Pi Node.',
         ),
       );
       await _startSessionEvents(sessionId, emit);
@@ -569,8 +603,10 @@ class WorkspaceViewModel
       emit(
         state.copyWith(
           conversationLoading: false,
+          sessionTreeLoading: false,
           eventStatus: WorkspaceEventStatus.error,
           conversationError: _service.describeError(error),
+          sessionTreeError: _service.describeError(error),
           statusMessage: 'Conversation load failed.',
         ),
       );
@@ -746,7 +782,9 @@ class WorkspaceViewModel
     final target = state.sessions
         .where((session) => session.id == sessionId)
         .firstOrNull;
-    if (_sessionAdminInFlight || _closing) return;
+    if (_sessionAdminInFlight || _sessionTreeMutationInFlight || _closing) {
+      return;
+    }
     if (project == null || target == null) {
       emit(
         state.copyWith(
@@ -783,6 +821,8 @@ class WorkspaceViewModel
     final wasSelected = state.selectedSessionId == sessionId;
     _sessionListGeneration += 1;
     _sessionLoadGeneration += 1;
+    _sessionTreeMutationGeneration += 1;
+    _sessionTreeMutationInFlight = false;
     _promptGeneration += 1;
     _activePromptCommandId = null;
     if (wasSelected) await _stopSessionEvents();
@@ -801,6 +841,10 @@ class WorkspaceViewModel
             : state.selectedSessionId,
         messages: immediateDeleteCleanup ? const <PiMessage>[] : state.messages,
         conversationLoading: wasSelected && !immediateDeleteCleanup,
+        sessionTreeLoading: wasSelected && !immediateDeleteCleanup,
+        sessionTree: immediateDeleteCleanup ? null : state.sessionTree,
+        sessionTreeMutationOperation: null,
+        sessionTreeMutationLoading: false,
         eventStatus: wasSelected
             ? WorkspaceEventStatus.idle
             : state.eventStatus,
@@ -874,8 +918,11 @@ class WorkspaceViewModel
       final restoreTarget =
           canRestoreDeletedSelection || canRestoreUpdatedSelection;
       PiSessionDetail? detail;
+      PiSessionTree? tree;
       if (restoreTarget && !project.trust.requiresApproval) {
         detail = await _service.loadSession(projectId, sessionId);
+        if (!_isCurrentSessionAdmin(generation, projectId)) return;
+        tree = await _service.loadSessionTree(projectId, sessionId);
         if (!_isCurrentSessionAdmin(generation, projectId)) return;
       }
       final selectedOtherSession =
@@ -897,6 +944,13 @@ class WorkspaceViewModel
               ? state.messages
               : const <PiMessage>[],
           conversationLoading: false,
+          sessionTreeLoading: false,
+          sessionTree: detail != null
+              ? tree
+              : selectedOtherSession
+              ? state.sessionTree
+              : null,
+          sessionTreeError: detail != null ? null : state.sessionTreeError,
           eventStatus: detail != null
               ? WorkspaceEventStatus.idle
               : selectedOtherSession
@@ -929,6 +983,7 @@ class WorkspaceViewModel
         state.copyWith(
           sessions: provisionalSessions,
           conversationLoading: false,
+          sessionTreeLoading: false,
           sessionAdminSessionId: null,
           sessionAdminOperation: null,
           sessionAdminLoading: false,
@@ -941,6 +996,280 @@ class WorkspaceViewModel
     } finally {
       if (generation == _sessionAdminGeneration) {
         _sessionAdminInFlight = false;
+      }
+    }
+  }
+
+  Future<void> _onSessionTreeNavigated(
+    WorkspaceSessionTreeNavigated event,
+    Emitter<WorkspaceModel> emit,
+  ) => _runSessionTreeMutation(
+    operation: PiSessionTreeMutationOperation.navigate,
+    entryId: event.entryId,
+    emit: emit,
+    invoke: (commandId, projectId, sessionId, revision) =>
+        _service.navigateSessionTree(
+          commandId: commandId,
+          projectId: projectId,
+          sessionId: sessionId,
+          expectedAdminRevision: revision,
+          entryId: event.entryId,
+        ),
+  );
+
+  Future<void> _onSessionForked(
+    WorkspaceSessionForked event,
+    Emitter<WorkspaceModel> emit,
+  ) => _runSessionTreeMutation(
+    operation: PiSessionTreeMutationOperation.fork,
+    entryId: event.userEntryId,
+    emit: emit,
+    invoke: (commandId, projectId, sessionId, revision) => _service.forkSession(
+      commandId: commandId,
+      projectId: projectId,
+      sessionId: sessionId,
+      expectedAdminRevision: revision,
+      userEntryId: event.userEntryId,
+    ),
+  );
+
+  Future<void> _onSessionCloned(
+    WorkspaceSessionCloned event,
+    Emitter<WorkspaceModel> emit,
+  ) => _runSessionTreeMutation(
+    operation: PiSessionTreeMutationOperation.clone,
+    emit: emit,
+    invoke: (commandId, projectId, sessionId, revision) =>
+        _service.cloneSession(
+          commandId: commandId,
+          projectId: projectId,
+          sessionId: sessionId,
+          expectedAdminRevision: revision,
+        ),
+  );
+
+  Future<void> _runSessionTreeMutation({
+    required PiSessionTreeMutationOperation operation,
+    PiSessionTreeEntryId? entryId,
+    required Emitter<WorkspaceModel> emit,
+    required Future<PiSessionTreeMutationResult> Function(
+      PiCommandId commandId,
+      PiProjectId projectId,
+      PiSessionId sessionId,
+      PiSessionAdminRevision expectedAdminRevision,
+    )
+    invoke,
+  }) async {
+    final project = state.selectedProject;
+    final sourceSessionId = state.selectedSessionId;
+    final tree = state.sessionTree;
+    final selected = _selectedSession(state);
+    if (_sessionTreeMutationInFlight ||
+        _sessionAdminInFlight ||
+        state.conversationLoading ||
+        _closing) {
+      return;
+    }
+    if (project == null ||
+        sourceSessionId == null ||
+        tree == null ||
+        selected == null ||
+        tree.sessionId != sourceSessionId) {
+      emit(
+        state.copyWith(
+          sessionTreeError:
+              'Reload the selected session before using branch actions.',
+          statusMessage: 'Branch actions require current session state.',
+        ),
+      );
+      return;
+    }
+    if (project.trust.requiresApproval) {
+      emit(
+        state.copyWith(
+          sessionTreeError:
+              'Approve project trust before changing the session branch.',
+          statusMessage: 'Project trust approval is required.',
+        ),
+      );
+      return;
+    }
+    if (selected.isRunning || state.sending || state.stopping) {
+      emit(
+        state.copyWith(
+          sessionTreeError:
+              'Wait for Pi to become idle before changing branches.',
+          statusMessage: 'The active session is busy.',
+        ),
+      );
+      return;
+    }
+    final selectedNode = entryId == null ? null : tree.nodeById(entryId);
+    if (operation == PiSessionTreeMutationOperation.fork &&
+        selectedNode?.canFork != true) {
+      emit(
+        state.copyWith(
+          sessionTreeError: 'Fork requires a current user-message entry.',
+          statusMessage: 'The selected entry cannot be forked.',
+        ),
+      );
+      return;
+    }
+    if (operation == PiSessionTreeMutationOperation.navigate &&
+        selectedNode == null) {
+      emit(
+        state.copyWith(
+          sessionTreeError: 'The selected branch entry is no longer available.',
+          statusMessage: 'Refresh the session tree.',
+        ),
+      );
+      return;
+    }
+    if (operation == PiSessionTreeMutationOperation.clone &&
+        !tree.canCloneActiveBranch) {
+      emit(
+        state.copyWith(
+          sessionTreeError: 'The active branch is not eligible for cloning.',
+          statusMessage: 'Nothing to clone yet.',
+        ),
+      );
+      return;
+    }
+
+    _sessionTreeMutationInFlight = true;
+    final generation = ++_sessionTreeMutationGeneration;
+    final projectId = project.identity.projectId;
+    _sessionListGeneration += 1;
+    _sessionLoadGeneration += 1;
+    _promptGeneration += 1;
+    _activePromptCommandId = null;
+    await _stopSessionEvents();
+    if (!_isCurrentSessionTreeMutation(generation, projectId)) return;
+    emit(
+      state.copyWith(
+        sessionTreeMutationOperation: operation,
+        sessionTreeMutationLoading: true,
+        sessionTreeError: null,
+        conversationError: null,
+        eventStatus: WorkspaceEventStatus.idle,
+        statusMessage: switch (operation) {
+          PiSessionTreeMutationOperation.navigate =>
+            'Changing the active session branch…',
+          PiSessionTreeMutationOperation.fork =>
+            'Forking the selected user message into a new session…',
+          PiSessionTreeMutationOperation.clone =>
+            'Cloning the active branch into a new session…',
+        },
+      ),
+    );
+
+    PiSessionTreeMutationResult? result;
+    Object? invocationError;
+    try {
+      result = await invoke(
+        _newCommandId('session-tree-${operation.name}'),
+        projectId,
+        sourceSessionId,
+        tree.adminRevision,
+      );
+    } catch (error, stackTrace) {
+      invocationError = error;
+      logE(
+        'Pi Node session tree mutation failed before an outcome',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+    if (!_isCurrentSessionTreeMutation(generation, projectId)) return;
+
+    PiSessionId targetSessionId = sourceSessionId;
+    String? editorText;
+    String? outcomeError = invocationError == null
+        ? null
+        : _service.describeError(invocationError);
+    switch (result) {
+      case PiSessionTreeMutationUpdated(
+        session: final updatedSession,
+        editorText: final restoredText,
+      ):
+        targetSessionId = updatedSession.summary.id;
+        editorText = restoredText;
+      case PiSessionTreeMutationRejected(:final error):
+        outcomeError = _service.describeError(error);
+      case PiSessionTreeMutationUncertain(:final error):
+        outcomeError =
+            '${_service.describeError(error)} The branch action outcome is uncertain; authoritative state was requested.';
+      case null:
+        break;
+    }
+
+    try {
+      final detail = await _service.loadSession(projectId, targetSessionId);
+      if (!_isCurrentSessionTreeMutation(generation, projectId)) return;
+      final refreshedTree = await _service.loadSessionTree(
+        projectId,
+        targetSessionId,
+      );
+      if (!_isCurrentSessionTreeMutation(generation, projectId)) return;
+      final sessions = await _service.loadSessions(projectId);
+      if (!_isCurrentSessionTreeMutation(generation, projectId)) return;
+      final appliedDraft = result is PiSessionTreeMutationUpdated
+          ? (editorText ?? '')
+          : null;
+      emit(
+        state.copyWith(
+          sessions: _replaceSession(sessions, detail.summary),
+          selectedSessionId: targetSessionId,
+          messages: detail.messages,
+          sessionTree: refreshedTree,
+          conversationLoading: false,
+          sessionTreeLoading: false,
+          sessionTreeMutationOperation: null,
+          sessionTreeMutationLoading: false,
+          sessionTreeError: outcomeError,
+          conversationError: null,
+          promptError: null,
+          composerDraft: appliedDraft ?? state.composerDraft,
+          composerDraftGeneration: appliedDraft == null
+              ? state.composerDraftGeneration
+              : state.composerDraftGeneration + 1,
+          eventStatus: WorkspaceEventStatus.idle,
+          statusMessage: outcomeError != null
+              ? 'Branch action finished with an error; authoritative state was refreshed.'
+              : switch (operation) {
+                  PiSessionTreeMutationOperation.navigate =>
+                    'Active branch updated. Edit and submit the restored prompt when ready.',
+                  PiSessionTreeMutationOperation.fork =>
+                    'Forked session selected. The source prompt is ready to edit.',
+                  PiSessionTreeMutationOperation.clone =>
+                    'Cloned session selected.',
+                },
+        ),
+      );
+      await _startSessionEvents(targetSessionId, emit);
+    } catch (error, stackTrace) {
+      if (!_isCurrentSessionTreeMutation(generation, projectId)) return;
+      logE(
+        'Authoritative refresh after a session tree mutation failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      emit(
+        state.copyWith(
+          sessionTreeMutationOperation: null,
+          sessionTreeMutationLoading: false,
+          sessionTreeLoading: false,
+          eventStatus: WorkspaceEventStatus.error,
+          sessionTreeError:
+              outcomeError ??
+              '${_service.describeError(error)} Authoritative branch refresh failed.',
+          statusMessage:
+              'The branch action could not be reconciled with Pi Node.',
+        ),
+      );
+    } finally {
+      if (generation == _sessionTreeMutationGeneration) {
+        _sessionTreeMutationInFlight = false;
       }
     }
   }
@@ -1134,6 +1463,8 @@ class WorkspaceViewModel
       _sessionLoadGeneration += 1;
       _sessionAdminGeneration += 1;
       _sessionAdminInFlight = false;
+      _sessionTreeMutationGeneration += 1;
+      _sessionTreeMutationInFlight = false;
       _promptGeneration += 1;
       _activePromptCommandId = null;
       await _stopSessionEvents();
@@ -1144,6 +1475,8 @@ class WorkspaceViewModel
           sessionAdminSessionId: null,
           sessionAdminOperation: null,
           sessionAdminLoading: false,
+          sessionTreeMutationOperation: null,
+          sessionTreeMutationLoading: false,
           sending: false,
           stopping: false,
           nodeError: 'The Pi Node disconnected. Retry the connection.',
@@ -1302,6 +1635,10 @@ class WorkspaceViewModel
         project.identity.projectId,
         sessionId,
       );
+      final tree = await _service.loadSessionTree(
+        project.identity.projectId,
+        sessionId,
+      );
       final sessions = await _service.loadSessions(project.identity.projectId);
       if (!_isCurrentEvent(eventGeneration, sessionId) ||
           sessionListGeneration != _sessionListGeneration) {
@@ -1313,8 +1650,11 @@ class WorkspaceViewModel
           sessionsLoading: false,
           sessions: _replaceSession(sessions, detail.summary),
           messages: detail.messages,
+          sessionTree: tree,
+          sessionTreeLoading: false,
           eventStatus: WorkspaceEventStatus.listening,
           sessionError: null,
+          sessionTreeError: null,
           conversationError: null,
           statusMessage: 'Conversation reconciled with Pi Node.',
         ),
@@ -1333,7 +1673,9 @@ class WorkspaceViewModel
         state.copyWith(
           conversationLoading: false,
           sessionsLoading: false,
+          sessionTreeLoading: false,
           eventStatus: WorkspaceEventStatus.error,
+          sessionTreeError: _service.describeError(error),
           conversationError: _service.describeError(error),
           statusMessage: 'Authoritative conversation refresh failed.',
         ),
@@ -1415,6 +1757,12 @@ class WorkspaceViewModel
       generation == _sessionAdminGeneration &&
       state.selectedProject?.identity.projectId == projectId;
 
+  bool _isCurrentSessionTreeMutation(int generation, PiProjectId projectId) =>
+      !_closing &&
+      !isClosed &&
+      generation == _sessionTreeMutationGeneration &&
+      state.selectedProject?.identity.projectId == projectId;
+
   bool _isCurrentPrompt(int generation, PiSessionId sessionId) =>
       !_closing &&
       !isClosed &&
@@ -1437,6 +1785,7 @@ class WorkspaceViewModel
     _sessionListGeneration += 1;
     _sessionLoadGeneration += 1;
     _sessionAdminGeneration += 1;
+    _sessionTreeMutationGeneration += 1;
     _promptGeneration += 1;
     _eventGeneration += 1;
     final future = Future.wait<void>(<Future<void>>[
@@ -1504,6 +1853,7 @@ List<PiSessionSummary> _setSessionRunning(
               hasUnread: session.hasUnread,
               adminRevision: session.adminRevision,
               hasCustomName: session.hasCustomName,
+              parentSessionId: session.parentSessionId,
             )
           : session,
     )

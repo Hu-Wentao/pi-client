@@ -18,7 +18,18 @@ void main() {
     final api = FakePiNodeApi(
       defaultProject: project,
       sessions: <PiSessionSummary>[session],
-      details: <PiSessionId, PiSessionDetail>{session.id: fakeDetail(session)},
+      details: <PiSessionId, PiSessionDetail>{
+        session.id: fakeDetail(
+          session,
+          messages: <PiMessage>[
+            fakeMessage(
+              id: 'service-user-entry',
+              role: PiMessageRole.user,
+              text: 'Service branch prompt',
+            ),
+          ],
+        ),
+      },
     );
     final service = WorkspaceService(api);
 
@@ -35,6 +46,23 @@ void main() {
         session.id,
       )).summary,
       session,
+    );
+
+    final tree = await service.loadSessionTree(
+      project.identity.projectId,
+      session.id,
+    );
+    expect(tree.nodes.single.canFork, isTrue);
+    final navigated = await service.navigateSessionTree(
+      commandId: PiCommandId('service-tree-navigate'),
+      projectId: project.identity.projectId,
+      sessionId: session.id,
+      expectedAdminRevision: tree.adminRevision,
+      entryId: tree.nodes.single.id,
+    );
+    expect(
+      (navigated as PiSessionTreeMutationUpdated).editorText,
+      'Service branch prompt',
     );
 
     final created = await service.createSession(project.identity.projectId);

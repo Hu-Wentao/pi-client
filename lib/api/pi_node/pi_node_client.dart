@@ -256,6 +256,76 @@ final class PiNodeClient implements PiNodeApi {
       );
 
   @override
+  Future<PiSessionTree> getSessionTree(
+    PiProjectId projectId,
+    PiSessionId sessionId,
+  ) => _sendRequest<PiSessionTree>(
+    (requestId) => PiProtocolGetSessionTreeRequest(
+      requestId: requestId,
+      projectId: projectId.value,
+      sessionId: sessionId.value,
+    ),
+    (message) => switch (message) {
+      PiProtocolSessionTreeResponse(:final tree) => _sessionTreeFromProtocol(
+        tree,
+      ),
+      PiProtocolRequestRejectedMessage(:final failure) =>
+        throw PiNodeException.fromProtocolFailure(failure),
+      _ => throw const PiNodeException(
+        PiNodeErrorCode.unexpectedResponse,
+        retryable: false,
+      ),
+    },
+  );
+
+  @override
+  Future<PiSessionTreeMutationResult> navigateSessionTree(
+    PiNavigateSessionTreeCommand command,
+  ) => _sendSessionTreeMutation(
+    command,
+    PiSessionTreeMutationOperation.navigate,
+    (requestId) => PiProtocolNavigateSessionTreeCommandRequest(
+      requestId: requestId,
+      commandId: command.commandId.value,
+      projectId: command.projectId.value,
+      sessionId: command.sessionId.value,
+      entryId: command.entryId.value,
+      expectedAdminRevision: command.expectedAdminRevision.value,
+    ),
+  );
+
+  @override
+  Future<PiSessionTreeMutationResult> forkSession(
+    PiForkSessionCommand command,
+  ) => _sendSessionTreeMutation(
+    command,
+    PiSessionTreeMutationOperation.fork,
+    (requestId) => PiProtocolForkSessionCommandRequest(
+      requestId: requestId,
+      commandId: command.commandId.value,
+      projectId: command.projectId.value,
+      sessionId: command.sessionId.value,
+      userEntryId: command.userEntryId.value,
+      expectedAdminRevision: command.expectedAdminRevision.value,
+    ),
+  );
+
+  @override
+  Future<PiSessionTreeMutationResult> cloneSession(
+    PiCloneSessionCommand command,
+  ) => _sendSessionTreeMutation(
+    command,
+    PiSessionTreeMutationOperation.clone,
+    (requestId) => PiProtocolCloneSessionCommandRequest(
+      requestId: requestId,
+      commandId: command.commandId.value,
+      projectId: command.projectId.value,
+      sessionId: command.sessionId.value,
+      expectedAdminRevision: command.expectedAdminRevision.value,
+    ),
+  );
+
+  @override
   Future<PiSessionAdminResult> renameSession(PiRenameSessionCommand command) =>
       _sendSessionAdminCommand(
         command,
@@ -619,6 +689,59 @@ final class PiNodeClient implements PiNodeApi {
     return completer.future;
   }
 
+  Future<PiSessionTreeMutationResult> _sendSessionTreeMutation(
+    PiSessionTreeMutationCommand command,
+    PiSessionTreeMutationOperation operation,
+    PiProtocolSessionTreeMutationCommandRequest Function(int requestId)
+    buildMessage,
+  ) {
+    try {
+      _ensureConnected();
+    } catch (error, stackTrace) {
+      return Future<PiSessionTreeMutationResult>.error(error, stackTrace);
+    }
+    final requestId = _takeRequestId();
+    final completer = Completer<PiSessionTreeMutationResult>();
+    final pending = _PendingSessionTreeMutation(
+      command.commandId,
+      command.sessionId,
+      operation,
+      completer,
+      _resetSessionEventState,
+    );
+    _pending[requestId] = pending;
+
+    PiTransportFrame frame;
+    try {
+      frame = _encode(buildMessage(requestId));
+    } catch (error, stackTrace) {
+      _pending.remove(requestId);
+      return Future<PiSessionTreeMutationResult>.error(error, stackTrace);
+    }
+
+    try {
+      unawaited(
+        _transport.send(frame).catchError((Object _) {
+          if (identical(_pending.remove(requestId), pending)) {
+            pending.fail(
+              const PiNodeException(
+                PiNodeErrorCode.disconnected,
+                retryable: true,
+              ),
+            );
+          }
+        }),
+      );
+    } catch (_) {
+      if (identical(_pending.remove(requestId), pending)) {
+        pending.fail(
+          const PiNodeException(PiNodeErrorCode.disconnected, retryable: true),
+        );
+      }
+    }
+    return completer.future;
+  }
+
   Future<PiCommandResult> _sendCommand(
     PiSessionCommand command,
     PiProtocolCommandRequest Function(int requestId) buildMessage,
@@ -895,6 +1018,89 @@ final class _PendingSessionAdmin implements _PendingOperation {
   }
 }
 
+final class _PendingSessionTreeMutation implements _PendingOperation {
+  const _PendingSessionTreeMutation(
+    this._commandId,
+    this._sessionId,
+    this._operation,
+    this._completer,
+    this._onSettled,
+  );
+
+  final PiCommandId _commandId;
+  final PiSessionId _sessionId;
+  final PiSessionTreeMutationOperation _operation;
+  final Completer<PiSessionTreeMutationResult> _completer;
+  final void Function(PiSessionId sessionId) _onSettled;
+
+  @override
+  void complete(PiProtocolResponseMessage message) {
+    if (_completer.isCompleted) return;
+    _onSettled(_sessionId);
+    if (message is PiProtocolCommandRejectedMessage &&
+        message.commandId == _commandId.value) {
+      _completer.complete(
+        PiSessionTreeMutationRejected(
+          commandId: _commandId,
+          operation: _operation,
+          error: PiNodeException.fromProtocolFailure(message.failure),
+        ),
+      );
+      return;
+    }
+    if (message is! PiProtocolSessionTreeMutationOutcomeMessage ||
+        message.commandId != _commandId.value ||
+        _sessionTreeMutationOperationFromProtocol(message.operation) !=
+            _operation) {
+      _completer.complete(
+        PiSessionTreeMutationUncertain(
+          commandId: _commandId,
+          operation: _operation,
+          error: const PiNodeException(
+            PiNodeErrorCode.unexpectedResponse,
+            retryable: true,
+          ),
+        ),
+      );
+      return;
+    }
+    final result = switch (message.outcome) {
+      PiProtocolSessionTreeMutationUpdated(
+        :final session,
+        :final tree,
+        :final editorText,
+      ) =>
+        PiSessionTreeMutationUpdated(
+          commandId: _commandId,
+          operation: _operation,
+          session: _sessionDetailFromProtocol(session),
+          tree: _sessionTreeFromProtocol(tree),
+          editorText: editorText,
+        ),
+      PiProtocolSessionTreeMutationFailed(:final failure) =>
+        PiSessionTreeMutationRejected(
+          commandId: _commandId,
+          operation: _operation,
+          error: PiNodeException.fromProtocolFailure(failure),
+        ),
+    };
+    _completer.complete(result);
+  }
+
+  @override
+  void fail(PiNodeException error) {
+    if (_completer.isCompleted) return;
+    _onSettled(_sessionId);
+    _completer.complete(
+      PiSessionTreeMutationUncertain(
+        commandId: _commandId,
+        operation: _operation,
+        error: error,
+      ),
+    );
+  }
+}
+
 final class _PendingCommand implements _PendingOperation {
   const _PendingCommand(this._commandId, this._completer);
 
@@ -927,7 +1133,8 @@ final class _PendingCommand implements _PendingOperation {
         _commandId,
         PiNodeException.fromProtocolFailure(failure),
       ),
-      PiProtocolSessionAdminOutcomeMessage() => PiCommandUncertain(
+      PiProtocolSessionAdminOutcomeMessage() ||
+      PiProtocolSessionTreeMutationOutcomeMessage() => PiCommandUncertain(
         _commandId,
         const PiNodeException(
           PiNodeErrorCode.unexpectedResponse,
@@ -1017,6 +1224,9 @@ PiSessionSummary _sessionSummaryFromProtocol(PiProtocolSessionSummary value) =>
       hasUnread: value.hasUnread,
       adminRevision: PiSessionAdminRevision(value.adminRevision),
       hasCustomName: value.hasCustomName,
+      parentSessionId: value.parentSessionId == null
+          ? null
+          : PiSessionId(value.parentSessionId!),
     );
 
 PiSessionDetail _sessionDetailFromProtocol(PiProtocolSessionDetail value) =>
@@ -1037,6 +1247,67 @@ PiMessage _messageFromProtocol(PiProtocolMessageSnapshot value) => PiMessage(
   createdAt: value.createdAt,
   isStreaming: value.isStreaming,
 );
+
+PiSessionTree _sessionTreeFromProtocol(
+  PiProtocolSessionTreeSnapshot value,
+) => PiSessionTree(
+  sessionId: PiSessionId(value.sessionId),
+  nodes: value.nodes.map(
+    (node) => PiSessionTreeNode(
+      id: PiSessionTreeEntryId(node.entryId),
+      parentId: node.parentEntryId == null
+          ? null
+          : PiSessionTreeEntryId(node.parentEntryId!),
+      kind: switch (node.kind) {
+        PiProtocolSessionTreeEntryKind.userMessage =>
+          PiSessionTreeEntryKind.userMessage,
+        PiProtocolSessionTreeEntryKind.assistantMessage =>
+          PiSessionTreeEntryKind.assistantMessage,
+        PiProtocolSessionTreeEntryKind.toolMessage =>
+          PiSessionTreeEntryKind.toolMessage,
+        PiProtocolSessionTreeEntryKind.customMessage =>
+          PiSessionTreeEntryKind.customMessage,
+        PiProtocolSessionTreeEntryKind.thinkingLevel =>
+          PiSessionTreeEntryKind.thinkingLevel,
+        PiProtocolSessionTreeEntryKind.modelChange =>
+          PiSessionTreeEntryKind.modelChange,
+        PiProtocolSessionTreeEntryKind.compaction =>
+          PiSessionTreeEntryKind.compaction,
+        PiProtocolSessionTreeEntryKind.branchSummary =>
+          PiSessionTreeEntryKind.branchSummary,
+        PiProtocolSessionTreeEntryKind.custom => PiSessionTreeEntryKind.custom,
+        PiProtocolSessionTreeEntryKind.label => PiSessionTreeEntryKind.label,
+        PiProtocolSessionTreeEntryKind.sessionInfo =>
+          PiSessionTreeEntryKind.sessionInfo,
+      },
+      text: node.text,
+      createdAt: node.createdAt,
+      label: node.label,
+      depth: node.depth,
+      isOnActivePath: node.isOnActivePath,
+      hasChildren: node.hasChildren,
+      canEditFromHere: node.canEditFromHere,
+      canFork: node.canFork,
+    ),
+  ),
+  activePathEntryIds: value.activePathEntryIds.map(PiSessionTreeEntryId.new),
+  activeLeafEntryId: value.activeLeafEntryId == null
+      ? null
+      : PiSessionTreeEntryId(value.activeLeafEntryId!),
+  canCloneActiveBranch: value.canCloneActiveBranch,
+  adminRevision: PiSessionAdminRevision(value.adminRevision),
+);
+
+PiSessionTreeMutationOperation _sessionTreeMutationOperationFromProtocol(
+  PiProtocolSessionTreeMutationOperation value,
+) => switch (value) {
+  PiProtocolSessionTreeMutationOperation.navigate =>
+    PiSessionTreeMutationOperation.navigate,
+  PiProtocolSessionTreeMutationOperation.fork =>
+    PiSessionTreeMutationOperation.fork,
+  PiProtocolSessionTreeMutationOperation.clone =>
+    PiSessionTreeMutationOperation.clone,
+};
 
 PiSessionAdminOperation _sessionAdminOperationFromProtocol(
   PiProtocolSessionAdminOperation value,

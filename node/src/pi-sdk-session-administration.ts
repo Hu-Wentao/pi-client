@@ -395,11 +395,15 @@ async function discoverDeleteTransaction(
   return { target, children };
 }
 
-export function sessionInfoToSummary(info: SessionInfo): PiNodeSessionSummary {
+export function sessionInfoToSummary(
+  info: SessionInfo,
+  parentSessionId?: string,
+): PiNodeSessionSummary {
   const summary = {
     sessionId: info.id,
     cwd: info.cwd,
     ...(info.name === undefined ? {} : { name: info.name }),
+    ...(parentSessionId === undefined ? {} : { parentSessionId }),
     createdAtMs: info.created.getTime(),
     modifiedAtMs: info.modified.getTime(),
     messageCount: info.messageCount,
@@ -421,6 +425,7 @@ export function createSessionAdminRevision(
         summary.sessionId,
         summary.cwd,
         summary.name ?? null,
+        summary.parentSessionId ?? null,
         summary.createdAtMs,
         summary.modifiedAtMs,
         summary.messageCount,

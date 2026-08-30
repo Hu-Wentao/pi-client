@@ -45,9 +45,15 @@ message PiTransportFrame {
     AutoNameSessionCommand auto_name_session_command = 45;
     DeleteSessionCommand delete_session_command = 46;
     SessionAdminCommandOutcome session_admin_command_outcome = 47;
+    GetSessionTreeRequest get_session_tree_request = 48;
+    GetSessionTreeResponse get_session_tree_response = 49;
 
     SessionEventStreamEnvelope session_event_stream = 50;
     EventStreamEnvelope event_stream = 51;
+    NavigateSessionTreeCommand navigate_session_tree_command = 52;
+    ForkSessionCommand fork_session_command = 53;
+    CloneSessionCommand clone_session_command = 54;
+    SessionTreeMutationOutcome session_tree_mutation_outcome = 55;
 
     Cancel cancel = 60;
     WindowUpdate window_update = 61;
@@ -63,8 +69,7 @@ message PiTransportFrame {
 
   reserved 2 to 9;
   reserved 13 to 19;
-  reserved 48 to 49;
-  reserved 52 to 59;
+  reserved 56 to 59;
   reserved 62 to 69;
   reserved 75 to 79;
   reserved 81 to 99;
@@ -93,6 +98,7 @@ enum Capability {
   CAPABILITY_PROJECT_DISCOVERY = 10;
   CAPABILITY_PROJECT_TRUST = 11;
   CAPABILITY_SESSION_ADMIN = 12;
+  CAPABILITY_SESSION_TREE = 13;
 }
 
 // protocol_versions is ordered by client preference. The server selects one
@@ -367,6 +373,69 @@ message SessionAdminCommandOutcome {
   reserved 4 to 9;
 }
 
+message GetSessionTreeRequest {
+  uint64 request_id = 1;
+  string project_id = 2;
+  string session_id = 3;
+}
+
+message GetSessionTreeResponse {
+  uint64 request_id = 1;
+  SessionTreeSnapshot tree = 2;
+}
+
+enum SessionTreeMutationOperation {
+  SESSION_TREE_MUTATION_OPERATION_UNSPECIFIED = 0;
+  SESSION_TREE_MUTATION_OPERATION_NAVIGATE = 1;
+  SESSION_TREE_MUTATION_OPERATION_FORK = 2;
+  SESSION_TREE_MUTATION_OPERATION_CLONE = 3;
+}
+
+message NavigateSessionTreeCommand {
+  uint64 request_id = 1;
+  string command_id = 2;
+  string project_id = 3;
+  string session_id = 4;
+  string entry_id = 5;
+  string expected_admin_revision = 6;
+}
+
+message ForkSessionCommand {
+  uint64 request_id = 1;
+  string command_id = 2;
+  string project_id = 3;
+  string session_id = 4;
+  string user_entry_id = 5;
+  string expected_admin_revision = 6;
+}
+
+message CloneSessionCommand {
+  uint64 request_id = 1;
+  string command_id = 2;
+  string project_id = 3;
+  string session_id = 4;
+  string expected_admin_revision = 5;
+}
+
+message SessionTreeMutationResult {
+  SessionDetailSnapshot session = 1;
+  SessionTreeSnapshot tree = 2;
+  string editor_text = 3;
+}
+
+message SessionTreeMutationOutcome {
+  uint64 request_id = 1;
+  string command_id = 2;
+  SessionTreeMutationOperation operation = 3;
+
+  oneof outcome {
+    SessionTreeMutationResult result = 10;
+    StableError error = 11;
+  }
+
+  reserved 4 to 9;
+}
+
 message RequestRejected {
   uint64 request_id = 1;
   StableError error = 2;
@@ -393,6 +462,7 @@ message SessionSummarySnapshot {
   bool has_unread = 7;
   string admin_revision = 8;
   bool has_custom_name = 9;
+  string parent_session_id = 10;
 }
 
 message SessionDetailSnapshot {
@@ -414,6 +484,44 @@ message MessageSnapshot {
   string text = 3;
   uint64 created_at_unix_millis = 4;
   bool is_streaming = 5;
+}
+
+enum SessionTreeEntryKind {
+  SESSION_TREE_ENTRY_KIND_UNSPECIFIED = 0;
+  SESSION_TREE_ENTRY_KIND_USER_MESSAGE = 1;
+  SESSION_TREE_ENTRY_KIND_ASSISTANT_MESSAGE = 2;
+  SESSION_TREE_ENTRY_KIND_TOOL_MESSAGE = 3;
+  SESSION_TREE_ENTRY_KIND_CUSTOM_MESSAGE = 4;
+  SESSION_TREE_ENTRY_KIND_THINKING_LEVEL = 5;
+  SESSION_TREE_ENTRY_KIND_MODEL_CHANGE = 6;
+  SESSION_TREE_ENTRY_KIND_COMPACTION = 7;
+  SESSION_TREE_ENTRY_KIND_BRANCH_SUMMARY = 8;
+  SESSION_TREE_ENTRY_KIND_CUSTOM = 9;
+  SESSION_TREE_ENTRY_KIND_LABEL = 10;
+  SESSION_TREE_ENTRY_KIND_SESSION_INFO = 11;
+}
+
+message SessionTreeNodeSnapshot {
+  string entry_id = 1;
+  string parent_entry_id = 2;
+  SessionTreeEntryKind kind = 3;
+  string text = 4;
+  uint64 created_at_unix_millis = 5;
+  string label = 6;
+  uint32 depth = 7;
+  bool is_on_active_path = 8;
+  bool has_children = 9;
+  bool can_edit_from_here = 10;
+  bool can_fork = 11;
+}
+
+message SessionTreeSnapshot {
+  string session_id = 1;
+  repeated SessionTreeNodeSnapshot nodes = 2;
+  repeated string active_path_entry_ids = 3;
+  string active_leaf_entry_id = 4;
+  bool can_clone_active_branch = 5;
+  string admin_revision = 6;
 }
 
 // Each stream is bound to one session. event_sequence is strictly increasing

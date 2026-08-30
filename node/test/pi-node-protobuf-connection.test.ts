@@ -9,6 +9,7 @@ import {
   MAX_TRANSFER_CHUNK_BYTES,
   PiTransportFrameSchema,
   SessionAdminOperation,
+  SessionTreeMutationOperation,
   decodeTransportFrame,
   encodeTransportFrame,
   type PiTransportFrame,
@@ -40,6 +41,7 @@ function protocolOffer(
     Capability.PROJECT_DISCOVERY,
     Capability.PROJECT_TRUST,
     Capability.SESSION_ADMIN,
+    Capability.SESSION_TREE,
   ],
 ): FrameOperationInit {
   return {
@@ -260,6 +262,131 @@ test("routes typed session administration outcomes with explicit delete evidence
       assert.equal(deleted.operation.value.outcome.case, "deletion");
       if (deleted.operation.value.outcome.case === "deletion") {
         assert.equal(deleted.operation.value.outcome.value.sessionId, "session-1");
+      }
+    }
+  } finally {
+    await server.dispose();
+  }
+});
+
+test("routes flat session trees, edit-from-here, fork, and clone outcomes", async () => {
+  const { output, server } = connection();
+  try {
+    await handshake(server);
+    await bootstrapProject(server);
+    await server.receive(
+      clientFrame(3n, {
+        case: "getSessionRequest",
+        value: {
+          requestId: 1n,
+          sessionId: "session-1",
+          projectId: defaultProjectId,
+        },
+      }),
+    );
+    const loaded = output.at(-1);
+    const revision =
+      loaded?.operation.case === "getSessionResponse"
+        ? loaded.operation.value.session?.summary?.adminRevision
+        : undefined;
+    assert.ok(revision);
+
+    await server.receive(
+      clientFrame(4n, {
+        case: "getSessionTreeRequest",
+        value: { requestId: 2n, projectId: defaultProjectId, sessionId: "session-1" },
+      }),
+    );
+    const treeResponse = output.at(-1);
+    assert.equal(treeResponse?.operation.case, "getSessionTreeResponse");
+    const userEntryId =
+      treeResponse?.operation.case === "getSessionTreeResponse"
+        ? treeResponse.operation.value.tree?.nodes.find((node) => node.canFork)?.entryId
+        : undefined;
+    assert.ok(userEntryId);
+
+    await server.receive(
+      clientFrame(5n, {
+        case: "navigateSessionTreeCommand",
+        value: {
+          requestId: 3n,
+          commandId: "tree-navigate",
+          projectId: defaultProjectId,
+          sessionId: "session-1",
+          entryId: userEntryId,
+          expectedAdminRevision: revision,
+        },
+      }),
+    );
+    const navigated = output.at(-1);
+    assert.equal(navigated?.operation.case, "sessionTreeMutationOutcome");
+    if (navigated?.operation.case === "sessionTreeMutationOutcome") {
+      assert.equal(navigated.operation.value.operation, SessionTreeMutationOperation.NAVIGATE);
+      assert.equal(navigated.operation.value.outcome.case, "result");
+      if (navigated.operation.value.outcome.case === "result") {
+        assert.equal(navigated.operation.value.outcome.value.editorText, "Hello");
+      }
+    }
+
+    await server.receive(
+      clientFrame(6n, {
+        case: "forkSessionCommand",
+        value: {
+          requestId: 4n,
+          commandId: "tree-fork",
+          projectId: defaultProjectId,
+          sessionId: "session-1",
+          userEntryId,
+          expectedAdminRevision: revision,
+        },
+      }),
+    );
+    const forked = output.at(-1);
+    assert.equal(forked?.operation.case, "sessionTreeMutationOutcome");
+    const forkedSessionId =
+      forked?.operation.case === "sessionTreeMutationOutcome" &&
+      forked.operation.value.outcome.case === "result"
+        ? forked.operation.value.outcome.value.session?.summary?.sessionId
+        : undefined;
+    const forkedRevision =
+      forked?.operation.case === "sessionTreeMutationOutcome" &&
+      forked.operation.value.outcome.case === "result"
+        ? forked.operation.value.outcome.value.session?.summary?.adminRevision
+        : undefined;
+    assert.ok(forkedSessionId);
+    assert.ok(forkedRevision);
+    if (
+      forked?.operation.case === "sessionTreeMutationOutcome" &&
+      forked.operation.value.outcome.case === "result"
+    ) {
+      assert.equal(
+        forked.operation.value.outcome.value.session?.summary?.parentSessionId,
+        "session-1",
+      );
+    }
+
+    await server.receive(
+      clientFrame(7n, {
+        case: "cloneSessionCommand",
+        value: {
+          requestId: 5n,
+          commandId: "tree-clone",
+          projectId: defaultProjectId,
+          sessionId: forkedSessionId,
+          expectedAdminRevision: forkedRevision,
+        },
+      }),
+    );
+    const cloned = output.at(-1);
+    assert.equal(cloned?.operation.case, "sessionTreeMutationOutcome");
+    if (cloned?.operation.case === "sessionTreeMutationOutcome") {
+      assert.equal(cloned.operation.value.operation, SessionTreeMutationOperation.CLONE);
+      assert.equal(cloned.operation.value.outcome.case, "result");
+      if (cloned.operation.value.outcome.case === "result") {
+        assert.equal(
+          cloned.operation.value.outcome.value.session?.summary?.parentSessionId,
+          forkedSessionId,
+        );
       }
     }
   } finally {

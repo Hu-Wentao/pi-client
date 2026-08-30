@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
+import { SessionManager } from "@earendil-works/pi-coding-agent";
+
 import {
   type PiNodeCommandCompletion,
   PiNodeDomainError,
@@ -12,13 +14,16 @@ import {
   type PiNodeMessage,
   type PiNodePromptExecution,
   type PiNodeSessionBackendEvent,
+  type PiNodeSessionBackendMutationResult,
   type PiNodeSessionBackendSnapshot,
   type PiNodeSessionSummary,
+  type PiNodeSessionTreeSnapshot,
 } from "../src/pi-node-domain.js";
 import {
   InMemoryPiNodeSessionOwnershipRegistry,
   PiNodeDomainService,
 } from "../src/pi-node-domain-service.js";
+import { sessionManagerToTreeSnapshot } from "../src/pi-sdk-domain-session.js";
 import {
   ProjectTrustCoordinator,
   type ProjectTrustAuthorization,
@@ -99,25 +104,33 @@ class FakeSessionBackend implements PiNodeDomainSessionBackend {
   name: string | undefined;
   modifiedAtMs = 20;
   adminRevision: string;
+  parentSessionId: string | undefined;
+  mutationGate: Deferred<void> | undefined;
+  mutationCalls = 0;
+  replacementOrdinal = 0;
   startCalls = 0;
   abortCalls = 0;
   admission: PiNodePromptExecution["admission"] = { status: "accepted" };
 
   constructor(
-    readonly sessionId: string,
+    sessionId: string,
     readonly cwd: string = canonicalCwd,
     disposeLog: string[] = [],
     messages: PiNodeMessage[] = [message(`${sessionId}:message`, "hello")],
   ) {
+    this.sessionId = sessionId;
     this.disposeLog = disposeLog;
     this.messages = messages;
     this.adminRevision = `revision-${sessionId}-1`;
   }
 
+  sessionId: string;
+
   getSnapshot(): PiNodeSessionBackendSnapshot {
     return {
       ...summary(this.sessionId),
       cwd: this.cwd,
+      ...(this.parentSessionId === undefined ? {} : { parentSessionId: this.parentSessionId }),
       ...(this.name === undefined ? {} : { name: this.name }),
       modifiedAtMs: this.modifiedAtMs,
       running: this.isRunning,
@@ -156,6 +169,68 @@ class FakeSessionBackend implements PiNodeDomainSessionBackend {
       failure: { code: "aborted", message: "The command was aborted." },
     });
     return true;
+  }
+
+  getTreeSnapshot(): PiNodeSessionTreeSnapshot {
+    const nodes = this.messages.map((item, index) => ({
+      entryId: item.id,
+      ...(index === 0 ? {} : { parentEntryId: this.messages[index - 1]!.id }),
+      kind: item.role === "user" ? ("user-message" as const) : ("assistant-message" as const),
+      text: item.parts[0]?.type === "text" ? item.parts[0].text : "",
+      createdAtMs: item.timestampMs,
+      depth: index,
+      isOnActivePath: true,
+      hasChildren: index + 1 < this.messages.length,
+      canEditFromHere: item.role === "user",
+      canFork: item.role === "user",
+    }));
+    return {
+      sessionId: this.sessionId,
+      nodes,
+      activePathEntryIds: nodes.map((node) => node.entryId),
+      ...(nodes.at(-1) === undefined ? {} : { activeLeafEntryId: nodes.at(-1)!.entryId }),
+      canCloneActiveBranch: nodes.some((node) => node.canFork),
+      adminRevision: this.adminRevision,
+    };
+  }
+
+  async navigateSessionTree(): Promise<PiNodeSessionBackendMutationResult> {
+    const previousSessionId = this.sessionId;
+    this.mutationCalls += 1;
+    await this.mutationGate?.promise;
+    return this.#mutationResult(previousSessionId);
+  }
+
+  async forkFromUserEntry(): Promise<PiNodeSessionBackendMutationResult> {
+    const previousSessionId = this.sessionId;
+    this.mutationCalls += 1;
+    await this.mutationGate?.promise;
+    this.sessionId = `forked-${++this.replacementOrdinal}`;
+    this.parentSessionId = previousSessionId;
+    this.adminRevision = `revision-${this.sessionId}-1`;
+    return this.#mutationResult(previousSessionId, "hello");
+  }
+
+  async cloneActiveBranch(): Promise<PiNodeSessionBackendMutationResult> {
+    const previousSessionId = this.sessionId;
+    this.mutationCalls += 1;
+    await this.mutationGate?.promise;
+    this.sessionId = `cloned-${++this.replacementOrdinal}`;
+    this.parentSessionId = previousSessionId;
+    this.adminRevision = `revision-${this.sessionId}-1`;
+    return this.#mutationResult(previousSessionId);
+  }
+
+  #mutationResult(
+    previousSessionId: string,
+    editorText?: string,
+  ): PiNodeSessionBackendMutationResult {
+    return {
+      previousSessionId,
+      session: this.getSnapshot(),
+      tree: this.getTreeSnapshot(),
+      ...(editorText === undefined ? {} : { editorText }),
+    };
   }
 
   async dispose(): Promise<void> {
@@ -740,6 +815,111 @@ test("trust approval closes loaded restricted runtimes before future resource lo
       () => service.getLoadedSessionSnapshot(created.sessionId),
       (error) => error instanceof PiNodeDomainError && error.code === "session-not-loaded",
     );
+  } finally {
+    await service.dispose();
+  }
+});
+
+test("flattens 6000-depth and multi-root session trees without recursion", () => {
+  const manager = SessionManager.inMemory(canonicalCwd);
+  for (let index = 0; index < 6_000; index += 1) {
+    manager.appendCustomEntry("deep-tree", { index });
+  }
+  manager.resetLeaf();
+  manager.appendMessage({
+    role: "user",
+    content: "second root",
+    timestamp: 10,
+  });
+  const base = summary("deep-session");
+  const tree = sessionManagerToTreeSnapshot(manager, base);
+
+  assert.equal(tree.nodes.length, 6_001);
+  assert.equal(tree.nodes[5_999]?.depth, 5_999);
+  assert.equal(tree.nodes.filter((node) => node.parentEntryId === undefined).length, 2);
+  assert.equal(tree.activePathEntryIds.length, 1);
+  assert.equal(tree.canCloneActiveBranch, true);
+
+  manager.branch(manager.getEntries()[5_999]!.id);
+  const alternate = sessionManagerToTreeSnapshot(manager, base);
+  assert.notEqual(alternate.adminRevision, tree.adminRevision);
+  assert.equal(alternate.activePathEntryIds.length, 6_000);
+});
+
+test("rejects concurrent session tree mutations instead of queueing them", async () => {
+  const factory = new FakeSessionFactory();
+  factory.backends.set("session-1", new FakeSessionBackend("session-1"));
+  const service = new PiNodeDomainService({
+    agentDir,
+    trustCoordinator: trustCoordinator(),
+    sessionFactory: factory,
+    ownershipRegistry: new InMemoryPiNodeSessionOwnershipRegistry(),
+  });
+
+  try {
+    const loaded = await service.loadSessionSnapshot({ cwd: "/input", sessionId: "session-1" });
+    const backend = serviceBackend(factory, "session-1");
+    backend.mutationGate = deferred<void>();
+    const first = service.navigateSessionTree({
+      cwd: "/input",
+      sessionId: "session-1",
+      entryId: backend.messages[0]!.id,
+      expectedAdminRevision: loaded.adminRevision,
+    });
+    await nextTask();
+    await assert.rejects(
+      service.navigateSessionTree({
+        cwd: "/input",
+        sessionId: "session-1",
+        entryId: backend.messages[0]!.id,
+        expectedAdminRevision: loaded.adminRevision,
+      }),
+      (error) => error instanceof PiNodeDomainError && error.code === "session-mutation-locked",
+    );
+    assert.equal(backend.mutationCalls, 1);
+    backend.mutationGate.resolve(undefined);
+    const result = await first;
+    assert.equal(result.session.sessionId, "session-1");
+  } finally {
+    await service.dispose();
+  }
+});
+
+test("fork rekeys exclusive ownership, clears old observers, and preserves parent metadata", async () => {
+  const ownership = new InMemoryPiNodeSessionOwnershipRegistry();
+  const factory = new FakeSessionFactory();
+  factory.backends.set("session-1", new FakeSessionBackend("session-1"));
+  const service = new PiNodeDomainService({
+    agentDir,
+    trustCoordinator: trustCoordinator(),
+    sessionFactory: factory,
+    ownershipRegistry: ownership,
+  });
+
+  try {
+    const loaded = await service.loadSessionSnapshot({ cwd: "/input", sessionId: "session-1" });
+    const backend = serviceBackend(factory, "session-1");
+    const observed: import("../src/pi-node-domain.js").PiNodeSessionEvent[] = [];
+    service.observeSession("session-1", (event) => observed.push(event));
+    const result = await service.forkSessionFromUserEntry({
+      cwd: "/input",
+      sessionId: "session-1",
+      userEntryId: backend.messages[0]!.id,
+      expectedAdminRevision: loaded.adminRevision,
+    });
+
+    assert.equal(result.previousSessionId, "session-1");
+    assert.equal(result.session.sessionId, "forked-1");
+    assert.equal(result.session.parentSessionId, "session-1");
+    assert.equal(result.tree.sessionId, "forked-1");
+    assert.equal(result.editorText, "hello");
+    assert.throws(
+      () => service.getLoadedSessionSnapshot("session-1"),
+      (error) => error instanceof PiNodeDomainError && error.code === "session-not-loaded",
+    );
+    assert.equal(service.getLoadedSessionSnapshot("forked-1").parentSessionId, "session-1");
+    backend.emit({ type: "running", running: true });
+    assert.equal(observed.length, 0);
   } finally {
     await service.dispose();
   }

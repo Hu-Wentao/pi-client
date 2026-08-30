@@ -263,6 +263,84 @@ void main() {
       expect(deleted.reparentedChildCount, 2);
     });
 
+    test('maps typed session trees and revision-bound mutations', () async {
+      final fixture = await _connectedFixture();
+      addTearDown(fixture.client.close);
+      final projectId = PiProjectId('project-1');
+      final sourceId = PiSessionId('tree-source');
+      final sourceTree = _protocolTree('tree-source');
+
+      final treeFuture = fixture.client.getSessionTree(projectId, sourceId);
+      final treeRequest = fixture.take<PiProtocolGetSessionTreeRequest>();
+      expect(treeRequest.projectId, 'project-1');
+      await fixture.send(
+        PiProtocolSessionTreeResponse(
+          requestId: treeRequest.requestId,
+          tree: sourceTree,
+        ),
+      );
+      final tree = await treeFuture;
+      expect(tree.nodes.single.canEditFromHere, isTrue);
+      expect(tree.activeLeafEntryId, PiSessionTreeEntryId('tree-user-1'));
+
+      final navigateFuture = fixture.client.navigateSessionTree(
+        PiNavigateSessionTreeCommand(
+          commandId: PiCommandId('tree-navigate'),
+          projectId: projectId,
+          sessionId: sourceId,
+          expectedAdminRevision: tree.adminRevision,
+          entryId: PiSessionTreeEntryId('tree-user-1'),
+        ),
+      );
+      final navigate = fixture
+          .take<PiProtocolNavigateSessionTreeCommandRequest>();
+      expect(navigate.expectedAdminRevision, 'revision-tree-source-1');
+      await fixture.send(
+        PiProtocolSessionTreeMutationOutcomeMessage(
+          requestId: navigate.requestId,
+          commandId: navigate.commandId,
+          operation: PiProtocolSessionTreeMutationOperation.navigate,
+          outcome: PiProtocolSessionTreeMutationUpdated(
+            session: _protocolSession('tree-source'),
+            tree: sourceTree,
+            editorText: 'Restore this prompt',
+          ),
+        ),
+      );
+      final navigated = await navigateFuture as PiSessionTreeMutationUpdated;
+      expect(navigated.editorText, 'Restore this prompt');
+
+      final forkFuture = fixture.client.forkSession(
+        PiForkSessionCommand(
+          commandId: PiCommandId('tree-fork'),
+          projectId: projectId,
+          sessionId: sourceId,
+          expectedAdminRevision: tree.adminRevision,
+          userEntryId: PiSessionTreeEntryId('tree-user-1'),
+        ),
+      );
+      final fork = fixture.take<PiProtocolForkSessionCommandRequest>();
+      final forkSession = _protocolSession(
+        'tree-forked',
+        parentSessionId: 'tree-source',
+      );
+      await fixture.send(
+        PiProtocolSessionTreeMutationOutcomeMessage(
+          requestId: fork.requestId,
+          commandId: fork.commandId,
+          operation: PiProtocolSessionTreeMutationOperation.fork,
+          outcome: PiProtocolSessionTreeMutationUpdated(
+            session: forkSession,
+            tree: _protocolTree('tree-forked'),
+            editorText: 'Restore this prompt',
+          ),
+        ),
+      );
+      final forked = await forkFuture as PiSessionTreeMutationUpdated;
+      expect(forked.session.summary.parentSessionId, sourceId);
+      expect(forked.session.summary.id, PiSessionId('tree-forked'));
+    });
+
     test('returns accepted, rejected, and remote uncertain commands', () async {
       final fixture = await _connectedFixture();
       addTearDown(fixture.client.close);
@@ -694,7 +772,7 @@ PiProtocolProjectSnapshot _protocolProject(
   ),
 );
 
-PiProtocolSessionDetail _protocolSession(String id) {
+PiProtocolSessionDetail _protocolSession(String id, {String? parentSessionId}) {
   final createdAt = DateTime.utc(2026, 1, 1, 12);
   return PiProtocolSessionDetail(
     summary: PiProtocolSessionSummary(
@@ -707,6 +785,7 @@ PiProtocolSessionDetail _protocolSession(String id) {
       hasUnread: false,
       adminRevision: 'revision-$id-1',
       hasCustomName: true,
+      parentSessionId: parentSessionId,
     ),
     messages: <PiProtocolMessageSnapshot>[
       PiProtocolMessageSnapshot(
@@ -719,3 +798,25 @@ PiProtocolSessionDetail _protocolSession(String id) {
     ],
   );
 }
+
+PiProtocolSessionTreeSnapshot _protocolTree(String sessionId) =>
+    PiProtocolSessionTreeSnapshot(
+      sessionId: sessionId,
+      nodes: <PiProtocolSessionTreeNodeSnapshot>[
+        PiProtocolSessionTreeNodeSnapshot(
+          entryId: 'tree-user-1',
+          kind: PiProtocolSessionTreeEntryKind.userMessage,
+          text: 'Restore this prompt',
+          createdAt: DateTime.utc(2026, 1, 1, 12),
+          depth: 0,
+          isOnActivePath: true,
+          hasChildren: false,
+          canEditFromHere: true,
+          canFork: true,
+        ),
+      ],
+      activePathEntryIds: const <String>['tree-user-1'],
+      activeLeafEntryId: 'tree-user-1',
+      canCloneActiveBranch: true,
+      adminRevision: 'revision-$sessionId-1',
+    );

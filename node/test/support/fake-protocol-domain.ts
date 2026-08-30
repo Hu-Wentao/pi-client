@@ -10,6 +10,8 @@ import type {
   PiNodeSessionEventListener,
   PiNodeSessionSnapshot,
   PiNodeSessionSummary,
+  PiNodeSessionTreeMutationResult,
+  PiNodeSessionTreeSnapshot,
 } from "../../src/pi-node-domain.js";
 import type { PiNodeSessionObservation } from "../../src/pi-node-domain-service.js";
 import type { PiNodeProtocolDomain } from "../../src/protocol/pi-node-protocol-domain-port.js";
@@ -91,6 +93,70 @@ export class FakeProtocolDomain implements PiNodeProtocolDomain {
     );
     this.sessions.set(session.sessionId, session);
     return Promise.resolve(copySnapshot(session));
+  }
+
+  getSessionTree(input: { readonly sessionId: string }): Promise<PiNodeSessionTreeSnapshot> {
+    return Promise.resolve(treeSnapshot(this.requireSession(input.sessionId)));
+  }
+
+  navigateSessionTree(input: {
+    readonly sessionId: string;
+    readonly entryId: string;
+  }): Promise<PiNodeSessionTreeMutationResult> {
+    const session = this.requireSession(input.sessionId);
+    const node = treeSnapshot(session).nodes.find(
+      (candidate) => candidate.entryId === input.entryId,
+    );
+    if (!node) return Promise.reject(new Error("Missing fake tree entry."));
+    return Promise.resolve({
+      previousSessionId: session.sessionId,
+      session: copySnapshot(session),
+      tree: treeSnapshot(session),
+      ...(node.canEditFromHere ? { editorText: node.text } : {}),
+    });
+  }
+
+  forkSession(input: {
+    readonly sessionId: string;
+    readonly userEntryId: string;
+  }): Promise<PiNodeSessionTreeMutationResult> {
+    const source = this.requireSession(input.sessionId);
+    const sourceTree = treeSnapshot(source);
+    const selected = sourceTree.nodes.find(
+      (node) => node.entryId === input.userEntryId && node.canFork,
+    );
+    if (!selected) return Promise.reject(new Error("Missing fake fork entry."));
+    const forked = sessionSnapshot(
+      `forked-${++this.createOrdinal}`,
+      source.cwd,
+      `Forked ${this.createOrdinal}`,
+      source.messages.filter((message) => message.id !== selected.entryId),
+      source.sessionId,
+    );
+    this.sessions.set(forked.sessionId, forked);
+    return Promise.resolve({
+      previousSessionId: source.sessionId,
+      session: copySnapshot(forked),
+      tree: treeSnapshot(forked),
+      editorText: selected.text,
+    });
+  }
+
+  cloneSession(input: { readonly sessionId: string }): Promise<PiNodeSessionTreeMutationResult> {
+    const source = this.requireSession(input.sessionId);
+    const cloned = sessionSnapshot(
+      `cloned-${++this.createOrdinal}`,
+      source.cwd,
+      `Cloned ${this.createOrdinal}`,
+      source.messages,
+      source.sessionId,
+    );
+    this.sessions.set(cloned.sessionId, cloned);
+    return Promise.resolve({
+      previousSessionId: source.sessionId,
+      session: copySnapshot(cloned),
+      tree: treeSnapshot(cloned),
+    });
   }
 
   observeSession(
@@ -262,11 +328,13 @@ export function sessionSnapshot(
   cwd = defaultCwd,
   title = "Session",
   messages: readonly PiNodeMessage[] = [message(`${sessionId}:user`, "Hello", "user")],
+  parentSessionId?: string,
 ): PiNodeSessionSnapshot {
   return {
     sessionId,
     cwd,
     name: title,
+    ...(parentSessionId === undefined ? {} : { parentSessionId }),
     createdAtMs: 100,
     modifiedAtMs: 200,
     messageCount: messages.length,
@@ -317,6 +385,9 @@ function copySummary(snapshot: PiNodeSessionSnapshot): PiNodeSessionSummary {
     sessionId: snapshot.sessionId,
     cwd: snapshot.cwd,
     ...(snapshot.name === undefined ? {} : { name: snapshot.name }),
+    ...(snapshot.parentSessionId === undefined
+      ? {}
+      : { parentSessionId: snapshot.parentSessionId }),
     createdAtMs: snapshot.createdAtMs,
     modifiedAtMs: snapshot.modifiedAtMs,
     messageCount: snapshot.messageCount,
@@ -342,6 +413,29 @@ function updatedSession(
     return withoutName;
   }
   return { ...updated, name };
+}
+
+function treeSnapshot(session: PiNodeSessionSnapshot): PiNodeSessionTreeSnapshot {
+  const nodes = session.messages.map((item, index) => ({
+    entryId: item.id,
+    ...(index === 0 ? {} : { parentEntryId: session.messages[index - 1]!.id }),
+    kind: item.role === "user" ? ("user-message" as const) : ("assistant-message" as const),
+    text: item.parts[0]?.type === "text" ? item.parts[0].text : "",
+    createdAtMs: item.timestampMs,
+    depth: index,
+    isOnActivePath: true,
+    hasChildren: index + 1 < session.messages.length,
+    canEditFromHere: item.role === "user",
+    canFork: item.role === "user",
+  }));
+  return {
+    sessionId: session.sessionId,
+    nodes,
+    activePathEntryIds: nodes.map((node) => node.entryId),
+    ...(nodes.at(-1) === undefined ? {} : { activeLeafEntryId: nodes.at(-1)!.entryId }),
+    canCloneActiveBranch: nodes.some((node) => node.canFork),
+    adminRevision: session.adminRevision,
+  };
 }
 
 function copySnapshot(snapshot: PiNodeSessionSnapshot): PiNodeSessionSnapshot {

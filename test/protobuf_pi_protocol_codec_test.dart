@@ -51,6 +51,7 @@ void main() {
           wire.Capability.CAPABILITY_PROJECT_DISCOVERY,
           wire.Capability.CAPABILITY_PROJECT_TRUST,
           wire.Capability.CAPABILITY_SESSION_ADMIN,
+          wire.Capability.CAPABILITY_SESSION_TREE,
         ]),
       );
 
@@ -191,6 +192,132 @@ void main() {
           delete.frameSequence.toInt(),
         ],
         <int>[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      );
+    });
+
+    test('encodes and decodes typed session tree operations', () {
+      codec.encode(
+        PiProtocolGetSessionTreeRequest(
+          requestId: 30,
+          projectId: 'project-1',
+          sessionId: 'session-1',
+        ),
+      );
+      final getTree = wire.decodeTransportFrame(
+        codec.encode(
+          PiProtocolGetSessionTreeRequest(
+            requestId: 31,
+            projectId: 'project-1',
+            sessionId: 'session-1',
+          ),
+        ),
+      );
+      final navigate = wire.decodeTransportFrame(
+        codec.encode(
+          PiProtocolNavigateSessionTreeCommandRequest(
+            requestId: 32,
+            commandId: 'tree-navigate',
+            projectId: 'project-1',
+            sessionId: 'session-1',
+            entryId: 'entry-user-1',
+            expectedAdminRevision: 'revision-session-1',
+          ),
+        ),
+      );
+      final fork = wire.decodeTransportFrame(
+        codec.encode(
+          PiProtocolForkSessionCommandRequest(
+            requestId: 33,
+            commandId: 'tree-fork',
+            projectId: 'project-1',
+            sessionId: 'session-1',
+            userEntryId: 'entry-user-1',
+            expectedAdminRevision: 'revision-session-1',
+          ),
+        ),
+      );
+      final clone = wire.decodeTransportFrame(
+        codec.encode(
+          PiProtocolCloneSessionCommandRequest(
+            requestId: 34,
+            commandId: 'tree-clone',
+            projectId: 'project-1',
+            sessionId: 'session-1',
+            expectedAdminRevision: 'revision-session-1',
+          ),
+        ),
+      );
+      expect(
+        getTree.whichOperation(),
+        wire.PiTransportFrame_Operation.getSessionTreeRequest,
+      );
+      expect(navigate.navigateSessionTreeCommand.entryId, 'entry-user-1');
+      expect(fork.forkSessionCommand.userEntryId, 'entry-user-1');
+      expect(
+        clone.cloneSessionCommand.expectedAdminRevision,
+        'revision-session-1',
+      );
+
+      final tree = wire.SessionTreeSnapshot(
+        sessionId: 'session-1',
+        nodes: <wire.SessionTreeNodeSnapshot>[
+          wire.SessionTreeNodeSnapshot(
+            entryId: 'entry-user-1',
+            kind:
+                wire.SessionTreeEntryKind.SESSION_TREE_ENTRY_KIND_USER_MESSAGE,
+            text: 'Restore this prompt',
+            createdAtUnixMillis: Int64(1767268800000),
+            isOnActivePath: true,
+            canEditFromHere: true,
+            canFork: true,
+          ),
+        ],
+        activePathEntryIds: <String>['entry-user-1'],
+        activeLeafEntryId: 'entry-user-1',
+        canCloneActiveBranch: true,
+        adminRevision: 'revision-session-1',
+      );
+      final response =
+          codec.decode(
+                server.encode(
+                  wire.PiTransportFrame(
+                    getSessionTreeResponse: wire.GetSessionTreeResponse(
+                      requestId: Int64(30),
+                      tree: tree,
+                    ),
+                  ),
+                ),
+              )
+              as PiProtocolSessionTreeResponse;
+      expect(response.tree.nodes.single.canFork, isTrue);
+
+      final outcome =
+          codec.decode(
+                server.encode(
+                  wire.PiTransportFrame(
+                    sessionTreeMutationOutcome: wire.SessionTreeMutationOutcome(
+                      requestId: Int64(32),
+                      commandId: 'tree-navigate',
+                      operation: wire
+                          .SessionTreeMutationOperation
+                          .SESSION_TREE_MUTATION_OPERATION_NAVIGATE,
+                      result: wire.SessionTreeMutationResult(
+                        session: _detail('session-1'),
+                        tree: tree,
+                        editorText: 'Restore this prompt',
+                      ),
+                    ),
+                  ),
+                ),
+              )
+              as PiProtocolSessionTreeMutationOutcomeMessage;
+      expect(
+        outcome.operation,
+        PiProtocolSessionTreeMutationOperation.navigate,
+      );
+      expect(
+        (outcome.outcome as PiProtocolSessionTreeMutationUpdated).editorText,
+        'Restore this prompt',
       );
     });
 

@@ -14,12 +14,15 @@ import {
   type PiNodeProjectSnapshot,
   type PiNodePromptAdmission,
   type PiNodeSessionBackendEvent,
+  type PiNodeSessionBackendMutationResult,
   type PiNodeSessionEvent,
   type PiNodeSessionEventListener,
   type PiNodeSessionDeleteConfirmation,
   type PiNodeSessionDeleteResult,
   type PiNodeSessionSnapshot,
   type PiNodeSessionSummary,
+  type PiNodeSessionTreeMutationResult,
+  type PiNodeSessionTreeSnapshot,
 } from "./pi-node-domain.js";
 import {
   ProjectTrustCoordinator,
@@ -27,6 +30,7 @@ import {
   type ProjectTrustAuthorization,
 } from "./project-trust.js";
 import { PiNodeProjectService } from "./project-service.js";
+import { PiSdkDomainAdapterError } from "./pi-sdk-domain-session.js";
 import { PiSdkSessionAdministrationError } from "./pi-sdk-session-administration.js";
 
 export interface PiNodeSessionLease {
@@ -104,7 +108,7 @@ interface ActiveCommand {
 
 interface RegistryEntry {
   readonly backend: PiNodeDomainSessionBackend;
-  readonly lease: PiNodeSessionLease;
+  lease: PiNodeSessionLease;
   readonly listeners: Set<PiNodeSessionEventListener>;
   unsubscribeBackend: () => void;
   activeCommand: ActiveCommand | undefined;
@@ -142,6 +146,7 @@ export class PiNodeDomainService {
   readonly #sessions = new Map<string, RegistryEntry>();
   readonly #lastSequenceBySession = new Map<string, number>();
   readonly #administeredSessionKeys = new Set<string>();
+  readonly #mutatingSessionIds = new Set<string>();
 
   #touchCounter = 0;
   #disposeRequested = false;
@@ -344,6 +349,61 @@ export class PiNodeDomainService {
     return this.#snapshot(entry);
   }
 
+  getLoadedSessionTree(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+  }): Promise<PiNodeSessionTreeSnapshot> {
+    return this.#executor.run(async () => {
+      this.#assertAvailable();
+      const sessionId = requireIdentifier(input.sessionId, "sessionId");
+      const authorization = await this.#authorize(input.cwd);
+      const entry = this.#requireLoadedSession(sessionId);
+      this.#assertSessionProject(entry, authorization);
+      this.#touch(entry);
+      return copyTree(entry.backend.getTreeSnapshot());
+    });
+  }
+
+  navigateSessionTree(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+    readonly entryId: string;
+    readonly expectedAdminRevision: string;
+  }): Promise<PiNodeSessionTreeMutationResult> {
+    return this.#runSessionMutation(input, (backend) =>
+      backend.navigateSessionTree({
+        entryId: input.entryId,
+        expectedAdminRevision: input.expectedAdminRevision,
+      }),
+    );
+  }
+
+  forkSessionFromUserEntry(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+    readonly userEntryId: string;
+    readonly expectedAdminRevision: string;
+  }): Promise<PiNodeSessionTreeMutationResult> {
+    return this.#runSessionMutation(input, (backend) =>
+      backend.forkFromUserEntry({
+        userEntryId: input.userEntryId,
+        expectedAdminRevision: input.expectedAdminRevision,
+      }),
+    );
+  }
+
+  cloneSessionActiveBranch(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+    readonly expectedAdminRevision: string;
+  }): Promise<PiNodeSessionTreeMutationResult> {
+    return this.#runSessionMutation(input, (backend) =>
+      backend.cloneActiveBranch({
+        expectedAdminRevision: input.expectedAdminRevision,
+      }),
+    );
+  }
+
   observeSession(
     sessionId: string,
     listener: PiNodeSessionEventListener,
@@ -381,6 +441,13 @@ export class PiNodeDomainService {
       const commandId = requireIdentifier(input.commandId, "commandId");
       const entry = this.#requireLoadedSession(sessionId);
       this.#touch(entry);
+
+      if (this.#mutatingSessionIds.has(sessionId)) {
+        return this.#rejectCommand(entry, commandId, {
+          code: "session-busy",
+          message: "The session has an active tree mutation.",
+        });
+      }
 
       if (input.text.trim().length === 0) {
         return this.#rejectCommand(entry, commandId, {
@@ -567,6 +634,153 @@ export class PiNodeDomainService {
       }
     });
     return this.#disposePromise;
+  }
+
+  #runSessionMutation(
+    input: {
+      readonly cwd: string;
+      readonly sessionId: string;
+      readonly expectedAdminRevision: string;
+    },
+    mutate: (backend: PiNodeDomainSessionBackend) => Promise<PiNodeSessionBackendMutationResult>,
+  ): Promise<PiNodeSessionTreeMutationResult> {
+    const requestedSessionId = requireIdentifier(input.sessionId, "sessionId");
+    if (this.#mutatingSessionIds.has(requestedSessionId)) {
+      return Promise.reject(
+        new PiNodeDomainError(
+          "session-mutation-locked",
+          "The session already has a tree mutation in progress.",
+        ),
+      );
+    }
+    this.#mutatingSessionIds.add(requestedSessionId);
+    return this.#executor
+      .run(async () => {
+        this.#assertAvailable();
+        const authorization = await this.#authorize(input.cwd);
+        const entry = this.#requireLoadedSession(requestedSessionId);
+        this.#assertSessionProject(entry, authorization);
+        if (entry.activeCommand !== undefined || entry.running || entry.backend.isRunning) {
+          throw new PiNodeDomainError(
+            "session-mutation-locked",
+            "The session must be idle before changing its active branch.",
+          );
+        }
+        const adminKey = sessionOwnershipKey(authorization.cwd, requestedSessionId);
+        if (this.#administeredSessionKeys.has(adminKey)) {
+          throw new PiNodeDomainError(
+            "session-mutation-locked",
+            "The session has an active administration operation.",
+          );
+        }
+        if (entry.backend.getTreeSnapshot().adminRevision !== input.expectedAdminRevision) {
+          throw new PiNodeDomainError(
+            "session-mutation-conflict",
+            "The session changed before the tree mutation began.",
+          );
+        }
+
+        let result: PiNodeSessionBackendMutationResult;
+        try {
+          result = await mutate(entry.backend);
+        } catch (error) {
+          throw wrapSessionMutationError(error);
+        }
+        if (result.previousSessionId !== requestedSessionId) {
+          throw new PiNodeDomainError(
+            "session-mutation-failed",
+            "The session backend returned an invalid replacement identity.",
+          );
+        }
+
+        const replacementSessionId = result.session.sessionId;
+        if (replacementSessionId !== requestedSessionId) {
+          try {
+            this.#rekeyReplacedEntry(entry, requestedSessionId, replacementSessionId);
+          } catch (error) {
+            await this.#discardFailedReplacement(entry, requestedSessionId, error);
+          }
+        }
+        entry.listeners.clear();
+        entry.activeCommand = undefined;
+        entry.running = entry.backend.isRunning;
+        this.#touch(entry);
+        return Object.freeze({
+          previousSessionId: requestedSessionId,
+          session: this.#snapshot(entry),
+          tree: copyTree(result.tree),
+          ...(result.editorText === undefined ? {} : { editorText: result.editorText }),
+        });
+      })
+      .finally(() => {
+        this.#mutatingSessionIds.delete(requestedSessionId);
+      });
+  }
+
+  #rekeyReplacedEntry(
+    entry: RegistryEntry,
+    previousSessionId: string,
+    replacementSessionId: string,
+  ): void {
+    if (this.#sessions.get(previousSessionId) !== entry) {
+      throw new PiNodeDomainError(
+        "session-mutation-failed",
+        "The replaced session runtime is no longer registered.",
+      );
+    }
+    if (this.#sessions.has(replacementSessionId)) {
+      throw new PiNodeDomainError("session-owned", "The replacement session is already loaded.");
+    }
+    const replacementLease = this.#ownershipRegistry.acquire(
+      sessionOwnershipKey(entry.backend.cwd, replacementSessionId),
+      this.#ownerId,
+    );
+    const previousLease = entry.lease;
+    this.#sessions.delete(previousSessionId);
+    this.#sessions.set(replacementSessionId, entry);
+    entry.lease = replacementLease;
+    previousLease.release();
+    this.#lastSequenceBySession.delete(previousSessionId);
+    this.#lastSequenceBySession.delete(replacementSessionId);
+  }
+
+  async #discardFailedReplacement(
+    entry: RegistryEntry,
+    previousSessionId: string,
+    replacementError: unknown,
+  ): Promise<never> {
+    if (this.#sessions.get(previousSessionId) === entry) {
+      this.#sessions.delete(previousSessionId);
+    }
+    entry.listeners.clear();
+    entry.unsubscribeBackend();
+    let disposeError: unknown;
+    try {
+      await entry.backend.dispose();
+    } catch (error) {
+      disposeError = error;
+    } finally {
+      entry.lease.release();
+    }
+    throw new PiNodeDomainError(
+      "session-mutation-failed",
+      "The replacement runtime could not acquire exclusive ownership and was discarded.",
+      {
+        cause:
+          disposeError === undefined
+            ? replacementError
+            : new AggregateError([replacementError, disposeError]),
+      },
+    );
+  }
+
+  #assertSessionProject(entry: RegistryEntry, authorization: ProjectTrustAuthorization): void {
+    if (entry.backend.cwd !== authorization.cwd) {
+      throw new PiNodeDomainError(
+        "session-not-found",
+        "The requested session does not belong to the canonical project directory.",
+      );
+    }
   }
 
   #runSessionAdministration<T>(
@@ -927,6 +1141,7 @@ function copySummary(summary: PiNodeSessionSummary, running: boolean): PiNodeSes
     sessionId: summary.sessionId,
     cwd: summary.cwd,
     ...(summary.name === undefined ? {} : { name: summary.name }),
+    ...(summary.parentSessionId === undefined ? {} : { parentSessionId: summary.parentSessionId }),
     createdAtMs: summary.createdAtMs,
     modifiedAtMs: summary.modifiedAtMs,
     messageCount: summary.messageCount,
@@ -940,6 +1155,17 @@ function copyMessage(
   message: import("./pi-node-domain.js").PiNodeMessage,
 ): import("./pi-node-domain.js").PiNodeMessage {
   return structuredClone(message);
+}
+
+function copyTree(tree: PiNodeSessionTreeSnapshot): PiNodeSessionTreeSnapshot {
+  return Object.freeze({
+    sessionId: tree.sessionId,
+    nodes: Object.freeze(tree.nodes.map((node) => Object.freeze({ ...node }))),
+    activePathEntryIds: Object.freeze([...tree.activePathEntryIds]),
+    ...(tree.activeLeafEntryId === undefined ? {} : { activeLeafEntryId: tree.activeLeafEntryId }),
+    canCloneActiveBranch: tree.canCloneActiveBranch,
+    adminRevision: tree.adminRevision,
+  });
 }
 
 function copyFailure(failure: PiNodeCommandFailure): PiNodeCommandFailure {
@@ -992,6 +1218,62 @@ function safeTrustMessage(code: PiNodeDomainError["code"]): string {
 
 function hasErrorCode(error: unknown, code: string): boolean {
   return typeof error === "object" && error !== null && "code" in error && error.code === code;
+}
+
+function wrapSessionMutationError(error: unknown): PiNodeDomainError {
+  if (error instanceof PiNodeDomainError) return error;
+  if (!(error instanceof PiSdkDomainAdapterError)) {
+    return new PiNodeDomainError(
+      "session-mutation-failed",
+      "The Pi Node session mutation failed.",
+      { cause: error },
+    );
+  }
+  const code = switchSessionMutationErrorCode(error.code);
+  return new PiNodeDomainError(code, safeSessionMutationMessage(code), {
+    cause: error,
+  });
+}
+
+function switchSessionMutationErrorCode(
+  code: PiSdkDomainAdapterError["code"],
+): PiNodeDomainError["code"] {
+  switch (code) {
+    case "session-not-found":
+    case "session-id-ambiguous":
+      return "session-not-found";
+    case "session-tree-entry-invalid":
+      return "session-tree-entry-invalid";
+    case "session-clone-ineligible":
+      return "session-clone-ineligible";
+    case "session-mutation-conflict":
+      return "session-mutation-conflict";
+    case "session-mutation-locked":
+      return "session-mutation-locked";
+    case "session-mutation-cancelled":
+    case "agent-dir-mismatch":
+    case "session-creation-failed":
+    case "session-disposal-failed":
+    case "session-mutation-failed":
+      return "session-mutation-failed";
+  }
+}
+
+function safeSessionMutationMessage(code: PiNodeDomainError["code"]): string {
+  switch (code) {
+    case "session-not-found":
+      return "The requested session was not found.";
+    case "session-tree-entry-invalid":
+      return "The selected session tree entry is not eligible for this operation.";
+    case "session-clone-ineligible":
+      return "The active branch is not eligible for cloning.";
+    case "session-mutation-conflict":
+      return "The session changed before the tree mutation completed.";
+    case "session-mutation-locked":
+      return "The session already has an active mutation.";
+    default:
+      return "The Pi Node session mutation failed.";
+  }
 }
 
 function wrapSessionAdministrationError(error: unknown): PiNodeDomainError {
