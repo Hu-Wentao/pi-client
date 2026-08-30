@@ -14,53 +14,43 @@ import 'dart:core' as $core;
 
 import 'package:protobuf/protobuf.dart' as $pb;
 
-class PeerRole extends $pb.ProtobufEnum {
-  static const PeerRole PEER_ROLE_UNSPECIFIED =
-      PeerRole._(0, _omitEnumNames ? '' : 'PEER_ROLE_UNSPECIFIED');
-  static const PeerRole PEER_ROLE_CLIENT =
-      PeerRole._(1, _omitEnumNames ? '' : 'PEER_ROLE_CLIENT');
-  static const PeerRole PEER_ROLE_NODE =
-      PeerRole._(2, _omitEnumNames ? '' : 'PEER_ROLE_NODE');
-
-  static const $core.List<PeerRole> values = <PeerRole>[
-    PEER_ROLE_UNSPECIFIED,
-    PEER_ROLE_CLIENT,
-    PEER_ROLE_NODE,
-  ];
-
-  static final $core.List<PeerRole?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 2);
-  static PeerRole? valueOf($core.int value) =>
-      value < 0 || value >= _byValue.length ? null : _byValue[value];
-
-  const PeerRole._(super.value, super.name);
-}
-
 class Capability extends $pb.ProtobufEnum {
   static const Capability CAPABILITY_UNSPECIFIED =
       Capability._(0, _omitEnumNames ? '' : 'CAPABILITY_UNSPECIFIED');
-  static const Capability CAPABILITY_HEALTH_UNARY =
-      Capability._(1, _omitEnumNames ? '' : 'CAPABILITY_HEALTH_UNARY');
-  static const Capability CAPABILITY_EVENT_STREAM =
-      Capability._(2, _omitEnumNames ? '' : 'CAPABILITY_EVENT_STREAM');
+  static const Capability CAPABILITY_SESSION_READ =
+      Capability._(1, _omitEnumNames ? '' : 'CAPABILITY_SESSION_READ');
+  static const Capability CAPABILITY_SESSION_CREATE =
+      Capability._(2, _omitEnumNames ? '' : 'CAPABILITY_SESSION_CREATE');
+  static const Capability CAPABILITY_PROMPT_COMMAND =
+      Capability._(3, _omitEnumNames ? '' : 'CAPABILITY_PROMPT_COMMAND');
+  static const Capability CAPABILITY_ABORT_COMMAND =
+      Capability._(4, _omitEnumNames ? '' : 'CAPABILITY_ABORT_COMMAND');
+  static const Capability CAPABILITY_SESSION_EVENTS =
+      Capability._(5, _omitEnumNames ? '' : 'CAPABILITY_SESSION_EVENTS');
+  static const Capability CAPABILITY_HEALTH =
+      Capability._(6, _omitEnumNames ? '' : 'CAPABILITY_HEALTH');
   static const Capability CAPABILITY_CANCELLATION =
-      Capability._(3, _omitEnumNames ? '' : 'CAPABILITY_CANCELLATION');
+      Capability._(7, _omitEnumNames ? '' : 'CAPABILITY_CANCELLATION');
   static const Capability CAPABILITY_FLOW_CONTROL =
-      Capability._(4, _omitEnumNames ? '' : 'CAPABILITY_FLOW_CONTROL');
+      Capability._(8, _omitEnumNames ? '' : 'CAPABILITY_FLOW_CONTROL');
   static const Capability CAPABILITY_TRANSFER =
-      Capability._(5, _omitEnumNames ? '' : 'CAPABILITY_TRANSFER');
+      Capability._(9, _omitEnumNames ? '' : 'CAPABILITY_TRANSFER');
 
   static const $core.List<Capability> values = <Capability>[
     CAPABILITY_UNSPECIFIED,
-    CAPABILITY_HEALTH_UNARY,
-    CAPABILITY_EVENT_STREAM,
+    CAPABILITY_SESSION_READ,
+    CAPABILITY_SESSION_CREATE,
+    CAPABILITY_PROMPT_COMMAND,
+    CAPABILITY_ABORT_COMMAND,
+    CAPABILITY_SESSION_EVENTS,
+    CAPABILITY_HEALTH,
     CAPABILITY_CANCELLATION,
     CAPABILITY_FLOW_CONTROL,
     CAPABILITY_TRANSFER,
   ];
 
   static final $core.List<Capability?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 5);
+      $pb.ProtobufEnum.$_initByValueList(values, 9);
   static Capability? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 
@@ -93,6 +83,34 @@ class HealthStatus extends $pb.ProtobufEnum {
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 
   const HealthStatus._(super.value, super.name);
+}
+
+class MessageRole extends $pb.ProtobufEnum {
+  static const MessageRole MESSAGE_ROLE_UNSPECIFIED =
+      MessageRole._(0, _omitEnumNames ? '' : 'MESSAGE_ROLE_UNSPECIFIED');
+  static const MessageRole MESSAGE_ROLE_USER =
+      MessageRole._(1, _omitEnumNames ? '' : 'MESSAGE_ROLE_USER');
+  static const MessageRole MESSAGE_ROLE_ASSISTANT =
+      MessageRole._(2, _omitEnumNames ? '' : 'MESSAGE_ROLE_ASSISTANT');
+  static const MessageRole MESSAGE_ROLE_TOOL =
+      MessageRole._(3, _omitEnumNames ? '' : 'MESSAGE_ROLE_TOOL');
+  static const MessageRole MESSAGE_ROLE_SYSTEM =
+      MessageRole._(4, _omitEnumNames ? '' : 'MESSAGE_ROLE_SYSTEM');
+
+  static const $core.List<MessageRole> values = <MessageRole>[
+    MESSAGE_ROLE_UNSPECIFIED,
+    MESSAGE_ROLE_USER,
+    MESSAGE_ROLE_ASSISTANT,
+    MESSAGE_ROLE_TOOL,
+    MESSAGE_ROLE_SYSTEM,
+  ];
+
+  static final $core.List<MessageRole?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 4);
+  static MessageRole? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const MessageRole._(super.value, super.name);
 }
 
 class TransferDirection extends $pb.ProtobufEnum {
@@ -144,61 +162,66 @@ class TransferPurpose extends $pb.ProtobufEnum {
   const TransferPurpose._(super.value, super.name);
 }
 
+/// ErrorCode maps to the hand-written Flutter semantic error boundary. Unknown
+/// numeric enum values are protocol violations rather than remote rejections.
 class ErrorCode extends $pb.ProtobufEnum {
   static const ErrorCode ERROR_CODE_UNSPECIFIED =
       ErrorCode._(0, _omitEnumNames ? '' : 'ERROR_CODE_UNSPECIFIED');
-  static const ErrorCode ERROR_CODE_INVALID_ARGUMENT =
-      ErrorCode._(1, _omitEnumNames ? '' : 'ERROR_CODE_INVALID_ARGUMENT');
-  static const ErrorCode ERROR_CODE_UNAUTHENTICATED =
-      ErrorCode._(2, _omitEnumNames ? '' : 'ERROR_CODE_UNAUTHENTICATED');
+  static const ErrorCode ERROR_CODE_AUTHENTICATION_REQUIRED = ErrorCode._(
+      1, _omitEnumNames ? '' : 'ERROR_CODE_AUTHENTICATION_REQUIRED');
   static const ErrorCode ERROR_CODE_PERMISSION_DENIED =
-      ErrorCode._(3, _omitEnumNames ? '' : 'ERROR_CODE_PERMISSION_DENIED');
+      ErrorCode._(2, _omitEnumNames ? '' : 'ERROR_CODE_PERMISSION_DENIED');
   static const ErrorCode ERROR_CODE_NOT_FOUND =
-      ErrorCode._(4, _omitEnumNames ? '' : 'ERROR_CODE_NOT_FOUND');
-  static const ErrorCode ERROR_CODE_ALREADY_EXISTS =
-      ErrorCode._(5, _omitEnumNames ? '' : 'ERROR_CODE_ALREADY_EXISTS');
+      ErrorCode._(3, _omitEnumNames ? '' : 'ERROR_CODE_NOT_FOUND');
+  static const ErrorCode ERROR_CODE_INVALID_REQUEST =
+      ErrorCode._(4, _omitEnumNames ? '' : 'ERROR_CODE_INVALID_REQUEST');
   static const ErrorCode ERROR_CODE_CONFLICT =
-      ErrorCode._(6, _omitEnumNames ? '' : 'ERROR_CODE_CONFLICT');
-  static const ErrorCode ERROR_CODE_FAILED_PRECONDITION =
-      ErrorCode._(7, _omitEnumNames ? '' : 'ERROR_CODE_FAILED_PRECONDITION');
-  static const ErrorCode ERROR_CODE_RESOURCE_EXHAUSTED =
-      ErrorCode._(8, _omitEnumNames ? '' : 'ERROR_CODE_RESOURCE_EXHAUSTED');
+      ErrorCode._(5, _omitEnumNames ? '' : 'ERROR_CODE_CONFLICT');
+  static const ErrorCode ERROR_CODE_NODE_BUSY =
+      ErrorCode._(6, _omitEnumNames ? '' : 'ERROR_CODE_NODE_BUSY');
+  static const ErrorCode ERROR_CODE_PROTOCOL_VERSION_UNSUPPORTED = ErrorCode._(
+      7, _omitEnumNames ? '' : 'ERROR_CODE_PROTOCOL_VERSION_UNSUPPORTED');
   static const ErrorCode ERROR_CODE_CANCELLED =
-      ErrorCode._(9, _omitEnumNames ? '' : 'ERROR_CODE_CANCELLED');
+      ErrorCode._(8, _omitEnumNames ? '' : 'ERROR_CODE_CANCELLED');
   static const ErrorCode ERROR_CODE_DEADLINE_EXCEEDED =
-      ErrorCode._(10, _omitEnumNames ? '' : 'ERROR_CODE_DEADLINE_EXCEEDED');
+      ErrorCode._(9, _omitEnumNames ? '' : 'ERROR_CODE_DEADLINE_EXCEEDED');
   static const ErrorCode ERROR_CODE_UNAVAILABLE =
-      ErrorCode._(11, _omitEnumNames ? '' : 'ERROR_CODE_UNAVAILABLE');
+      ErrorCode._(10, _omitEnumNames ? '' : 'ERROR_CODE_UNAVAILABLE');
   static const ErrorCode ERROR_CODE_DATA_LOSS =
-      ErrorCode._(12, _omitEnumNames ? '' : 'ERROR_CODE_DATA_LOSS');
+      ErrorCode._(11, _omitEnumNames ? '' : 'ERROR_CODE_DATA_LOSS');
   static const ErrorCode ERROR_CODE_INTERNAL =
-      ErrorCode._(13, _omitEnumNames ? '' : 'ERROR_CODE_INTERNAL');
+      ErrorCode._(12, _omitEnumNames ? '' : 'ERROR_CODE_INTERNAL');
   static const ErrorCode ERROR_CODE_PROTOCOL_VIOLATION =
-      ErrorCode._(14, _omitEnumNames ? '' : 'ERROR_CODE_PROTOCOL_VIOLATION');
-  static const ErrorCode ERROR_CODE_UNSUPPORTED_VERSION =
-      ErrorCode._(15, _omitEnumNames ? '' : 'ERROR_CODE_UNSUPPORTED_VERSION');
+      ErrorCode._(13, _omitEnumNames ? '' : 'ERROR_CODE_PROTOCOL_VIOLATION');
+  static const ErrorCode ERROR_CODE_RESOURCE_EXHAUSTED =
+      ErrorCode._(14, _omitEnumNames ? '' : 'ERROR_CODE_RESOURCE_EXHAUSTED');
+  static const ErrorCode ERROR_CODE_ALREADY_EXISTS =
+      ErrorCode._(15, _omitEnumNames ? '' : 'ERROR_CODE_ALREADY_EXISTS');
+  static const ErrorCode ERROR_CODE_FAILED_PRECONDITION =
+      ErrorCode._(16, _omitEnumNames ? '' : 'ERROR_CODE_FAILED_PRECONDITION');
 
   static const $core.List<ErrorCode> values = <ErrorCode>[
     ERROR_CODE_UNSPECIFIED,
-    ERROR_CODE_INVALID_ARGUMENT,
-    ERROR_CODE_UNAUTHENTICATED,
+    ERROR_CODE_AUTHENTICATION_REQUIRED,
     ERROR_CODE_PERMISSION_DENIED,
     ERROR_CODE_NOT_FOUND,
-    ERROR_CODE_ALREADY_EXISTS,
+    ERROR_CODE_INVALID_REQUEST,
     ERROR_CODE_CONFLICT,
-    ERROR_CODE_FAILED_PRECONDITION,
-    ERROR_CODE_RESOURCE_EXHAUSTED,
+    ERROR_CODE_NODE_BUSY,
+    ERROR_CODE_PROTOCOL_VERSION_UNSUPPORTED,
     ERROR_CODE_CANCELLED,
     ERROR_CODE_DEADLINE_EXCEEDED,
     ERROR_CODE_UNAVAILABLE,
     ERROR_CODE_DATA_LOSS,
     ERROR_CODE_INTERNAL,
     ERROR_CODE_PROTOCOL_VIOLATION,
-    ERROR_CODE_UNSUPPORTED_VERSION,
+    ERROR_CODE_RESOURCE_EXHAUSTED,
+    ERROR_CODE_ALREADY_EXISTS,
+    ERROR_CODE_FAILED_PRECONDITION,
   ];
 
   static final $core.List<ErrorCode?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 15);
+      $pb.ProtobufEnum.$_initByValueList(values, 16);
   static ErrorCode? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

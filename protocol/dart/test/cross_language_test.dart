@@ -9,19 +9,39 @@ final _unknownSuffix = Uint8List.fromList([0xc0, 0xa3, 0x09, 0x7b]);
 
 void main() {
   group('cross-language Protobuf vectors', () {
-    test('decodes TypeScript health response and uint64 values', () {
-      final frame = decodeTransportFrame(
-        File.fromUri(
-          _vectors.uri.resolve('ts_health_response.pb'),
-        ).readAsBytesSync(),
-      );
+    test(
+      'decodes TypeScript session response and full-range uint64 values',
+      () {
+        final frame = decodeTransportFrame(
+          File.fromUri(
+            _vectors.uri.resolve('ts_session_response.pb'),
+          ).readAsBytesSync(),
+        );
 
-      expect(frame.frameSequence.toString(), '9007199254740993');
-      expect(frame.whichOperation(), PiTransportFrame_Operation.healthResponse);
-      expect(frame.healthResponse.requestId, 'health-ts-1');
-      expect(frame.healthResponse.status, HealthStatus.HEALTH_STATUS_SERVING);
-      expect(frame.healthResponse.uptimeMillis.toString(), '9007199254741111');
-    });
+        expect(frame.frameSequence.toHexString(), 'FFFFFFFFFFFFFFFF');
+        expect(
+          frame.whichOperation(),
+          PiTransportFrame_Operation.getSessionResponse,
+        );
+        expect(
+          frame.getSessionResponse.requestId.toHexString(),
+          'FFFFFFFFFFFFFFFF',
+        );
+        expect(
+          frame.getSessionResponse.session.summary.sessionId,
+          'session-ts-1',
+        );
+        expect(
+          frame.getSessionResponse.session.summary.createdAtUnixMillis
+              .toString(),
+          '9007199254740993',
+        );
+        expect(
+          frame.getSessionResponse.session.messages.single.role,
+          MessageRole.MESSAGE_ROLE_ASSISTANT,
+        );
+      },
+    );
 
     test('preserves unknown fields when decoded and re-encoded by Dart', () {
       final input = File.fromUri(
@@ -33,7 +53,26 @@ void main() {
       expect(_containsSubsequence(output, _unknownSuffix), isTrue);
       expect(
         decodeTransportFrame(output).whichOperation(),
-        PiTransportFrame_Operation.healthResponse,
+        PiTransportFrame_Operation.getSessionResponse,
+      );
+    });
+
+    test('rejects unknown operation and enum vectors', () {
+      expect(
+        () => decodeTransportFrame(
+          File.fromUri(
+            _vectors.uri.resolve('unknown_operation.pb'),
+          ).readAsBytesSync(),
+        ),
+        throwsA(isA<FrameValidationException>()),
+      );
+      expect(
+        () => decodeTransportFrame(
+          File.fromUri(
+            _vectors.uri.resolve('unknown_enum.pb'),
+          ).readAsBytesSync(),
+        ),
+        throwsA(isA<FrameValidationException>()),
       );
     });
   });

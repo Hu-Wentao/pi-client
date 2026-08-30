@@ -5,60 +5,108 @@ package pi.client.protocol.v0;
 // This package is an unpublished protocol spike. Its package name and field
 // numbers are intentionally versioned, but they do not declare Protocol 1.0.
 
-// PiTransportFrame is the single public Protobuf wire envelope. Multiplexing
-// identifiers remain flat scalar fields on typed operations.
+// PiTransportFrame is the single public Protobuf wire envelope. Numeric
+// multiplexing identifiers use uint64; domain and transport resource
+// identifiers remain opaque strings.
 message PiTransportFrame {
   uint64 frame_sequence = 1;
 
   oneof operation {
-    BootstrapHello bootstrap_hello = 10;
-    HealthRequest health_request = 11;
-    HealthResponse health_response = 12;
-    EventStreamEnvelope event_stream = 13;
-    Cancel cancel = 14;
-    WindowUpdate window_update = 15;
-    TransferOpen transfer_open = 16;
-    TransferChunk transfer_chunk = 17;
-    TransferAck transfer_ack = 18;
-    TransferComplete transfer_complete = 19;
-    TransferAbort transfer_abort = 20;
-    ErrorEnvelope error = 21;
+    ClientProtocolOffer client_protocol_offer = 10;
+    ServerHandshakeAccepted server_handshake_accepted = 11;
+    ServerHandshakeRejected server_handshake_rejected = 12;
+
+    HealthRequest health_request = 20;
+    HealthResponse health_response = 21;
+
+    ListSessionsRequest list_sessions_request = 30;
+    ListSessionsResponse list_sessions_response = 31;
+    GetSessionRequest get_session_request = 32;
+    GetSessionResponse get_session_response = 33;
+    CreateSessionRequest create_session_request = 34;
+    CreateSessionResponse create_session_response = 35;
+    PromptCommand prompt_command = 36;
+    AbortCommand abort_command = 37;
+    RequestRejected request_rejected = 38;
+    CommandAccepted command_accepted = 39;
+    CommandRejected command_rejected = 40;
+
+    SessionEventStreamEnvelope session_event_stream = 50;
+    EventStreamEnvelope event_stream = 51;
+
+    Cancel cancel = 60;
+    WindowUpdate window_update = 61;
+
+    TransferOpen transfer_open = 70;
+    TransferChunk transfer_chunk = 71;
+    TransferAck transfer_ack = 72;
+    TransferComplete transfer_complete = 73;
+    TransferAbort transfer_abort = 74;
+
+    ErrorEnvelope error = 80;
   }
 
   reserved 2 to 9;
-  reserved 22 to 31;
+  reserved 13 to 19;
+  reserved 22 to 29;
+  reserved 41 to 49;
+  reserved 52 to 59;
+  reserved 62 to 69;
+  reserved 75 to 79;
+  reserved 81 to 99;
 }
 
-enum PeerRole {
-  PEER_ROLE_UNSPECIFIED = 0;
-  PEER_ROLE_CLIENT = 1;
-  PEER_ROLE_NODE = 2;
+// ProtocolVersion is the numeric SemVer core used for exact wire negotiation.
+// The v0 package accepts only major zero. Prerelease and build identifiers are
+// intentionally not part of protocol identity.
+message ProtocolVersion {
+  uint32 major = 1;
+  uint32 minor = 2;
+  uint32 patch = 3;
 }
 
 enum Capability {
   CAPABILITY_UNSPECIFIED = 0;
-  CAPABILITY_HEALTH_UNARY = 1;
-  CAPABILITY_EVENT_STREAM = 2;
-  CAPABILITY_CANCELLATION = 3;
-  CAPABILITY_FLOW_CONTROL = 4;
-  CAPABILITY_TRANSFER = 5;
+  CAPABILITY_SESSION_READ = 1;
+  CAPABILITY_SESSION_CREATE = 2;
+  CAPABILITY_PROMPT_COMMAND = 3;
+  CAPABILITY_ABORT_COMMAND = 4;
+  CAPABILITY_SESSION_EVENTS = 5;
+  CAPABILITY_HEALTH = 6;
+  CAPABILITY_CANCELLATION = 7;
+  CAPABILITY_FLOW_CONTROL = 8;
+  CAPABILITY_TRANSFER = 9;
 }
 
-message BootstrapHello {
-  string connection_id = 1;
-  string peer_id = 2;
-  PeerRole role = 3;
-  uint32 protocol_major = 4;
-  uint32 protocol_minor = 5;
-  string implementation_name = 6;
-  string implementation_version = 7;
-  uint32 max_frame_bytes = 8;
-  uint32 max_transfer_chunk_bytes = 9;
-  repeated Capability capabilities = 10;
+// protocol_versions is ordered by client preference. The server selects one
+// exact offered version and a subset of the advertised capabilities.
+message ClientProtocolOffer {
+  repeated ProtocolVersion protocol_versions = 1;
+  repeated Capability capabilities = 2;
+  string client_instance_id = 3;
+  string implementation_name = 4;
+  string implementation_version = 5;
+  uint32 max_frame_bytes = 6;
+  uint32 max_transfer_chunk_bytes = 7;
+}
+
+message ServerHandshakeAccepted {
+  ProtocolVersion selected_protocol_version = 1;
+  repeated Capability capabilities = 2;
+  string node_instance_id = 3;
+  string implementation_name = 4;
+  string implementation_version = 5;
+  uint32 max_frame_bytes = 6;
+  uint32 max_transfer_chunk_bytes = 7;
+}
+
+message ServerHandshakeRejected {
+  StableError error = 1;
+  repeated ProtocolVersion supported_protocol_versions = 2;
 }
 
 message HealthRequest {
-  string request_id = 1;
+  uint64 request_id = 1;
   bool include_build_info = 2;
 }
 
@@ -71,12 +119,140 @@ enum HealthStatus {
 }
 
 message HealthResponse {
-  string request_id = 1;
+  uint64 request_id = 1;
   HealthStatus status = 2;
   string node_version = 3;
   uint64 uptime_millis = 4;
 }
 
+message ListSessionsRequest {
+  uint64 request_id = 1;
+}
+
+message ListSessionsResponse {
+  uint64 request_id = 1;
+  repeated SessionSummarySnapshot sessions = 2;
+}
+
+message GetSessionRequest {
+  uint64 request_id = 1;
+  string session_id = 2;
+}
+
+message GetSessionResponse {
+  uint64 request_id = 1;
+  SessionDetailSnapshot session = 2;
+}
+
+message CreateSessionRequest {
+  uint64 request_id = 1;
+  string working_directory = 2;
+}
+
+message CreateSessionResponse {
+  uint64 request_id = 1;
+  SessionDetailSnapshot session = 2;
+}
+
+message PromptCommand {
+  uint64 request_id = 1;
+  string command_id = 2;
+  string session_id = 3;
+  string prompt = 4;
+}
+
+message AbortCommand {
+  uint64 request_id = 1;
+  string command_id = 2;
+  string session_id = 3;
+}
+
+message RequestRejected {
+  uint64 request_id = 1;
+  StableError error = 2;
+}
+
+message CommandAccepted {
+  uint64 request_id = 1;
+  string command_id = 2;
+}
+
+message CommandRejected {
+  uint64 request_id = 1;
+  string command_id = 2;
+  StableError error = 3;
+}
+
+message SessionSummarySnapshot {
+  string session_id = 1;
+  string title = 2;
+  string working_directory = 3;
+  uint64 created_at_unix_millis = 4;
+  uint64 updated_at_unix_millis = 5;
+  bool is_running = 6;
+  bool has_unread = 7;
+}
+
+message SessionDetailSnapshot {
+  SessionSummarySnapshot summary = 1;
+  repeated MessageSnapshot messages = 2;
+}
+
+enum MessageRole {
+  MESSAGE_ROLE_UNSPECIFIED = 0;
+  MESSAGE_ROLE_USER = 1;
+  MESSAGE_ROLE_ASSISTANT = 2;
+  MESSAGE_ROLE_TOOL = 3;
+  MESSAGE_ROLE_SYSTEM = 4;
+}
+
+message MessageSnapshot {
+  string message_id = 1;
+  MessageRole role = 2;
+  string text = 3;
+  uint64 created_at_unix_millis = 4;
+  bool is_streaming = 5;
+}
+
+// Each stream is bound to one session. event_sequence is strictly increasing
+// within stream_id and is independent of PiTransportFrame.frame_sequence.
+message SessionEventStreamEnvelope {
+  string stream_id = 1;
+  string session_id = 2;
+  uint64 event_sequence = 3;
+
+  oneof event {
+    MessageAddedEvent message_added = 10;
+    MessageDeltaEvent message_delta = 11;
+    SessionRunningChangedEvent running_changed = 12;
+    CommandCompletedEvent command_completed = 13;
+    StreamClosedEvent stream_closed = 14;
+  }
+
+  reserved 4 to 9;
+}
+
+message MessageAddedEvent {
+  MessageSnapshot message = 1;
+}
+
+message MessageDeltaEvent {
+  string message_id = 1;
+  string delta = 2;
+}
+
+message SessionRunningChangedEvent {
+  bool is_running = 1;
+}
+
+message CommandCompletedEvent {
+  string command_id = 1;
+  bool succeeded = 2;
+  StableError error = 3;
+}
+
+// EventStreamEnvelope retains non-session streams used by transport health and
+// future bounded control surfaces.
 message EventStreamEnvelope {
   string stream_id = 1;
   uint64 event_sequence = 2;
@@ -106,7 +282,7 @@ message StreamClosedEvent {
 
 message Cancel {
   oneof target {
-    string request_id = 1;
+    uint64 request_id = 1;
     string stream_id = 2;
     string transfer_id = 3;
   }
@@ -172,35 +348,38 @@ message TransferAbort {
   StableError error = 2;
 }
 
+// ErrorCode maps to the hand-written Flutter semantic error boundary. Unknown
+// numeric enum values are protocol violations rather than remote rejections.
 enum ErrorCode {
   ERROR_CODE_UNSPECIFIED = 0;
-  ERROR_CODE_INVALID_ARGUMENT = 1;
-  ERROR_CODE_UNAUTHENTICATED = 2;
-  ERROR_CODE_PERMISSION_DENIED = 3;
-  ERROR_CODE_NOT_FOUND = 4;
-  ERROR_CODE_ALREADY_EXISTS = 5;
-  ERROR_CODE_CONFLICT = 6;
-  ERROR_CODE_FAILED_PRECONDITION = 7;
-  ERROR_CODE_RESOURCE_EXHAUSTED = 8;
-  ERROR_CODE_CANCELLED = 9;
-  ERROR_CODE_DEADLINE_EXCEEDED = 10;
-  ERROR_CODE_UNAVAILABLE = 11;
-  ERROR_CODE_DATA_LOSS = 12;
-  ERROR_CODE_INTERNAL = 13;
-  ERROR_CODE_PROTOCOL_VIOLATION = 14;
-  ERROR_CODE_UNSUPPORTED_VERSION = 15;
+  ERROR_CODE_AUTHENTICATION_REQUIRED = 1;
+  ERROR_CODE_PERMISSION_DENIED = 2;
+  ERROR_CODE_NOT_FOUND = 3;
+  ERROR_CODE_INVALID_REQUEST = 4;
+  ERROR_CODE_CONFLICT = 5;
+  ERROR_CODE_NODE_BUSY = 6;
+  ERROR_CODE_PROTOCOL_VERSION_UNSUPPORTED = 7;
+  ERROR_CODE_CANCELLED = 8;
+  ERROR_CODE_DEADLINE_EXCEEDED = 9;
+  ERROR_CODE_UNAVAILABLE = 10;
+  ERROR_CODE_DATA_LOSS = 11;
+  ERROR_CODE_INTERNAL = 12;
+  ERROR_CODE_PROTOCOL_VIOLATION = 13;
+  ERROR_CODE_RESOURCE_EXHAUSTED = 14;
+  ERROR_CODE_ALREADY_EXISTS = 15;
+  ERROR_CODE_FAILED_PRECONDITION = 16;
 }
 
 message StableError {
   ErrorCode code = 1;
-  string message = 2;
-  bool retryable = 3;
-  uint32 retry_after_millis = 4;
+  bool retryable = 2;
+  uint32 retry_after_millis = 3;
+  string safe_message = 4;
 }
 
 message ErrorEnvelope {
   oneof correlation {
-    string request_id = 1;
+    uint64 request_id = 1;
     string stream_id = 2;
     string transfer_id = 3;
   }

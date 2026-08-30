@@ -1,24 +1,89 @@
 import { fromBinary, toBinary } from "@bufbuild/protobuf";
 import {
+  Capability,
   ErrorCode,
   HealthStatus,
+  MessageRole,
   PiTransportFrameSchema,
   TransferDirection,
   TransferPurpose,
+  type MessageSnapshot,
   type PiTransportFrame,
+  type ProtocolVersion,
+  type SessionDetailSnapshot,
+  type SessionSummarySnapshot,
   type StableError,
+  type StreamClosedEvent,
 } from "../gen/ts/pi/client/protocol/v0/protocol_pb.ts";
 import {
   MAX_CAPABILITIES,
+  MAX_CONTENT_TEXT_BYTES,
   MAX_ERROR_MESSAGE_BYTES,
   MAX_FRAME_BYTES,
   MAX_IDENTIFIER_BYTES,
+  MAX_MESSAGES_PER_SESSION_SNAPSHOT,
+  MAX_PATH_BYTES,
+  MAX_PROTOCOL_VERSIONS,
+  MAX_SESSIONS_PER_RESPONSE,
   MAX_SHORT_TEXT_BYTES,
   MAX_TRANSFER_CHUNK_BYTES,
   SHA256_BYTES,
 } from "./limits.ts";
 
 const textEncoder = new TextEncoder();
+const forbiddenIdentifierControl = /[\u0000-\u001f\u007f]/u;
+const semanticVersionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/u;
+
+const knownCapabilities = new Set<Capability>([
+  Capability.SESSION_READ,
+  Capability.SESSION_CREATE,
+  Capability.PROMPT_COMMAND,
+  Capability.ABORT_COMMAND,
+  Capability.SESSION_EVENTS,
+  Capability.HEALTH,
+  Capability.CANCELLATION,
+  Capability.FLOW_CONTROL,
+  Capability.TRANSFER,
+]);
+const knownHealthStatuses = new Set<HealthStatus>([
+  HealthStatus.STARTING,
+  HealthStatus.SERVING,
+  HealthStatus.DEGRADED,
+  HealthStatus.STOPPING,
+]);
+const knownMessageRoles = new Set<MessageRole>([
+  MessageRole.USER,
+  MessageRole.ASSISTANT,
+  MessageRole.TOOL,
+  MessageRole.SYSTEM,
+]);
+const knownTransferDirections = new Set<TransferDirection>([
+  TransferDirection.UPLOAD,
+  TransferDirection.DOWNLOAD,
+]);
+const knownTransferPurposes = new Set<TransferPurpose>([
+  TransferPurpose.FILE,
+  TransferPurpose.ATTACHMENT,
+  TransferPurpose.EXPORT,
+]);
+const knownErrorCodes = new Set<ErrorCode>([
+  ErrorCode.AUTHENTICATION_REQUIRED,
+  ErrorCode.PERMISSION_DENIED,
+  ErrorCode.NOT_FOUND,
+  ErrorCode.INVALID_REQUEST,
+  ErrorCode.CONFLICT,
+  ErrorCode.NODE_BUSY,
+  ErrorCode.PROTOCOL_VERSION_UNSUPPORTED,
+  ErrorCode.CANCELLED,
+  ErrorCode.DEADLINE_EXCEEDED,
+  ErrorCode.UNAVAILABLE,
+  ErrorCode.DATA_LOSS,
+  ErrorCode.INTERNAL,
+  ErrorCode.PROTOCOL_VIOLATION,
+  ErrorCode.RESOURCE_EXHAUSTED,
+  ErrorCode.ALREADY_EXISTS,
+  ErrorCode.FAILED_PRECONDITION,
+]);
 
 export class FrameValidationError extends Error {
   constructor(message: string) {
@@ -42,66 +107,218 @@ export function decodeTransportFrame(bytes: Uint8Array): PiTransportFrame {
 }
 
 export function validateTransportFrame(frame: PiTransportFrame): void {
+  validatePositiveUint64("frame_sequence", frame.frameSequence);
+
   const operation = frame.operation;
   switch (operation.case) {
-    case "bootstrapHello": {
-      const hello = operation.value;
-      validateOptionalIdentifier("connection_id", hello.connectionId);
-      validateIdentifier("peer_id", hello.peerId);
-      validateText("implementation_name", hello.implementationName, true);
-      validateText("implementation_version", hello.implementationVersion, true);
-      if (hello.maxFrameBytes <= 0 || hello.maxFrameBytes > MAX_FRAME_BYTES) {
-        fail("bootstrap max_frame_bytes is outside the local hard limit");
+    case "clientProtocolOffer": {
+      const offer = operation.value;
+      validateProtocolVersions(
+        "client protocol offer",
+        offer.protocolVersions,
+        true,
+      );
+      validateCapabilities(offer.capabilities);
+      validateIdentifier("client_instance_id", offer.clientInstanceId);
+      validateRequiredShortText(
+        "implementation_name",
+        offer.implementationName,
+      );
+      validateSemanticVersion(
+        "implementation_version",
+        offer.implementationVersion,
+      );
+      validateAdvertisedLimits(
+        offer.maxFrameBytes,
+        offer.maxTransferChunkBytes,
+      );
+      return;
+    }
+    case "serverHandshakeAccepted": {
+      const accepted = operation.value;
+      if (accepted.selectedProtocolVersion === undefined) {
+        fail("accepted handshake must contain a selected protocol version");
       }
-      if (
-        hello.maxTransferChunkBytes <= 0 ||
-        hello.maxTransferChunkBytes > MAX_TRANSFER_CHUNK_BYTES
-      ) {
-        fail("bootstrap max_transfer_chunk_bytes is outside the local hard limit");
-      }
-      if (hello.capabilities.length > MAX_CAPABILITIES) {
-        fail("bootstrap capability count exceeds the local hard limit");
-      }
+      validateProtocolVersion(accepted.selectedProtocolVersion);
+      validateCapabilities(accepted.capabilities);
+      validateIdentifier("node_instance_id", accepted.nodeInstanceId);
+      validateRequiredShortText(
+        "implementation_name",
+        accepted.implementationName,
+      );
+      validateSemanticVersion(
+        "implementation_version",
+        accepted.implementationVersion,
+      );
+      validateAdvertisedLimits(
+        accepted.maxFrameBytes,
+        accepted.maxTransferChunkBytes,
+      );
+      return;
+    }
+    case "serverHandshakeRejected": {
+      const rejected = operation.value;
+      requireStableError("handshake rejection", rejected.error);
+      validateProtocolVersions(
+        "server supported protocol versions",
+        rejected.supportedProtocolVersions,
+        false,
+      );
       return;
     }
     case "healthRequest":
-      validateIdentifier("request_id", operation.value.requestId);
+      validateRequestId(operation.value.requestId);
       return;
     case "healthResponse":
-      validateIdentifier("request_id", operation.value.requestId);
-      validateText("node_version", operation.value.nodeVersion, false);
-      if (operation.value.status === HealthStatus.UNSPECIFIED) {
-        fail("health response status must be specified");
+      validateRequestId(operation.value.requestId);
+      validateKnownEnum(
+        "health response status",
+        operation.value.status,
+        knownHealthStatuses,
+      );
+      validateSemanticVersion("node_version", operation.value.nodeVersion);
+      return;
+    case "listSessionsRequest":
+      validateRequestId(operation.value.requestId);
+      return;
+    case "listSessionsResponse": {
+      const response = operation.value;
+      validateRequestId(response.requestId);
+      if (response.sessions.length > MAX_SESSIONS_PER_RESPONSE) {
+        fail("session response count exceeds the local hard limit");
+      }
+      const sessionIds = new Set<string>();
+      for (const session of response.sessions) {
+        validateSessionSummary(session);
+        if (sessionIds.has(session.sessionId)) {
+          fail("session response contains a duplicate session_id");
+        }
+        sessionIds.add(session.sessionId);
       }
       return;
+    }
+    case "getSessionRequest":
+      validateRequestId(operation.value.requestId);
+      validateIdentifier("session_id", operation.value.sessionId);
+      return;
+    case "getSessionResponse":
+      validateRequestId(operation.value.requestId);
+      requireSessionDetail("get session response", operation.value.session);
+      return;
+    case "createSessionRequest":
+      validateRequestId(operation.value.requestId);
+      validatePath("working_directory", operation.value.workingDirectory);
+      return;
+    case "createSessionResponse":
+      validateRequestId(operation.value.requestId);
+      requireSessionDetail("create session response", operation.value.session);
+      return;
+    case "promptCommand":
+      validateRequestId(operation.value.requestId);
+      validateIdentifier("command_id", operation.value.commandId);
+      validateIdentifier("session_id", operation.value.sessionId);
+      validateContentText("prompt", operation.value.prompt, true);
+      return;
+    case "abortCommand":
+      validateRequestId(operation.value.requestId);
+      validateIdentifier("command_id", operation.value.commandId);
+      validateIdentifier("session_id", operation.value.sessionId);
+      return;
+    case "requestRejected":
+      validateRequestId(operation.value.requestId);
+      requireStableError("request rejection", operation.value.error);
+      return;
+    case "commandAccepted":
+      validateRequestId(operation.value.requestId);
+      validateIdentifier("command_id", operation.value.commandId);
+      return;
+    case "commandRejected":
+      validateRequestId(operation.value.requestId);
+      validateIdentifier("command_id", operation.value.commandId);
+      requireStableError("command rejection", operation.value.error);
+      return;
+    case "sessionEventStream": {
+      const stream = operation.value;
+      validateIdentifier("stream_id", stream.streamId);
+      validateIdentifier("session_id", stream.sessionId);
+      validatePositiveUint64("event_sequence", stream.eventSequence);
+      switch (stream.event.case) {
+        case "messageAdded":
+          if (stream.event.value.message === undefined) {
+            fail("message added event must contain a message snapshot");
+          }
+          validateMessageSnapshot(stream.event.value.message);
+          return;
+        case "messageDelta":
+          validateIdentifier("message_id", stream.event.value.messageId);
+          validateContentText("message delta", stream.event.value.delta, true);
+          return;
+        case "runningChanged":
+          return;
+        case "commandCompleted":
+          validateIdentifier("command_id", stream.event.value.commandId);
+          validateCompletionError(
+            stream.event.value.succeeded,
+            stream.event.value.error,
+          );
+          return;
+        case "streamClosed":
+          validateStreamClosed(stream.event.value);
+          return;
+        case undefined:
+          fail("session event stream must contain a typed event");
+      }
+      return;
+    }
     case "eventStream": {
       const stream = operation.value;
       validateIdentifier("stream_id", stream.streamId);
+      validatePositiveUint64("event_sequence", stream.eventSequence);
       switch (stream.event.case) {
         case "heartbeat":
+          validatePositiveUint64(
+            "observed_unix_millis",
+            stream.event.value.observedUnixMillis,
+          );
           return;
         case "healthStatusChanged":
-          if (stream.event.value.status === HealthStatus.UNSPECIFIED) {
-            fail("health status event must specify a status");
-          }
-          validateText("health summary", stream.event.value.summary, false);
+          validateKnownEnum(
+            "health status event",
+            stream.event.value.status,
+            knownHealthStatuses,
+          );
+          validateShortText("health summary", stream.event.value.summary, false);
           return;
         case "streamClosed":
-          if (stream.event.value.error !== undefined) {
-            validateStableError(stream.event.value.error);
-          }
+          validateStreamClosed(stream.event.value);
           return;
         case undefined:
           fail("event stream envelope must contain a typed event");
       }
       return;
     }
-    case "cancel":
-      validateTarget(operation.value.target, "cancel");
-      validateText("cancel reason", operation.value.reason, false);
+    case "cancel": {
+      const target = operation.value.target;
+      switch (target.case) {
+        case "requestId":
+          validateRequestId(target.value);
+          break;
+        case "streamId":
+        case "transferId":
+          validateIdentifier(target.case, target.value);
+          break;
+        case undefined:
+          fail("cancel must contain a target identifier");
+      }
+      validateShortText("cancel reason", operation.value.reason, false);
       return;
-    case "windowUpdate":
-      validateTarget(operation.value.target, "window update");
+    }
+    case "windowUpdate": {
+      const target = operation.value.target;
+      if (target.case === undefined) {
+        fail("window update must contain a target identifier");
+      }
+      validateIdentifier(target.case, target.value);
       if (
         operation.value.creditMessages === 0 &&
         operation.value.creditBytes === 0n
@@ -109,17 +326,22 @@ export function validateTransportFrame(frame: PiTransportFrame): void {
         fail("window update must grant message or byte credit");
       }
       return;
+    }
     case "transferOpen": {
       const transfer = operation.value;
       validateIdentifier("transfer_id", transfer.transferId);
-      if (transfer.direction === TransferDirection.UNSPECIFIED) {
-        fail("transfer direction must be specified");
-      }
-      if (transfer.purpose === TransferPurpose.UNSPECIFIED) {
-        fail("transfer purpose must be specified");
-      }
-      validateText("content_type", transfer.contentType, false);
-      validateText("file_name", transfer.fileName, false);
+      validateKnownEnum(
+        "transfer direction",
+        transfer.direction,
+        knownTransferDirections,
+      );
+      validateKnownEnum(
+        "transfer purpose",
+        transfer.purpose,
+        knownTransferPurposes,
+      );
+      validateShortText("content_type", transfer.contentType, false);
+      validateShortText("file_name", transfer.fileName, false);
       if (
         transfer.chunkBytes <= 0 ||
         transfer.chunkBytes > MAX_TRANSFER_CHUNK_BYTES
@@ -131,6 +353,10 @@ export function validateTransportFrame(frame: PiTransportFrame): void {
     }
     case "transferChunk":
       validateIdentifier("transfer_id", operation.value.transferId);
+      validatePositiveUint64(
+        "chunk_sequence",
+        operation.value.chunkSequence,
+      );
       if (
         operation.value.data.length === 0 ||
         operation.value.data.length > MAX_TRANSFER_CHUNK_BYTES
@@ -140,6 +366,10 @@ export function validateTransportFrame(frame: PiTransportFrame): void {
       return;
     case "transferAck":
       validateIdentifier("transfer_id", operation.value.transferId);
+      validatePositiveUint64(
+        "acknowledged_sequence",
+        operation.value.acknowledgedSequence,
+      );
       return;
     case "transferComplete":
       validateIdentifier("transfer_id", operation.value.transferId);
@@ -147,45 +377,187 @@ export function validateTransportFrame(frame: PiTransportFrame): void {
       return;
     case "transferAbort":
       validateIdentifier("transfer_id", operation.value.transferId);
-      if (operation.value.error === undefined) {
-        fail("transfer abort must contain a stable error");
-      }
-      validateStableError(operation.value.error);
+      requireStableError("transfer abort", operation.value.error);
       return;
-    case "error":
-      if (operation.value.correlation.case !== undefined) {
-        validateIdentifier(
-          operation.value.correlation.case,
-          operation.value.correlation.value,
-        );
+    case "error": {
+      const envelope = operation.value;
+      switch (envelope.correlation.case) {
+        case "requestId":
+          validateRequestId(envelope.correlation.value);
+          break;
+        case "streamId":
+        case "transferId":
+          validateIdentifier(
+            envelope.correlation.case,
+            envelope.correlation.value,
+          );
+          break;
+        case undefined:
+          break;
       }
-      if (operation.value.error === undefined) {
-        fail("error envelope must contain a stable error");
-      }
-      validateStableError(operation.value.error);
+      requireStableError("error envelope", envelope.error);
       return;
+    }
     case undefined:
       fail("transport frame must contain a typed operation");
   }
 }
 
-function validateTarget(
-  target: { case: string | undefined; value?: string },
-  label: string,
+function validateAdvertisedLimits(
+  maxFrameBytes: number,
+  maxTransferChunkBytes: number,
 ): void {
-  if (target.case === undefined || target.value === undefined) {
-    fail(`${label} must contain a target identifier`);
+  if (maxFrameBytes <= 0 || maxFrameBytes > MAX_FRAME_BYTES) {
+    fail("advertised max_frame_bytes is outside the local hard limit");
   }
-  validateIdentifier(target.case, target.value);
+  if (
+    maxTransferChunkBytes <= 0 ||
+    maxTransferChunkBytes > MAX_TRANSFER_CHUNK_BYTES
+  ) {
+    fail("advertised max_transfer_chunk_bytes is outside the local hard limit");
+  }
+}
+
+function validateProtocolVersions(
+  label: string,
+  versions: ProtocolVersion[],
+  required: boolean,
+): void {
+  if (required && versions.length === 0) {
+    fail(`${label} must contain at least one protocol version`);
+  }
+  if (versions.length > MAX_PROTOCOL_VERSIONS) {
+    fail(`${label} exceeds the local protocol version limit`);
+  }
+  const seen = new Set<string>();
+  for (const version of versions) {
+    validateProtocolVersion(version);
+    const key = `${version.major}.${version.minor}.${version.patch}`;
+    if (seen.has(key)) {
+      fail(`${label} contains a duplicate protocol version`);
+    }
+    seen.add(key);
+  }
+}
+
+function validateProtocolVersion(version: ProtocolVersion): void {
+  if (version.major !== 0) {
+    fail("v0 protocol versions must use major zero");
+  }
+}
+
+function validateCapabilities(capabilities: Capability[]): void {
+  if (capabilities.length > MAX_CAPABILITIES) {
+    fail("capability count exceeds the local hard limit");
+  }
+  const seen = new Set<Capability>();
+  for (const capability of capabilities) {
+    validateKnownEnum("capability", capability, knownCapabilities);
+    if (seen.has(capability)) {
+      fail("capability list contains a duplicate");
+    }
+    seen.add(capability);
+  }
+}
+
+function requireSessionDetail(
+  label: string,
+  detail: SessionDetailSnapshot | undefined,
+): void {
+  if (detail === undefined) {
+    fail(`${label} must contain a session detail snapshot`);
+  }
+  validateSessionDetail(detail);
+}
+
+function validateSessionDetail(detail: SessionDetailSnapshot): void {
+  if (detail.summary === undefined) {
+    fail("session detail must contain a summary snapshot");
+  }
+  validateSessionSummary(detail.summary);
+  if (detail.messages.length > MAX_MESSAGES_PER_SESSION_SNAPSHOT) {
+    fail("session message count exceeds the local hard limit");
+  }
+  const messageIds = new Set<string>();
+  for (const message of detail.messages) {
+    validateMessageSnapshot(message);
+    if (messageIds.has(message.messageId)) {
+      fail("session detail contains a duplicate message_id");
+    }
+    messageIds.add(message.messageId);
+  }
+}
+
+function validateSessionSummary(summary: SessionSummarySnapshot): void {
+  validateIdentifier("session_id", summary.sessionId);
+  validateRequiredShortText("session title", summary.title);
+  validatePath("working_directory", summary.workingDirectory);
+  validatePositiveUint64(
+    "created_at_unix_millis",
+    summary.createdAtUnixMillis,
+  );
+  validatePositiveUint64(
+    "updated_at_unix_millis",
+    summary.updatedAtUnixMillis,
+  );
+  if (summary.updatedAtUnixMillis < summary.createdAtUnixMillis) {
+    fail("session updated time must not precede its created time");
+  }
+}
+
+function validateMessageSnapshot(message: MessageSnapshot): void {
+  validateIdentifier("message_id", message.messageId);
+  validateKnownEnum("message role", message.role, knownMessageRoles);
+  validateContentText("message text", message.text, false);
+  validatePositiveUint64(
+    "created_at_unix_millis",
+    message.createdAtUnixMillis,
+  );
+}
+
+function validateCompletionError(
+  succeeded: boolean,
+  error: StableError | undefined,
+): void {
+  if (succeeded) {
+    if (error !== undefined) {
+      fail("successful command completion must not contain an error");
+    }
+    return;
+  }
+  requireStableError("failed command completion", error);
+}
+
+function validateStreamClosed(event: StreamClosedEvent): void {
+  if (event.graceful) {
+    if (event.error !== undefined) {
+      fail("graceful stream close must not contain an error");
+    }
+    return;
+  }
+  requireStableError("ungraceful stream close", event.error);
+}
+
+function requireStableError(
+  label: string,
+  error: StableError | undefined,
+): void {
+  if (error === undefined) {
+    fail(`${label} must contain a stable error`);
+  }
+  validateStableError(error);
 }
 
 function validateStableError(error: StableError): void {
-  if (error.code === ErrorCode.UNSPECIFIED) {
-    fail("stable error code must be specified");
-  }
-  const bytes = textEncoder.encode(error.message).length;
-  if (bytes === 0 || bytes > MAX_ERROR_MESSAGE_BYTES) {
-    fail("stable error message is outside the local hard limit");
+  validateKnownEnum("stable error code", error.code, knownErrorCodes);
+  validateTextBytes(
+    "stable error safe_message",
+    error.safeMessage,
+    MAX_ERROR_MESSAGE_BYTES,
+    false,
+  );
+  if (error.retryAfterMillis > 0 && !error.retryable) {
+    fail("retry_after_millis requires retryable=true");
   }
 }
 
@@ -195,23 +567,90 @@ function validateDigest(digest: Uint8Array): void {
   }
 }
 
+function validateRequestId(value: bigint): void {
+  validatePositiveUint64("request_id", value);
+}
+
+function validatePositiveUint64(label: string, value: bigint): void {
+  if (value <= 0n) {
+    fail(`${label} must be a positive uint64`);
+  }
+}
+
 function validateIdentifier(label: string, value: string): void {
   const bytes = textEncoder.encode(value).length;
-  if (bytes === 0 || bytes > MAX_IDENTIFIER_BYTES) {
+  if (
+    bytes === 0 ||
+    bytes > MAX_IDENTIFIER_BYTES ||
+    value.trim() !== value ||
+    forbiddenIdentifierControl.test(value)
+  ) {
     fail(`${label} is outside the local identifier limit`);
   }
 }
 
-function validateOptionalIdentifier(label: string, value: string): void {
-  if (value.length !== 0) {
-    validateIdentifier(label, value);
+function validatePath(label: string, value: string): void {
+  const bytes = textEncoder.encode(value).length;
+  if (
+    bytes === 0 ||
+    bytes > MAX_PATH_BYTES ||
+    value.trim() !== value ||
+    forbiddenIdentifierControl.test(value)
+  ) {
+    fail(`${label} is outside the local path limit`);
   }
 }
 
-function validateText(label: string, value: string, required: boolean): void {
+function validateRequiredShortText(label: string, value: string): void {
+  validateShortText(label, value, true);
+}
+
+function validateShortText(
+  label: string,
+  value: string,
+  required: boolean,
+): void {
+  validateTextBytes(label, value, MAX_SHORT_TEXT_BYTES, required);
+}
+
+function validateContentText(
+  label: string,
+  value: string,
+  required: boolean,
+): void {
+  validateTextBytes(label, value, MAX_CONTENT_TEXT_BYTES, required);
+}
+
+function validateTextBytes(
+  label: string,
+  value: string,
+  maxBytes: number,
+  required: boolean,
+): void {
   const bytes = textEncoder.encode(value).length;
-  if ((required && bytes === 0) || bytes > MAX_SHORT_TEXT_BYTES) {
+  if (
+    (required && value.trim().length === 0) ||
+    bytes > maxBytes ||
+    value.includes("\u0000")
+  ) {
     fail(`${label} is outside the local text limit`);
+  }
+}
+
+function validateSemanticVersion(label: string, value: string): void {
+  validateRequiredShortText(label, value);
+  if (!semanticVersionPattern.test(value)) {
+    fail(`${label} must be a SemVer 2.0.0 version`);
+  }
+}
+
+function validateKnownEnum<T extends number>(
+  label: string,
+  value: T,
+  known: ReadonlySet<T>,
+): void {
+  if (!known.has(value)) {
+    fail(`${label} must contain a known non-zero enum value`);
   }
 }
 

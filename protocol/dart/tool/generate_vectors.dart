@@ -7,16 +7,23 @@ void main() {
   final vectorDirectory = Directory('../test-vectors')
     ..createSync(recursive: true);
   final frame = PiTransportFrame(
-    frameSequence: Int64.parseInt('9007199254740995'),
-    eventStream: EventStreamEnvelope(
-      streamId: 'events-dart-1',
-      eventSequence: Int64.parseInt('9007199254740997'),
-      heartbeat: HeartbeatEvent(
-        observedUnixMillis: Int64.parseInt('1735689600123'),
+    frameSequence: Int64(-1),
+    sessionEventStream: SessionEventStreamEnvelope(
+      streamId: 'session-events-dart-1',
+      sessionId: 'session-dart-1',
+      eventSequence: Int64(-1),
+      commandCompleted: CommandCompletedEvent(
+        commandId: 'command-dart-1',
+        succeeded: false,
+        error: StableError(
+          code: ErrorCode.ERROR_CODE_CONFLICT,
+          retryable: false,
+          safeMessage: 'The command could not be completed.',
+        ),
       ),
     ),
   );
   File.fromUri(
-    vectorDirectory.uri.resolve('dart_event_stream.pb'),
+    vectorDirectory.uri.resolve('dart_session_event.pb'),
   ).writeAsBytesSync(encodeTransportFrame(frame));
 }

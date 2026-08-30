@@ -10,11 +10,12 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file pi/client/protocol/v0/protocol.proto.
  */
 export const file_pi_client_protocol_v0_protocol: GenFile = /*@__PURE__*/
-  fileDesc("CiRwaS9jbGllbnQvcHJvdG9jb2wvdjAvcHJvdG9jb2wucHJvdG8SFXBpLmNsaWVudC5wcm90b2NvbC52MCKxBgoQUGlUcmFuc3BvcnRGcmFtZRIWCg5mcmFtZV9zZXF1ZW5jZRgBIAEoBBJACg9ib290c3RyYXBfaGVsbG8YCiABKAsyJS5waS5jbGllbnQucHJvdG9jb2wudjAuQm9vdHN0cmFwSGVsbG9IABI+Cg5oZWFsdGhfcmVxdWVzdBgLIAEoCzIkLnBpLmNsaWVudC5wcm90b2NvbC52MC5IZWFsdGhSZXF1ZXN0SAASQAoPaGVhbHRoX3Jlc3BvbnNlGAwgASgLMiUucGkuY2xpZW50LnByb3RvY29sLnYwLkhlYWx0aFJlc3BvbnNlSAASQgoMZXZlbnRfc3RyZWFtGA0gASgLMioucGkuY2xpZW50LnByb3RvY29sLnYwLkV2ZW50U3RyZWFtRW52ZWxvcGVIABIvCgZjYW5jZWwYDiABKAsyHS5waS5jbGllbnQucHJvdG9jb2wudjAuQ2FuY2VsSAASPAoNd2luZG93X3VwZGF0ZRgPIAEoCzIjLnBpLmNsaWVudC5wcm90b2NvbC52MC5XaW5kb3dVcGRhdGVIABI8Cg10cmFuc2Zlcl9vcGVuGBAgASgLMiMucGkuY2xpZW50LnByb3RvY29sLnYwLlRyYW5zZmVyT3BlbkgAEj4KDnRyYW5zZmVyX2NodW5rGBEgASgLMiQucGkuY2xpZW50LnByb3RvY29sLnYwLlRyYW5zZmVyQ2h1bmtIABI6Cgx0cmFuc2Zlcl9hY2sYEiABKAsyIi5waS5jbGllbnQucHJvdG9jb2wudjAuVHJhbnNmZXJBY2tIABJEChF0cmFuc2Zlcl9jb21wbGV0ZRgTIAEoCzInLnBpLmNsaWVudC5wcm90b2NvbC52MC5UcmFuc2ZlckNvbXBsZXRlSAASPgoOdHJhbnNmZXJfYWJvcnQYFCABKAsyJC5waS5jbGllbnQucHJvdG9jb2wudjAuVHJhbnNmZXJBYm9ydEgAEjUKBWVycm9yGBUgASgLMiQucGkuY2xpZW50LnByb3RvY29sLnYwLkVycm9yRW52ZWxvcGVIAEILCglvcGVyYXRpb25KBAgCEApKBAgWECAiyAIKDkJvb3RzdHJhcEhlbGxvEhUKDWNvbm5lY3Rpb25faWQYASABKAkSDwoHcGVlcl9pZBgCIAEoCRItCgRyb2xlGAMgASgOMh8ucGkuY2xpZW50LnByb3RvY29sLnYwLlBlZXJSb2xlEhYKDnByb3RvY29sX21ham9yGAQgASgNEhYKDnByb3RvY29sX21pbm9yGAUgASgNEhsKE2ltcGxlbWVudGF0aW9uX25hbWUYBiABKAkSHgoWaW1wbGVtZW50YXRpb25fdmVyc2lvbhgHIAEoCRIXCg9tYXhfZnJhbWVfYnl0ZXMYCCABKA0SIAoYbWF4X3RyYW5zZmVyX2NodW5rX2J5dGVzGAkgASgNEjcKDGNhcGFiaWxpdGllcxgKIAMoDjIhLnBpLmNsaWVudC5wcm90b2NvbC52MC5DYXBhYmlsaXR5Ij8KDUhlYWx0aFJlcXVlc3QSEgoKcmVxdWVzdF9pZBgBIAEoCRIaChJpbmNsdWRlX2J1aWxkX2luZm8YAiABKAgihgEKDkhlYWx0aFJlc3BvbnNlEhIKCnJlcXVlc3RfaWQYASABKAkSMwoGc3RhdHVzGAIgASgOMiMucGkuY2xpZW50LnByb3RvY29sLnYwLkhlYWx0aFN0YXR1cxIUCgxub2RlX3ZlcnNpb24YAyABKAkSFQoNdXB0aW1lX21pbGxpcxgEIAEoBCKgAgoTRXZlbnRTdHJlYW1FbnZlbG9wZRIRCglzdHJlYW1faWQYASABKAkSFgoOZXZlbnRfc2VxdWVuY2UYAiABKAQSOgoJaGVhcnRiZWF0GAogASgLMiUucGkuY2xpZW50LnByb3RvY29sLnYwLkhlYXJ0YmVhdEV2ZW50SAASUAoVaGVhbHRoX3N0YXR1c19jaGFuZ2VkGAsgASgLMi8ucGkuY2xpZW50LnByb3RvY29sLnYwLkhlYWx0aFN0YXR1c0NoYW5nZWRFdmVudEgAEkEKDXN0cmVhbV9jbG9zZWQYDCABKAsyKC5waS5jbGllbnQucHJvdG9jb2wudjAuU3RyZWFtQ2xvc2VkRXZlbnRIAEIHCgVldmVudEoECAMQCiIuCg5IZWFydGJlYXRFdmVudBIcChRvYnNlcnZlZF91bml4X21pbGxpcxgBIAEoBCJgChhIZWFsdGhTdGF0dXNDaGFuZ2VkRXZlbnQSMwoGc3RhdHVzGAEgASgOMiMucGkuY2xpZW50LnByb3RvY29sLnYwLkhlYWx0aFN0YXR1cxIPCgdzdW1tYXJ5GAIgASgJIlgKEVN0cmVhbUNsb3NlZEV2ZW50EhAKCGdyYWNlZnVsGAEgASgIEjEKBWVycm9yGAIgASgLMiIucGkuY2xpZW50LnByb3RvY29sLnYwLlN0YWJsZUVycm9yImQKBkNhbmNlbBIUCgpyZXF1ZXN0X2lkGAEgASgJSAASEwoJc3RyZWFtX2lkGAIgASgJSAASFQoLdHJhbnNmZXJfaWQYAyABKAlIABIOCgZyZWFzb24YBCABKAlCCAoGdGFyZ2V0InMKDFdpbmRvd1VwZGF0ZRITCglzdHJlYW1faWQYASABKAlIABIVCgt0cmFuc2Zlcl9pZBgCIAEoCUgAEhcKD2NyZWRpdF9tZXNzYWdlcxgDIAEoDRIUCgxjcmVkaXRfYnl0ZXMYBCABKARCCAoGdGFyZ2V0IvwBCgxUcmFuc2Zlck9wZW4SEwoLdHJhbnNmZXJfaWQYASABKAkSOwoJZGlyZWN0aW9uGAIgASgOMigucGkuY2xpZW50LnByb3RvY29sLnYwLlRyYW5zZmVyRGlyZWN0aW9uEjcKB3B1cnBvc2UYAyABKA4yJi5waS5jbGllbnQucHJvdG9jb2wudjAuVHJhbnNmZXJQdXJwb3NlEhQKDGNvbnRlbnRfdHlwZRgEIAEoCRIRCglmaWxlX25hbWUYBSABKAkSEwoLdG90YWxfYnl0ZXMYBiABKAQSEwoLY2h1bmtfYnl0ZXMYByABKA0SDgoGc2hhMjU2GAggASgMIloKDVRyYW5zZmVyQ2h1bmsSEwoLdHJhbnNmZXJfaWQYASABKAkSFgoOY2h1bmtfc2VxdWVuY2UYAiABKAQSDgoGb2Zmc2V0GAMgASgEEgwKBGRhdGEYBCABKAwiWgoLVHJhbnNmZXJBY2sSEwoLdHJhbnNmZXJfaWQYASABKAkSHQoVYWNrbm93bGVkZ2VkX3NlcXVlbmNlGAIgASgEEhcKD2NvbW1pdHRlZF9ieXRlcxgDIAEoBCJMChBUcmFuc2ZlckNvbXBsZXRlEhMKC3RyYW5zZmVyX2lkGAEgASgJEhMKC3RvdGFsX2J5dGVzGAIgASgEEg4KBnNoYTI1NhgDIAEoDCJXCg1UcmFuc2ZlckFib3J0EhMKC3RyYW5zZmVyX2lkGAEgASgJEjEKBWVycm9yGAIgASgLMiIucGkuY2xpZW50LnByb3RvY29sLnYwLlN0YWJsZUVycm9yIn0KC1N0YWJsZUVycm9yEi4KBGNvZGUYASABKA4yIC5waS5jbGllbnQucHJvdG9jb2wudjAuRXJyb3JDb2RlEg8KB21lc3NhZ2UYAiABKAkSEQoJcmV0cnlhYmxlGAMgASgIEhoKEnJldHJ5X2FmdGVyX21pbGxpcxgEIAEoDSKTAQoNRXJyb3JFbnZlbG9wZRIUCgpyZXF1ZXN0X2lkGAEgASgJSAASEwoJc3RyZWFtX2lkGAIgASgJSAASFQoLdHJhbnNmZXJfaWQYAyABKAlIABIxCgVlcnJvchgEIAEoCzIiLnBpLmNsaWVudC5wcm90b2NvbC52MC5TdGFibGVFcnJvckINCgtjb3JyZWxhdGlvbipPCghQZWVyUm9sZRIZChVQRUVSX1JPTEVfVU5TUEVDSUZJRUQQABIUChBQRUVSX1JPTEVfQ0xJRU5UEAESEgoOUEVFUl9ST0xFX05PREUQAiq1AQoKQ2FwYWJpbGl0eRIaChZDQVBBQklMSVRZX1VOU1BFQ0lGSUVEEAASGwoXQ0FQQUJJTElUWV9IRUFMVEhfVU5BUlkQARIbChdDQVBBQklMSVRZX0VWRU5UX1NUUkVBTRACEhsKF0NBUEFCSUxJVFlfQ0FOQ0VMTEFUSU9OEAMSGwoXQ0FQQUJJTElUWV9GTE9XX0NPTlRST0wQBBIXChNDQVBBQklMSVRZX1RSQU5TRkVSEAUqnAEKDEhlYWx0aFN0YXR1cxIdChlIRUFMVEhfU1RBVFVTX1VOU1BFQ0lGSUVEEAASGgoWSEVBTFRIX1NUQVRVU19TVEFSVElORxABEhkKFUhFQUxUSF9TVEFUVVNfU0VSVklORxACEhoKFkhFQUxUSF9TVEFUVVNfREVHUkFERUQQAxIaChZIRUFMVEhfU1RBVFVTX1NUT1BQSU5HEAQqdwoRVHJhbnNmZXJEaXJlY3Rpb24SIgoeVFJBTlNGRVJfRElSRUNUSU9OX1VOU1BFQ0lGSUVEEAASHQoZVFJBTlNGRVJfRElSRUNUSU9OX1VQTE9BRBABEh8KG1RSQU5TRkVSX0RJUkVDVElPTl9ET1dOTE9BRBACKowBCg9UcmFuc2ZlclB1cnBvc2USIAocVFJBTlNGRVJfUFVSUE9TRV9VTlNQRUNJRklFRBAAEhkKFVRSQU5TRkVSX1BVUlBPU0VfRklMRRABEh8KG1RSQU5TRkVSX1BVUlBPU0VfQVRUQUNITUVOVBACEhsKF1RSQU5TRkVSX1BVUlBPU0VfRVhQT1JUEAMq9QMKCUVycm9yQ29kZRIaChZFUlJPUl9DT0RFX1VOU1BFQ0lGSUVEEAASHwobRVJST1JfQ09ERV9JTlZBTElEX0FSR1VNRU5UEAESHgoaRVJST1JfQ09ERV9VTkFVVEhFTlRJQ0FURUQQAhIgChxFUlJPUl9DT0RFX1BFUk1JU1NJT05fREVOSUVEEAMSGAoURVJST1JfQ09ERV9OT1RfRk9VTkQQBBIdChlFUlJPUl9DT0RFX0FMUkVBRFlfRVhJU1RTEAUSFwoTRVJST1JfQ09ERV9DT05GTElDVBAGEiIKHkVSUk9SX0NPREVfRkFJTEVEX1BSRUNPTkRJVElPThAHEiEKHUVSUk9SX0NPREVfUkVTT1VSQ0VfRVhIQVVTVEVEEAgSGAoURVJST1JfQ09ERV9DQU5DRUxMRUQQCRIgChxFUlJPUl9DT0RFX0RFQURMSU5FX0VYQ0VFREVEEAoSGgoWRVJST1JfQ09ERV9VTkFWQUlMQUJMRRALEhgKFEVSUk9SX0NPREVfREFUQV9MT1NTEAwSFwoTRVJST1JfQ09ERV9JTlRFUk5BTBANEiEKHUVSUk9SX0NPREVfUFJPVE9DT0xfVklPTEFUSU9OEA4SIgoeRVJST1JfQ09ERV9VTlNVUFBPUlRFRF9WRVJTSU9OEA9iBnByb3RvMw");
+  fileDesc("CiRwaS9jbGllbnQvcHJvdG9jb2wvdjAvcHJvdG9jb2wucHJvdG8SFXBpLmNsaWVudC5wcm90b2NvbC52MCL3DgoQUGlUcmFuc3BvcnRGcmFtZRIWCg5mcmFtZV9zZXF1ZW5jZRgBIAEoBBJLChVjbGllbnRfcHJvdG9jb2xfb2ZmZXIYCiABKAsyKi5waS5jbGllbnQucHJvdG9jb2wudjAuQ2xpZW50UHJvdG9jb2xPZmZlckgAElMKGXNlcnZlcl9oYW5kc2hha2VfYWNjZXB0ZWQYCyABKAsyLi5waS5jbGllbnQucHJvdG9jb2wudjAuU2VydmVySGFuZHNoYWtlQWNjZXB0ZWRIABJTChlzZXJ2ZXJfaGFuZHNoYWtlX3JlamVjdGVkGAwgASgLMi4ucGkuY2xpZW50LnByb3RvY29sLnYwLlNlcnZlckhhbmRzaGFrZVJlamVjdGVkSAASPgoOaGVhbHRoX3JlcXVlc3QYFCABKAsyJC5waS5jbGllbnQucHJvdG9jb2wudjAuSGVhbHRoUmVxdWVzdEgAEkAKD2hlYWx0aF9yZXNwb25zZRgVIAEoCzIlLnBpLmNsaWVudC5wcm90b2NvbC52MC5IZWFsdGhSZXNwb25zZUgAEksKFWxpc3Rfc2Vzc2lvbnNfcmVxdWVzdBgeIAEoCzIqLnBpLmNsaWVudC5wcm90b2NvbC52MC5MaXN0U2Vzc2lvbnNSZXF1ZXN0SAASTQoWbGlzdF9zZXNzaW9uc19yZXNwb25zZRgfIAEoCzIrLnBpLmNsaWVudC5wcm90b2NvbC52MC5MaXN0U2Vzc2lvbnNSZXNwb25zZUgAEkcKE2dldF9zZXNzaW9uX3JlcXVlc3QYICABKAsyKC5waS5jbGllbnQucHJvdG9jb2wudjAuR2V0U2Vzc2lvblJlcXVlc3RIABJJChRnZXRfc2Vzc2lvbl9yZXNwb25zZRghIAEoCzIpLnBpLmNsaWVudC5wcm90b2NvbC52MC5HZXRTZXNzaW9uUmVzcG9uc2VIABJNChZjcmVhdGVfc2Vzc2lvbl9yZXF1ZXN0GCIgASgLMisucGkuY2xpZW50LnByb3RvY29sLnYwLkNyZWF0ZVNlc3Npb25SZXF1ZXN0SAASTwoXY3JlYXRlX3Nlc3Npb25fcmVzcG9uc2UYIyABKAsyLC5waS5jbGllbnQucHJvdG9jb2wudjAuQ3JlYXRlU2Vzc2lvblJlc3BvbnNlSAASPgoOcHJvbXB0X2NvbW1hbmQYJCABKAsyJC5waS5jbGllbnQucHJvdG9jb2wudjAuUHJvbXB0Q29tbWFuZEgAEjwKDWFib3J0X2NvbW1hbmQYJSABKAsyIy5waS5jbGllbnQucHJvdG9jb2wudjAuQWJvcnRDb21tYW5kSAASQgoQcmVxdWVzdF9yZWplY3RlZBgmIAEoCzImLnBpLmNsaWVudC5wcm90b2NvbC52MC5SZXF1ZXN0UmVqZWN0ZWRIABJCChBjb21tYW5kX2FjY2VwdGVkGCcgASgLMiYucGkuY2xpZW50LnByb3RvY29sLnYwLkNvbW1hbmRBY2NlcHRlZEgAEkIKEGNvbW1hbmRfcmVqZWN0ZWQYKCABKAsyJi5waS5jbGllbnQucHJvdG9jb2wudjAuQ29tbWFuZFJlamVjdGVkSAASUQoUc2Vzc2lvbl9ldmVudF9zdHJlYW0YMiABKAsyMS5waS5jbGllbnQucHJvdG9jb2wudjAuU2Vzc2lvbkV2ZW50U3RyZWFtRW52ZWxvcGVIABJCCgxldmVudF9zdHJlYW0YMyABKAsyKi5waS5jbGllbnQucHJvdG9jb2wudjAuRXZlbnRTdHJlYW1FbnZlbG9wZUgAEi8KBmNhbmNlbBg8IAEoCzIdLnBpLmNsaWVudC5wcm90b2NvbC52MC5DYW5jZWxIABI8Cg13aW5kb3dfdXBkYXRlGD0gASgLMiMucGkuY2xpZW50LnByb3RvY29sLnYwLldpbmRvd1VwZGF0ZUgAEjwKDXRyYW5zZmVyX29wZW4YRiABKAsyIy5waS5jbGllbnQucHJvdG9jb2wudjAuVHJhbnNmZXJPcGVuSAASPgoOdHJhbnNmZXJfY2h1bmsYRyABKAsyJC5waS5jbGllbnQucHJvdG9jb2wudjAuVHJhbnNmZXJDaHVua0gAEjoKDHRyYW5zZmVyX2FjaxhIIAEoCzIiLnBpLmNsaWVudC5wcm90b2NvbC52MC5UcmFuc2ZlckFja0gAEkQKEXRyYW5zZmVyX2NvbXBsZXRlGEkgASgLMicucGkuY2xpZW50LnByb3RvY29sLnYwLlRyYW5zZmVyQ29tcGxldGVIABI+Cg50cmFuc2Zlcl9hYm9ydBhKIAEoCzIkLnBpLmNsaWVudC5wcm90b2NvbC52MC5UcmFuc2ZlckFib3J0SAASNQoFZXJyb3IYUCABKAsyJC5waS5jbGllbnQucHJvdG9jb2wudjAuRXJyb3JFbnZlbG9wZUgAQgsKCW9wZXJhdGlvbkoECAIQCkoECA0QFEoECBYQHkoECCkQMkoECDQQPEoECD4QRkoECEsQUEoECFEQZCI+Cg9Qcm90b2NvbFZlcnNpb24SDQoFbWFqb3IYASABKA0SDQoFbWlub3IYAiABKA0SDQoFcGF0Y2gYAyABKA0ipQIKE0NsaWVudFByb3RvY29sT2ZmZXISQQoRcHJvdG9jb2xfdmVyc2lvbnMYASADKAsyJi5waS5jbGllbnQucHJvdG9jb2wudjAuUHJvdG9jb2xWZXJzaW9uEjcKDGNhcGFiaWxpdGllcxgCIAMoDjIhLnBpLmNsaWVudC5wcm90b2NvbC52MC5DYXBhYmlsaXR5EhoKEmNsaWVudF9pbnN0YW5jZV9pZBgDIAEoCRIbChNpbXBsZW1lbnRhdGlvbl9uYW1lGAQgASgJEh4KFmltcGxlbWVudGF0aW9uX3ZlcnNpb24YBSABKAkSFwoPbWF4X2ZyYW1lX2J5dGVzGAYgASgNEiAKGG1heF90cmFuc2Zlcl9jaHVua19ieXRlcxgHIAEoDSKvAgoXU2VydmVySGFuZHNoYWtlQWNjZXB0ZWQSSQoZc2VsZWN0ZWRfcHJvdG9jb2xfdmVyc2lvbhgBIAEoCzImLnBpLmNsaWVudC5wcm90b2NvbC52MC5Qcm90b2NvbFZlcnNpb24SNwoMY2FwYWJpbGl0aWVzGAIgAygOMiEucGkuY2xpZW50LnByb3RvY29sLnYwLkNhcGFiaWxpdHkSGAoQbm9kZV9pbnN0YW5jZV9pZBgDIAEoCRIbChNpbXBsZW1lbnRhdGlvbl9uYW1lGAQgASgJEh4KFmltcGxlbWVudGF0aW9uX3ZlcnNpb24YBSABKAkSFwoPbWF4X2ZyYW1lX2J5dGVzGAYgASgNEiAKGG1heF90cmFuc2Zlcl9jaHVua19ieXRlcxgHIAEoDSKZAQoXU2VydmVySGFuZHNoYWtlUmVqZWN0ZWQSMQoFZXJyb3IYASABKAsyIi5waS5jbGllbnQucHJvdG9jb2wudjAuU3RhYmxlRXJyb3ISSwobc3VwcG9ydGVkX3Byb3RvY29sX3ZlcnNpb25zGAIgAygLMiYucGkuY2xpZW50LnByb3RvY29sLnYwLlByb3RvY29sVmVyc2lvbiI/Cg1IZWFsdGhSZXF1ZXN0EhIKCnJlcXVlc3RfaWQYASABKAQSGgoSaW5jbHVkZV9idWlsZF9pbmZvGAIgASgIIoYBCg5IZWFsdGhSZXNwb25zZRISCgpyZXF1ZXN0X2lkGAEgASgEEjMKBnN0YXR1cxgCIAEoDjIjLnBpLmNsaWVudC5wcm90b2NvbC52MC5IZWFsdGhTdGF0dXMSFAoMbm9kZV92ZXJzaW9uGAMgASgJEhUKDXVwdGltZV9taWxsaXMYBCABKAQiKQoTTGlzdFNlc3Npb25zUmVxdWVzdBISCgpyZXF1ZXN0X2lkGAEgASgEImsKFExpc3RTZXNzaW9uc1Jlc3BvbnNlEhIKCnJlcXVlc3RfaWQYASABKAQSPwoIc2Vzc2lvbnMYAiADKAsyLS5waS5jbGllbnQucHJvdG9jb2wudjAuU2Vzc2lvblN1bW1hcnlTbmFwc2hvdCI7ChFHZXRTZXNzaW9uUmVxdWVzdBISCgpyZXF1ZXN0X2lkGAEgASgEEhIKCnNlc3Npb25faWQYAiABKAkiZwoSR2V0U2Vzc2lvblJlc3BvbnNlEhIKCnJlcXVlc3RfaWQYASABKAQSPQoHc2Vzc2lvbhgCIAEoCzIsLnBpLmNsaWVudC5wcm90b2NvbC52MC5TZXNzaW9uRGV0YWlsU25hcHNob3QiRQoUQ3JlYXRlU2Vzc2lvblJlcXVlc3QSEgoKcmVxdWVzdF9pZBgBIAEoBBIZChF3b3JraW5nX2RpcmVjdG9yeRgCIAEoCSJqChVDcmVhdGVTZXNzaW9uUmVzcG9uc2USEgoKcmVxdWVzdF9pZBgBIAEoBBI9CgdzZXNzaW9uGAIgASgLMiwucGkuY2xpZW50LnByb3RvY29sLnYwLlNlc3Npb25EZXRhaWxTbmFwc2hvdCJbCg1Qcm9tcHRDb21tYW5kEhIKCnJlcXVlc3RfaWQYASABKAQSEgoKY29tbWFuZF9pZBgCIAEoCRISCgpzZXNzaW9uX2lkGAMgASgJEg4KBnByb21wdBgEIAEoCSJKCgxBYm9ydENvbW1hbmQSEgoKcmVxdWVzdF9pZBgBIAEoBBISCgpjb21tYW5kX2lkGAIgASgJEhIKCnNlc3Npb25faWQYAyABKAkiWAoPUmVxdWVzdFJlamVjdGVkEhIKCnJlcXVlc3RfaWQYASABKAQSMQoFZXJyb3IYAiABKAsyIi5waS5jbGllbnQucHJvdG9jb2wudjAuU3RhYmxlRXJyb3IiOQoPQ29tbWFuZEFjY2VwdGVkEhIKCnJlcXVlc3RfaWQYASABKAQSEgoKY29tbWFuZF9pZBgCIAEoCSJsCg9Db21tYW5kUmVqZWN0ZWQSEgoKcmVxdWVzdF9pZBgBIAEoBBISCgpjb21tYW5kX2lkGAIgASgJEjEKBWVycm9yGAMgASgLMiIucGkuY2xpZW50LnByb3RvY29sLnYwLlN0YWJsZUVycm9yIr4BChZTZXNzaW9uU3VtbWFyeVNuYXBzaG90EhIKCnNlc3Npb25faWQYASABKAkSDQoFdGl0bGUYAiABKAkSGQoRd29ya2luZ19kaXJlY3RvcnkYAyABKAkSHgoWY3JlYXRlZF9hdF91bml4X21pbGxpcxgEIAEoBBIeChZ1cGRhdGVkX2F0X3VuaXhfbWlsbGlzGAUgASgEEhIKCmlzX3J1bm5pbmcYBiABKAgSEgoKaGFzX3VucmVhZBgHIAEoCCKRAQoVU2Vzc2lvbkRldGFpbFNuYXBzaG90Ej4KB3N1bW1hcnkYASABKAsyLS5waS5jbGllbnQucHJvdG9jb2wudjAuU2Vzc2lvblN1bW1hcnlTbmFwc2hvdBI4CghtZXNzYWdlcxgCIAMoCzImLnBpLmNsaWVudC5wcm90b2NvbC52MC5NZXNzYWdlU25hcHNob3QimwEKD01lc3NhZ2VTbmFwc2hvdBISCgptZXNzYWdlX2lkGAEgASgJEjAKBHJvbGUYAiABKA4yIi5waS5jbGllbnQucHJvdG9jb2wudjAuTWVzc2FnZVJvbGUSDAoEdGV4dBgDIAEoCRIeChZjcmVhdGVkX2F0X3VuaXhfbWlsbGlzGAQgASgEEhQKDGlzX3N0cmVhbWluZxgFIAEoCCLMAwoaU2Vzc2lvbkV2ZW50U3RyZWFtRW52ZWxvcGUSEQoJc3RyZWFtX2lkGAEgASgJEhIKCnNlc3Npb25faWQYAiABKAkSFgoOZXZlbnRfc2VxdWVuY2UYAyABKAQSQQoNbWVzc2FnZV9hZGRlZBgKIAEoCzIoLnBpLmNsaWVudC5wcm90b2NvbC52MC5NZXNzYWdlQWRkZWRFdmVudEgAEkEKDW1lc3NhZ2VfZGVsdGEYCyABKAsyKC5waS5jbGllbnQucHJvdG9jb2wudjAuTWVzc2FnZURlbHRhRXZlbnRIABJMCg9ydW5uaW5nX2NoYW5nZWQYDCABKAsyMS5waS5jbGllbnQucHJvdG9jb2wudjAuU2Vzc2lvblJ1bm5pbmdDaGFuZ2VkRXZlbnRIABJJChFjb21tYW5kX2NvbXBsZXRlZBgNIAEoCzIsLnBpLmNsaWVudC5wcm90b2NvbC52MC5Db21tYW5kQ29tcGxldGVkRXZlbnRIABJBCg1zdHJlYW1fY2xvc2VkGA4gASgLMigucGkuY2xpZW50LnByb3RvY29sLnYwLlN0cmVhbUNsb3NlZEV2ZW50SABCBwoFZXZlbnRKBAgEEAoiTAoRTWVzc2FnZUFkZGVkRXZlbnQSNwoHbWVzc2FnZRgBIAEoCzImLnBpLmNsaWVudC5wcm90b2NvbC52MC5NZXNzYWdlU25hcHNob3QiNgoRTWVzc2FnZURlbHRhRXZlbnQSEgoKbWVzc2FnZV9pZBgBIAEoCRINCgVkZWx0YRgCIAEoCSIwChpTZXNzaW9uUnVubmluZ0NoYW5nZWRFdmVudBISCgppc19ydW5uaW5nGAEgASgIInEKFUNvbW1hbmRDb21wbGV0ZWRFdmVudBISCgpjb21tYW5kX2lkGAEgASgJEhEKCXN1Y2NlZWRlZBgCIAEoCBIxCgVlcnJvchgDIAEoCzIiLnBpLmNsaWVudC5wcm90b2NvbC52MC5TdGFibGVFcnJvciKgAgoTRXZlbnRTdHJlYW1FbnZlbG9wZRIRCglzdHJlYW1faWQYASABKAkSFgoOZXZlbnRfc2VxdWVuY2UYAiABKAQSOgoJaGVhcnRiZWF0GAogASgLMiUucGkuY2xpZW50LnByb3RvY29sLnYwLkhlYXJ0YmVhdEV2ZW50SAASUAoVaGVhbHRoX3N0YXR1c19jaGFuZ2VkGAsgASgLMi8ucGkuY2xpZW50LnByb3RvY29sLnYwLkhlYWx0aFN0YXR1c0NoYW5nZWRFdmVudEgAEkEKDXN0cmVhbV9jbG9zZWQYDCABKAsyKC5waS5jbGllbnQucHJvdG9jb2wudjAuU3RyZWFtQ2xvc2VkRXZlbnRIAEIHCgVldmVudEoECAMQCiIuCg5IZWFydGJlYXRFdmVudBIcChRvYnNlcnZlZF91bml4X21pbGxpcxgBIAEoBCJgChhIZWFsdGhTdGF0dXNDaGFuZ2VkRXZlbnQSMwoGc3RhdHVzGAEgASgOMiMucGkuY2xpZW50LnByb3RvY29sLnYwLkhlYWx0aFN0YXR1cxIPCgdzdW1tYXJ5GAIgASgJIlgKEVN0cmVhbUNsb3NlZEV2ZW50EhAKCGdyYWNlZnVsGAEgASgIEjEKBWVycm9yGAIgASgLMiIucGkuY2xpZW50LnByb3RvY29sLnYwLlN0YWJsZUVycm9yImQKBkNhbmNlbBIUCgpyZXF1ZXN0X2lkGAEgASgESAASEwoJc3RyZWFtX2lkGAIgASgJSAASFQoLdHJhbnNmZXJfaWQYAyABKAlIABIOCgZyZWFzb24YBCABKAlCCAoGdGFyZ2V0InMKDFdpbmRvd1VwZGF0ZRITCglzdHJlYW1faWQYASABKAlIABIVCgt0cmFuc2Zlcl9pZBgCIAEoCUgAEhcKD2NyZWRpdF9tZXNzYWdlcxgDIAEoDRIUCgxjcmVkaXRfYnl0ZXMYBCABKARCCAoGdGFyZ2V0IvwBCgxUcmFuc2Zlck9wZW4SEwoLdHJhbnNmZXJfaWQYASABKAkSOwoJZGlyZWN0aW9uGAIgASgOMigucGkuY2xpZW50LnByb3RvY29sLnYwLlRyYW5zZmVyRGlyZWN0aW9uEjcKB3B1cnBvc2UYAyABKA4yJi5waS5jbGllbnQucHJvdG9jb2wudjAuVHJhbnNmZXJQdXJwb3NlEhQKDGNvbnRlbnRfdHlwZRgEIAEoCRIRCglmaWxlX25hbWUYBSABKAkSEwoLdG90YWxfYnl0ZXMYBiABKAQSEwoLY2h1bmtfYnl0ZXMYByABKA0SDgoGc2hhMjU2GAggASgMIloKDVRyYW5zZmVyQ2h1bmsSEwoLdHJhbnNmZXJfaWQYASABKAkSFgoOY2h1bmtfc2VxdWVuY2UYAiABKAQSDgoGb2Zmc2V0GAMgASgEEgwKBGRhdGEYBCABKAwiWgoLVHJhbnNmZXJBY2sSEwoLdHJhbnNmZXJfaWQYASABKAkSHQoVYWNrbm93bGVkZ2VkX3NlcXVlbmNlGAIgASgEEhcKD2NvbW1pdHRlZF9ieXRlcxgDIAEoBCJMChBUcmFuc2ZlckNvbXBsZXRlEhMKC3RyYW5zZmVyX2lkGAEgASgJEhMKC3RvdGFsX2J5dGVzGAIgASgEEg4KBnNoYTI1NhgDIAEoDCJXCg1UcmFuc2ZlckFib3J0EhMKC3RyYW5zZmVyX2lkGAEgASgJEjEKBWVycm9yGAIgASgLMiIucGkuY2xpZW50LnByb3RvY29sLnYwLlN0YWJsZUVycm9yIoIBCgtTdGFibGVFcnJvchIuCgRjb2RlGAEgASgOMiAucGkuY2xpZW50LnByb3RvY29sLnYwLkVycm9yQ29kZRIRCglyZXRyeWFibGUYAiABKAgSGgoScmV0cnlfYWZ0ZXJfbWlsbGlzGAMgASgNEhQKDHNhZmVfbWVzc2FnZRgEIAEoCSKTAQoNRXJyb3JFbnZlbG9wZRIUCgpyZXF1ZXN0X2lkGAEgASgESAASEwoJc3RyZWFtX2lkGAIgASgJSAASFQoLdHJhbnNmZXJfaWQYAyABKAlIABIxCgVlcnJvchgEIAEoCzIiLnBpLmNsaWVudC5wcm90b2NvbC52MC5TdGFibGVFcnJvckINCgtjb3JyZWxhdGlvbiqqAgoKQ2FwYWJpbGl0eRIaChZDQVBBQklMSVRZX1VOU1BFQ0lGSUVEEAASGwoXQ0FQQUJJTElUWV9TRVNTSU9OX1JFQUQQARIdChlDQVBBQklMSVRZX1NFU1NJT05fQ1JFQVRFEAISHQoZQ0FQQUJJTElUWV9QUk9NUFRfQ09NTUFORBADEhwKGENBUEFCSUxJVFlfQUJPUlRfQ09NTUFORBAEEh0KGUNBUEFCSUxJVFlfU0VTU0lPTl9FVkVOVFMQBRIVChFDQVBBQklMSVRZX0hFQUxUSBAGEhsKF0NBUEFCSUxJVFlfQ0FOQ0VMTEFUSU9OEAcSGwoXQ0FQQUJJTElUWV9GTE9XX0NPTlRST0wQCBIXChNDQVBBQklMSVRZX1RSQU5TRkVSEAkqnAEKDEhlYWx0aFN0YXR1cxIdChlIRUFMVEhfU1RBVFVTX1VOU1BFQ0lGSUVEEAASGgoWSEVBTFRIX1NUQVRVU19TVEFSVElORxABEhkKFUhFQUxUSF9TVEFUVVNfU0VSVklORxACEhoKFkhFQUxUSF9TVEFUVVNfREVHUkFERUQQAxIaChZIRUFMVEhfU1RBVFVTX1NUT1BQSU5HEAQqjgEKC01lc3NhZ2VSb2xlEhwKGE1FU1NBR0VfUk9MRV9VTlNQRUNJRklFRBAAEhUKEU1FU1NBR0VfUk9MRV9VU0VSEAESGgoWTUVTU0FHRV9ST0xFX0FTU0lTVEFOVBACEhUKEU1FU1NBR0VfUk9MRV9UT09MEAMSFwoTTUVTU0FHRV9ST0xFX1NZU1RFTRAEKncKEVRyYW5zZmVyRGlyZWN0aW9uEiIKHlRSQU5TRkVSX0RJUkVDVElPTl9VTlNQRUNJRklFRBAAEh0KGVRSQU5TRkVSX0RJUkVDVElPTl9VUExPQUQQARIfChtUUkFOU0ZFUl9ESVJFQ1RJT05fRE9XTkxPQUQQAiqMAQoPVHJhbnNmZXJQdXJwb3NlEiAKHFRSQU5TRkVSX1BVUlBPU0VfVU5TUEVDSUZJRUQQABIZChVUUkFOU0ZFUl9QVVJQT1NFX0ZJTEUQARIfChtUUkFOU0ZFUl9QVVJQT1NFX0FUVEFDSE1FTlQQAhIbChdUUkFOU0ZFUl9QVVJQT1NFX0VYUE9SVBADKp8ECglFcnJvckNvZGUSGgoWRVJST1JfQ09ERV9VTlNQRUNJRklFRBAAEiYKIkVSUk9SX0NPREVfQVVUSEVOVElDQVRJT05fUkVRVUlSRUQQARIgChxFUlJPUl9DT0RFX1BFUk1JU1NJT05fREVOSUVEEAISGAoURVJST1JfQ09ERV9OT1RfRk9VTkQQAxIeChpFUlJPUl9DT0RFX0lOVkFMSURfUkVRVUVTVBAEEhcKE0VSUk9SX0NPREVfQ09ORkxJQ1QQBRIYChRFUlJPUl9DT0RFX05PREVfQlVTWRAGEisKJ0VSUk9SX0NPREVfUFJPVE9DT0xfVkVSU0lPTl9VTlNVUFBPUlRFRBAHEhgKFEVSUk9SX0NPREVfQ0FOQ0VMTEVEEAgSIAocRVJST1JfQ09ERV9ERUFETElORV9FWENFRURFRBAJEhoKFkVSUk9SX0NPREVfVU5BVkFJTEFCTEUQChIYChRFUlJPUl9DT0RFX0RBVEFfTE9TUxALEhcKE0VSUk9SX0NPREVfSU5URVJOQUwQDBIhCh1FUlJPUl9DT0RFX1BST1RPQ09MX1ZJT0xBVElPThANEiEKHUVSUk9SX0NPREVfUkVTT1VSQ0VfRVhIQVVTVEVEEA4SHQoZRVJST1JfQ09ERV9BTFJFQURZX0VYSVNUUxAPEiIKHkVSUk9SX0NPREVfRkFJTEVEX1BSRUNPTkRJVElPThAQYgZwcm90bzM");
 
 /**
- * PiTransportFrame is the single public Protobuf wire envelope. Multiplexing
- * identifiers remain flat scalar fields on typed operations.
+ * PiTransportFrame is the single public Protobuf wire envelope. Numeric
+ * multiplexing identifiers use uint64; domain and transport resource
+ * identifiers remain opaque strings.
  *
  * @generated from message pi.client.protocol.v0.PiTransportFrame
  */
@@ -29,73 +30,157 @@ export type PiTransportFrame = Message<"pi.client.protocol.v0.PiTransportFrame">
    */
   operation: {
     /**
-     * @generated from field: pi.client.protocol.v0.BootstrapHello bootstrap_hello = 10;
+     * @generated from field: pi.client.protocol.v0.ClientProtocolOffer client_protocol_offer = 10;
      */
-    value: BootstrapHello;
-    case: "bootstrapHello";
+    value: ClientProtocolOffer;
+    case: "clientProtocolOffer";
   } | {
     /**
-     * @generated from field: pi.client.protocol.v0.HealthRequest health_request = 11;
+     * @generated from field: pi.client.protocol.v0.ServerHandshakeAccepted server_handshake_accepted = 11;
+     */
+    value: ServerHandshakeAccepted;
+    case: "serverHandshakeAccepted";
+  } | {
+    /**
+     * @generated from field: pi.client.protocol.v0.ServerHandshakeRejected server_handshake_rejected = 12;
+     */
+    value: ServerHandshakeRejected;
+    case: "serverHandshakeRejected";
+  } | {
+    /**
+     * @generated from field: pi.client.protocol.v0.HealthRequest health_request = 20;
      */
     value: HealthRequest;
     case: "healthRequest";
   } | {
     /**
-     * @generated from field: pi.client.protocol.v0.HealthResponse health_response = 12;
+     * @generated from field: pi.client.protocol.v0.HealthResponse health_response = 21;
      */
     value: HealthResponse;
     case: "healthResponse";
   } | {
     /**
-     * @generated from field: pi.client.protocol.v0.EventStreamEnvelope event_stream = 13;
+     * @generated from field: pi.client.protocol.v0.ListSessionsRequest list_sessions_request = 30;
+     */
+    value: ListSessionsRequest;
+    case: "listSessionsRequest";
+  } | {
+    /**
+     * @generated from field: pi.client.protocol.v0.ListSessionsResponse list_sessions_response = 31;
+     */
+    value: ListSessionsResponse;
+    case: "listSessionsResponse";
+  } | {
+    /**
+     * @generated from field: pi.client.protocol.v0.GetSessionRequest get_session_request = 32;
+     */
+    value: GetSessionRequest;
+    case: "getSessionRequest";
+  } | {
+    /**
+     * @generated from field: pi.client.protocol.v0.GetSessionResponse get_session_response = 33;
+     */
+    value: GetSessionResponse;
+    case: "getSessionResponse";
+  } | {
+    /**
+     * @generated from field: pi.client.protocol.v0.CreateSessionRequest create_session_request = 34;
+     */
+    value: CreateSessionRequest;
+    case: "createSessionRequest";
+  } | {
+    /**
+     * @generated from field: pi.client.protocol.v0.CreateSessionResponse create_session_response = 35;
+     */
+    value: CreateSessionResponse;
+    case: "createSessionResponse";
+  } | {
+    /**
+     * @generated from field: pi.client.protocol.v0.PromptCommand prompt_command = 36;
+     */
+    value: PromptCommand;
+    case: "promptCommand";
+  } | {
+    /**
+     * @generated from field: pi.client.protocol.v0.AbortCommand abort_command = 37;
+     */
+    value: AbortCommand;
+    case: "abortCommand";
+  } | {
+    /**
+     * @generated from field: pi.client.protocol.v0.RequestRejected request_rejected = 38;
+     */
+    value: RequestRejected;
+    case: "requestRejected";
+  } | {
+    /**
+     * @generated from field: pi.client.protocol.v0.CommandAccepted command_accepted = 39;
+     */
+    value: CommandAccepted;
+    case: "commandAccepted";
+  } | {
+    /**
+     * @generated from field: pi.client.protocol.v0.CommandRejected command_rejected = 40;
+     */
+    value: CommandRejected;
+    case: "commandRejected";
+  } | {
+    /**
+     * @generated from field: pi.client.protocol.v0.SessionEventStreamEnvelope session_event_stream = 50;
+     */
+    value: SessionEventStreamEnvelope;
+    case: "sessionEventStream";
+  } | {
+    /**
+     * @generated from field: pi.client.protocol.v0.EventStreamEnvelope event_stream = 51;
      */
     value: EventStreamEnvelope;
     case: "eventStream";
   } | {
     /**
-     * @generated from field: pi.client.protocol.v0.Cancel cancel = 14;
+     * @generated from field: pi.client.protocol.v0.Cancel cancel = 60;
      */
     value: Cancel;
     case: "cancel";
   } | {
     /**
-     * @generated from field: pi.client.protocol.v0.WindowUpdate window_update = 15;
+     * @generated from field: pi.client.protocol.v0.WindowUpdate window_update = 61;
      */
     value: WindowUpdate;
     case: "windowUpdate";
   } | {
     /**
-     * @generated from field: pi.client.protocol.v0.TransferOpen transfer_open = 16;
+     * @generated from field: pi.client.protocol.v0.TransferOpen transfer_open = 70;
      */
     value: TransferOpen;
     case: "transferOpen";
   } | {
     /**
-     * @generated from field: pi.client.protocol.v0.TransferChunk transfer_chunk = 17;
+     * @generated from field: pi.client.protocol.v0.TransferChunk transfer_chunk = 71;
      */
     value: TransferChunk;
     case: "transferChunk";
   } | {
     /**
-     * @generated from field: pi.client.protocol.v0.TransferAck transfer_ack = 18;
+     * @generated from field: pi.client.protocol.v0.TransferAck transfer_ack = 72;
      */
     value: TransferAck;
     case: "transferAck";
   } | {
     /**
-     * @generated from field: pi.client.protocol.v0.TransferComplete transfer_complete = 19;
+     * @generated from field: pi.client.protocol.v0.TransferComplete transfer_complete = 73;
      */
     value: TransferComplete;
     case: "transferComplete";
   } | {
     /**
-     * @generated from field: pi.client.protocol.v0.TransferAbort transfer_abort = 20;
+     * @generated from field: pi.client.protocol.v0.TransferAbort transfer_abort = 74;
      */
     value: TransferAbort;
     case: "transferAbort";
   } | {
     /**
-     * @generated from field: pi.client.protocol.v0.ErrorEnvelope error = 21;
+     * @generated from field: pi.client.protocol.v0.ErrorEnvelope error = 80;
      */
     value: ErrorEnvelope;
     case: "error";
@@ -110,75 +195,163 @@ export const PiTransportFrameSchema: GenMessage<PiTransportFrame> = /*@__PURE__*
   messageDesc(file_pi_client_protocol_v0_protocol, 0);
 
 /**
- * @generated from message pi.client.protocol.v0.BootstrapHello
+ * ProtocolVersion is the numeric SemVer core used for exact wire negotiation.
+ * The v0 package accepts only major zero. Prerelease and build identifiers are
+ * intentionally not part of protocol identity.
+ *
+ * @generated from message pi.client.protocol.v0.ProtocolVersion
  */
-export type BootstrapHello = Message<"pi.client.protocol.v0.BootstrapHello"> & {
+export type ProtocolVersion = Message<"pi.client.protocol.v0.ProtocolVersion"> & {
   /**
-   * @generated from field: string connection_id = 1;
+   * @generated from field: uint32 major = 1;
    */
-  connectionId: string;
+  major: number;
 
   /**
-   * @generated from field: string peer_id = 2;
+   * @generated from field: uint32 minor = 2;
    */
-  peerId: string;
+  minor: number;
 
   /**
-   * @generated from field: pi.client.protocol.v0.PeerRole role = 3;
+   * @generated from field: uint32 patch = 3;
    */
-  role: PeerRole;
+  patch: number;
+};
+
+/**
+ * Describes the message pi.client.protocol.v0.ProtocolVersion.
+ * Use `create(ProtocolVersionSchema)` to create a new message.
+ */
+export const ProtocolVersionSchema: GenMessage<ProtocolVersion> = /*@__PURE__*/
+  messageDesc(file_pi_client_protocol_v0_protocol, 1);
+
+/**
+ * protocol_versions is ordered by client preference. The server selects one
+ * exact offered version and a subset of the advertised capabilities.
+ *
+ * @generated from message pi.client.protocol.v0.ClientProtocolOffer
+ */
+export type ClientProtocolOffer = Message<"pi.client.protocol.v0.ClientProtocolOffer"> & {
+  /**
+   * @generated from field: repeated pi.client.protocol.v0.ProtocolVersion protocol_versions = 1;
+   */
+  protocolVersions: ProtocolVersion[];
 
   /**
-   * @generated from field: uint32 protocol_major = 4;
+   * @generated from field: repeated pi.client.protocol.v0.Capability capabilities = 2;
    */
-  protocolMajor: number;
+  capabilities: Capability[];
 
   /**
-   * @generated from field: uint32 protocol_minor = 5;
+   * @generated from field: string client_instance_id = 3;
    */
-  protocolMinor: number;
+  clientInstanceId: string;
 
   /**
-   * @generated from field: string implementation_name = 6;
+   * @generated from field: string implementation_name = 4;
    */
   implementationName: string;
 
   /**
-   * @generated from field: string implementation_version = 7;
+   * @generated from field: string implementation_version = 5;
    */
   implementationVersion: string;
 
   /**
-   * @generated from field: uint32 max_frame_bytes = 8;
+   * @generated from field: uint32 max_frame_bytes = 6;
    */
   maxFrameBytes: number;
 
   /**
-   * @generated from field: uint32 max_transfer_chunk_bytes = 9;
+   * @generated from field: uint32 max_transfer_chunk_bytes = 7;
    */
   maxTransferChunkBytes: number;
-
-  /**
-   * @generated from field: repeated pi.client.protocol.v0.Capability capabilities = 10;
-   */
-  capabilities: Capability[];
 };
 
 /**
- * Describes the message pi.client.protocol.v0.BootstrapHello.
- * Use `create(BootstrapHelloSchema)` to create a new message.
+ * Describes the message pi.client.protocol.v0.ClientProtocolOffer.
+ * Use `create(ClientProtocolOfferSchema)` to create a new message.
  */
-export const BootstrapHelloSchema: GenMessage<BootstrapHello> = /*@__PURE__*/
-  messageDesc(file_pi_client_protocol_v0_protocol, 1);
+export const ClientProtocolOfferSchema: GenMessage<ClientProtocolOffer> = /*@__PURE__*/
+  messageDesc(file_pi_client_protocol_v0_protocol, 2);
+
+/**
+ * @generated from message pi.client.protocol.v0.ServerHandshakeAccepted
+ */
+export type ServerHandshakeAccepted = Message<"pi.client.protocol.v0.ServerHandshakeAccepted"> & {
+  /**
+   * @generated from field: pi.client.protocol.v0.ProtocolVersion selected_protocol_version = 1;
+   */
+  selectedProtocolVersion?: ProtocolVersion | undefined;
+
+  /**
+   * @generated from field: repeated pi.client.protocol.v0.Capability capabilities = 2;
+   */
+  capabilities: Capability[];
+
+  /**
+   * @generated from field: string node_instance_id = 3;
+   */
+  nodeInstanceId: string;
+
+  /**
+   * @generated from field: string implementation_name = 4;
+   */
+  implementationName: string;
+
+  /**
+   * @generated from field: string implementation_version = 5;
+   */
+  implementationVersion: string;
+
+  /**
+   * @generated from field: uint32 max_frame_bytes = 6;
+   */
+  maxFrameBytes: number;
+
+  /**
+   * @generated from field: uint32 max_transfer_chunk_bytes = 7;
+   */
+  maxTransferChunkBytes: number;
+};
+
+/**
+ * Describes the message pi.client.protocol.v0.ServerHandshakeAccepted.
+ * Use `create(ServerHandshakeAcceptedSchema)` to create a new message.
+ */
+export const ServerHandshakeAcceptedSchema: GenMessage<ServerHandshakeAccepted> = /*@__PURE__*/
+  messageDesc(file_pi_client_protocol_v0_protocol, 3);
+
+/**
+ * @generated from message pi.client.protocol.v0.ServerHandshakeRejected
+ */
+export type ServerHandshakeRejected = Message<"pi.client.protocol.v0.ServerHandshakeRejected"> & {
+  /**
+   * @generated from field: pi.client.protocol.v0.StableError error = 1;
+   */
+  error?: StableError | undefined;
+
+  /**
+   * @generated from field: repeated pi.client.protocol.v0.ProtocolVersion supported_protocol_versions = 2;
+   */
+  supportedProtocolVersions: ProtocolVersion[];
+};
+
+/**
+ * Describes the message pi.client.protocol.v0.ServerHandshakeRejected.
+ * Use `create(ServerHandshakeRejectedSchema)` to create a new message.
+ */
+export const ServerHandshakeRejectedSchema: GenMessage<ServerHandshakeRejected> = /*@__PURE__*/
+  messageDesc(file_pi_client_protocol_v0_protocol, 4);
 
 /**
  * @generated from message pi.client.protocol.v0.HealthRequest
  */
 export type HealthRequest = Message<"pi.client.protocol.v0.HealthRequest"> & {
   /**
-   * @generated from field: string request_id = 1;
+   * @generated from field: uint64 request_id = 1;
    */
-  requestId: string;
+  requestId: bigint;
 
   /**
    * @generated from field: bool include_build_info = 2;
@@ -191,16 +364,16 @@ export type HealthRequest = Message<"pi.client.protocol.v0.HealthRequest"> & {
  * Use `create(HealthRequestSchema)` to create a new message.
  */
 export const HealthRequestSchema: GenMessage<HealthRequest> = /*@__PURE__*/
-  messageDesc(file_pi_client_protocol_v0_protocol, 2);
+  messageDesc(file_pi_client_protocol_v0_protocol, 5);
 
 /**
  * @generated from message pi.client.protocol.v0.HealthResponse
  */
 export type HealthResponse = Message<"pi.client.protocol.v0.HealthResponse"> & {
   /**
-   * @generated from field: string request_id = 1;
+   * @generated from field: uint64 request_id = 1;
    */
-  requestId: string;
+  requestId: bigint;
 
   /**
    * @generated from field: pi.client.protocol.v0.HealthStatus status = 2;
@@ -223,9 +396,523 @@ export type HealthResponse = Message<"pi.client.protocol.v0.HealthResponse"> & {
  * Use `create(HealthResponseSchema)` to create a new message.
  */
 export const HealthResponseSchema: GenMessage<HealthResponse> = /*@__PURE__*/
-  messageDesc(file_pi_client_protocol_v0_protocol, 3);
+  messageDesc(file_pi_client_protocol_v0_protocol, 6);
 
 /**
+ * @generated from message pi.client.protocol.v0.ListSessionsRequest
+ */
+export type ListSessionsRequest = Message<"pi.client.protocol.v0.ListSessionsRequest"> & {
+  /**
+   * @generated from field: uint64 request_id = 1;
+   */
+  requestId: bigint;
+};
+
+/**
+ * Describes the message pi.client.protocol.v0.ListSessionsRequest.
+ * Use `create(ListSessionsRequestSchema)` to create a new message.
+ */
+export const ListSessionsRequestSchema: GenMessage<ListSessionsRequest> = /*@__PURE__*/
+  messageDesc(file_pi_client_protocol_v0_protocol, 7);
+
+/**
+ * @generated from message pi.client.protocol.v0.ListSessionsResponse
+ */
+export type ListSessionsResponse = Message<"pi.client.protocol.v0.ListSessionsResponse"> & {
+  /**
+   * @generated from field: uint64 request_id = 1;
+   */
+  requestId: bigint;
+
+  /**
+   * @generated from field: repeated pi.client.protocol.v0.SessionSummarySnapshot sessions = 2;
+   */
+  sessions: SessionSummarySnapshot[];
+};
+
+/**
+ * Describes the message pi.client.protocol.v0.ListSessionsResponse.
+ * Use `create(ListSessionsResponseSchema)` to create a new message.
+ */
+export const ListSessionsResponseSchema: GenMessage<ListSessionsResponse> = /*@__PURE__*/
+  messageDesc(file_pi_client_protocol_v0_protocol, 8);
+
+/**
+ * @generated from message pi.client.protocol.v0.GetSessionRequest
+ */
+export type GetSessionRequest = Message<"pi.client.protocol.v0.GetSessionRequest"> & {
+  /**
+   * @generated from field: uint64 request_id = 1;
+   */
+  requestId: bigint;
+
+  /**
+   * @generated from field: string session_id = 2;
+   */
+  sessionId: string;
+};
+
+/**
+ * Describes the message pi.client.protocol.v0.GetSessionRequest.
+ * Use `create(GetSessionRequestSchema)` to create a new message.
+ */
+export const GetSessionRequestSchema: GenMessage<GetSessionRequest> = /*@__PURE__*/
+  messageDesc(file_pi_client_protocol_v0_protocol, 9);
+
+/**
+ * @generated from message pi.client.protocol.v0.GetSessionResponse
+ */
+export type GetSessionResponse = Message<"pi.client.protocol.v0.GetSessionResponse"> & {
+  /**
+   * @generated from field: uint64 request_id = 1;
+   */
+  requestId: bigint;
+
+  /**
+   * @generated from field: pi.client.protocol.v0.SessionDetailSnapshot session = 2;
+   */
+  session?: SessionDetailSnapshot | undefined;
+};
+
+/**
+ * Describes the message pi.client.protocol.v0.GetSessionResponse.
+ * Use `create(GetSessionResponseSchema)` to create a new message.
+ */
+export const GetSessionResponseSchema: GenMessage<GetSessionResponse> = /*@__PURE__*/
+  messageDesc(file_pi_client_protocol_v0_protocol, 10);
+
+/**
+ * @generated from message pi.client.protocol.v0.CreateSessionRequest
+ */
+export type CreateSessionRequest = Message<"pi.client.protocol.v0.CreateSessionRequest"> & {
+  /**
+   * @generated from field: uint64 request_id = 1;
+   */
+  requestId: bigint;
+
+  /**
+   * @generated from field: string working_directory = 2;
+   */
+  workingDirectory: string;
+};
+
+/**
+ * Describes the message pi.client.protocol.v0.CreateSessionRequest.
+ * Use `create(CreateSessionRequestSchema)` to create a new message.
+ */
+export const CreateSessionRequestSchema: GenMessage<CreateSessionRequest> = /*@__PURE__*/
+  messageDesc(file_pi_client_protocol_v0_protocol, 11);
+
+/**
+ * @generated from message pi.client.protocol.v0.CreateSessionResponse
+ */
+export type CreateSessionResponse = Message<"pi.client.protocol.v0.CreateSessionResponse"> & {
+  /**
+   * @generated from field: uint64 request_id = 1;
+   */
+  requestId: bigint;
+
+  /**
+   * @generated from field: pi.client.protocol.v0.SessionDetailSnapshot session = 2;
+   */
+  session?: SessionDetailSnapshot | undefined;
+};
+
+/**
+ * Describes the message pi.client.protocol.v0.CreateSessionResponse.
+ * Use `create(CreateSessionResponseSchema)` to create a new message.
+ */
+export const CreateSessionResponseSchema: GenMessage<CreateSessionResponse> = /*@__PURE__*/
+  messageDesc(file_pi_client_protocol_v0_protocol, 12);
+
+/**
+ * @generated from message pi.client.protocol.v0.PromptCommand
+ */
+export type PromptCommand = Message<"pi.client.protocol.v0.PromptCommand"> & {
+  /**
+   * @generated from field: uint64 request_id = 1;
+   */
+  requestId: bigint;
+
+  /**
+   * @generated from field: string command_id = 2;
+   */
+  commandId: string;
+
+  /**
+   * @generated from field: string session_id = 3;
+   */
+  sessionId: string;
+
+  /**
+   * @generated from field: string prompt = 4;
+   */
+  prompt: string;
+};
+
+/**
+ * Describes the message pi.client.protocol.v0.PromptCommand.
+ * Use `create(PromptCommandSchema)` to create a new message.
+ */
+export const PromptCommandSchema: GenMessage<PromptCommand> = /*@__PURE__*/
+  messageDesc(file_pi_client_protocol_v0_protocol, 13);
+
+/**
+ * @generated from message pi.client.protocol.v0.AbortCommand
+ */
+export type AbortCommand = Message<"pi.client.protocol.v0.AbortCommand"> & {
+  /**
+   * @generated from field: uint64 request_id = 1;
+   */
+  requestId: bigint;
+
+  /**
+   * @generated from field: string command_id = 2;
+   */
+  commandId: string;
+
+  /**
+   * @generated from field: string session_id = 3;
+   */
+  sessionId: string;
+};
+
+/**
+ * Describes the message pi.client.protocol.v0.AbortCommand.
+ * Use `create(AbortCommandSchema)` to create a new message.
+ */
+export const AbortCommandSchema: GenMessage<AbortCommand> = /*@__PURE__*/
+  messageDesc(file_pi_client_protocol_v0_protocol, 14);
+
+/**
+ * @generated from message pi.client.protocol.v0.RequestRejected
+ */
+export type RequestRejected = Message<"pi.client.protocol.v0.RequestRejected"> & {
+  /**
+   * @generated from field: uint64 request_id = 1;
+   */
+  requestId: bigint;
+
+  /**
+   * @generated from field: pi.client.protocol.v0.StableError error = 2;
+   */
+  error?: StableError | undefined;
+};
+
+/**
+ * Describes the message pi.client.protocol.v0.RequestRejected.
+ * Use `create(RequestRejectedSchema)` to create a new message.
+ */
+export const RequestRejectedSchema: GenMessage<RequestRejected> = /*@__PURE__*/
+  messageDesc(file_pi_client_protocol_v0_protocol, 15);
+
+/**
+ * @generated from message pi.client.protocol.v0.CommandAccepted
+ */
+export type CommandAccepted = Message<"pi.client.protocol.v0.CommandAccepted"> & {
+  /**
+   * @generated from field: uint64 request_id = 1;
+   */
+  requestId: bigint;
+
+  /**
+   * @generated from field: string command_id = 2;
+   */
+  commandId: string;
+};
+
+/**
+ * Describes the message pi.client.protocol.v0.CommandAccepted.
+ * Use `create(CommandAcceptedSchema)` to create a new message.
+ */
+export const CommandAcceptedSchema: GenMessage<CommandAccepted> = /*@__PURE__*/
+  messageDesc(file_pi_client_protocol_v0_protocol, 16);
+
+/**
+ * @generated from message pi.client.protocol.v0.CommandRejected
+ */
+export type CommandRejected = Message<"pi.client.protocol.v0.CommandRejected"> & {
+  /**
+   * @generated from field: uint64 request_id = 1;
+   */
+  requestId: bigint;
+
+  /**
+   * @generated from field: string command_id = 2;
+   */
+  commandId: string;
+
+  /**
+   * @generated from field: pi.client.protocol.v0.StableError error = 3;
+   */
+  error?: StableError | undefined;
+};
+
+/**
+ * Describes the message pi.client.protocol.v0.CommandRejected.
+ * Use `create(CommandRejectedSchema)` to create a new message.
+ */
+export const CommandRejectedSchema: GenMessage<CommandRejected> = /*@__PURE__*/
+  messageDesc(file_pi_client_protocol_v0_protocol, 17);
+
+/**
+ * @generated from message pi.client.protocol.v0.SessionSummarySnapshot
+ */
+export type SessionSummarySnapshot = Message<"pi.client.protocol.v0.SessionSummarySnapshot"> & {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId: string;
+
+  /**
+   * @generated from field: string title = 2;
+   */
+  title: string;
+
+  /**
+   * @generated from field: string working_directory = 3;
+   */
+  workingDirectory: string;
+
+  /**
+   * @generated from field: uint64 created_at_unix_millis = 4;
+   */
+  createdAtUnixMillis: bigint;
+
+  /**
+   * @generated from field: uint64 updated_at_unix_millis = 5;
+   */
+  updatedAtUnixMillis: bigint;
+
+  /**
+   * @generated from field: bool is_running = 6;
+   */
+  isRunning: boolean;
+
+  /**
+   * @generated from field: bool has_unread = 7;
+   */
+  hasUnread: boolean;
+};
+
+/**
+ * Describes the message pi.client.protocol.v0.SessionSummarySnapshot.
+ * Use `create(SessionSummarySnapshotSchema)` to create a new message.
+ */
+export const SessionSummarySnapshotSchema: GenMessage<SessionSummarySnapshot> = /*@__PURE__*/
+  messageDesc(file_pi_client_protocol_v0_protocol, 18);
+
+/**
+ * @generated from message pi.client.protocol.v0.SessionDetailSnapshot
+ */
+export type SessionDetailSnapshot = Message<"pi.client.protocol.v0.SessionDetailSnapshot"> & {
+  /**
+   * @generated from field: pi.client.protocol.v0.SessionSummarySnapshot summary = 1;
+   */
+  summary?: SessionSummarySnapshot | undefined;
+
+  /**
+   * @generated from field: repeated pi.client.protocol.v0.MessageSnapshot messages = 2;
+   */
+  messages: MessageSnapshot[];
+};
+
+/**
+ * Describes the message pi.client.protocol.v0.SessionDetailSnapshot.
+ * Use `create(SessionDetailSnapshotSchema)` to create a new message.
+ */
+export const SessionDetailSnapshotSchema: GenMessage<SessionDetailSnapshot> = /*@__PURE__*/
+  messageDesc(file_pi_client_protocol_v0_protocol, 19);
+
+/**
+ * @generated from message pi.client.protocol.v0.MessageSnapshot
+ */
+export type MessageSnapshot = Message<"pi.client.protocol.v0.MessageSnapshot"> & {
+  /**
+   * @generated from field: string message_id = 1;
+   */
+  messageId: string;
+
+  /**
+   * @generated from field: pi.client.protocol.v0.MessageRole role = 2;
+   */
+  role: MessageRole;
+
+  /**
+   * @generated from field: string text = 3;
+   */
+  text: string;
+
+  /**
+   * @generated from field: uint64 created_at_unix_millis = 4;
+   */
+  createdAtUnixMillis: bigint;
+
+  /**
+   * @generated from field: bool is_streaming = 5;
+   */
+  isStreaming: boolean;
+};
+
+/**
+ * Describes the message pi.client.protocol.v0.MessageSnapshot.
+ * Use `create(MessageSnapshotSchema)` to create a new message.
+ */
+export const MessageSnapshotSchema: GenMessage<MessageSnapshot> = /*@__PURE__*/
+  messageDesc(file_pi_client_protocol_v0_protocol, 20);
+
+/**
+ * Each stream is bound to one session. event_sequence is strictly increasing
+ * within stream_id and is independent of PiTransportFrame.frame_sequence.
+ *
+ * @generated from message pi.client.protocol.v0.SessionEventStreamEnvelope
+ */
+export type SessionEventStreamEnvelope = Message<"pi.client.protocol.v0.SessionEventStreamEnvelope"> & {
+  /**
+   * @generated from field: string stream_id = 1;
+   */
+  streamId: string;
+
+  /**
+   * @generated from field: string session_id = 2;
+   */
+  sessionId: string;
+
+  /**
+   * @generated from field: uint64 event_sequence = 3;
+   */
+  eventSequence: bigint;
+
+  /**
+   * @generated from oneof pi.client.protocol.v0.SessionEventStreamEnvelope.event
+   */
+  event: {
+    /**
+     * @generated from field: pi.client.protocol.v0.MessageAddedEvent message_added = 10;
+     */
+    value: MessageAddedEvent;
+    case: "messageAdded";
+  } | {
+    /**
+     * @generated from field: pi.client.protocol.v0.MessageDeltaEvent message_delta = 11;
+     */
+    value: MessageDeltaEvent;
+    case: "messageDelta";
+  } | {
+    /**
+     * @generated from field: pi.client.protocol.v0.SessionRunningChangedEvent running_changed = 12;
+     */
+    value: SessionRunningChangedEvent;
+    case: "runningChanged";
+  } | {
+    /**
+     * @generated from field: pi.client.protocol.v0.CommandCompletedEvent command_completed = 13;
+     */
+    value: CommandCompletedEvent;
+    case: "commandCompleted";
+  } | {
+    /**
+     * @generated from field: pi.client.protocol.v0.StreamClosedEvent stream_closed = 14;
+     */
+    value: StreamClosedEvent;
+    case: "streamClosed";
+  } | { case: undefined; value?: undefined };
+};
+
+/**
+ * Describes the message pi.client.protocol.v0.SessionEventStreamEnvelope.
+ * Use `create(SessionEventStreamEnvelopeSchema)` to create a new message.
+ */
+export const SessionEventStreamEnvelopeSchema: GenMessage<SessionEventStreamEnvelope> = /*@__PURE__*/
+  messageDesc(file_pi_client_protocol_v0_protocol, 21);
+
+/**
+ * @generated from message pi.client.protocol.v0.MessageAddedEvent
+ */
+export type MessageAddedEvent = Message<"pi.client.protocol.v0.MessageAddedEvent"> & {
+  /**
+   * @generated from field: pi.client.protocol.v0.MessageSnapshot message = 1;
+   */
+  message?: MessageSnapshot | undefined;
+};
+
+/**
+ * Describes the message pi.client.protocol.v0.MessageAddedEvent.
+ * Use `create(MessageAddedEventSchema)` to create a new message.
+ */
+export const MessageAddedEventSchema: GenMessage<MessageAddedEvent> = /*@__PURE__*/
+  messageDesc(file_pi_client_protocol_v0_protocol, 22);
+
+/**
+ * @generated from message pi.client.protocol.v0.MessageDeltaEvent
+ */
+export type MessageDeltaEvent = Message<"pi.client.protocol.v0.MessageDeltaEvent"> & {
+  /**
+   * @generated from field: string message_id = 1;
+   */
+  messageId: string;
+
+  /**
+   * @generated from field: string delta = 2;
+   */
+  delta: string;
+};
+
+/**
+ * Describes the message pi.client.protocol.v0.MessageDeltaEvent.
+ * Use `create(MessageDeltaEventSchema)` to create a new message.
+ */
+export const MessageDeltaEventSchema: GenMessage<MessageDeltaEvent> = /*@__PURE__*/
+  messageDesc(file_pi_client_protocol_v0_protocol, 23);
+
+/**
+ * @generated from message pi.client.protocol.v0.SessionRunningChangedEvent
+ */
+export type SessionRunningChangedEvent = Message<"pi.client.protocol.v0.SessionRunningChangedEvent"> & {
+  /**
+   * @generated from field: bool is_running = 1;
+   */
+  isRunning: boolean;
+};
+
+/**
+ * Describes the message pi.client.protocol.v0.SessionRunningChangedEvent.
+ * Use `create(SessionRunningChangedEventSchema)` to create a new message.
+ */
+export const SessionRunningChangedEventSchema: GenMessage<SessionRunningChangedEvent> = /*@__PURE__*/
+  messageDesc(file_pi_client_protocol_v0_protocol, 24);
+
+/**
+ * @generated from message pi.client.protocol.v0.CommandCompletedEvent
+ */
+export type CommandCompletedEvent = Message<"pi.client.protocol.v0.CommandCompletedEvent"> & {
+  /**
+   * @generated from field: string command_id = 1;
+   */
+  commandId: string;
+
+  /**
+   * @generated from field: bool succeeded = 2;
+   */
+  succeeded: boolean;
+
+  /**
+   * @generated from field: pi.client.protocol.v0.StableError error = 3;
+   */
+  error?: StableError | undefined;
+};
+
+/**
+ * Describes the message pi.client.protocol.v0.CommandCompletedEvent.
+ * Use `create(CommandCompletedEventSchema)` to create a new message.
+ */
+export const CommandCompletedEventSchema: GenMessage<CommandCompletedEvent> = /*@__PURE__*/
+  messageDesc(file_pi_client_protocol_v0_protocol, 25);
+
+/**
+ * EventStreamEnvelope retains non-session streams used by transport health and
+ * future bounded control surfaces.
+ *
  * @generated from message pi.client.protocol.v0.EventStreamEnvelope
  */
 export type EventStreamEnvelope = Message<"pi.client.protocol.v0.EventStreamEnvelope"> & {
@@ -268,7 +955,7 @@ export type EventStreamEnvelope = Message<"pi.client.protocol.v0.EventStreamEnve
  * Use `create(EventStreamEnvelopeSchema)` to create a new message.
  */
 export const EventStreamEnvelopeSchema: GenMessage<EventStreamEnvelope> = /*@__PURE__*/
-  messageDesc(file_pi_client_protocol_v0_protocol, 4);
+  messageDesc(file_pi_client_protocol_v0_protocol, 26);
 
 /**
  * @generated from message pi.client.protocol.v0.HeartbeatEvent
@@ -285,7 +972,7 @@ export type HeartbeatEvent = Message<"pi.client.protocol.v0.HeartbeatEvent"> & {
  * Use `create(HeartbeatEventSchema)` to create a new message.
  */
 export const HeartbeatEventSchema: GenMessage<HeartbeatEvent> = /*@__PURE__*/
-  messageDesc(file_pi_client_protocol_v0_protocol, 5);
+  messageDesc(file_pi_client_protocol_v0_protocol, 27);
 
 /**
  * @generated from message pi.client.protocol.v0.HealthStatusChangedEvent
@@ -307,7 +994,7 @@ export type HealthStatusChangedEvent = Message<"pi.client.protocol.v0.HealthStat
  * Use `create(HealthStatusChangedEventSchema)` to create a new message.
  */
 export const HealthStatusChangedEventSchema: GenMessage<HealthStatusChangedEvent> = /*@__PURE__*/
-  messageDesc(file_pi_client_protocol_v0_protocol, 6);
+  messageDesc(file_pi_client_protocol_v0_protocol, 28);
 
 /**
  * @generated from message pi.client.protocol.v0.StreamClosedEvent
@@ -329,7 +1016,7 @@ export type StreamClosedEvent = Message<"pi.client.protocol.v0.StreamClosedEvent
  * Use `create(StreamClosedEventSchema)` to create a new message.
  */
 export const StreamClosedEventSchema: GenMessage<StreamClosedEvent> = /*@__PURE__*/
-  messageDesc(file_pi_client_protocol_v0_protocol, 7);
+  messageDesc(file_pi_client_protocol_v0_protocol, 29);
 
 /**
  * @generated from message pi.client.protocol.v0.Cancel
@@ -340,9 +1027,9 @@ export type Cancel = Message<"pi.client.protocol.v0.Cancel"> & {
    */
   target: {
     /**
-     * @generated from field: string request_id = 1;
+     * @generated from field: uint64 request_id = 1;
      */
-    value: string;
+    value: bigint;
     case: "requestId";
   } | {
     /**
@@ -369,7 +1056,7 @@ export type Cancel = Message<"pi.client.protocol.v0.Cancel"> & {
  * Use `create(CancelSchema)` to create a new message.
  */
 export const CancelSchema: GenMessage<Cancel> = /*@__PURE__*/
-  messageDesc(file_pi_client_protocol_v0_protocol, 8);
+  messageDesc(file_pi_client_protocol_v0_protocol, 30);
 
 /**
  * @generated from message pi.client.protocol.v0.WindowUpdate
@@ -408,7 +1095,7 @@ export type WindowUpdate = Message<"pi.client.protocol.v0.WindowUpdate"> & {
  * Use `create(WindowUpdateSchema)` to create a new message.
  */
 export const WindowUpdateSchema: GenMessage<WindowUpdate> = /*@__PURE__*/
-  messageDesc(file_pi_client_protocol_v0_protocol, 9);
+  messageDesc(file_pi_client_protocol_v0_protocol, 31);
 
 /**
  * @generated from message pi.client.protocol.v0.TransferOpen
@@ -460,7 +1147,7 @@ export type TransferOpen = Message<"pi.client.protocol.v0.TransferOpen"> & {
  * Use `create(TransferOpenSchema)` to create a new message.
  */
 export const TransferOpenSchema: GenMessage<TransferOpen> = /*@__PURE__*/
-  messageDesc(file_pi_client_protocol_v0_protocol, 10);
+  messageDesc(file_pi_client_protocol_v0_protocol, 32);
 
 /**
  * @generated from message pi.client.protocol.v0.TransferChunk
@@ -492,7 +1179,7 @@ export type TransferChunk = Message<"pi.client.protocol.v0.TransferChunk"> & {
  * Use `create(TransferChunkSchema)` to create a new message.
  */
 export const TransferChunkSchema: GenMessage<TransferChunk> = /*@__PURE__*/
-  messageDesc(file_pi_client_protocol_v0_protocol, 11);
+  messageDesc(file_pi_client_protocol_v0_protocol, 33);
 
 /**
  * @generated from message pi.client.protocol.v0.TransferAck
@@ -519,7 +1206,7 @@ export type TransferAck = Message<"pi.client.protocol.v0.TransferAck"> & {
  * Use `create(TransferAckSchema)` to create a new message.
  */
 export const TransferAckSchema: GenMessage<TransferAck> = /*@__PURE__*/
-  messageDesc(file_pi_client_protocol_v0_protocol, 12);
+  messageDesc(file_pi_client_protocol_v0_protocol, 34);
 
 /**
  * @generated from message pi.client.protocol.v0.TransferComplete
@@ -546,7 +1233,7 @@ export type TransferComplete = Message<"pi.client.protocol.v0.TransferComplete">
  * Use `create(TransferCompleteSchema)` to create a new message.
  */
 export const TransferCompleteSchema: GenMessage<TransferComplete> = /*@__PURE__*/
-  messageDesc(file_pi_client_protocol_v0_protocol, 13);
+  messageDesc(file_pi_client_protocol_v0_protocol, 35);
 
 /**
  * @generated from message pi.client.protocol.v0.TransferAbort
@@ -568,7 +1255,7 @@ export type TransferAbort = Message<"pi.client.protocol.v0.TransferAbort"> & {
  * Use `create(TransferAbortSchema)` to create a new message.
  */
 export const TransferAbortSchema: GenMessage<TransferAbort> = /*@__PURE__*/
-  messageDesc(file_pi_client_protocol_v0_protocol, 14);
+  messageDesc(file_pi_client_protocol_v0_protocol, 36);
 
 /**
  * @generated from message pi.client.protocol.v0.StableError
@@ -580,19 +1267,19 @@ export type StableError = Message<"pi.client.protocol.v0.StableError"> & {
   code: ErrorCode;
 
   /**
-   * @generated from field: string message = 2;
-   */
-  message: string;
-
-  /**
-   * @generated from field: bool retryable = 3;
+   * @generated from field: bool retryable = 2;
    */
   retryable: boolean;
 
   /**
-   * @generated from field: uint32 retry_after_millis = 4;
+   * @generated from field: uint32 retry_after_millis = 3;
    */
   retryAfterMillis: number;
+
+  /**
+   * @generated from field: string safe_message = 4;
+   */
+  safeMessage: string;
 };
 
 /**
@@ -600,7 +1287,7 @@ export type StableError = Message<"pi.client.protocol.v0.StableError"> & {
  * Use `create(StableErrorSchema)` to create a new message.
  */
 export const StableErrorSchema: GenMessage<StableError> = /*@__PURE__*/
-  messageDesc(file_pi_client_protocol_v0_protocol, 15);
+  messageDesc(file_pi_client_protocol_v0_protocol, 37);
 
 /**
  * @generated from message pi.client.protocol.v0.ErrorEnvelope
@@ -611,9 +1298,9 @@ export type ErrorEnvelope = Message<"pi.client.protocol.v0.ErrorEnvelope"> & {
    */
   correlation: {
     /**
-     * @generated from field: string request_id = 1;
+     * @generated from field: uint64 request_id = 1;
      */
-    value: string;
+    value: bigint;
     case: "requestId";
   } | {
     /**
@@ -640,33 +1327,7 @@ export type ErrorEnvelope = Message<"pi.client.protocol.v0.ErrorEnvelope"> & {
  * Use `create(ErrorEnvelopeSchema)` to create a new message.
  */
 export const ErrorEnvelopeSchema: GenMessage<ErrorEnvelope> = /*@__PURE__*/
-  messageDesc(file_pi_client_protocol_v0_protocol, 16);
-
-/**
- * @generated from enum pi.client.protocol.v0.PeerRole
- */
-export enum PeerRole {
-  /**
-   * @generated from enum value: PEER_ROLE_UNSPECIFIED = 0;
-   */
-  UNSPECIFIED = 0,
-
-  /**
-   * @generated from enum value: PEER_ROLE_CLIENT = 1;
-   */
-  CLIENT = 1,
-
-  /**
-   * @generated from enum value: PEER_ROLE_NODE = 2;
-   */
-  NODE = 2,
-}
-
-/**
- * Describes the enum pi.client.protocol.v0.PeerRole.
- */
-export const PeerRoleSchema: GenEnum<PeerRole> = /*@__PURE__*/
-  enumDesc(file_pi_client_protocol_v0_protocol, 0);
+  messageDesc(file_pi_client_protocol_v0_protocol, 38);
 
 /**
  * @generated from enum pi.client.protocol.v0.Capability
@@ -678,36 +1339,56 @@ export enum Capability {
   UNSPECIFIED = 0,
 
   /**
-   * @generated from enum value: CAPABILITY_HEALTH_UNARY = 1;
+   * @generated from enum value: CAPABILITY_SESSION_READ = 1;
    */
-  HEALTH_UNARY = 1,
+  SESSION_READ = 1,
 
   /**
-   * @generated from enum value: CAPABILITY_EVENT_STREAM = 2;
+   * @generated from enum value: CAPABILITY_SESSION_CREATE = 2;
    */
-  EVENT_STREAM = 2,
+  SESSION_CREATE = 2,
 
   /**
-   * @generated from enum value: CAPABILITY_CANCELLATION = 3;
+   * @generated from enum value: CAPABILITY_PROMPT_COMMAND = 3;
    */
-  CANCELLATION = 3,
+  PROMPT_COMMAND = 3,
 
   /**
-   * @generated from enum value: CAPABILITY_FLOW_CONTROL = 4;
+   * @generated from enum value: CAPABILITY_ABORT_COMMAND = 4;
    */
-  FLOW_CONTROL = 4,
+  ABORT_COMMAND = 4,
 
   /**
-   * @generated from enum value: CAPABILITY_TRANSFER = 5;
+   * @generated from enum value: CAPABILITY_SESSION_EVENTS = 5;
    */
-  TRANSFER = 5,
+  SESSION_EVENTS = 5,
+
+  /**
+   * @generated from enum value: CAPABILITY_HEALTH = 6;
+   */
+  HEALTH = 6,
+
+  /**
+   * @generated from enum value: CAPABILITY_CANCELLATION = 7;
+   */
+  CANCELLATION = 7,
+
+  /**
+   * @generated from enum value: CAPABILITY_FLOW_CONTROL = 8;
+   */
+  FLOW_CONTROL = 8,
+
+  /**
+   * @generated from enum value: CAPABILITY_TRANSFER = 9;
+   */
+  TRANSFER = 9,
 }
 
 /**
  * Describes the enum pi.client.protocol.v0.Capability.
  */
 export const CapabilitySchema: GenEnum<Capability> = /*@__PURE__*/
-  enumDesc(file_pi_client_protocol_v0_protocol, 1);
+  enumDesc(file_pi_client_protocol_v0_protocol, 0);
 
 /**
  * @generated from enum pi.client.protocol.v0.HealthStatus
@@ -743,6 +1424,42 @@ export enum HealthStatus {
  * Describes the enum pi.client.protocol.v0.HealthStatus.
  */
 export const HealthStatusSchema: GenEnum<HealthStatus> = /*@__PURE__*/
+  enumDesc(file_pi_client_protocol_v0_protocol, 1);
+
+/**
+ * @generated from enum pi.client.protocol.v0.MessageRole
+ */
+export enum MessageRole {
+  /**
+   * @generated from enum value: MESSAGE_ROLE_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: MESSAGE_ROLE_USER = 1;
+   */
+  USER = 1,
+
+  /**
+   * @generated from enum value: MESSAGE_ROLE_ASSISTANT = 2;
+   */
+  ASSISTANT = 2,
+
+  /**
+   * @generated from enum value: MESSAGE_ROLE_TOOL = 3;
+   */
+  TOOL = 3,
+
+  /**
+   * @generated from enum value: MESSAGE_ROLE_SYSTEM = 4;
+   */
+  SYSTEM = 4,
+}
+
+/**
+ * Describes the enum pi.client.protocol.v0.MessageRole.
+ */
+export const MessageRoleSchema: GenEnum<MessageRole> = /*@__PURE__*/
   enumDesc(file_pi_client_protocol_v0_protocol, 2);
 
 /**
@@ -803,6 +1520,9 @@ export const TransferPurposeSchema: GenEnum<TransferPurpose> = /*@__PURE__*/
   enumDesc(file_pi_client_protocol_v0_protocol, 4);
 
 /**
+ * ErrorCode maps to the hand-written Flutter semantic error boundary. Unknown
+ * numeric enum values are protocol violations rather than remote rejections.
+ *
  * @generated from enum pi.client.protocol.v0.ErrorCode
  */
 export enum ErrorCode {
@@ -812,79 +1532,84 @@ export enum ErrorCode {
   UNSPECIFIED = 0,
 
   /**
-   * @generated from enum value: ERROR_CODE_INVALID_ARGUMENT = 1;
+   * @generated from enum value: ERROR_CODE_AUTHENTICATION_REQUIRED = 1;
    */
-  INVALID_ARGUMENT = 1,
+  AUTHENTICATION_REQUIRED = 1,
 
   /**
-   * @generated from enum value: ERROR_CODE_UNAUTHENTICATED = 2;
+   * @generated from enum value: ERROR_CODE_PERMISSION_DENIED = 2;
    */
-  UNAUTHENTICATED = 2,
+  PERMISSION_DENIED = 2,
 
   /**
-   * @generated from enum value: ERROR_CODE_PERMISSION_DENIED = 3;
+   * @generated from enum value: ERROR_CODE_NOT_FOUND = 3;
    */
-  PERMISSION_DENIED = 3,
+  NOT_FOUND = 3,
 
   /**
-   * @generated from enum value: ERROR_CODE_NOT_FOUND = 4;
+   * @generated from enum value: ERROR_CODE_INVALID_REQUEST = 4;
    */
-  NOT_FOUND = 4,
+  INVALID_REQUEST = 4,
 
   /**
-   * @generated from enum value: ERROR_CODE_ALREADY_EXISTS = 5;
+   * @generated from enum value: ERROR_CODE_CONFLICT = 5;
    */
-  ALREADY_EXISTS = 5,
+  CONFLICT = 5,
 
   /**
-   * @generated from enum value: ERROR_CODE_CONFLICT = 6;
+   * @generated from enum value: ERROR_CODE_NODE_BUSY = 6;
    */
-  CONFLICT = 6,
+  NODE_BUSY = 6,
 
   /**
-   * @generated from enum value: ERROR_CODE_FAILED_PRECONDITION = 7;
+   * @generated from enum value: ERROR_CODE_PROTOCOL_VERSION_UNSUPPORTED = 7;
    */
-  FAILED_PRECONDITION = 7,
+  PROTOCOL_VERSION_UNSUPPORTED = 7,
 
   /**
-   * @generated from enum value: ERROR_CODE_RESOURCE_EXHAUSTED = 8;
+   * @generated from enum value: ERROR_CODE_CANCELLED = 8;
    */
-  RESOURCE_EXHAUSTED = 8,
+  CANCELLED = 8,
 
   /**
-   * @generated from enum value: ERROR_CODE_CANCELLED = 9;
+   * @generated from enum value: ERROR_CODE_DEADLINE_EXCEEDED = 9;
    */
-  CANCELLED = 9,
+  DEADLINE_EXCEEDED = 9,
 
   /**
-   * @generated from enum value: ERROR_CODE_DEADLINE_EXCEEDED = 10;
+   * @generated from enum value: ERROR_CODE_UNAVAILABLE = 10;
    */
-  DEADLINE_EXCEEDED = 10,
+  UNAVAILABLE = 10,
 
   /**
-   * @generated from enum value: ERROR_CODE_UNAVAILABLE = 11;
+   * @generated from enum value: ERROR_CODE_DATA_LOSS = 11;
    */
-  UNAVAILABLE = 11,
+  DATA_LOSS = 11,
 
   /**
-   * @generated from enum value: ERROR_CODE_DATA_LOSS = 12;
+   * @generated from enum value: ERROR_CODE_INTERNAL = 12;
    */
-  DATA_LOSS = 12,
+  INTERNAL = 12,
 
   /**
-   * @generated from enum value: ERROR_CODE_INTERNAL = 13;
+   * @generated from enum value: ERROR_CODE_PROTOCOL_VIOLATION = 13;
    */
-  INTERNAL = 13,
+  PROTOCOL_VIOLATION = 13,
 
   /**
-   * @generated from enum value: ERROR_CODE_PROTOCOL_VIOLATION = 14;
+   * @generated from enum value: ERROR_CODE_RESOURCE_EXHAUSTED = 14;
    */
-  PROTOCOL_VIOLATION = 14,
+  RESOURCE_EXHAUSTED = 14,
 
   /**
-   * @generated from enum value: ERROR_CODE_UNSUPPORTED_VERSION = 15;
+   * @generated from enum value: ERROR_CODE_ALREADY_EXISTS = 15;
    */
-  UNSUPPORTED_VERSION = 15,
+  ALREADY_EXISTS = 15,
+
+  /**
+   * @generated from enum value: ERROR_CODE_FAILED_PRECONDITION = 16;
+   */
+  FAILED_PRECONDITION = 16,
 }
 
 /**
