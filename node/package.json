@@ -22,18 +22,21 @@
   "scripts": {
     "runtime:check": "node ./scripts/assert-runtime.mjs",
     "protocol:sync": "bun run --cwd ../protocol build:package && bun install --frozen-lockfile",
-    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\" \"scripts/**/*.mjs\" \"*.json\"",
-    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\" \"scripts/**/*.mjs\" \"*.json\"",
+    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \"capsule/**/*.json\" \"*.json\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \"capsule/**/*.json\" \"*.json\"",
     "typecheck": "bun run protocol:sync && bun run typecheck:raw",
     "typecheck:raw": "tsc --noEmit -p tsconfig.json",
     "build": "bun run protocol:sync && bun run build:raw",
     "build:raw": "tsc -p tsconfig.build.json",
     "smoke:dist": "node ./scripts/smoke-dist.mjs",
-    "test": "bun run test:node",
+    "test": "bun run test:node && bun run test:capsule",
     "test:node": "bun run protocol:sync && bun run test:node:raw",
     "test:node:raw": "node ./scripts/run-tests.mjs",
+    "test:capsule": "node --test test/runtime-capsule.test.mjs",
+    "capsule:build": "node ./scripts/build-runtime-capsule.mjs",
+    "capsule:verify": "node ./scripts/verify-runtime-capsule.mjs",
     "scan:forbidden": "node ./scripts/scan-forbidden.mjs",
-    "check": "bun run runtime:check && bun run format:check && bun run protocol:sync && bun run typecheck:raw && bun run build:raw && bun run smoke:dist && bun run test:node:raw && bun run scan:forbidden"
+    "check": "bun run runtime:check && bun run format:check && bun run protocol:sync && bun run typecheck:raw && bun run build:raw && bun run smoke:dist && bun run test:node:raw && bun run test:capsule && bun run scan:forbidden"
   },
   "dependencies": {
     "@bufbuild/protobuf": "2.14.0",
