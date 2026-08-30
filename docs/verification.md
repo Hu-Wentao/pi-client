@@ -86,7 +86,7 @@ mdq:
 - Requirements: REQ-PI-007, REQ-PI-009
 - Owner: future cross-project friday-relay, pi-client, and Pi Node integration
 - Planned evidence: Verify one-Workspace ownership, exact Host denial, entitlement outcomes, Node binding, grant renewal/revocation, tunnel routing, E2EE opacity, and Direct/remote equivalence.
-- Blocker: Friday Relay requirements and exact Workspace host, grant, E2EE, and protocol decisions are not available; no external implementation is claimed.
+- Blocker: `friday-relay@42cb0a74890700920d411604f07ff70a5bde5bd2` 已建立 `PLAN-PI-WORKSPACE-R0-CONTRACTS` 及 Workspace/commerce/enrollment/tunnel/ingress Planned requirements，但 exact Workspace domain/slug、Node cardinality、grant wire/TTL/renewal/revocation、tunnel topology/path、E2EE suite/vectors 和 Pi Protocol initial version 仍未冻结；不存在外部运行时实现声明。
 
 ## VER-PI-009 - Native and WebAssembly Friday authentication runtime
 
@@ -94,4 +94,4 @@ mdq:
 - Requirements: REQ-PI-008
 - Owner: future friday-relay authentication tests plus pi-client platform integration and manual platform verification
 - Planned evidence: Verify native system-browser PKCE and secure storage, WebAssembly canonical handoff and host-only session, callback/handoff denial, and absence of browser-readable long-lived credentials.
-- Blocker: Friday Relay requirements and exact native callback, Workspace callback, session handoff, token, and public-client profile decisions are not available; no external implementation is claimed.
+- Blocker: `friday-relay@42cb0a74890700920d411604f07ff70a5bde5bd2` 已建立 Native/WASM Friday identity 的 Planned requirement，但 exact Native callback、Workspace handoff path/session profile、SameSite、Native refresh/rotation/revoke 和 public-client token lifetime 仍未冻结；不存在外部运行时实现声明。
