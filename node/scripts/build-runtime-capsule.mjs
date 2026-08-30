@@ -273,24 +273,12 @@ async function stageRuntime(capsule, capsuleTarget, extracted) {
     await copyFileWithParents(sourceExecutables[0], runtimeExecutable);
   } else {
     run("/usr/bin/lipo", ["-create", ...sourceExecutables, "-output", runtimeExecutable]);
+    // Apple Silicon requires arm64 executables to carry a valid signature.
+    // The final app signing pass replaces this minimal ad-hoc signature with
+    // explicit Hardened Runtime entitlements after Capsule installation.
+    run("/usr/bin/codesign", ["--force", "--sign", "-", "--timestamp=none", runtimeExecutable]);
   }
   if (process.platform !== "win32") await chmod(runtimeExecutable, 0o755);
-  if (process.platform === "darwin") {
-    const removeSignature = spawnSync(
-      "/usr/bin/codesign",
-      ["--remove-signature", runtimeExecutable],
-      {
-        encoding: "utf8",
-      },
-    );
-    if (removeSignature.error) throw removeSignature.error;
-    if (
-      removeSignature.status !== 0 &&
-      !/code object is not signed at all/iu.test(removeSignature.stderr)
-    ) {
-      throw new Error(`Could not remove upstream Node signature: ${removeSignature.stderr.trim()}`);
-    }
-  }
   for (const architecture of capsuleTarget.architectures) {
     const result = runForArchitecture(runtimeExecutable, ["--version"], architecture);
     if (result.stdout.trim() !== `v${NODE_RUNTIME_VERSION}`) {
