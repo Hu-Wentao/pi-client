@@ -218,7 +218,7 @@ packages:
     source: hosted
     version: "7.0.1"
   fixnum:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: fixnum
       sha256: b6dc7065e46c974bc7c5f143080a6764ec7a4be6da1285ececdc37be96de53be
@@ -701,6 +701,13 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "2.3.0"
+  pi_client_protocol_spike:
+    dependency: "direct main"
+    description:
+      path: "protocol/dart"
+      relative: true
+    source: path
+    version: "0.0.0"
   platform:
     dependency: transitive
     description:
@@ -987,5 +994,5 @@ packages:
     source: hosted
     version: "3.1.4"
 sdks:
-  dart: ">=3.11.4 <4.0.0"
+  dart: ">=3.11.4 <3.12.0"
   flutter: ">=3.38.4"

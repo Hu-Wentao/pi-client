@@ -17,7 +17,15 @@ final class PiTransportFrame {
   String toString() => 'PiTransportFrame(length: $length, data: <redacted>)';
 }
 
-enum PiTransportErrorCode { invalidFrame, closed }
+enum PiTransportErrorCode {
+  invalidFrame,
+  invalidFraming,
+  unsupported,
+  processStartFailed,
+  processExited,
+  writeFailed,
+  closed,
+}
 
 final class PiTransportException implements Exception {
   const PiTransportException(this.code);

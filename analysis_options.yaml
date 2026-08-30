@@ -1,1 +1,6 @@
 include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    # The nested protocol package owns and resolves its own package:test suite.
+    - protocol/dart/test/**
