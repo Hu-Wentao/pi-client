@@ -1,0 +1,7 @@
+name: flutter_secure_storage_web
+description: Pi Client compile-time boundary that disables secure storage in Web artifacts.
+version: 1.2.1+pi-client.no-web.1
+publish_to: none
+
+environment:
+  sdk: ^3.11.4

@@ -25,6 +25,13 @@ dependencies:
   pi_client_protocol_spike:
     path: protocol/dart
 
+dependency_overrides:
+  # fr_storage remains native-only in Pi Client. Replacing its transitive Web
+  # plugin prevents Flutter from registering secure storage in connect-only
+  # JavaScript/WASM artifacts while preserving the native implementations.
+  flutter_secure_storage_web:
+    path: packages/flutter_secure_storage_web_disabled
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
