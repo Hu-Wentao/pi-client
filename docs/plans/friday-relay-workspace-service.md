@@ -40,8 +40,8 @@ mdq:
 - Review level: L9（产品边界）/ L3（技术设计）
 - Target: 原生与 WebAssembly Pi Client 通过 friday-relay 用户身份、付费权益和独立 Workspace 子域访问用户自己的 Pi Node
 - Supersedes: `PLAN-PI-001` 中关于 Stateless Relay、Pi Node 自有 Passkey 和中心零身份状态的设计
-- Friday Relay evidence: `@friday-relay/identity` 拥有 User、Passkey、WebAuthn、Friday/OIDC session；Entitlement 和 Billing/Commerce 拥有付费授权；现有动态 Public Host 不自动成为 Passkey RP
-- 当前状态说明：本文只定义跨项目目标边界，不表示 friday-relay 已经提供 Pi Workspace、Native OIDC、Wildcard Workspace Host 或 Pi Tunnel。
+- Friday Relay evidence: `@friday-relay/identity` 拥有 User、Passkey、WebAuthn、Friday/OIDC session；Entitlement 和 Billing/Commerce 拥有付费授权；现有动态 Public Host 不自动成为 Passkey RP。`friday-relay@42cb0a74890700920d411604f07ff70a5bde5bd2` 已新增 `PLAN-PI-WORKSPACE-R0-CONTRACTS` 及六条 Planned/Must requirements，固定 Friday 侧 owner、anti-boundary 和验证缺口。
+- 当前状态说明：friday-relay 已建立 Planned 治理合同，但仍未提供 Pi Workspace、Native public OIDC、Workspace managed Host、Node enrollment、access grant 或 Pi Tunnel 运行时。
 
 ### 1. 产品目标
 
@@ -490,8 +490,9 @@ friday-relay 新增能力必须在其独立治理流程和隔离 worktree 中实
 
 - pi-client 侧合同面已实现：`REQ-PI-006` 至 `REQ-PI-009` 固定 Local Direct、单一 Friday Workspace、平台安全鉴权和统一私有 Pi transport 产品边界；`lib/central_access/`、`lib/platform/auth/` 和 `lib/transport/` 固定无具体网络实现的安全 projection、adapter、opaque grant、error、protocol version 和 frame transport 接口。
 - `VER-PI-006` 的 PASS 只证明本仓库纯 Dart interface、focused tests 与治理记录，不证明 Pi Node、friday-relay、平台鉴权、grant 签发、socket tunnel、E2EE 或跨项目 runtime 已实现。
-- 跨项目 R0 仍为 BLOCKED：friday-relay 尚无可引用的新 requirements；精确 Workspace host/base domain、Web/Native callback 与 session handoff、grant claims/续租/撤权、E2EE suite/test vectors 和 Pi Protocol version/conformance decisions 尚未固定。
-- 因此 `PLAN-PI-002` 继续保持 Planned，不能声明 R0 已关闭，也不能推定 friday-relay 已实现任何外部能力。
+- friday-relay 侧治理合同已建立：`friday-relay@42cb0a74890700920d411604f07ff70a5bde5bd2` 的 `PLAN-PI-WORKSPACE-R0-CONTRACTS`、<code>REQ-GA&#45;024</code>、<code>REQ-MEMBER&#45;035</code> 至 <code>REQ-MEMBER&#45;037</code>、<code>REQ-NEXT-IDENTITY&#45;006</code> 和 <code>REQ-OPS&#45;010</code> 分别拥有商品/履约、个人 Workspace、Node enrollment、Tunnel、Native/WASM 鉴权和 managed ingress 的 Planned 结果与验证缺口。
+- 跨项目 R0 仍为 BLOCKED：精确 Workspace host/base domain 与 slug policy、Web/Native callback/session/refresh profile、Node cardinality、grant wire/TTL/续租/撤权、tunnel topology/path、E2EE suite/test vectors、Pi Protocol initial version/conformance，以及商品价格/退款决策尚未固定。
+- 因此 `PLAN-PI-002` 继续保持 Planned，不能声明 R0 已关闭，也不能把 friday-relay 的治理合同推定为外部运行时实现。
 
 #### R1 - Friday Relay Workspace control plane
 
