@@ -26,6 +26,7 @@ export type PiNodeFailureCode =
   | "project-trust-denied"
   | "project-trust-unresolved"
   | "project-trust-resolution-failed"
+  | "project-trust-persist-failed"
   | "session-start-failed"
   | "session-disposal-failed";
 

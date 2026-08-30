@@ -14,7 +14,9 @@ void main() {
       title: 'Service session',
       workingDirectory: '/Projects/service',
     );
+    final project = fakeProject('/Projects/service');
     final api = FakePiNodeApi(
+      defaultProject: project,
       sessions: <PiSessionSummary>[session],
       details: <PiSessionId, PiSessionDetail>{session.id: fakeDetail(session)},
     );
@@ -22,11 +24,21 @@ void main() {
 
     expect(service.availability, PiNodeCompositionAvailability.externalNode);
     expect((await service.connect()).status, PiNodeConnectionStatus.connected);
-    expect((await service.loadSessions()).single, session);
-    expect((await service.loadSession(session.id)).summary, session);
+    expect((await service.loadProjectBootstrap()).defaultProject, project);
+    expect(
+      (await service.loadSessions(project.identity.projectId)).single,
+      session,
+    );
+    expect(
+      (await service.loadSession(
+        project.identity.projectId,
+        session.id,
+      )).summary,
+      session,
+    );
 
-    final created = await service.createSession('/Projects/new-session');
-    expect(created.summary.workingDirectory, '/Projects/new-session');
+    final created = await service.createSession(project.identity.projectId);
+    expect(created.summary.workingDirectory, '/Projects/service');
 
     final promptId = PiCommandId('service-prompt');
     expect(

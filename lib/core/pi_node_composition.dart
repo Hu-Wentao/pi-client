@@ -129,12 +129,35 @@ final class LazyHostedPiNodeApi
   }
 
   @override
-  Future<List<PiSessionSummary>> listSessions() =>
-      _requireConnectedApi().listSessions();
+  Future<PiProjectBootstrap> getProjectBootstrap() =>
+      _requireConnectedApi().getProjectBootstrap();
 
   @override
-  Future<PiSessionDetail> getSession(PiSessionId sessionId) =>
-      _requireConnectedApi().getSession(sessionId);
+  Future<PiDirectoryListing> browseDirectory(
+    PiBrowseDirectoryRequest request,
+  ) => _requireConnectedApi().browseDirectory(request);
+
+  @override
+  Future<PiProject> validateProject(PiValidateProjectRequest request) =>
+      _requireConnectedApi().validateProject(request);
+
+  @override
+  Future<List<PiKnownProject>> listKnownProjects({int maxProjects = 24}) =>
+      _requireConnectedApi().listKnownProjects(maxProjects: maxProjects);
+
+  @override
+  Future<PiProject> approveProjectTrust(PiProjectTrustApproval approval) =>
+      _requireConnectedApi().approveProjectTrust(approval);
+
+  @override
+  Future<List<PiSessionSummary>> listSessions(PiProjectId projectId) =>
+      _requireConnectedApi().listSessions(projectId);
+
+  @override
+  Future<PiSessionDetail> getSession(
+    PiProjectId projectId,
+    PiSessionId sessionId,
+  ) => _requireConnectedApi().getSession(projectId, sessionId);
 
   @override
   Future<PiSessionDetail> createSession(PiCreateSessionRequest request) =>
@@ -303,12 +326,35 @@ final class UnavailablePiNodeApi
       Future<PiNodeConnectionSnapshot>.error(_failure);
 
   @override
-  Future<List<PiSessionSummary>> listSessions() =>
+  Future<PiProjectBootstrap> getProjectBootstrap() =>
+      Future<PiProjectBootstrap>.error(_failure);
+
+  @override
+  Future<PiDirectoryListing> browseDirectory(
+    PiBrowseDirectoryRequest request,
+  ) => Future<PiDirectoryListing>.error(_failure);
+
+  @override
+  Future<PiProject> validateProject(PiValidateProjectRequest request) =>
+      Future<PiProject>.error(_failure);
+
+  @override
+  Future<List<PiKnownProject>> listKnownProjects({int maxProjects = 24}) =>
+      Future<List<PiKnownProject>>.error(_failure);
+
+  @override
+  Future<PiProject> approveProjectTrust(PiProjectTrustApproval approval) =>
+      Future<PiProject>.error(_failure);
+
+  @override
+  Future<List<PiSessionSummary>> listSessions(PiProjectId projectId) =>
       Future<List<PiSessionSummary>>.error(_failure);
 
   @override
-  Future<PiSessionDetail> getSession(PiSessionId sessionId) =>
-      Future<PiSessionDetail>.error(_failure);
+  Future<PiSessionDetail> getSession(
+    PiProjectId projectId,
+    PiSessionId sessionId,
+  ) => Future<PiSessionDetail>.error(_failure);
 
   @override
   Future<PiSessionDetail> createSession(PiCreateSessionRequest request) =>

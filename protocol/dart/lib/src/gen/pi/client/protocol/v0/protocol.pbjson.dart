@@ -29,6 +29,8 @@ const Capability$json = {
     {'1': 'CAPABILITY_CANCELLATION', '2': 7},
     {'1': 'CAPABILITY_FLOW_CONTROL', '2': 8},
     {'1': 'CAPABILITY_TRANSFER', '2': 9},
+    {'1': 'CAPABILITY_PROJECT_DISCOVERY', '2': 10},
+    {'1': 'CAPABILITY_PROJECT_TRUST', '2': 11},
   ],
 };
 
@@ -39,7 +41,8 @@ final $typed_data.Uint8List capabilityDescriptor = $convert.base64Decode(
     'SVRZX1BST01QVF9DT01NQU5EEAMSHAoYQ0FQQUJJTElUWV9BQk9SVF9DT01NQU5EEAQSHQoZQ0'
     'FQQUJJTElUWV9TRVNTSU9OX0VWRU5UUxAFEhUKEUNBUEFCSUxJVFlfSEVBTFRIEAYSGwoXQ0FQ'
     'QUJJTElUWV9DQU5DRUxMQVRJT04QBxIbChdDQVBBQklMSVRZX0ZMT1dfQ09OVFJPTBAIEhcKE0'
-    'NBUEFCSUxJVFlfVFJBTlNGRVIQCQ==');
+    'NBUEFCSUxJVFlfVFJBTlNGRVIQCRIgChxDQVBBQklMSVRZX1BST0pFQ1RfRElTQ09WRVJZEAoS'
+    'HAoYQ0FQQUJJTElUWV9QUk9KRUNUX1RSVVNUEAs=');
 
 @$core.Deprecated('Use healthStatusDescriptor instead')
 const HealthStatus$json = {
@@ -58,6 +61,53 @@ final $typed_data.Uint8List healthStatusDescriptor = $convert.base64Decode(
     'CgxIZWFsdGhTdGF0dXMSHQoZSEVBTFRIX1NUQVRVU19VTlNQRUNJRklFRBAAEhoKFkhFQUxUSF'
     '9TVEFUVVNfU1RBUlRJTkcQARIZChVIRUFMVEhfU1RBVFVTX1NFUlZJTkcQAhIaChZIRUFMVEhf'
     'U1RBVFVTX0RFR1JBREVEEAMSGgoWSEVBTFRIX1NUQVRVU19TVE9QUElORxAE');
+
+@$core.Deprecated('Use projectTrustStatusDescriptor instead')
+const ProjectTrustStatus$json = {
+  '1': 'ProjectTrustStatus',
+  '2': [
+    {'1': 'PROJECT_TRUST_STATUS_UNSPECIFIED', '2': 0},
+    {'1': 'PROJECT_TRUST_STATUS_NOT_REQUIRED', '2': 1},
+    {'1': 'PROJECT_TRUST_STATUS_TRUSTED', '2': 2},
+    {'1': 'PROJECT_TRUST_STATUS_APPROVAL_REQUIRED', '2': 3},
+    {'1': 'PROJECT_TRUST_STATUS_DENIED', '2': 4},
+  ],
+};
+
+/// Descriptor for `ProjectTrustStatus`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List projectTrustStatusDescriptor = $convert.base64Decode(
+    'ChJQcm9qZWN0VHJ1c3RTdGF0dXMSJAogUFJPSkVDVF9UUlVTVF9TVEFUVVNfVU5TUEVDSUZJRU'
+    'QQABIlCiFQUk9KRUNUX1RSVVNUX1NUQVRVU19OT1RfUkVRVUlSRUQQARIgChxQUk9KRUNUX1RS'
+    'VVNUX1NUQVRVU19UUlVTVEVEEAISKgomUFJPSkVDVF9UUlVTVF9TVEFUVVNfQVBQUk9WQUxfUk'
+    'VRVUlSRUQQAxIfChtQUk9KRUNUX1RSVVNUX1NUQVRVU19ERU5JRUQQBA==');
+
+@$core.Deprecated('Use projectTrustReasonDescriptor instead')
+const ProjectTrustReason$json = {
+  '1': 'ProjectTrustReason',
+  '2': [
+    {'1': 'PROJECT_TRUST_REASON_UNSPECIFIED', '2': 0},
+    {'1': 'PROJECT_TRUST_REASON_PI_SETTINGS', '2': 1},
+    {'1': 'PROJECT_TRUST_REASON_PI_EXTENSIONS', '2': 2},
+    {'1': 'PROJECT_TRUST_REASON_PI_SKILLS', '2': 3},
+    {'1': 'PROJECT_TRUST_REASON_PI_PROMPTS', '2': 4},
+    {'1': 'PROJECT_TRUST_REASON_PI_THEMES', '2': 5},
+    {'1': 'PROJECT_TRUST_REASON_PI_SYSTEM_PROMPT', '2': 6},
+    {'1': 'PROJECT_TRUST_REASON_AGENT_SKILLS', '2': 7},
+    {'1': 'PROJECT_TRUST_REASON_SAVED_APPROVAL', '2': 8},
+    {'1': 'PROJECT_TRUST_REASON_SAVED_DENIAL', '2': 9},
+  ],
+};
+
+/// Descriptor for `ProjectTrustReason`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List projectTrustReasonDescriptor = $convert.base64Decode(
+    'ChJQcm9qZWN0VHJ1c3RSZWFzb24SJAogUFJPSkVDVF9UUlVTVF9SRUFTT05fVU5TUEVDSUZJRU'
+    'QQABIkCiBQUk9KRUNUX1RSVVNUX1JFQVNPTl9QSV9TRVRUSU5HUxABEiYKIlBST0pFQ1RfVFJV'
+    'U1RfUkVBU09OX1BJX0VYVEVOU0lPTlMQAhIiCh5QUk9KRUNUX1RSVVNUX1JFQVNPTl9QSV9TS0'
+    'lMTFMQAxIjCh9QUk9KRUNUX1RSVVNUX1JFQVNPTl9QSV9QUk9NUFRTEAQSIgoeUFJPSkVDVF9U'
+    'UlVTVF9SRUFTT05fUElfVEhFTUVTEAUSKQolUFJPSkVDVF9UUlVTVF9SRUFTT05fUElfU1lTVE'
+    'VNX1BST01QVBAGEiUKIVBST0pFQ1RfVFJVU1RfUkVBU09OX0FHRU5UX1NLSUxMUxAHEicKI1BS'
+    'T0pFQ1RfVFJVU1RfUkVBU09OX1NBVkVEX0FQUFJPVkFMEAgSJQohUFJPSkVDVF9UUlVTVF9SRU'
+    'FTT05fU0FWRURfREVOSUFMEAk=');
 
 @$core.Deprecated('Use messageRoleDescriptor instead')
 const MessageRole$json = {
@@ -198,6 +248,78 @@ const PiTransportFrame$json = {
       '10': 'healthResponse'
     },
     {
+      '1': 'get_project_bootstrap_request',
+      '3': 22,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.GetProjectBootstrapRequest',
+      '9': 0,
+      '10': 'getProjectBootstrapRequest'
+    },
+    {
+      '1': 'get_project_bootstrap_response',
+      '3': 23,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.GetProjectBootstrapResponse',
+      '9': 0,
+      '10': 'getProjectBootstrapResponse'
+    },
+    {
+      '1': 'browse_directory_request',
+      '3': 24,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.BrowseDirectoryRequest',
+      '9': 0,
+      '10': 'browseDirectoryRequest'
+    },
+    {
+      '1': 'browse_directory_response',
+      '3': 25,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.BrowseDirectoryResponse',
+      '9': 0,
+      '10': 'browseDirectoryResponse'
+    },
+    {
+      '1': 'validate_project_request',
+      '3': 26,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.ValidateProjectRequest',
+      '9': 0,
+      '10': 'validateProjectRequest'
+    },
+    {
+      '1': 'validate_project_response',
+      '3': 27,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.ValidateProjectResponse',
+      '9': 0,
+      '10': 'validateProjectResponse'
+    },
+    {
+      '1': 'list_known_projects_request',
+      '3': 28,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.ListKnownProjectsRequest',
+      '9': 0,
+      '10': 'listKnownProjectsRequest'
+    },
+    {
+      '1': 'list_known_projects_response',
+      '3': 29,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.ListKnownProjectsResponse',
+      '9': 0,
+      '10': 'listKnownProjectsResponse'
+    },
+    {
       '1': 'list_sessions_request',
       '3': 30,
       '4': 1,
@@ -297,6 +419,24 @@ const PiTransportFrame$json = {
       '10': 'commandRejected'
     },
     {
+      '1': 'approve_project_trust_request',
+      '3': 41,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.ApproveProjectTrustRequest',
+      '9': 0,
+      '10': 'approveProjectTrustRequest'
+    },
+    {
+      '1': 'approve_project_trust_response',
+      '3': 42,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.ApproveProjectTrustResponse',
+      '9': 0,
+      '10': 'approveProjectTrustResponse'
+    },
+    {
       '1': 'session_event_stream',
       '3': 50,
       '4': 1,
@@ -393,8 +533,7 @@ const PiTransportFrame$json = {
   '9': [
     {'1': 2, '2': 10},
     {'1': 13, '2': 20},
-    {'1': 22, '2': 30},
-    {'1': 41, '2': 50},
+    {'1': 43, '2': 50},
     {'1': 52, '2': 60},
     {'1': 62, '2': 70},
     {'1': 75, '2': 80},
@@ -413,40 +552,61 @@ final $typed_data.Uint8List piTransportFrameDescriptor = $convert.base64Decode(
     'bmRzaGFrZVJlamVjdGVkSABSF3NlcnZlckhhbmRzaGFrZVJlamVjdGVkEk0KDmhlYWx0aF9yZX'
     'F1ZXN0GBQgASgLMiQucGkuY2xpZW50LnByb3RvY29sLnYwLkhlYWx0aFJlcXVlc3RIAFINaGVh'
     'bHRoUmVxdWVzdBJQCg9oZWFsdGhfcmVzcG9uc2UYFSABKAsyJS5waS5jbGllbnQucHJvdG9jb2'
-    'wudjAuSGVhbHRoUmVzcG9uc2VIAFIOaGVhbHRoUmVzcG9uc2USYAoVbGlzdF9zZXNzaW9uc19y'
-    'ZXF1ZXN0GB4gASgLMioucGkuY2xpZW50LnByb3RvY29sLnYwLkxpc3RTZXNzaW9uc1JlcXVlc3'
-    'RIAFITbGlzdFNlc3Npb25zUmVxdWVzdBJjChZsaXN0X3Nlc3Npb25zX3Jlc3BvbnNlGB8gASgL'
-    'MisucGkuY2xpZW50LnByb3RvY29sLnYwLkxpc3RTZXNzaW9uc1Jlc3BvbnNlSABSFGxpc3RTZX'
-    'NzaW9uc1Jlc3BvbnNlEloKE2dldF9zZXNzaW9uX3JlcXVlc3QYICABKAsyKC5waS5jbGllbnQu'
-    'cHJvdG9jb2wudjAuR2V0U2Vzc2lvblJlcXVlc3RIAFIRZ2V0U2Vzc2lvblJlcXVlc3QSXQoUZ2'
-    'V0X3Nlc3Npb25fcmVzcG9uc2UYISABKAsyKS5waS5jbGllbnQucHJvdG9jb2wudjAuR2V0U2Vz'
-    'c2lvblJlc3BvbnNlSABSEmdldFNlc3Npb25SZXNwb25zZRJjChZjcmVhdGVfc2Vzc2lvbl9yZX'
-    'F1ZXN0GCIgASgLMisucGkuY2xpZW50LnByb3RvY29sLnYwLkNyZWF0ZVNlc3Npb25SZXF1ZXN0'
-    'SABSFGNyZWF0ZVNlc3Npb25SZXF1ZXN0EmYKF2NyZWF0ZV9zZXNzaW9uX3Jlc3BvbnNlGCMgAS'
-    'gLMiwucGkuY2xpZW50LnByb3RvY29sLnYwLkNyZWF0ZVNlc3Npb25SZXNwb25zZUgAUhVjcmVh'
-    'dGVTZXNzaW9uUmVzcG9uc2USTQoOcHJvbXB0X2NvbW1hbmQYJCABKAsyJC5waS5jbGllbnQucH'
-    'JvdG9jb2wudjAuUHJvbXB0Q29tbWFuZEgAUg1wcm9tcHRDb21tYW5kEkoKDWFib3J0X2NvbW1h'
-    'bmQYJSABKAsyIy5waS5jbGllbnQucHJvdG9jb2wudjAuQWJvcnRDb21tYW5kSABSDGFib3J0Q2'
-    '9tbWFuZBJTChByZXF1ZXN0X3JlamVjdGVkGCYgASgLMiYucGkuY2xpZW50LnByb3RvY29sLnYw'
-    'LlJlcXVlc3RSZWplY3RlZEgAUg9yZXF1ZXN0UmVqZWN0ZWQSUwoQY29tbWFuZF9hY2NlcHRlZB'
-    'gnIAEoCzImLnBpLmNsaWVudC5wcm90b2NvbC52MC5Db21tYW5kQWNjZXB0ZWRIAFIPY29tbWFu'
-    'ZEFjY2VwdGVkElMKEGNvbW1hbmRfcmVqZWN0ZWQYKCABKAsyJi5waS5jbGllbnQucHJvdG9jb2'
-    'wudjAuQ29tbWFuZFJlamVjdGVkSABSD2NvbW1hbmRSZWplY3RlZBJlChRzZXNzaW9uX2V2ZW50'
-    'X3N0cmVhbRgyIAEoCzIxLnBpLmNsaWVudC5wcm90b2NvbC52MC5TZXNzaW9uRXZlbnRTdHJlYW'
-    '1FbnZlbG9wZUgAUhJzZXNzaW9uRXZlbnRTdHJlYW0STwoMZXZlbnRfc3RyZWFtGDMgASgLMiou'
-    'cGkuY2xpZW50LnByb3RvY29sLnYwLkV2ZW50U3RyZWFtRW52ZWxvcGVIAFILZXZlbnRTdHJlYW'
-    '0SNwoGY2FuY2VsGDwgASgLMh0ucGkuY2xpZW50LnByb3RvY29sLnYwLkNhbmNlbEgAUgZjYW5j'
-    'ZWwSSgoNd2luZG93X3VwZGF0ZRg9IAEoCzIjLnBpLmNsaWVudC5wcm90b2NvbC52MC5XaW5kb3'
-    'dVcGRhdGVIAFIMd2luZG93VXBkYXRlEkoKDXRyYW5zZmVyX29wZW4YRiABKAsyIy5waS5jbGll'
-    'bnQucHJvdG9jb2wudjAuVHJhbnNmZXJPcGVuSABSDHRyYW5zZmVyT3BlbhJNCg50cmFuc2Zlcl'
-    '9jaHVuaxhHIAEoCzIkLnBpLmNsaWVudC5wcm90b2NvbC52MC5UcmFuc2ZlckNodW5rSABSDXRy'
-    'YW5zZmVyQ2h1bmsSRwoMdHJhbnNmZXJfYWNrGEggASgLMiIucGkuY2xpZW50LnByb3RvY29sLn'
-    'YwLlRyYW5zZmVyQWNrSABSC3RyYW5zZmVyQWNrElYKEXRyYW5zZmVyX2NvbXBsZXRlGEkgASgL'
-    'MicucGkuY2xpZW50LnByb3RvY29sLnYwLlRyYW5zZmVyQ29tcGxldGVIAFIQdHJhbnNmZXJDb2'
-    '1wbGV0ZRJNCg50cmFuc2Zlcl9hYm9ydBhKIAEoCzIkLnBpLmNsaWVudC5wcm90b2NvbC52MC5U'
-    'cmFuc2ZlckFib3J0SABSDXRyYW5zZmVyQWJvcnQSPAoFZXJyb3IYUCABKAsyJC5waS5jbGllbn'
-    'QucHJvdG9jb2wudjAuRXJyb3JFbnZlbG9wZUgAUgVlcnJvckILCglvcGVyYXRpb25KBAgCEApK'
-    'BAgNEBRKBAgWEB5KBAgpEDJKBAg0EDxKBAg+EEZKBAhLEFBKBAhREGQ=');
+    'wudjAuSGVhbHRoUmVzcG9uc2VIAFIOaGVhbHRoUmVzcG9uc2USdgodZ2V0X3Byb2plY3RfYm9v'
+    'dHN0cmFwX3JlcXVlc3QYFiABKAsyMS5waS5jbGllbnQucHJvdG9jb2wudjAuR2V0UHJvamVjdE'
+    'Jvb3RzdHJhcFJlcXVlc3RIAFIaZ2V0UHJvamVjdEJvb3RzdHJhcFJlcXVlc3QSeQoeZ2V0X3By'
+    'b2plY3RfYm9vdHN0cmFwX3Jlc3BvbnNlGBcgASgLMjIucGkuY2xpZW50LnByb3RvY29sLnYwLk'
+    'dldFByb2plY3RCb290c3RyYXBSZXNwb25zZUgAUhtnZXRQcm9qZWN0Qm9vdHN0cmFwUmVzcG9u'
+    'c2USaQoYYnJvd3NlX2RpcmVjdG9yeV9yZXF1ZXN0GBggASgLMi0ucGkuY2xpZW50LnByb3RvY2'
+    '9sLnYwLkJyb3dzZURpcmVjdG9yeVJlcXVlc3RIAFIWYnJvd3NlRGlyZWN0b3J5UmVxdWVzdBJs'
+    'Chlicm93c2VfZGlyZWN0b3J5X3Jlc3BvbnNlGBkgASgLMi4ucGkuY2xpZW50LnByb3RvY29sLn'
+    'YwLkJyb3dzZURpcmVjdG9yeVJlc3BvbnNlSABSF2Jyb3dzZURpcmVjdG9yeVJlc3BvbnNlEmkK'
+    'GHZhbGlkYXRlX3Byb2plY3RfcmVxdWVzdBgaIAEoCzItLnBpLmNsaWVudC5wcm90b2NvbC52MC'
+    '5WYWxpZGF0ZVByb2plY3RSZXF1ZXN0SABSFnZhbGlkYXRlUHJvamVjdFJlcXVlc3QSbAoZdmFs'
+    'aWRhdGVfcHJvamVjdF9yZXNwb25zZRgbIAEoCzIuLnBpLmNsaWVudC5wcm90b2NvbC52MC5WYW'
+    'xpZGF0ZVByb2plY3RSZXNwb25zZUgAUhd2YWxpZGF0ZVByb2plY3RSZXNwb25zZRJwChtsaXN0'
+    'X2tub3duX3Byb2plY3RzX3JlcXVlc3QYHCABKAsyLy5waS5jbGllbnQucHJvdG9jb2wudjAuTG'
+    'lzdEtub3duUHJvamVjdHNSZXF1ZXN0SABSGGxpc3RLbm93blByb2plY3RzUmVxdWVzdBJzChxs'
+    'aXN0X2tub3duX3Byb2plY3RzX3Jlc3BvbnNlGB0gASgLMjAucGkuY2xpZW50LnByb3RvY29sLn'
+    'YwLkxpc3RLbm93blByb2plY3RzUmVzcG9uc2VIAFIZbGlzdEtub3duUHJvamVjdHNSZXNwb25z'
+    'ZRJgChVsaXN0X3Nlc3Npb25zX3JlcXVlc3QYHiABKAsyKi5waS5jbGllbnQucHJvdG9jb2wudj'
+    'AuTGlzdFNlc3Npb25zUmVxdWVzdEgAUhNsaXN0U2Vzc2lvbnNSZXF1ZXN0EmMKFmxpc3Rfc2Vz'
+    'c2lvbnNfcmVzcG9uc2UYHyABKAsyKy5waS5jbGllbnQucHJvdG9jb2wudjAuTGlzdFNlc3Npb2'
+    '5zUmVzcG9uc2VIAFIUbGlzdFNlc3Npb25zUmVzcG9uc2USWgoTZ2V0X3Nlc3Npb25fcmVxdWVz'
+    'dBggIAEoCzIoLnBpLmNsaWVudC5wcm90b2NvbC52MC5HZXRTZXNzaW9uUmVxdWVzdEgAUhFnZX'
+    'RTZXNzaW9uUmVxdWVzdBJdChRnZXRfc2Vzc2lvbl9yZXNwb25zZRghIAEoCzIpLnBpLmNsaWVu'
+    'dC5wcm90b2NvbC52MC5HZXRTZXNzaW9uUmVzcG9uc2VIAFISZ2V0U2Vzc2lvblJlc3BvbnNlEm'
+    'MKFmNyZWF0ZV9zZXNzaW9uX3JlcXVlc3QYIiABKAsyKy5waS5jbGllbnQucHJvdG9jb2wudjAu'
+    'Q3JlYXRlU2Vzc2lvblJlcXVlc3RIAFIUY3JlYXRlU2Vzc2lvblJlcXVlc3QSZgoXY3JlYXRlX3'
+    'Nlc3Npb25fcmVzcG9uc2UYIyABKAsyLC5waS5jbGllbnQucHJvdG9jb2wudjAuQ3JlYXRlU2Vz'
+    'c2lvblJlc3BvbnNlSABSFWNyZWF0ZVNlc3Npb25SZXNwb25zZRJNCg5wcm9tcHRfY29tbWFuZB'
+    'gkIAEoCzIkLnBpLmNsaWVudC5wcm90b2NvbC52MC5Qcm9tcHRDb21tYW5kSABSDXByb21wdENv'
+    'bW1hbmQSSgoNYWJvcnRfY29tbWFuZBglIAEoCzIjLnBpLmNsaWVudC5wcm90b2NvbC52MC5BYm'
+    '9ydENvbW1hbmRIAFIMYWJvcnRDb21tYW5kElMKEHJlcXVlc3RfcmVqZWN0ZWQYJiABKAsyJi5w'
+    'aS5jbGllbnQucHJvdG9jb2wudjAuUmVxdWVzdFJlamVjdGVkSABSD3JlcXVlc3RSZWplY3RlZB'
+    'JTChBjb21tYW5kX2FjY2VwdGVkGCcgASgLMiYucGkuY2xpZW50LnByb3RvY29sLnYwLkNvbW1h'
+    'bmRBY2NlcHRlZEgAUg9jb21tYW5kQWNjZXB0ZWQSUwoQY29tbWFuZF9yZWplY3RlZBgoIAEoCz'
+    'ImLnBpLmNsaWVudC5wcm90b2NvbC52MC5Db21tYW5kUmVqZWN0ZWRIAFIPY29tbWFuZFJlamVj'
+    'dGVkEnYKHWFwcHJvdmVfcHJvamVjdF90cnVzdF9yZXF1ZXN0GCkgASgLMjEucGkuY2xpZW50Ln'
+    'Byb3RvY29sLnYwLkFwcHJvdmVQcm9qZWN0VHJ1c3RSZXF1ZXN0SABSGmFwcHJvdmVQcm9qZWN0'
+    'VHJ1c3RSZXF1ZXN0EnkKHmFwcHJvdmVfcHJvamVjdF90cnVzdF9yZXNwb25zZRgqIAEoCzIyLn'
+    'BpLmNsaWVudC5wcm90b2NvbC52MC5BcHByb3ZlUHJvamVjdFRydXN0UmVzcG9uc2VIAFIbYXBw'
+    'cm92ZVByb2plY3RUcnVzdFJlc3BvbnNlEmUKFHNlc3Npb25fZXZlbnRfc3RyZWFtGDIgASgLMj'
+    'EucGkuY2xpZW50LnByb3RvY29sLnYwLlNlc3Npb25FdmVudFN0cmVhbUVudmVsb3BlSABSEnNl'
+    'c3Npb25FdmVudFN0cmVhbRJPCgxldmVudF9zdHJlYW0YMyABKAsyKi5waS5jbGllbnQucHJvdG'
+    '9jb2wudjAuRXZlbnRTdHJlYW1FbnZlbG9wZUgAUgtldmVudFN0cmVhbRI3CgZjYW5jZWwYPCAB'
+    'KAsyHS5waS5jbGllbnQucHJvdG9jb2wudjAuQ2FuY2VsSABSBmNhbmNlbBJKCg13aW5kb3dfdX'
+    'BkYXRlGD0gASgLMiMucGkuY2xpZW50LnByb3RvY29sLnYwLldpbmRvd1VwZGF0ZUgAUgx3aW5k'
+    'b3dVcGRhdGUSSgoNdHJhbnNmZXJfb3BlbhhGIAEoCzIjLnBpLmNsaWVudC5wcm90b2NvbC52MC'
+    '5UcmFuc2Zlck9wZW5IAFIMdHJhbnNmZXJPcGVuEk0KDnRyYW5zZmVyX2NodW5rGEcgASgLMiQu'
+    'cGkuY2xpZW50LnByb3RvY29sLnYwLlRyYW5zZmVyQ2h1bmtIAFINdHJhbnNmZXJDaHVuaxJHCg'
+    'x0cmFuc2Zlcl9hY2sYSCABKAsyIi5waS5jbGllbnQucHJvdG9jb2wudjAuVHJhbnNmZXJBY2tI'
+    'AFILdHJhbnNmZXJBY2sSVgoRdHJhbnNmZXJfY29tcGxldGUYSSABKAsyJy5waS5jbGllbnQucH'
+    'JvdG9jb2wudjAuVHJhbnNmZXJDb21wbGV0ZUgAUhB0cmFuc2ZlckNvbXBsZXRlEk0KDnRyYW5z'
+    'ZmVyX2Fib3J0GEogASgLMiQucGkuY2xpZW50LnByb3RvY29sLnYwLlRyYW5zZmVyQWJvcnRIAF'
+    'INdHJhbnNmZXJBYm9ydBI8CgVlcnJvchhQIAEoCzIkLnBpLmNsaWVudC5wcm90b2NvbC52MC5F'
+    'cnJvckVudmVsb3BlSABSBWVycm9yQgsKCW9wZXJhdGlvbkoECAIQCkoECA0QFEoECCsQMkoECD'
+    'QQPEoECD4QRkoECEsQUEoECFEQZA==');
 
 @$core.Deprecated('Use protocolVersionDescriptor instead')
 const ProtocolVersion$json = {
@@ -658,17 +818,399 @@ final $typed_data.Uint8List healthResponseDescriptor = $convert.base64Decode(
     'DG5vZGVfdmVyc2lvbhgDIAEoCVILbm9kZVZlcnNpb24SIwoNdXB0aW1lX21pbGxpcxgEIAEoBF'
     'IMdXB0aW1lTWlsbGlz');
 
-@$core.Deprecated('Use listSessionsRequestDescriptor instead')
-const ListSessionsRequest$json = {
-  '1': 'ListSessionsRequest',
+@$core.Deprecated('Use getProjectBootstrapRequestDescriptor instead')
+const GetProjectBootstrapRequest$json = {
+  '1': 'GetProjectBootstrapRequest',
   '2': [
     {'1': 'request_id', '3': 1, '4': 1, '5': 4, '10': 'requestId'},
   ],
 };
 
+/// Descriptor for `GetProjectBootstrapRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getProjectBootstrapRequestDescriptor =
+    $convert.base64Decode(
+        'ChpHZXRQcm9qZWN0Qm9vdHN0cmFwUmVxdWVzdBIdCgpyZXF1ZXN0X2lkGAEgASgEUglyZXF1ZX'
+        'N0SWQ=');
+
+@$core.Deprecated('Use getProjectBootstrapResponseDescriptor instead')
+const GetProjectBootstrapResponse$json = {
+  '1': 'GetProjectBootstrapResponse',
+  '2': [
+    {'1': 'request_id', '3': 1, '4': 1, '5': 4, '10': 'requestId'},
+    {'1': 'home_directory', '3': 2, '4': 1, '5': 9, '10': 'homeDirectory'},
+    {
+      '1': 'default_project',
+      '3': 3,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.ProjectSnapshot',
+      '10': 'defaultProject'
+    },
+  ],
+};
+
+/// Descriptor for `GetProjectBootstrapResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getProjectBootstrapResponseDescriptor = $convert.base64Decode(
+    'ChtHZXRQcm9qZWN0Qm9vdHN0cmFwUmVzcG9uc2USHQoKcmVxdWVzdF9pZBgBIAEoBFIJcmVxdW'
+    'VzdElkEiUKDmhvbWVfZGlyZWN0b3J5GAIgASgJUg1ob21lRGlyZWN0b3J5Ek8KD2RlZmF1bHRf'
+    'cHJvamVjdBgDIAEoCzImLnBpLmNsaWVudC5wcm90b2NvbC52MC5Qcm9qZWN0U25hcHNob3RSDm'
+    'RlZmF1bHRQcm9qZWN0');
+
+@$core.Deprecated('Use browseDirectoryRequestDescriptor instead')
+const BrowseDirectoryRequest$json = {
+  '1': 'BrowseDirectoryRequest',
+  '2': [
+    {'1': 'request_id', '3': 1, '4': 1, '5': 4, '10': 'requestId'},
+    {'1': 'directory', '3': 2, '4': 1, '5': 9, '10': 'directory'},
+    {'1': 'max_children', '3': 3, '4': 1, '5': 13, '10': 'maxChildren'},
+  ],
+};
+
+/// Descriptor for `BrowseDirectoryRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List browseDirectoryRequestDescriptor = $convert.base64Decode(
+    'ChZCcm93c2VEaXJlY3RvcnlSZXF1ZXN0Eh0KCnJlcXVlc3RfaWQYASABKARSCXJlcXVlc3RJZB'
+    'IcCglkaXJlY3RvcnkYAiABKAlSCWRpcmVjdG9yeRIhCgxtYXhfY2hpbGRyZW4YAyABKA1SC21h'
+    'eENoaWxkcmVu');
+
+@$core.Deprecated('Use browseDirectoryResponseDescriptor instead')
+const BrowseDirectoryResponse$json = {
+  '1': 'BrowseDirectoryResponse',
+  '2': [
+    {'1': 'request_id', '3': 1, '4': 1, '5': 4, '10': 'requestId'},
+    {
+      '1': 'directory',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.DirectoryListingSnapshot',
+      '10': 'directory'
+    },
+  ],
+};
+
+/// Descriptor for `BrowseDirectoryResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List browseDirectoryResponseDescriptor = $convert.base64Decode(
+    'ChdCcm93c2VEaXJlY3RvcnlSZXNwb25zZRIdCgpyZXF1ZXN0X2lkGAEgASgEUglyZXF1ZXN0SW'
+    'QSTQoJZGlyZWN0b3J5GAIgASgLMi8ucGkuY2xpZW50LnByb3RvY29sLnYwLkRpcmVjdG9yeUxp'
+    'c3RpbmdTbmFwc2hvdFIJZGlyZWN0b3J5');
+
+@$core.Deprecated('Use validateProjectRequestDescriptor instead')
+const ValidateProjectRequest$json = {
+  '1': 'ValidateProjectRequest',
+  '2': [
+    {'1': 'request_id', '3': 1, '4': 1, '5': 4, '10': 'requestId'},
+    {
+      '1': 'candidate_directory',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '10': 'candidateDirectory'
+    },
+  ],
+};
+
+/// Descriptor for `ValidateProjectRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List validateProjectRequestDescriptor =
+    $convert.base64Decode(
+        'ChZWYWxpZGF0ZVByb2plY3RSZXF1ZXN0Eh0KCnJlcXVlc3RfaWQYASABKARSCXJlcXVlc3RJZB'
+        'IvChNjYW5kaWRhdGVfZGlyZWN0b3J5GAIgASgJUhJjYW5kaWRhdGVEaXJlY3Rvcnk=');
+
+@$core.Deprecated('Use validateProjectResponseDescriptor instead')
+const ValidateProjectResponse$json = {
+  '1': 'ValidateProjectResponse',
+  '2': [
+    {'1': 'request_id', '3': 1, '4': 1, '5': 4, '10': 'requestId'},
+    {
+      '1': 'project',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.ProjectSnapshot',
+      '10': 'project'
+    },
+  ],
+};
+
+/// Descriptor for `ValidateProjectResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List validateProjectResponseDescriptor = $convert.base64Decode(
+    'ChdWYWxpZGF0ZVByb2plY3RSZXNwb25zZRIdCgpyZXF1ZXN0X2lkGAEgASgEUglyZXF1ZXN0SW'
+    'QSQAoHcHJvamVjdBgCIAEoCzImLnBpLmNsaWVudC5wcm90b2NvbC52MC5Qcm9qZWN0U25hcHNo'
+    'b3RSB3Byb2plY3Q=');
+
+@$core.Deprecated('Use listKnownProjectsRequestDescriptor instead')
+const ListKnownProjectsRequest$json = {
+  '1': 'ListKnownProjectsRequest',
+  '2': [
+    {'1': 'request_id', '3': 1, '4': 1, '5': 4, '10': 'requestId'},
+    {'1': 'max_projects', '3': 2, '4': 1, '5': 13, '10': 'maxProjects'},
+  ],
+};
+
+/// Descriptor for `ListKnownProjectsRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listKnownProjectsRequestDescriptor =
+    $convert.base64Decode(
+        'ChhMaXN0S25vd25Qcm9qZWN0c1JlcXVlc3QSHQoKcmVxdWVzdF9pZBgBIAEoBFIJcmVxdWVzdE'
+        'lkEiEKDG1heF9wcm9qZWN0cxgCIAEoDVILbWF4UHJvamVjdHM=');
+
+@$core.Deprecated('Use listKnownProjectsResponseDescriptor instead')
+const ListKnownProjectsResponse$json = {
+  '1': 'ListKnownProjectsResponse',
+  '2': [
+    {'1': 'request_id', '3': 1, '4': 1, '5': 4, '10': 'requestId'},
+    {
+      '1': 'projects',
+      '3': 2,
+      '4': 3,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.KnownProjectSnapshot',
+      '10': 'projects'
+    },
+  ],
+};
+
+/// Descriptor for `ListKnownProjectsResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listKnownProjectsResponseDescriptor = $convert.base64Decode(
+    'ChlMaXN0S25vd25Qcm9qZWN0c1Jlc3BvbnNlEh0KCnJlcXVlc3RfaWQYASABKARSCXJlcXVlc3'
+    'RJZBJHCghwcm9qZWN0cxgCIAMoCzIrLnBpLmNsaWVudC5wcm90b2NvbC52MC5Lbm93blByb2pl'
+    'Y3RTbmFwc2hvdFIIcHJvamVjdHM=');
+
+@$core.Deprecated('Use approveProjectTrustRequestDescriptor instead')
+const ApproveProjectTrustRequest$json = {
+  '1': 'ApproveProjectTrustRequest',
+  '2': [
+    {'1': 'request_id', '3': 1, '4': 1, '5': 4, '10': 'requestId'},
+    {'1': 'project_id', '3': 2, '4': 1, '5': 9, '10': 'projectId'},
+    {'1': 'trust_revision', '3': 3, '4': 1, '5': 9, '10': 'trustRevision'},
+  ],
+};
+
+/// Descriptor for `ApproveProjectTrustRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List approveProjectTrustRequestDescriptor =
+    $convert.base64Decode(
+        'ChpBcHByb3ZlUHJvamVjdFRydXN0UmVxdWVzdBIdCgpyZXF1ZXN0X2lkGAEgASgEUglyZXF1ZX'
+        'N0SWQSHQoKcHJvamVjdF9pZBgCIAEoCVIJcHJvamVjdElkEiUKDnRydXN0X3JldmlzaW9uGAMg'
+        'ASgJUg10cnVzdFJldmlzaW9u');
+
+@$core.Deprecated('Use approveProjectTrustResponseDescriptor instead')
+const ApproveProjectTrustResponse$json = {
+  '1': 'ApproveProjectTrustResponse',
+  '2': [
+    {'1': 'request_id', '3': 1, '4': 1, '5': 4, '10': 'requestId'},
+    {
+      '1': 'project',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.ProjectSnapshot',
+      '10': 'project'
+    },
+  ],
+};
+
+/// Descriptor for `ApproveProjectTrustResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List approveProjectTrustResponseDescriptor =
+    $convert.base64Decode(
+        'ChtBcHByb3ZlUHJvamVjdFRydXN0UmVzcG9uc2USHQoKcmVxdWVzdF9pZBgBIAEoBFIJcmVxdW'
+        'VzdElkEkAKB3Byb2plY3QYAiABKAsyJi5waS5jbGllbnQucHJvdG9jb2wudjAuUHJvamVjdFNu'
+        'YXBzaG90Ugdwcm9qZWN0');
+
+@$core.Deprecated('Use directoryListingSnapshotDescriptor instead')
+const DirectoryListingSnapshot$json = {
+  '1': 'DirectoryListingSnapshot',
+  '2': [
+    {
+      '1': 'canonical_directory',
+      '3': 1,
+      '4': 1,
+      '5': 9,
+      '10': 'canonicalDirectory'
+    },
+    {'1': 'parent_directory', '3': 2, '4': 1, '5': 9, '10': 'parentDirectory'},
+    {
+      '1': 'children',
+      '3': 3,
+      '4': 3,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.DirectoryEntrySnapshot',
+      '10': 'children'
+    },
+    {'1': 'truncated', '3': 4, '4': 1, '5': 8, '10': 'truncated'},
+  ],
+};
+
+/// Descriptor for `DirectoryListingSnapshot`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List directoryListingSnapshotDescriptor = $convert.base64Decode(
+    'ChhEaXJlY3RvcnlMaXN0aW5nU25hcHNob3QSLwoTY2Fub25pY2FsX2RpcmVjdG9yeRgBIAEoCV'
+    'ISY2Fub25pY2FsRGlyZWN0b3J5EikKEHBhcmVudF9kaXJlY3RvcnkYAiABKAlSD3BhcmVudERp'
+    'cmVjdG9yeRJJCghjaGlsZHJlbhgDIAMoCzItLnBpLmNsaWVudC5wcm90b2NvbC52MC5EaXJlY3'
+    'RvcnlFbnRyeVNuYXBzaG90UghjaGlsZHJlbhIcCgl0cnVuY2F0ZWQYBCABKAhSCXRydW5jYXRl'
+    'ZA==');
+
+@$core.Deprecated('Use directoryEntrySnapshotDescriptor instead')
+const DirectoryEntrySnapshot$json = {
+  '1': 'DirectoryEntrySnapshot',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'canonical_path', '3': 2, '4': 1, '5': 9, '10': 'canonicalPath'},
+    {'1': 'is_symbolic_link', '3': 3, '4': 1, '5': 8, '10': 'isSymbolicLink'},
+  ],
+};
+
+/// Descriptor for `DirectoryEntrySnapshot`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List directoryEntrySnapshotDescriptor = $convert.base64Decode(
+    'ChZEaXJlY3RvcnlFbnRyeVNuYXBzaG90EhIKBG5hbWUYASABKAlSBG5hbWUSJQoOY2Fub25pY2'
+    'FsX3BhdGgYAiABKAlSDWNhbm9uaWNhbFBhdGgSKAoQaXNfc3ltYm9saWNfbGluaxgDIAEoCFIO'
+    'aXNTeW1ib2xpY0xpbms=');
+
+@$core.Deprecated('Use projectTrustSnapshotDescriptor instead')
+const ProjectTrustSnapshot$json = {
+  '1': 'ProjectTrustSnapshot',
+  '2': [
+    {
+      '1': 'status',
+      '3': 1,
+      '4': 1,
+      '5': 14,
+      '6': '.pi.client.protocol.v0.ProjectTrustStatus',
+      '10': 'status'
+    },
+    {
+      '1': 'reasons',
+      '3': 2,
+      '4': 3,
+      '5': 14,
+      '6': '.pi.client.protocol.v0.ProjectTrustReason',
+      '10': 'reasons'
+    },
+    {'1': 'revision', '3': 3, '4': 1, '5': 9, '10': 'revision'},
+  ],
+};
+
+/// Descriptor for `ProjectTrustSnapshot`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List projectTrustSnapshotDescriptor = $convert.base64Decode(
+    'ChRQcm9qZWN0VHJ1c3RTbmFwc2hvdBJBCgZzdGF0dXMYASABKA4yKS5waS5jbGllbnQucHJvdG'
+    '9jb2wudjAuUHJvamVjdFRydXN0U3RhdHVzUgZzdGF0dXMSQwoHcmVhc29ucxgCIAMoDjIpLnBp'
+    'LmNsaWVudC5wcm90b2NvbC52MC5Qcm9qZWN0VHJ1c3RSZWFzb25SB3JlYXNvbnMSGgoIcmV2aX'
+    'Npb24YAyABKAlSCHJldmlzaW9u');
+
+@$core.Deprecated('Use projectIdentitySnapshotDescriptor instead')
+const ProjectIdentitySnapshot$json = {
+  '1': 'ProjectIdentitySnapshot',
+  '2': [
+    {'1': 'project_id', '3': 1, '4': 1, '5': 9, '10': 'projectId'},
+    {
+      '1': 'canonical_working_directory',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '10': 'canonicalWorkingDirectory'
+    },
+    {'1': 'is_git_repository', '3': 3, '4': 1, '5': 8, '10': 'isGitRepository'},
+    {'1': 'git_root', '3': 4, '4': 1, '5': 9, '10': 'gitRoot'},
+    {
+      '1': 'main_worktree_root',
+      '3': 5,
+      '4': 1,
+      '5': 9,
+      '10': 'mainWorktreeRoot'
+    },
+    {'1': 'branch', '3': 6, '4': 1, '5': 9, '10': 'branch'},
+    {
+      '1': 'is_linked_worktree',
+      '3': 7,
+      '4': 1,
+      '5': 8,
+      '10': 'isLinkedWorktree'
+    },
+    {'1': 'is_detached_head', '3': 8, '4': 1, '5': 8, '10': 'isDetachedHead'},
+    {'1': 'worktree_id', '3': 9, '4': 1, '5': 9, '10': 'worktreeId'},
+    {'1': 'main_project_id', '3': 10, '4': 1, '5': 9, '10': 'mainProjectId'},
+  ],
+};
+
+/// Descriptor for `ProjectIdentitySnapshot`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List projectIdentitySnapshotDescriptor = $convert.base64Decode(
+    'ChdQcm9qZWN0SWRlbnRpdHlTbmFwc2hvdBIdCgpwcm9qZWN0X2lkGAEgASgJUglwcm9qZWN0SW'
+    'QSPgobY2Fub25pY2FsX3dvcmtpbmdfZGlyZWN0b3J5GAIgASgJUhljYW5vbmljYWxXb3JraW5n'
+    'RGlyZWN0b3J5EioKEWlzX2dpdF9yZXBvc2l0b3J5GAMgASgIUg9pc0dpdFJlcG9zaXRvcnkSGQ'
+    'oIZ2l0X3Jvb3QYBCABKAlSB2dpdFJvb3QSLAoSbWFpbl93b3JrdHJlZV9yb290GAUgASgJUhBt'
+    'YWluV29ya3RyZWVSb290EhYKBmJyYW5jaBgGIAEoCVIGYnJhbmNoEiwKEmlzX2xpbmtlZF93b3'
+    'JrdHJlZRgHIAEoCFIQaXNMaW5rZWRXb3JrdHJlZRIoChBpc19kZXRhY2hlZF9oZWFkGAggASgI'
+    'Ug5pc0RldGFjaGVkSGVhZBIfCgt3b3JrdHJlZV9pZBgJIAEoCVIKd29ya3RyZWVJZBImCg9tYW'
+    'luX3Byb2plY3RfaWQYCiABKAlSDW1haW5Qcm9qZWN0SWQ=');
+
+@$core.Deprecated('Use projectSnapshotDescriptor instead')
+const ProjectSnapshot$json = {
+  '1': 'ProjectSnapshot',
+  '2': [
+    {
+      '1': 'identity',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.ProjectIdentitySnapshot',
+      '10': 'identity'
+    },
+    {
+      '1': 'trust',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.ProjectTrustSnapshot',
+      '10': 'trust'
+    },
+  ],
+};
+
+/// Descriptor for `ProjectSnapshot`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List projectSnapshotDescriptor = $convert.base64Decode(
+    'Cg9Qcm9qZWN0U25hcHNob3QSSgoIaWRlbnRpdHkYASABKAsyLi5waS5jbGllbnQucHJvdG9jb2'
+    'wudjAuUHJvamVjdElkZW50aXR5U25hcHNob3RSCGlkZW50aXR5EkEKBXRydXN0GAIgASgLMisu'
+    'cGkuY2xpZW50LnByb3RvY29sLnYwLlByb2plY3RUcnVzdFNuYXBzaG90UgV0cnVzdA==');
+
+@$core.Deprecated('Use knownProjectSnapshotDescriptor instead')
+const KnownProjectSnapshot$json = {
+  '1': 'KnownProjectSnapshot',
+  '2': [
+    {
+      '1': 'project',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.ProjectSnapshot',
+      '10': 'project'
+    },
+    {
+      '1': 'last_session_at_unix_millis',
+      '3': 2,
+      '4': 1,
+      '5': 4,
+      '10': 'lastSessionAtUnixMillis'
+    },
+    {'1': 'session_count', '3': 3, '4': 1, '5': 13, '10': 'sessionCount'},
+  ],
+};
+
+/// Descriptor for `KnownProjectSnapshot`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List knownProjectSnapshotDescriptor = $convert.base64Decode(
+    'ChRLbm93blByb2plY3RTbmFwc2hvdBJACgdwcm9qZWN0GAEgASgLMiYucGkuY2xpZW50LnByb3'
+    'RvY29sLnYwLlByb2plY3RTbmFwc2hvdFIHcHJvamVjdBI8ChtsYXN0X3Nlc3Npb25fYXRfdW5p'
+    'eF9taWxsaXMYAiABKARSF2xhc3RTZXNzaW9uQXRVbml4TWlsbGlzEiMKDXNlc3Npb25fY291bn'
+    'QYAyABKA1SDHNlc3Npb25Db3VudA==');
+
+@$core.Deprecated('Use listSessionsRequestDescriptor instead')
+const ListSessionsRequest$json = {
+  '1': 'ListSessionsRequest',
+  '2': [
+    {'1': 'request_id', '3': 1, '4': 1, '5': 4, '10': 'requestId'},
+    {'1': 'project_id', '3': 2, '4': 1, '5': 9, '10': 'projectId'},
+  ],
+};
+
 /// Descriptor for `ListSessionsRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List listSessionsRequestDescriptor = $convert.base64Decode(
-    'ChNMaXN0U2Vzc2lvbnNSZXF1ZXN0Eh0KCnJlcXVlc3RfaWQYASABKARSCXJlcXVlc3RJZA==');
+    'ChNMaXN0U2Vzc2lvbnNSZXF1ZXN0Eh0KCnJlcXVlc3RfaWQYASABKARSCXJlcXVlc3RJZBIdCg'
+    'pwcm9qZWN0X2lkGAIgASgJUglwcm9qZWN0SWQ=');
 
 @$core.Deprecated('Use listSessionsResponseDescriptor instead')
 const ListSessionsResponse$json = {
@@ -698,13 +1240,15 @@ const GetSessionRequest$json = {
   '2': [
     {'1': 'request_id', '3': 1, '4': 1, '5': 4, '10': 'requestId'},
     {'1': 'session_id', '3': 2, '4': 1, '5': 9, '10': 'sessionId'},
+    {'1': 'project_id', '3': 3, '4': 1, '5': 9, '10': 'projectId'},
   ],
 };
 
 /// Descriptor for `GetSessionRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List getSessionRequestDescriptor = $convert.base64Decode(
     'ChFHZXRTZXNzaW9uUmVxdWVzdBIdCgpyZXF1ZXN0X2lkGAEgASgEUglyZXF1ZXN0SWQSHQoKc2'
-    'Vzc2lvbl9pZBgCIAEoCVIJc2Vzc2lvbklk');
+    'Vzc2lvbl9pZBgCIAEoCVIJc2Vzc2lvbklkEh0KCnByb2plY3RfaWQYAyABKAlSCXByb2plY3RJ'
+    'ZA==');
 
 @$core.Deprecated('Use getSessionResponseDescriptor instead')
 const GetSessionResponse$json = {
@@ -733,20 +1277,14 @@ const CreateSessionRequest$json = {
   '1': 'CreateSessionRequest',
   '2': [
     {'1': 'request_id', '3': 1, '4': 1, '5': 4, '10': 'requestId'},
-    {
-      '1': 'working_directory',
-      '3': 2,
-      '4': 1,
-      '5': 9,
-      '10': 'workingDirectory'
-    },
+    {'1': 'project_id', '3': 2, '4': 1, '5': 9, '10': 'projectId'},
   ],
 };
 
 /// Descriptor for `CreateSessionRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List createSessionRequestDescriptor = $convert.base64Decode(
-    'ChRDcmVhdGVTZXNzaW9uUmVxdWVzdBIdCgpyZXF1ZXN0X2lkGAEgASgEUglyZXF1ZXN0SWQSKw'
-    'oRd29ya2luZ19kaXJlY3RvcnkYAiABKAlSEHdvcmtpbmdEaXJlY3Rvcnk=');
+    'ChRDcmVhdGVTZXNzaW9uUmVxdWVzdBIdCgpyZXF1ZXN0X2lkGAEgASgEUglyZXF1ZXN0SWQSHQ'
+    'oKcHJvamVjdF9pZBgCIAEoCVIJcHJvamVjdElk');
 
 @$core.Deprecated('Use createSessionResponseDescriptor instead')
 const CreateSessionResponse$json = {

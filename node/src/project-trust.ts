@@ -8,7 +8,7 @@ import {
 const authorizationBrand: unique symbol = Symbol("ProjectTrustAuthorization");
 
 export type ProjectTrustDecision = "trust" | "deny" | "undecided";
-export type ProjectTrustSource = "not-required" | "saved" | "decision-provider";
+export type ProjectTrustSource = "not-required" | "restricted" | "saved" | "decision-provider";
 
 export interface ProjectTrustRequest {
   readonly cwd: string;
@@ -23,6 +23,17 @@ export type ProjectTrustDecisionProvider = (
 export interface ProjectTrustBackend {
   hasProtectedProjectResources(cwd: string): boolean | Promise<boolean>;
   readSavedDecision(cwd: string, agentDir: string): boolean | null | Promise<boolean | null>;
+  writeSavedDecision?(
+    cwd: string,
+    agentDir: string,
+    decision: boolean | null,
+  ): void | Promise<void>;
+}
+
+export interface ProjectTrustInspection {
+  readonly cwd: string;
+  readonly hasProtectedProjectResources: boolean;
+  readonly savedDecision: boolean | null;
 }
 
 export interface ProjectTrustAuthorization {
@@ -37,7 +48,8 @@ export type ProjectTrustErrorCode =
   | "project-path-invalid"
   | "project-trust-denied"
   | "project-trust-unresolved"
-  | "project-trust-resolution-failed";
+  | "project-trust-resolution-failed"
+  | "project-trust-persist-failed";
 
 export class ProjectTrustError extends Error {
   constructor(
@@ -70,6 +82,10 @@ export class PublicPiSdkProjectTrustBackend implements ProjectTrustBackend {
   readSavedDecision(cwd: string, agentDir: string): boolean | null {
     return new ProjectTrustStore(agentDir).get(cwd);
   }
+
+  writeSavedDecision(cwd: string, agentDir: string, decision: boolean | null): void {
+    new ProjectTrustStore(agentDir).set(cwd, decision);
+  }
 }
 
 export interface ProjectTrustCoordinatorOptions {
@@ -89,10 +105,10 @@ export class ProjectTrustCoordinator {
     this.#canonicalizePath = options.canonicalizePath ?? realpath;
   }
 
-  async authorize(input: {
+  async inspect(input: {
     readonly cwd: string;
     readonly agentDir: string;
-  }): Promise<ProjectTrustAuthorization> {
+  }): Promise<ProjectTrustInspection> {
     let cwd: string;
     try {
       cwd = await this.#canonicalizePath(input.cwd);
@@ -116,7 +132,7 @@ export class ProjectTrustCoordinator {
     }
 
     if (!hasProtectedProjectResources) {
-      return this.#createAuthorization(cwd, false, "not-required");
+      return Object.freeze({ cwd, hasProtectedProjectResources, savedDecision: null });
     }
 
     let savedDecision: boolean | null;
@@ -129,11 +145,35 @@ export class ProjectTrustCoordinator {
         { cause: error },
       );
     }
+    return Object.freeze({ cwd, hasProtectedProjectResources, savedDecision });
+  }
 
-    if (savedDecision === true) {
-      return this.#createAuthorization(cwd, true, "saved");
+  async authorizeMetadata(input: {
+    readonly cwd: string;
+    readonly agentDir: string;
+  }): Promise<ProjectTrustAuthorization> {
+    const inspection = await this.inspect(input);
+    if (!inspection.hasProtectedProjectResources) {
+      return this.#createAuthorization(inspection.cwd, false, "not-required");
     }
-    if (savedDecision === false) {
+    if (inspection.savedDecision === true) {
+      return this.#createAuthorization(inspection.cwd, true, "saved");
+    }
+    return this.#createAuthorization(inspection.cwd, false, "restricted");
+  }
+
+  async authorize(input: {
+    readonly cwd: string;
+    readonly agentDir: string;
+  }): Promise<ProjectTrustAuthorization> {
+    const inspection = await this.inspect(input);
+    if (!inspection.hasProtectedProjectResources) {
+      return this.#createAuthorization(inspection.cwd, false, "not-required");
+    }
+    if (inspection.savedDecision === true) {
+      return this.#createAuthorization(inspection.cwd, true, "saved");
+    }
+    if (inspection.savedDecision === false) {
       throw new ProjectTrustError(
         "project-trust-denied",
         "Protected project resources are not trusted.",
@@ -149,9 +189,9 @@ export class ProjectTrustCoordinator {
     let decision: ProjectTrustDecision;
     try {
       decision = await this.#decisionProvider({
-        cwd,
+        cwd: inspection.cwd,
         agentDir: input.agentDir,
-        hasProtectedProjectResources,
+        hasProtectedProjectResources: inspection.hasProtectedProjectResources,
       });
     } catch (error) {
       throw new ProjectTrustError(
@@ -162,7 +202,7 @@ export class ProjectTrustCoordinator {
     }
 
     if (decision === "trust") {
-      return this.#createAuthorization(cwd, true, "decision-provider");
+      return this.#createAuthorization(inspection.cwd, true, "decision-provider");
     }
     if (decision === "deny") {
       throw new ProjectTrustError(
@@ -170,11 +210,41 @@ export class ProjectTrustCoordinator {
         "Protected project resources are not trusted.",
       );
     }
-
     throw new ProjectTrustError(
       "project-trust-unresolved",
       "Protected project resources require an explicit trust decision.",
     );
+  }
+
+  async approve(input: {
+    readonly cwd: string;
+    readonly agentDir: string;
+  }): Promise<ProjectTrustAuthorization> {
+    const inspection = await this.inspect(input);
+    if (!inspection.hasProtectedProjectResources) {
+      return this.#createAuthorization(inspection.cwd, false, "not-required");
+    }
+    if (!this.#backend.writeSavedDecision) {
+      throw new ProjectTrustError(
+        "project-trust-persist-failed",
+        "The project trust backend cannot persist approval.",
+      );
+    }
+
+    try {
+      await this.#backend.writeSavedDecision(inspection.cwd, input.agentDir, true);
+      const savedDecision = await this.#backend.readSavedDecision(inspection.cwd, input.agentDir);
+      if (savedDecision !== true) {
+        throw new Error("The persisted project trust decision could not be confirmed.");
+      }
+    } catch (error) {
+      throw new ProjectTrustError(
+        "project-trust-persist-failed",
+        "Project trust approval could not be persisted.",
+        { cause: error },
+      );
+    }
+    return this.#createAuthorization(inspection.cwd, true, "saved");
   }
 
   #createAuthorization(

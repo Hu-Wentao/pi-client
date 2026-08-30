@@ -120,7 +120,7 @@ void main() {
 
     await expectLater(
       find.byKey(const Key('workspaceScaffold')),
-      matchesGoldenFile('../site/public/assets/workspace-preview.png'),
+      matchesGoldenFile('goldens/workspace_marketing_project_trust.png'),
     );
 
     await tester.pumpWidget(const SizedBox.shrink());

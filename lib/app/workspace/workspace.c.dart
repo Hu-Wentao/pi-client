@@ -9,10 +9,13 @@
 /// Public Views:
 /// - [WorkspaceView] — typed Page primary View.
 /// Widget Tree: [WorkspaceView] > [NodeConnectionView],
-///   [SessionBrowserView], [ConversationView] > [PiMessageBubble] × N,
-///   [PromptComposerView]
+///   [ProjectBrowserView], [SessionBrowserView],
+///   [ConversationView] > [PiMessageBubble] × N, [PromptComposerView],
+///   [ProjectTrustDialog] (conditional)
 /// Theme: material
 /// Events: [WorkspaceStarted], [WorkspaceConnectionRetried],
+///   [WorkspaceProjectDirectoryBrowsed], [WorkspaceProjectPathValidated],
+///   [WorkspaceProjectSelected], [WorkspaceProjectTrustApproved],
 ///   [WorkspaceSessionsRefreshed], [WorkspaceSessionSelected],
 ///   [WorkspaceNewSessionRequested], [WorkspacePromptSubmitted],
 ///   [WorkspaceAgentStopped]
@@ -22,7 +25,10 @@
 /// Notes: The typed root route remains at `/`. [WorkspaceService] delegates
 ///   only to the app-owned [PiNodeApi], while [WorkspaceViewModel] owns typed
 ///   [PiSessionSummary], [PiMessage], and [PiSessionEvent] feature state and
-///   subscriptions. Startup connects and lists; refresh, selection, creation,
+///   subscriptions. Startup connects, resolves the Node-owned default project,
+///   loads session-derived known projects, and lists the selected project's
+///   sessions; directory browsing, manual-path validation, project selection,
+///   explicit trust approval, refresh, session selection, creation,
 ///   prompt admission, ordered events, sequence-gap recovery, abort, and clean
 ///   close remain observable. Local-host, remote-node-required, unsupported,
 ///   empty, rejected, uncertain, disconnected, retry, and stale-result-safe
@@ -48,6 +54,12 @@ abstract class WorkspaceModel with _$WorkspaceModel {
     @Default(WorkspaceEventStatus.idle) WorkspaceEventStatus eventStatus,
     @Default(WorkspacePromptAdmissionStatus.idle)
     WorkspacePromptAdmissionStatus promptAdmissionStatus,
+    @JsonKey(includeToJson: false) PiProjectBootstrap? projectBootstrap,
+    @JsonKey(includeToJson: false)
+    @Default(<PiKnownProject>[])
+    List<PiKnownProject> knownProjects,
+    @JsonKey(includeToJson: false) PiProject? selectedProject,
+    @JsonKey(includeToJson: false) PiDirectoryListing? projectDirectory,
     @JsonKey(includeToJson: false)
     @Default(<PiSessionSummary>[])
     List<PiSessionSummary> sessions,
@@ -55,12 +67,17 @@ abstract class WorkspaceModel with _$WorkspaceModel {
     @JsonKey(includeToJson: false)
     @Default(<PiMessage>[])
     List<PiMessage> messages,
+    @Default(false) bool projectLoading,
+    @Default(false) bool projectBrowsing,
+    @Default(false) bool projectValidating,
+    @Default(false) bool projectTrustApproving,
     @Default(false) bool sessionsLoading,
     @Default(false) bool conversationLoading,
     @Default(false) bool creatingSession,
     @Default(false) bool sending,
     @Default(false) bool stopping,
     String? nodeError,
+    String? projectError,
     String? sessionError,
     String? conversationError,
     String? promptError,
@@ -80,6 +97,34 @@ final class WorkspaceConnectionRetried extends WorkspaceEvent {
   const WorkspaceConnectionRetried();
 }
 
+final class WorkspaceProjectDirectoryBrowsed extends WorkspaceEvent {
+  const WorkspaceProjectDirectoryBrowsed(this.directory);
+
+  final String directory;
+}
+
+final class WorkspaceProjectPathValidated extends WorkspaceEvent {
+  const WorkspaceProjectPathValidated(this.candidateDirectory);
+
+  final String candidateDirectory;
+}
+
+final class WorkspaceProjectSelected extends WorkspaceEvent {
+  const WorkspaceProjectSelected(this.project);
+
+  final PiProject project;
+}
+
+final class WorkspaceProjectTrustApproved extends WorkspaceEvent {
+  const WorkspaceProjectTrustApproved({
+    this.createSessionAfterApproval = false,
+    this.sessionIdAfterApproval,
+  });
+
+  final bool createSessionAfterApproval;
+  final PiSessionId? sessionIdAfterApproval;
+}
+
 final class WorkspaceSessionsRefreshed extends WorkspaceEvent {
   const WorkspaceSessionsRefreshed();
 }
@@ -91,9 +136,7 @@ final class WorkspaceSessionSelected extends WorkspaceEvent {
 }
 
 final class WorkspaceNewSessionRequested extends WorkspaceEvent {
-  const WorkspaceNewSessionRequested(this.workingDirectory);
-
-  final String workingDirectory;
+  const WorkspaceNewSessionRequested();
 }
 
 final class WorkspacePromptSubmitted extends WorkspaceEvent {

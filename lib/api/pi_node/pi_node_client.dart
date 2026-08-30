@@ -82,9 +82,123 @@ final class PiNodeClient implements PiNodeApi {
   }
 
   @override
-  Future<List<PiSessionSummary>> listSessions() =>
+  Future<PiProjectBootstrap> getProjectBootstrap() =>
+      _sendRequest<PiProjectBootstrap>(
+        (requestId) =>
+            PiProtocolGetProjectBootstrapRequest(requestId: requestId),
+        (message) => switch (message) {
+          PiProtocolProjectBootstrapResponse(
+            :final homeDirectory,
+            :final defaultProject,
+          ) =>
+            PiProjectBootstrap(
+              homeDirectory: homeDirectory,
+              defaultProject: _projectFromProtocol(defaultProject),
+            ),
+          PiProtocolRequestRejectedMessage(:final failure) =>
+            throw PiNodeException.fromProtocolFailure(failure),
+          _ => throw const PiNodeException(
+            PiNodeErrorCode.unexpectedResponse,
+            retryable: false,
+          ),
+        },
+      );
+
+  @override
+  Future<PiDirectoryListing> browseDirectory(
+    PiBrowseDirectoryRequest request,
+  ) => _sendRequest<PiDirectoryListing>(
+    (requestId) => PiProtocolBrowseDirectoryRequest(
+      requestId: requestId,
+      directory: request.directory,
+      maxChildren: request.maxChildren,
+    ),
+    (message) => switch (message) {
+      PiProtocolDirectoryResponse(:final directory) => _directoryFromProtocol(
+        directory,
+      ),
+      PiProtocolRequestRejectedMessage(:final failure) =>
+        throw PiNodeException.fromProtocolFailure(failure),
+      _ => throw const PiNodeException(
+        PiNodeErrorCode.unexpectedResponse,
+        retryable: false,
+      ),
+    },
+  );
+
+  @override
+  Future<PiProject> validateProject(PiValidateProjectRequest request) =>
+      _sendRequest<PiProject>(
+        (requestId) => PiProtocolValidateProjectRequest(
+          requestId: requestId,
+          candidateDirectory: request.candidateDirectory,
+        ),
+        (message) => switch (message) {
+          PiProtocolProjectValidatedResponse(:final project) =>
+            _projectFromProtocol(project),
+          PiProtocolRequestRejectedMessage(:final failure) =>
+            throw PiNodeException.fromProtocolFailure(failure),
+          _ => throw const PiNodeException(
+            PiNodeErrorCode.unexpectedResponse,
+            retryable: false,
+          ),
+        },
+      );
+
+  @override
+  Future<List<PiKnownProject>> listKnownProjects({int maxProjects = 24}) =>
+      _sendRequest<List<PiKnownProject>>(
+        (requestId) => PiProtocolListKnownProjectsRequest(
+          requestId: requestId,
+          maxProjects: maxProjects,
+        ),
+        (message) => switch (message) {
+          PiProtocolKnownProjectsResponse(:final projects) =>
+            List<PiKnownProject>.unmodifiable(
+              projects.map(
+                (known) => PiKnownProject(
+                  project: _projectFromProtocol(known.project),
+                  lastSessionAt: known.lastSessionAt,
+                  sessionCount: known.sessionCount,
+                ),
+              ),
+            ),
+          PiProtocolRequestRejectedMessage(:final failure) =>
+            throw PiNodeException.fromProtocolFailure(failure),
+          _ => throw const PiNodeException(
+            PiNodeErrorCode.unexpectedResponse,
+            retryable: false,
+          ),
+        },
+      );
+
+  @override
+  Future<PiProject> approveProjectTrust(PiProjectTrustApproval approval) =>
+      _sendRequest<PiProject>(
+        (requestId) => PiProtocolApproveProjectTrustRequest(
+          requestId: requestId,
+          projectId: approval.projectId.value,
+          trustRevision: approval.revision.value,
+        ),
+        (message) => switch (message) {
+          PiProtocolProjectTrustApprovedResponse(:final project) =>
+            _projectFromProtocol(project),
+          PiProtocolRequestRejectedMessage(:final failure) =>
+            throw PiNodeException.fromProtocolFailure(failure),
+          _ => throw const PiNodeException(
+            PiNodeErrorCode.unexpectedResponse,
+            retryable: false,
+          ),
+        },
+      );
+
+  @override
+  Future<List<PiSessionSummary>> listSessions(PiProjectId projectId) =>
       _sendRequest<List<PiSessionSummary>>(
-        (requestId) => PiProtocolListSessionsRequest(requestId: requestId),
+        (requestId) => PiProtocolListSessionsRequest(
+          requestId: requestId,
+          projectId: projectId.value,
+        ),
         (message) => switch (message) {
           PiProtocolSessionsResponse(:final sessions) =>
             List<PiSessionSummary>.unmodifiable(
@@ -100,30 +214,34 @@ final class PiNodeClient implements PiNodeApi {
       );
 
   @override
-  Future<PiSessionDetail> getSession(PiSessionId sessionId) =>
-      _sendRequest<PiSessionDetail>(
-        (requestId) => PiProtocolGetSessionRequest(
-          requestId: requestId,
-          sessionId: sessionId.value,
-        ),
-        (message) => switch (message) {
-          PiProtocolSessionResponse(:final session) =>
-            _sessionDetailFromProtocol(session),
-          PiProtocolRequestRejectedMessage(:final failure) =>
-            throw PiNodeException.fromProtocolFailure(failure),
-          _ => throw const PiNodeException(
-            PiNodeErrorCode.unexpectedResponse,
-            retryable: false,
-          ),
-        },
-      );
+  Future<PiSessionDetail> getSession(
+    PiProjectId projectId,
+    PiSessionId sessionId,
+  ) => _sendRequest<PiSessionDetail>(
+    (requestId) => PiProtocolGetSessionRequest(
+      requestId: requestId,
+      sessionId: sessionId.value,
+      projectId: projectId.value,
+    ),
+    (message) => switch (message) {
+      PiProtocolSessionResponse(:final session) => _sessionDetailFromProtocol(
+        session,
+      ),
+      PiProtocolRequestRejectedMessage(:final failure) =>
+        throw PiNodeException.fromProtocolFailure(failure),
+      _ => throw const PiNodeException(
+        PiNodeErrorCode.unexpectedResponse,
+        retryable: false,
+      ),
+    },
+  );
 
   @override
   Future<PiSessionDetail> createSession(PiCreateSessionRequest request) =>
       _sendRequest<PiSessionDetail>(
         (requestId) => PiProtocolCreateSessionRequest(
           requestId: requestId,
-          workingDirectory: request.workingDirectory,
+          projectId: request.projectId.value,
         ),
         (message) => switch (message) {
           PiProtocolSessionCreatedResponse(:final session) =>
@@ -614,6 +732,66 @@ final class _PendingCommand implements _PendingOperation {
     }
   }
 }
+
+PiProject _projectFromProtocol(PiProtocolProjectSnapshot value) => PiProject(
+  identity: PiProjectIdentity(
+    projectId: PiProjectId(value.identity.projectId),
+    canonicalWorkingDirectory: value.identity.canonicalWorkingDirectory,
+    isGitRepository: value.identity.isGitRepository,
+    gitRoot: value.identity.gitRoot,
+    mainWorktreeRoot: value.identity.mainWorktreeRoot,
+    branch: value.identity.branch,
+    isLinkedWorktree: value.identity.isLinkedWorktree,
+    isDetachedHead: value.identity.isDetachedHead,
+    worktreeId: PiWorktreeId(value.identity.worktreeId),
+    mainProjectId: PiMainProjectId(value.identity.mainProjectId),
+  ),
+  trust: PiProjectTrustSnapshot(
+    status: switch (value.trust.status) {
+      PiProtocolProjectTrustStatus.notRequired =>
+        PiProjectTrustStatus.notRequired,
+      PiProtocolProjectTrustStatus.trusted => PiProjectTrustStatus.trusted,
+      PiProtocolProjectTrustStatus.approvalRequired =>
+        PiProjectTrustStatus.approvalRequired,
+      PiProtocolProjectTrustStatus.denied => PiProjectTrustStatus.denied,
+    },
+    reasons: value.trust.reasons.map(
+      (reason) => switch (reason) {
+        PiProtocolProjectTrustReason.piSettings =>
+          PiProjectTrustReason.piSettings,
+        PiProtocolProjectTrustReason.piExtensions =>
+          PiProjectTrustReason.piExtensions,
+        PiProtocolProjectTrustReason.piSkills => PiProjectTrustReason.piSkills,
+        PiProtocolProjectTrustReason.piPrompts =>
+          PiProjectTrustReason.piPrompts,
+        PiProtocolProjectTrustReason.piThemes => PiProjectTrustReason.piThemes,
+        PiProtocolProjectTrustReason.piSystemPrompt =>
+          PiProjectTrustReason.piSystemPrompt,
+        PiProtocolProjectTrustReason.agentSkills =>
+          PiProjectTrustReason.agentSkills,
+        PiProtocolProjectTrustReason.savedApproval =>
+          PiProjectTrustReason.savedApproval,
+        PiProtocolProjectTrustReason.savedDenial =>
+          PiProjectTrustReason.savedDenial,
+      },
+    ),
+    revision: PiProjectTrustRevision(value.trust.revision),
+  ),
+);
+
+PiDirectoryListing _directoryFromProtocol(PiProtocolDirectoryListing value) =>
+    PiDirectoryListing(
+      canonicalDirectory: value.canonicalDirectory,
+      parentDirectory: value.parentDirectory,
+      children: value.children.map(
+        (child) => PiDirectoryEntry(
+          name: child.name,
+          canonicalPath: child.canonicalPath,
+          isSymbolicLink: child.isSymbolicLink,
+        ),
+      ),
+      truncated: value.truncated,
+    );
 
 PiSessionSummary _sessionSummaryFromProtocol(PiProtocolSessionSummary value) =>
     PiSessionSummary(

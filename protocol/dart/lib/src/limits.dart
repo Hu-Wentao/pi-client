@@ -8,5 +8,7 @@ const maxErrorMessageBytes = 4 * 1024;
 const maxProtocolVersions = 16;
 const maxCapabilities = 32;
 const maxSessionsPerResponse = 4096;
+const maxDirectoryChildren = 128;
+const maxKnownProjects = 64;
 const maxMessagesPerSessionSnapshot = 16384;
 const sha256Bytes = 32;

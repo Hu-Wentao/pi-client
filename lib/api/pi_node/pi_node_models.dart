@@ -49,6 +49,345 @@ final class PiCommandId {
   String toString() => 'PiCommandId(<redacted>)';
 }
 
+final class PiProjectId {
+  PiProjectId(String value) : value = _validatedOpaqueId(value, 'projectId');
+
+  final String value;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PiProjectId && value == other.value;
+
+  @override
+  int get hashCode => value.hashCode;
+
+  @override
+  String toString() => 'PiProjectId(<redacted>)';
+}
+
+final class PiWorktreeId {
+  PiWorktreeId(String value) : value = _validatedOpaqueId(value, 'worktreeId');
+
+  final String value;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PiWorktreeId && value == other.value;
+
+  @override
+  int get hashCode => value.hashCode;
+
+  @override
+  String toString() => 'PiWorktreeId(<redacted>)';
+}
+
+final class PiMainProjectId {
+  PiMainProjectId(String value)
+    : value = _validatedOpaqueId(value, 'mainProjectId');
+
+  final String value;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PiMainProjectId && value == other.value;
+
+  @override
+  int get hashCode => value.hashCode;
+
+  @override
+  String toString() => 'PiMainProjectId(<redacted>)';
+}
+
+final class PiProjectTrustRevision {
+  PiProjectTrustRevision(String value)
+    : value = _validatedOpaqueId(value, 'trustRevision');
+
+  final String value;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PiProjectTrustRevision && value == other.value;
+
+  @override
+  int get hashCode => value.hashCode;
+
+  @override
+  String toString() => 'PiProjectTrustRevision(<redacted>)';
+}
+
+enum PiProjectTrustStatus { notRequired, trusted, approvalRequired, denied }
+
+enum PiProjectTrustReason {
+  piSettings,
+  piExtensions,
+  piSkills,
+  piPrompts,
+  piThemes,
+  piSystemPrompt,
+  agentSkills,
+  savedApproval,
+  savedDenial,
+}
+
+final class PiProjectTrustSnapshot {
+  PiProjectTrustSnapshot({
+    required this.status,
+    required Iterable<PiProjectTrustReason> reasons,
+    required this.revision,
+  }) : reasons = List<PiProjectTrustReason>.unmodifiable(reasons) {
+    if (status == PiProjectTrustStatus.notRequired && this.reasons.isNotEmpty) {
+      throw ArgumentError('A trust-free project must not contain reasons.');
+    }
+    if (status != PiProjectTrustStatus.notRequired && this.reasons.isEmpty) {
+      throw ArgumentError('A restricted or trusted project requires reasons.');
+    }
+  }
+
+  final PiProjectTrustStatus status;
+  final List<PiProjectTrustReason> reasons;
+  final PiProjectTrustRevision revision;
+
+  bool get allowsProjectResources => status == PiProjectTrustStatus.trusted;
+  bool get requiresApproval =>
+      status == PiProjectTrustStatus.approvalRequired ||
+      status == PiProjectTrustStatus.denied;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PiProjectTrustSnapshot &&
+      status == other.status &&
+      revision == other.revision &&
+      _sameList(reasons, other.reasons);
+
+  @override
+  int get hashCode => Object.hash(status, revision, Object.hashAll(reasons));
+
+  @override
+  String toString() =>
+      'PiProjectTrustSnapshot(status: $status, reasons: ${reasons.length}, <redacted>)';
+}
+
+final class PiProjectIdentity {
+  PiProjectIdentity({
+    required this.projectId,
+    required String canonicalWorkingDirectory,
+    required this.isGitRepository,
+    String? gitRoot,
+    String? mainWorktreeRoot,
+    String? branch,
+    required this.isLinkedWorktree,
+    required this.isDetachedHead,
+    required this.worktreeId,
+    required this.mainProjectId,
+  }) : canonicalWorkingDirectory = _validatedPath(canonicalWorkingDirectory),
+       gitRoot = gitRoot == null ? null : _validatedPath(gitRoot),
+       mainWorktreeRoot = mainWorktreeRoot == null
+           ? null
+           : _validatedPath(mainWorktreeRoot),
+       branch = branch == null
+           ? null
+           : _validatedText(branch, 'branch', allowEmpty: false) {
+    if (isGitRepository &&
+        (this.gitRoot == null || this.mainWorktreeRoot == null)) {
+      throw ArgumentError('Git project identity requires Git roots.');
+    }
+    if (!isGitRepository &&
+        (this.gitRoot != null ||
+            this.mainWorktreeRoot != null ||
+            this.branch != null ||
+            isLinkedWorktree ||
+            isDetachedHead)) {
+      throw ArgumentError('Non-Git project identity contains Git-only fields.');
+    }
+    if (isDetachedHead && this.branch != null) {
+      throw ArgumentError(
+        'Detached project identity must not contain a branch.',
+      );
+    }
+  }
+
+  final PiProjectId projectId;
+  final String canonicalWorkingDirectory;
+  final bool isGitRepository;
+  final String? gitRoot;
+  final String? mainWorktreeRoot;
+  final String? branch;
+  final bool isLinkedWorktree;
+  final bool isDetachedHead;
+  final PiWorktreeId worktreeId;
+  final PiMainProjectId mainProjectId;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PiProjectIdentity &&
+      projectId == other.projectId &&
+      canonicalWorkingDirectory == other.canonicalWorkingDirectory &&
+      isGitRepository == other.isGitRepository &&
+      gitRoot == other.gitRoot &&
+      mainWorktreeRoot == other.mainWorktreeRoot &&
+      branch == other.branch &&
+      isLinkedWorktree == other.isLinkedWorktree &&
+      isDetachedHead == other.isDetachedHead &&
+      worktreeId == other.worktreeId &&
+      mainProjectId == other.mainProjectId;
+
+  @override
+  int get hashCode => Object.hash(
+    projectId,
+    canonicalWorkingDirectory,
+    isGitRepository,
+    gitRoot,
+    mainWorktreeRoot,
+    branch,
+    isLinkedWorktree,
+    isDetachedHead,
+    worktreeId,
+    mainProjectId,
+  );
+
+  @override
+  String toString() => 'PiProjectIdentity(<redacted>)';
+}
+
+final class PiProject {
+  const PiProject({required this.identity, required this.trust});
+
+  final PiProjectIdentity identity;
+  final PiProjectTrustSnapshot trust;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PiProject && identity == other.identity && trust == other.trust;
+
+  @override
+  int get hashCode => Object.hash(identity, trust);
+
+  @override
+  String toString() => 'PiProject(<redacted>)';
+}
+
+final class PiKnownProject {
+  PiKnownProject({
+    required this.project,
+    required DateTime lastSessionAt,
+    required int sessionCount,
+  }) : lastSessionAt = _validatedUtcInstant(lastSessionAt, 'lastSessionAt'),
+       sessionCount = _validatedPositiveInt(sessionCount, 'sessionCount');
+
+  final PiProject project;
+  final DateTime lastSessionAt;
+  final int sessionCount;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PiKnownProject &&
+      project == other.project &&
+      lastSessionAt == other.lastSessionAt &&
+      sessionCount == other.sessionCount;
+
+  @override
+  int get hashCode => Object.hash(project, lastSessionAt, sessionCount);
+
+  @override
+  String toString() => 'PiKnownProject(<redacted>)';
+}
+
+final class PiProjectBootstrap {
+  PiProjectBootstrap({
+    required String homeDirectory,
+    required this.defaultProject,
+  }) : homeDirectory = _validatedPath(homeDirectory);
+
+  final String homeDirectory;
+  final PiProject defaultProject;
+
+  @override
+  String toString() => 'PiProjectBootstrap(<redacted>)';
+}
+
+final class PiDirectoryEntry {
+  PiDirectoryEntry({
+    required String name,
+    required String canonicalPath,
+    required this.isSymbolicLink,
+  }) : name = _validatedText(name, 'name', allowEmpty: false),
+       canonicalPath = _validatedPath(canonicalPath);
+
+  final String name;
+  final String canonicalPath;
+  final bool isSymbolicLink;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PiDirectoryEntry &&
+      name == other.name &&
+      canonicalPath == other.canonicalPath &&
+      isSymbolicLink == other.isSymbolicLink;
+
+  @override
+  int get hashCode => Object.hash(name, canonicalPath, isSymbolicLink);
+
+  @override
+  String toString() => 'PiDirectoryEntry(<redacted>)';
+}
+
+final class PiDirectoryListing {
+  PiDirectoryListing({
+    required String canonicalDirectory,
+    String? parentDirectory,
+    required Iterable<PiDirectoryEntry> children,
+    required this.truncated,
+  }) : canonicalDirectory = _validatedPath(canonicalDirectory),
+       parentDirectory = parentDirectory == null
+           ? null
+           : _validatedPath(parentDirectory),
+       children = List<PiDirectoryEntry>.unmodifiable(children);
+
+  final String canonicalDirectory;
+  final String? parentDirectory;
+  final List<PiDirectoryEntry> children;
+  final bool truncated;
+
+  @override
+  String toString() => 'PiDirectoryListing(<redacted>)';
+}
+
+final class PiBrowseDirectoryRequest {
+  PiBrowseDirectoryRequest({required String directory, this.maxChildren = 64})
+    : directory = _validatedPath(directory) {
+    _validatedBoundedCount(maxChildren, 'maxChildren', 128);
+  }
+
+  final String directory;
+  final int maxChildren;
+
+  @override
+  String toString() => 'PiBrowseDirectoryRequest(<redacted>)';
+}
+
+final class PiValidateProjectRequest {
+  PiValidateProjectRequest({required String candidateDirectory})
+    : candidateDirectory = _validatedPath(candidateDirectory);
+
+  final String candidateDirectory;
+
+  @override
+  String toString() => 'PiValidateProjectRequest(<redacted>)';
+}
+
+final class PiProjectTrustApproval {
+  const PiProjectTrustApproval({
+    required this.projectId,
+    required this.revision,
+  });
+
+  final PiProjectId projectId;
+  final PiProjectTrustRevision revision;
+
+  @override
+  String toString() => 'PiProjectTrustApproval(<redacted>)';
+}
+
 enum PiNodeConnectionStatus {
   disconnected,
   connecting,
@@ -248,10 +587,9 @@ final class PiSessionDetail {
 }
 
 final class PiCreateSessionRequest {
-  PiCreateSessionRequest({required String workingDirectory})
-    : workingDirectory = _validatedPath(workingDirectory);
+  const PiCreateSessionRequest({required this.projectId});
 
-  final String workingDirectory;
+  final PiProjectId projectId;
 
   @override
   String toString() => 'PiCreateSessionRequest(<redacted>)';
@@ -397,6 +735,21 @@ final class PiSessionSequenceGapEvent extends PiSessionEvent {
 
   final int expectedSequence;
   final int receivedSequence;
+}
+
+bool _sameList<T>(List<T> left, List<T> right) {
+  if (left.length != right.length) return false;
+  for (var index = 0; index < left.length; index += 1) {
+    if (left[index] != right[index]) return false;
+  }
+  return true;
+}
+
+int _validatedBoundedCount(int value, String name, int maximum) {
+  if (value < 0 || value > maximum) {
+    throw ArgumentError('$name is outside the supported range.');
+  }
+  return value;
 }
 
 int _validatedPositiveInt(int value, String name) {

@@ -6,6 +6,8 @@ import {
   HealthStatus,
   MessageRole,
   PiTransportFrameSchema,
+  ProjectTrustReason,
+  ProjectTrustStatus,
 } from "../gen/ts/pi/client/protocol/v0/protocol_pb.ts";
 import { encodeTransportFrame } from "../src/frame_codec.ts";
 
@@ -46,6 +48,42 @@ const sessionBytes = encodeTransportFrame(sessionResponse);
 writeFileSync(
   resolve(vectorDirectory, "ts_session_response.pb"),
   sessionBytes,
+);
+
+const projectSnapshot = create(PiTransportFrameSchema, {
+  frameSequence: 7n,
+  operation: {
+    case: "validateProjectResponse",
+    value: {
+      requestId: 11n,
+      project: {
+        identity: {
+          projectId: "project-vector-ts",
+          canonicalWorkingDirectory: "/tmp/pi-client-project-vector",
+          isGitRepository: true,
+          gitRoot: "/tmp/pi-client-project-vector",
+          mainWorktreeRoot: "/tmp/pi-client-main-vector",
+          branch: "feature/vector",
+          isLinkedWorktree: true,
+          isDetachedHead: false,
+          worktreeId: "worktree-vector-ts",
+          mainProjectId: "main-project-vector-ts",
+        },
+        trust: {
+          status: ProjectTrustStatus.APPROVAL_REQUIRED,
+          reasons: [
+            ProjectTrustReason.PI_SETTINGS,
+            ProjectTrustReason.AGENT_SKILLS,
+          ],
+          revision: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        },
+      },
+    },
+  },
+});
+writeFileSync(
+  resolve(vectorDirectory, "ts_project_snapshot.pb"),
+  encodeTransportFrame(projectSnapshot),
 );
 
 // Unknown top-level field 19000, varint value 123. It is appended to a valid

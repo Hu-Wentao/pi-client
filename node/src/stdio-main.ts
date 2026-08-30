@@ -30,12 +30,12 @@ try {
   const launch = parseLaunchOptions(process.argv.slice(2), process.env);
   service = new domainServiceModule.PiNodeDomainService({
     agentDir: launch.agentDir,
+    defaultWorkingDirectory: launch.cwd,
     trustCoordinator: new trustModule.ProjectTrustCoordinator(),
     sessionFactory: new sdkAdapterModule.PublicPiSdkDomainSessionFactory(),
   });
   const result = await stdioModule.runPiNodeStdioServer({
     domain: new protocolAdapterModule.PiNodeDomainServiceProtocolAdapter(service),
-    workingDirectory: launch.cwd,
     implementationVersion: metadataModule.PI_NODE_VERSION,
   });
   process.exitCode =

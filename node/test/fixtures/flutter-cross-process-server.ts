@@ -6,7 +6,11 @@ import { IpcLengthPrefixDecoder, encodeIpcLengthPrefixedFrame } from "@pi-client
 
 import type {
   PiNodeAbortResult,
+  PiNodeDirectoryListing,
+  PiNodeKnownProjectSnapshot,
   PiNodeMessage,
+  PiNodeProjectBootstrap,
+  PiNodeProjectSnapshot,
   PiNodePromptAdmission,
   PiNodeProtocolDomain,
   PiNodeSessionEvent,
@@ -41,7 +45,6 @@ async function main(): Promise<void> {
   const domain = new FixtureProtocolDomain(options.cwd, options.mode);
   const connection = new production.PiNodeProtobufConnection({
     domain,
-    workingDirectory: options.cwd,
     implementationVersion: "0.1.0-dev.0",
     nodeInstanceId: "flutter-cross-process-fixture",
     streamIdFactory: (_sessionId, ordinal) => `flutter-e2e-stream-${ordinal}`,
@@ -97,6 +100,39 @@ class FixtureProtocolDomain implements PiNodeProtocolDomain {
     this.#mode = mode;
     const initial = sessionSnapshot("fixture-session", cwd, "Fixture session");
     this.#sessions.set(initial.sessionId, initial);
+  }
+
+  getProjectBootstrap(): Promise<PiNodeProjectBootstrap> {
+    return Promise.resolve({
+      homeDirectory: this.#cwd,
+      defaultProject: projectSnapshot(this.#cwd),
+    });
+  }
+
+  browseDirectory(input: { readonly directory: string }): Promise<PiNodeDirectoryListing> {
+    return Promise.resolve({
+      canonicalDirectory: input.directory,
+      children: [],
+      truncated: false,
+    });
+  }
+
+  validateProject(input: { readonly candidateDirectory: string }): Promise<PiNodeProjectSnapshot> {
+    return Promise.resolve(projectSnapshot(input.candidateDirectory));
+  }
+
+  listKnownProjects(): Promise<readonly PiNodeKnownProjectSnapshot[]> {
+    return Promise.resolve([
+      {
+        project: projectSnapshot(this.#cwd),
+        lastSessionAtMs: 1_767_268_860_000,
+        sessionCount: 1,
+      },
+    ]);
+  }
+
+  approveProjectTrust(input: { readonly canonicalCwd: string }): Promise<PiNodeProjectSnapshot> {
+    return Promise.resolve(projectSnapshot(input.canonicalCwd));
   }
 
   listSessions(): Promise<readonly PiNodeSessionSummary[]> {
@@ -358,6 +394,25 @@ function requireValue(arguments_: readonly string[], index: number): string {
     throw new Error("A fixture option is missing its value.");
   }
   return value;
+}
+
+function projectSnapshot(canonicalCwd: string): PiNodeProjectSnapshot {
+  return {
+    identity: {
+      projectId: "fixture-project",
+      canonicalCwd,
+      isGitRepository: false,
+      isLinkedWorktree: false,
+      isDetachedHead: false,
+      worktreeId: "fixture-worktree",
+      mainProjectId: "fixture-main-project",
+    },
+    trust: {
+      status: "not-required",
+      reasons: [],
+      revision: "fixture-trust-revision",
+    },
+  };
 }
 
 function sessionSnapshot(

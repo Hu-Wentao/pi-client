@@ -22,12 +22,31 @@ final _knownCapabilities = <Capability>{
   Capability.CAPABILITY_CANCELLATION,
   Capability.CAPABILITY_FLOW_CONTROL,
   Capability.CAPABILITY_TRANSFER,
+  Capability.CAPABILITY_PROJECT_DISCOVERY,
+  Capability.CAPABILITY_PROJECT_TRUST,
 };
 final _knownHealthStatuses = <HealthStatus>{
   HealthStatus.HEALTH_STATUS_STARTING,
   HealthStatus.HEALTH_STATUS_SERVING,
   HealthStatus.HEALTH_STATUS_DEGRADED,
   HealthStatus.HEALTH_STATUS_STOPPING,
+};
+final _knownProjectTrustStatuses = <ProjectTrustStatus>{
+  ProjectTrustStatus.PROJECT_TRUST_STATUS_NOT_REQUIRED,
+  ProjectTrustStatus.PROJECT_TRUST_STATUS_TRUSTED,
+  ProjectTrustStatus.PROJECT_TRUST_STATUS_APPROVAL_REQUIRED,
+  ProjectTrustStatus.PROJECT_TRUST_STATUS_DENIED,
+};
+final _knownProjectTrustReasons = <ProjectTrustReason>{
+  ProjectTrustReason.PROJECT_TRUST_REASON_PI_SETTINGS,
+  ProjectTrustReason.PROJECT_TRUST_REASON_PI_EXTENSIONS,
+  ProjectTrustReason.PROJECT_TRUST_REASON_PI_SKILLS,
+  ProjectTrustReason.PROJECT_TRUST_REASON_PI_PROMPTS,
+  ProjectTrustReason.PROJECT_TRUST_REASON_PI_THEMES,
+  ProjectTrustReason.PROJECT_TRUST_REASON_PI_SYSTEM_PROMPT,
+  ProjectTrustReason.PROJECT_TRUST_REASON_AGENT_SKILLS,
+  ProjectTrustReason.PROJECT_TRUST_REASON_SAVED_APPROVAL,
+  ProjectTrustReason.PROJECT_TRUST_REASON_SAVED_DENIAL,
 };
 final _knownMessageRoles = <MessageRole>{
   MessageRole.MESSAGE_ROLE_USER,
@@ -159,8 +178,105 @@ void validateTransportFrame(PiTransportFrame frame) {
       );
       _validateSemanticVersion('node_version', response.nodeVersion);
       return;
+    case PiTransportFrame_Operation.getProjectBootstrapRequest:
+      _validateRequestId(frame.getProjectBootstrapRequest.requestId);
+      return;
+    case PiTransportFrame_Operation.getProjectBootstrapResponse:
+      final response = frame.getProjectBootstrapResponse;
+      _validateRequestId(response.requestId);
+      _validatePath('home_directory', response.homeDirectory);
+      _requireProjectSnapshot(
+        'project bootstrap',
+        response.hasDefaultProject(),
+        response.defaultProject,
+      );
+      return;
+    case PiTransportFrame_Operation.browseDirectoryRequest:
+      final request = frame.browseDirectoryRequest;
+      _validateRequestId(request.requestId);
+      _validatePath('directory', request.directory);
+      _validateBoundedUint32(
+        'max_children',
+        request.maxChildren,
+        maxDirectoryChildren,
+        allowZero: true,
+      );
+      return;
+    case PiTransportFrame_Operation.browseDirectoryResponse:
+      final response = frame.browseDirectoryResponse;
+      _validateRequestId(response.requestId);
+      _requireDirectoryListing(
+        'browse directory response',
+        response.hasDirectory(),
+        response.directory,
+      );
+      return;
+    case PiTransportFrame_Operation.validateProjectRequest:
+      final request = frame.validateProjectRequest;
+      _validateRequestId(request.requestId);
+      _validatePath('candidate_directory', request.candidateDirectory);
+      return;
+    case PiTransportFrame_Operation.validateProjectResponse:
+      final response = frame.validateProjectResponse;
+      _validateRequestId(response.requestId);
+      _requireProjectSnapshot(
+        'validate project response',
+        response.hasProject(),
+        response.project,
+      );
+      return;
+    case PiTransportFrame_Operation.listKnownProjectsRequest:
+      final request = frame.listKnownProjectsRequest;
+      _validateRequestId(request.requestId);
+      _validateBoundedUint32(
+        'max_projects',
+        request.maxProjects,
+        maxKnownProjects,
+        allowZero: true,
+      );
+      return;
+    case PiTransportFrame_Operation.listKnownProjectsResponse:
+      final response = frame.listKnownProjectsResponse;
+      _validateRequestId(response.requestId);
+      if (response.projects.length > maxKnownProjects) {
+        _fail('known project response exceeds the local hard limit');
+      }
+      for (final known in response.projects) {
+        _requireProjectSnapshot(
+          'known project',
+          known.hasProject(),
+          known.project,
+        );
+        _validatePositiveUint64(
+          'last_session_at_unix_millis',
+          known.lastSessionAtUnixMillis,
+        );
+        _validateBoundedUint32(
+          'session_count',
+          known.sessionCount,
+          0xffffffff,
+          allowZero: false,
+        );
+      }
+      return;
+    case PiTransportFrame_Operation.approveProjectTrustRequest:
+      final request = frame.approveProjectTrustRequest;
+      _validateRequestId(request.requestId);
+      _validateIdentifier('project_id', request.projectId);
+      _validateIdentifier('trust_revision', request.trustRevision);
+      return;
+    case PiTransportFrame_Operation.approveProjectTrustResponse:
+      final response = frame.approveProjectTrustResponse;
+      _validateRequestId(response.requestId);
+      _requireProjectSnapshot(
+        'project trust approval',
+        response.hasProject(),
+        response.project,
+      );
+      return;
     case PiTransportFrame_Operation.listSessionsRequest:
       _validateRequestId(frame.listSessionsRequest.requestId);
+      _validateIdentifier('project_id', frame.listSessionsRequest.projectId);
       return;
     case PiTransportFrame_Operation.listSessionsResponse:
       final response = frame.listSessionsResponse;
@@ -180,6 +296,7 @@ void validateTransportFrame(PiTransportFrame frame) {
       final request = frame.getSessionRequest;
       _validateRequestId(request.requestId);
       _validateIdentifier('session_id', request.sessionId);
+      _validateIdentifier('project_id', request.projectId);
       return;
     case PiTransportFrame_Operation.getSessionResponse:
       final response = frame.getSessionResponse;
@@ -193,7 +310,7 @@ void validateTransportFrame(PiTransportFrame frame) {
     case PiTransportFrame_Operation.createSessionRequest:
       final request = frame.createSessionRequest;
       _validateRequestId(request.requestId);
-      _validatePath('working_directory', request.workingDirectory);
+      _validateIdentifier('project_id', request.projectId);
       return;
     case PiTransportFrame_Operation.createSessionResponse:
       final response = frame.createSessionResponse;
@@ -453,6 +570,90 @@ void _validateCapabilities(List<Capability> capabilities) {
   }
 }
 
+void _requireDirectoryListing(
+  String label,
+  bool present,
+  DirectoryListingSnapshot listing,
+) {
+  if (!present) {
+    _fail('$label must contain a directory listing');
+  }
+  _validatePath('canonical_directory', listing.canonicalDirectory);
+  if (listing.parentDirectory.isNotEmpty) {
+    _validatePath('parent_directory', listing.parentDirectory);
+  }
+  if (listing.children.length > maxDirectoryChildren) {
+    _fail('directory child count exceeds the local hard limit');
+  }
+  final names = <String>{};
+  for (final child in listing.children) {
+    _validateRequiredShortText('directory child name', child.name);
+    _validatePath('directory child canonical_path', child.canonicalPath);
+    if (!names.add(child.name)) {
+      _fail('directory listing contains a duplicate child name');
+    }
+  }
+}
+
+void _requireProjectSnapshot(
+  String label,
+  bool present,
+  ProjectSnapshot project,
+) {
+  if (!present || !project.hasIdentity() || !project.hasTrust()) {
+    _fail('$label must contain project identity and trust snapshots');
+  }
+  final identity = project.identity;
+  _validateIdentifier('project_id', identity.projectId);
+  _validatePath(
+    'canonical_working_directory',
+    identity.canonicalWorkingDirectory,
+  );
+  _validateIdentifier('worktree_id', identity.worktreeId);
+  _validateIdentifier('main_project_id', identity.mainProjectId);
+  if (identity.isGitRepository) {
+    _validatePath('git_root', identity.gitRoot);
+    _validatePath('main_worktree_root', identity.mainWorktreeRoot);
+    _validateShortText('branch', identity.branch, required: false);
+    if (identity.isDetachedHead && identity.branch.isNotEmpty) {
+      _fail('a detached project identity must not contain a branch');
+    }
+  } else if (identity.gitRoot.isNotEmpty ||
+      identity.mainWorktreeRoot.isNotEmpty ||
+      identity.branch.isNotEmpty ||
+      identity.isLinkedWorktree ||
+      identity.isDetachedHead) {
+    _fail('a non-Git project identity contains Git-only fields');
+  }
+
+  final trust = project.trust;
+  _validateKnownEnum(
+    'project trust status',
+    trust.status,
+    _knownProjectTrustStatuses,
+  );
+  _validateIdentifier('project trust revision', trust.revision);
+  final reasons = <ProjectTrustReason>{};
+  for (final reason in trust.reasons) {
+    _validateKnownEnum(
+      'project trust reason',
+      reason,
+      _knownProjectTrustReasons,
+    );
+    if (!reasons.add(reason)) {
+      _fail('project trust reasons contain a duplicate');
+    }
+  }
+  if (trust.status == ProjectTrustStatus.PROJECT_TRUST_STATUS_NOT_REQUIRED &&
+      trust.reasons.isNotEmpty) {
+    _fail('a not-required project trust snapshot must not contain reasons');
+  }
+  if (trust.status != ProjectTrustStatus.PROJECT_TRUST_STATUS_NOT_REQUIRED &&
+      trust.reasons.isEmpty) {
+    _fail('a restricted or trusted project must contain a trust reason');
+  }
+}
+
 void _requireSessionDetail(
   String label,
   bool hasDetail,
@@ -559,6 +760,17 @@ void _validateStableError(StableError error) {
 void _validateDigest(List<int> digest) {
   if (digest.isNotEmpty && digest.length != sha256Bytes) {
     _fail('sha256 must be empty or exactly 32 bytes');
+  }
+}
+
+void _validateBoundedUint32(
+  String label,
+  int value,
+  int maximum, {
+  required bool allowZero,
+}) {
+  if (value < (allowZero ? 0 : 1) || value > maximum) {
+    _fail('$label is outside the local uint32 limit');
   }
 }
 

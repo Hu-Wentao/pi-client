@@ -32,6 +32,8 @@ function operationOffer(minor = 1): FrameOperationInit {
         Capability.PROMPT_COMMAND,
         Capability.ABORT_COMMAND,
         Capability.SESSION_EVENTS,
+        Capability.PROJECT_DISCOVERY,
+        Capability.PROJECT_TRUST,
       ],
       clientInstanceId: "stdio-e2e-client",
       implementationName: "Pi Client E2E",
@@ -49,16 +51,31 @@ test("binary stdio E2E covers handshake, sessions, prompt events, abort, and dis
   await client.send(1n, operationOffer());
   assert.equal((await client.next()).operation.case, "serverHandshakeAccepted");
 
-  await client.send(2n, { case: "listSessionsRequest", value: { requestId: 1n } });
+  await client.send(2n, {
+    case: "getProjectBootstrapRequest",
+    value: { requestId: 1n },
+  });
+  const bootstrap = await client.next();
+  assert.equal(bootstrap.operation.case, "getProjectBootstrapResponse");
+  const projectId =
+    bootstrap.operation.case === "getProjectBootstrapResponse"
+      ? bootstrap.operation.value.defaultProject?.identity?.projectId
+      : undefined;
+  assert.ok(projectId);
+
+  await client.send(3n, {
+    case: "listSessionsRequest",
+    value: { requestId: 2n, projectId },
+  });
   const listed = await client.next();
   assert.equal(listed.operation.case, "listSessionsResponse");
   if (listed.operation.case === "listSessionsResponse") {
     assert.equal(listed.operation.value.sessions[0]?.sessionId, "session-1");
   }
 
-  await client.send(3n, {
+  await client.send(4n, {
     case: "createSessionRequest",
-    value: { requestId: 2n, workingDirectory: "/created-project" },
+    value: { requestId: 3n, projectId },
   });
   const created = await client.next();
   assert.equal(created.operation.case, "createSessionResponse");
@@ -66,9 +83,9 @@ test("binary stdio E2E covers handshake, sessions, prompt events, abort, and dis
     assert.equal(created.operation.value.session?.summary?.sessionId, "created-1");
   }
 
-  await client.send(4n, {
+  await client.send(5n, {
     case: "getSessionRequest",
-    value: { requestId: 3n, sessionId: "session-1" },
+    value: { requestId: 4n, sessionId: "session-1", projectId },
   });
   const loaded = await client.next();
   assert.equal(loaded.operation.case, "getSessionResponse");
@@ -76,10 +93,10 @@ test("binary stdio E2E covers handshake, sessions, prompt events, abort, and dis
     assert.equal(loaded.operation.value.session?.summary?.sessionId, "session-1");
   }
 
-  await client.send(5n, {
+  await client.send(6n, {
     case: "promptCommand",
     value: {
-      requestId: 4n,
+      requestId: 5n,
       commandId: "prompt-stdio",
       sessionId: "session-1",
       prompt: "Run the stdio test",
@@ -92,10 +109,10 @@ test("binary stdio E2E covers handshake, sessions, prompt events, abort, and dis
     ["sessionEventStream", "sessionEventStream", "sessionEventStream"],
   );
 
-  await client.send(6n, {
+  await client.send(7n, {
     case: "abortCommand",
     value: {
-      requestId: 5n,
+      requestId: 6n,
       commandId: "abort-stdio",
       sessionId: "session-1",
     },

@@ -60,29 +60,88 @@ final class ProtobufPiProtocolCodec implements PiProtocolCodec {
           maxTransferChunkBytes: wire.maxTransferChunkBytes,
         ),
       ),
-      PiProtocolListSessionsRequest(:final requestId) => wire.PiTransportFrame(
-        frameSequence: _wirePositiveInt(frameSequence),
-        listSessionsRequest: wire.ListSessionsRequest(
-          requestId: _wirePositiveInt(requestId),
+      PiProtocolGetProjectBootstrapRequest(:final requestId) =>
+        wire.PiTransportFrame(
+          frameSequence: _wirePositiveInt(frameSequence),
+          getProjectBootstrapRequest: wire.GetProjectBootstrapRequest(
+            requestId: _wirePositiveInt(requestId),
+          ),
         ),
-      ),
-      PiProtocolGetSessionRequest(:final requestId, :final sessionId) =>
+      PiProtocolBrowseDirectoryRequest(
+        :final requestId,
+        :final directory,
+        :final maxChildren,
+      ) =>
+        wire.PiTransportFrame(
+          frameSequence: _wirePositiveInt(frameSequence),
+          browseDirectoryRequest: wire.BrowseDirectoryRequest(
+            requestId: _wirePositiveInt(requestId),
+            directory: directory,
+            maxChildren: maxChildren,
+          ),
+        ),
+      PiProtocolValidateProjectRequest(
+        :final requestId,
+        :final candidateDirectory,
+      ) =>
+        wire.PiTransportFrame(
+          frameSequence: _wirePositiveInt(frameSequence),
+          validateProjectRequest: wire.ValidateProjectRequest(
+            requestId: _wirePositiveInt(requestId),
+            candidateDirectory: candidateDirectory,
+          ),
+        ),
+      PiProtocolListKnownProjectsRequest(
+        :final requestId,
+        :final maxProjects,
+      ) =>
+        wire.PiTransportFrame(
+          frameSequence: _wirePositiveInt(frameSequence),
+          listKnownProjectsRequest: wire.ListKnownProjectsRequest(
+            requestId: _wirePositiveInt(requestId),
+            maxProjects: maxProjects,
+          ),
+        ),
+      PiProtocolApproveProjectTrustRequest(
+        :final requestId,
+        :final projectId,
+        :final trustRevision,
+      ) =>
+        wire.PiTransportFrame(
+          frameSequence: _wirePositiveInt(frameSequence),
+          approveProjectTrustRequest: wire.ApproveProjectTrustRequest(
+            requestId: _wirePositiveInt(requestId),
+            projectId: projectId,
+            trustRevision: trustRevision,
+          ),
+        ),
+      PiProtocolListSessionsRequest(:final requestId, :final projectId) =>
+        wire.PiTransportFrame(
+          frameSequence: _wirePositiveInt(frameSequence),
+          listSessionsRequest: wire.ListSessionsRequest(
+            requestId: _wirePositiveInt(requestId),
+            projectId: projectId,
+          ),
+        ),
+      PiProtocolGetSessionRequest(
+        :final requestId,
+        :final sessionId,
+        :final projectId,
+      ) =>
         wire.PiTransportFrame(
           frameSequence: _wirePositiveInt(frameSequence),
           getSessionRequest: wire.GetSessionRequest(
             requestId: _wirePositiveInt(requestId),
             sessionId: sessionId,
+            projectId: projectId,
           ),
         ),
-      PiProtocolCreateSessionRequest(
-        :final requestId,
-        :final workingDirectory,
-      ) =>
+      PiProtocolCreateSessionRequest(:final requestId, :final projectId) =>
         wire.PiTransportFrame(
           frameSequence: _wirePositiveInt(frameSequence),
           createSessionRequest: wire.CreateSessionRequest(
             requestId: _wirePositiveInt(requestId),
-            workingDirectory: workingDirectory,
+            projectId: projectId,
           ),
         ),
       PiProtocolPromptCommandRequest(
@@ -151,42 +210,117 @@ final class ProtobufPiProtocolCodec implements PiProtocolCodec {
     }
   }
 
-  PiServerProtocolMessage _decodeValidatedFrame(wire.PiTransportFrame frame) =>
-      switch (frame.whichOperation()) {
-        wire.PiTransportFrame_Operation.serverHandshakeAccepted =>
-          PiProtocolHandshakeAcceptedMessage(
-            negotiatedVersion: _semanticVersion(
-              frame.serverHandshakeAccepted.selectedProtocolVersion,
-            ),
-            capabilities: frame.serverHandshakeAccepted.capabilities.map(
-              _semanticCapability,
-            ),
-          ),
-        wire.PiTransportFrame_Operation.serverHandshakeRejected =>
-          PiProtocolHandshakeRejectedMessage(
-            failure: _semanticFailure(frame.serverHandshakeRejected.error),
-          ),
-        wire.PiTransportFrame_Operation.listSessionsResponse =>
-          _decodeSessionsResponse(frame.listSessionsResponse),
-        wire.PiTransportFrame_Operation.getSessionResponse =>
-          _decodeSessionResponse(frame.getSessionResponse),
-        wire.PiTransportFrame_Operation.createSessionResponse =>
-          _decodeSessionCreatedResponse(frame.createSessionResponse),
-        wire.PiTransportFrame_Operation.requestRejected =>
-          _decodeRequestRejected(frame.requestRejected),
-        wire.PiTransportFrame_Operation.commandAccepted =>
-          _decodeCommandAccepted(frame.commandAccepted),
-        wire.PiTransportFrame_Operation.commandRejected =>
-          _decodeCommandRejected(frame.commandRejected),
-        wire.PiTransportFrame_Operation.sessionEventStream =>
-          _decodeSessionEvent(frame.sessionEventStream),
-        wire.PiTransportFrame_Operation.error => _decodeErrorEnvelope(
-          frame.error,
+  PiServerProtocolMessage _decodeValidatedFrame(
+    wire.PiTransportFrame frame,
+  ) => switch (frame.whichOperation()) {
+    wire.PiTransportFrame_Operation.serverHandshakeAccepted =>
+      PiProtocolHandshakeAcceptedMessage(
+        negotiatedVersion: _semanticVersion(
+          frame.serverHandshakeAccepted.selectedProtocolVersion,
         ),
-        _ => throw const PiProtocolCodecException(
-          PiProtocolCodecErrorCode.unsupportedOperation,
+        capabilities: frame.serverHandshakeAccepted.capabilities.map(
+          _semanticCapability,
         ),
-      };
+      ),
+    wire.PiTransportFrame_Operation.serverHandshakeRejected =>
+      PiProtocolHandshakeRejectedMessage(
+        failure: _semanticFailure(frame.serverHandshakeRejected.error),
+      ),
+    wire.PiTransportFrame_Operation.getProjectBootstrapResponse =>
+      _decodeProjectBootstrapResponse(frame.getProjectBootstrapResponse),
+    wire.PiTransportFrame_Operation.browseDirectoryResponse =>
+      _decodeDirectoryResponse(frame.browseDirectoryResponse),
+    wire.PiTransportFrame_Operation.validateProjectResponse =>
+      _decodeProjectValidatedResponse(frame.validateProjectResponse),
+    wire.PiTransportFrame_Operation.listKnownProjectsResponse =>
+      _decodeKnownProjectsResponse(frame.listKnownProjectsResponse),
+    wire.PiTransportFrame_Operation.approveProjectTrustResponse =>
+      _decodeProjectTrustApprovedResponse(frame.approveProjectTrustResponse),
+    wire.PiTransportFrame_Operation.listSessionsResponse =>
+      _decodeSessionsResponse(frame.listSessionsResponse),
+    wire.PiTransportFrame_Operation.getSessionResponse =>
+      _decodeSessionResponse(frame.getSessionResponse),
+    wire.PiTransportFrame_Operation.createSessionResponse =>
+      _decodeSessionCreatedResponse(frame.createSessionResponse),
+    wire.PiTransportFrame_Operation.requestRejected => _decodeRequestRejected(
+      frame.requestRejected,
+    ),
+    wire.PiTransportFrame_Operation.commandAccepted => _decodeCommandAccepted(
+      frame.commandAccepted,
+    ),
+    wire.PiTransportFrame_Operation.commandRejected => _decodeCommandRejected(
+      frame.commandRejected,
+    ),
+    wire.PiTransportFrame_Operation.sessionEventStream => _decodeSessionEvent(
+      frame.sessionEventStream,
+    ),
+    wire.PiTransportFrame_Operation.error => _decodeErrorEnvelope(frame.error),
+    _ => throw const PiProtocolCodecException(
+      PiProtocolCodecErrorCode.unsupportedOperation,
+    ),
+  };
+
+  PiProtocolProjectBootstrapResponse _decodeProjectBootstrapResponse(
+    wire.GetProjectBootstrapResponse response,
+  ) {
+    final requestId = _semanticPositiveInt(response.requestId);
+    _requestCorrelations.remove(requestId);
+    return PiProtocolProjectBootstrapResponse(
+      requestId: requestId,
+      homeDirectory: response.homeDirectory,
+      defaultProject: _semanticProject(response.defaultProject),
+    );
+  }
+
+  PiProtocolDirectoryResponse _decodeDirectoryResponse(
+    wire.BrowseDirectoryResponse response,
+  ) {
+    final requestId = _semanticPositiveInt(response.requestId);
+    _requestCorrelations.remove(requestId);
+    return PiProtocolDirectoryResponse(
+      requestId: requestId,
+      directory: _semanticDirectory(response.directory),
+    );
+  }
+
+  PiProtocolProjectValidatedResponse _decodeProjectValidatedResponse(
+    wire.ValidateProjectResponse response,
+  ) {
+    final requestId = _semanticPositiveInt(response.requestId);
+    _requestCorrelations.remove(requestId);
+    return PiProtocolProjectValidatedResponse(
+      requestId: requestId,
+      project: _semanticProject(response.project),
+    );
+  }
+
+  PiProtocolKnownProjectsResponse _decodeKnownProjectsResponse(
+    wire.ListKnownProjectsResponse response,
+  ) {
+    final requestId = _semanticPositiveInt(response.requestId);
+    _requestCorrelations.remove(requestId);
+    return PiProtocolKnownProjectsResponse(
+      requestId: requestId,
+      projects: response.projects.map(
+        (known) => PiProtocolKnownProjectSnapshot(
+          project: _semanticProject(known.project),
+          lastSessionAt: _semanticInstant(known.lastSessionAtUnixMillis),
+          sessionCount: _semanticPositiveUint32(known.sessionCount),
+        ),
+      ),
+    );
+  }
+
+  PiProtocolProjectTrustApprovedResponse _decodeProjectTrustApprovedResponse(
+    wire.ApproveProjectTrustResponse response,
+  ) {
+    final requestId = _semanticPositiveInt(response.requestId);
+    _requestCorrelations.remove(requestId);
+    return PiProtocolProjectTrustApprovedResponse(
+      requestId: requestId,
+      project: _semanticProject(response.project),
+    );
+  }
 
   PiProtocolSessionsResponse _decodeSessionsResponse(
     wire.ListSessionsResponse response,
@@ -316,6 +450,49 @@ final class ProtobufPiProtocolCodec implements PiProtocolCodec {
     );
   }
 
+  PiProtocolProjectSnapshot _semanticProject(wire.ProjectSnapshot project) {
+    final identity = project.identity;
+    final trust = project.trust;
+    return PiProtocolProjectSnapshot(
+      identity: PiProtocolProjectIdentity(
+        projectId: identity.projectId,
+        canonicalWorkingDirectory: identity.canonicalWorkingDirectory,
+        isGitRepository: identity.isGitRepository,
+        gitRoot: identity.gitRoot.isEmpty ? null : identity.gitRoot,
+        mainWorktreeRoot: identity.mainWorktreeRoot.isEmpty
+            ? null
+            : identity.mainWorktreeRoot,
+        branch: identity.branch.isEmpty ? null : identity.branch,
+        isLinkedWorktree: identity.isLinkedWorktree,
+        isDetachedHead: identity.isDetachedHead,
+        worktreeId: identity.worktreeId,
+        mainProjectId: identity.mainProjectId,
+      ),
+      trust: PiProtocolProjectTrustSnapshot(
+        status: _semanticProjectTrustStatus(trust.status),
+        reasons: trust.reasons.map(_semanticProjectTrustReason),
+        revision: trust.revision,
+      ),
+    );
+  }
+
+  PiProtocolDirectoryListing _semanticDirectory(
+    wire.DirectoryListingSnapshot directory,
+  ) => PiProtocolDirectoryListing(
+    canonicalDirectory: directory.canonicalDirectory,
+    parentDirectory: directory.parentDirectory.isEmpty
+        ? null
+        : directory.parentDirectory,
+    children: directory.children.map(
+      (child) => PiProtocolDirectoryEntry(
+        name: child.name,
+        canonicalPath: child.canonicalPath,
+        isSymbolicLink: child.isSymbolicLink,
+      ),
+    ),
+    truncated: directory.truncated,
+  );
+
   PiProtocolSessionSummary _semanticSessionSummary(
     wire.SessionSummarySnapshot summary,
   ) => PiProtocolSessionSummary(
@@ -346,6 +523,11 @@ final class ProtobufPiProtocolCodec implements PiProtocolCodec {
 
   void _recordRequest(PiClientProtocolMessage message) {
     final correlation = switch (message) {
+      PiProtocolGetProjectBootstrapRequest() ||
+      PiProtocolBrowseDirectoryRequest() ||
+      PiProtocolValidateProjectRequest() ||
+      PiProtocolListKnownProjectsRequest() ||
+      PiProtocolApproveProjectTrustRequest() ||
       PiProtocolListSessionsRequest() ||
       PiProtocolGetSessionRequest() ||
       PiProtocolCreateSessionRequest() => const _RegularRequestCorrelation(),
@@ -408,6 +590,8 @@ final _clientCapabilities = <wire.Capability>[
   wire.Capability.CAPABILITY_PROMPT_COMMAND,
   wire.Capability.CAPABILITY_ABORT_COMMAND,
   wire.Capability.CAPABILITY_SESSION_EVENTS,
+  wire.Capability.CAPABILITY_PROJECT_DISCOVERY,
+  wire.Capability.CAPABILITY_PROJECT_TRUST,
 ];
 
 wire.ProtocolVersion _wireVersion(PiProtocolVersion version) {
@@ -435,6 +619,15 @@ Int64 _wirePositiveInt(int value) {
     );
   }
   return Int64(value);
+}
+
+int _semanticPositiveUint32(int value) {
+  if (value <= 0) {
+    throw const PiProtocolCodecException(
+      PiProtocolCodecErrorCode.integerOutOfRange,
+    );
+  }
+  return value;
 }
 
 int _semanticPositiveInt(Int64 value) {
@@ -474,6 +667,68 @@ PiProtocolCapability _semanticCapability(wire.Capability capability) {
   }
   if (capability == wire.Capability.CAPABILITY_SESSION_EVENTS) {
     return PiProtocolCapability.sessionEvents;
+  }
+  if (capability == wire.Capability.CAPABILITY_PROJECT_DISCOVERY) {
+    return PiProtocolCapability.projectDiscovery;
+  }
+  if (capability == wire.Capability.CAPABILITY_PROJECT_TRUST) {
+    return PiProtocolCapability.projectTrust;
+  }
+  throw const PiProtocolCodecException(
+    PiProtocolCodecErrorCode.unsupportedOperation,
+  );
+}
+
+PiProtocolProjectTrustStatus _semanticProjectTrustStatus(
+  wire.ProjectTrustStatus status,
+) {
+  if (status == wire.ProjectTrustStatus.PROJECT_TRUST_STATUS_NOT_REQUIRED) {
+    return PiProtocolProjectTrustStatus.notRequired;
+  }
+  if (status == wire.ProjectTrustStatus.PROJECT_TRUST_STATUS_TRUSTED) {
+    return PiProtocolProjectTrustStatus.trusted;
+  }
+  if (status ==
+      wire.ProjectTrustStatus.PROJECT_TRUST_STATUS_APPROVAL_REQUIRED) {
+    return PiProtocolProjectTrustStatus.approvalRequired;
+  }
+  if (status == wire.ProjectTrustStatus.PROJECT_TRUST_STATUS_DENIED) {
+    return PiProtocolProjectTrustStatus.denied;
+  }
+  throw const PiProtocolCodecException(
+    PiProtocolCodecErrorCode.unsupportedOperation,
+  );
+}
+
+PiProtocolProjectTrustReason _semanticProjectTrustReason(
+  wire.ProjectTrustReason reason,
+) {
+  if (reason == wire.ProjectTrustReason.PROJECT_TRUST_REASON_PI_SETTINGS) {
+    return PiProtocolProjectTrustReason.piSettings;
+  }
+  if (reason == wire.ProjectTrustReason.PROJECT_TRUST_REASON_PI_EXTENSIONS) {
+    return PiProtocolProjectTrustReason.piExtensions;
+  }
+  if (reason == wire.ProjectTrustReason.PROJECT_TRUST_REASON_PI_SKILLS) {
+    return PiProtocolProjectTrustReason.piSkills;
+  }
+  if (reason == wire.ProjectTrustReason.PROJECT_TRUST_REASON_PI_PROMPTS) {
+    return PiProtocolProjectTrustReason.piPrompts;
+  }
+  if (reason == wire.ProjectTrustReason.PROJECT_TRUST_REASON_PI_THEMES) {
+    return PiProtocolProjectTrustReason.piThemes;
+  }
+  if (reason == wire.ProjectTrustReason.PROJECT_TRUST_REASON_PI_SYSTEM_PROMPT) {
+    return PiProtocolProjectTrustReason.piSystemPrompt;
+  }
+  if (reason == wire.ProjectTrustReason.PROJECT_TRUST_REASON_AGENT_SKILLS) {
+    return PiProtocolProjectTrustReason.agentSkills;
+  }
+  if (reason == wire.ProjectTrustReason.PROJECT_TRUST_REASON_SAVED_APPROVAL) {
+    return PiProtocolProjectTrustReason.savedApproval;
+  }
+  if (reason == wire.ProjectTrustReason.PROJECT_TRUST_REASON_SAVED_DENIAL) {
+    return PiProtocolProjectTrustReason.savedDenial;
   }
   throw const PiProtocolCodecException(
     PiProtocolCodecErrorCode.unsupportedOperation,

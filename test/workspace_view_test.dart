@@ -39,6 +39,66 @@ void main() {
     unawaited(api.close());
   });
 
+  testWidgets('opens Project Trust approval before a restricted session', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final project = fakeProject(
+      '/Projects/restricted',
+      trustStatus: PiProjectTrustStatus.approvalRequired,
+    );
+    final session = fakeSession(
+      id: 'restricted-session',
+      title: 'Restricted session',
+      workingDirectory: '/Projects/restricted',
+    );
+    final api = FakePiNodeApi(
+      defaultProject: project,
+      sessions: <PiSessionSummary>[session],
+      details: <PiSessionId, PiSessionDetail>{session.id: fakeDetail(session)},
+    );
+    final viewModel = WorkspaceViewModel(service: WorkspaceService(api));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FrProvider<WorkspaceViewModel>.value(
+          value: viewModel,
+          child: const WorkspaceView(),
+        ),
+      ),
+    );
+    viewModel.add(const WorkspaceStarted());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(ValueKey<PiSessionId>(session.id)));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('projectTrustDialog')), findsOneWidget);
+    expect(api.getCalls, 0);
+
+    await tester.tap(find.byKey(const Key('projectTrustApproveButton')));
+    await tester.pump();
+    await tester.runAsync(
+      () => _waitUntil(
+        () =>
+            api.approveTrustCalls == 1 &&
+            api.getCalls == 1 &&
+            viewModel.state.selectedSessionId == session.id,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('projectTrustDialog')), findsNothing);
+    expect(
+      viewModel.state.selectedProject?.trust.status,
+      PiProjectTrustStatus.trusted,
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    unawaited(viewModel.close());
+    unawaited(api.close());
+  });
+
   testWidgets('scrolls typed sessions, selects one, and submits a prompt', (
     tester,
   ) async {

@@ -43,6 +43,31 @@ void main() {
       },
     );
 
+    test('decodes TypeScript project identity and trust snapshots', () {
+      final frame = decodeTransportFrame(
+        File.fromUri(
+          _vectors.uri.resolve('ts_project_snapshot.pb'),
+        ).readAsBytesSync(),
+      );
+
+      expect(
+        frame.whichOperation(),
+        PiTransportFrame_Operation.validateProjectResponse,
+      );
+      final project = frame.validateProjectResponse.project;
+      expect(project.identity.projectId, 'project-vector-ts');
+      expect(project.identity.isLinkedWorktree, isTrue);
+      expect(project.identity.branch, 'feature/vector');
+      expect(
+        project.trust.status,
+        ProjectTrustStatus.PROJECT_TRUST_STATUS_APPROVAL_REQUIRED,
+      );
+      expect(
+        project.trust.reasons,
+        contains(ProjectTrustReason.PROJECT_TRUST_REASON_AGENT_SKILLS),
+      );
+    });
+
     test('preserves unknown fields when decoded and re-encoded by Dart', () {
       final input = File.fromUri(
         _vectors.uri.resolve('unknown_field.pb'),

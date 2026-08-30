@@ -26,4 +26,31 @@ void main() {
   File.fromUri(
     vectorDirectory.uri.resolve('dart_session_event.pb'),
   ).writeAsBytesSync(encodeTransportFrame(frame));
+
+  final directoryFrame = PiTransportFrame(
+    frameSequence: Int64(8),
+    browseDirectoryResponse: BrowseDirectoryResponse(
+      requestId: Int64(12),
+      directory: DirectoryListingSnapshot(
+        canonicalDirectory: '/tmp/pi-client-projects',
+        parentDirectory: '/tmp',
+        children: [
+          DirectoryEntrySnapshot(
+            name: 'alpha',
+            canonicalPath: '/tmp/pi-client-projects/alpha',
+            isSymbolicLink: false,
+          ),
+          DirectoryEntrySnapshot(
+            name: 'linked-beta',
+            canonicalPath: '/tmp/pi-client-projects/beta',
+            isSymbolicLink: true,
+          ),
+        ],
+        truncated: true,
+      ),
+    ),
+  );
+  File.fromUri(
+    vectorDirectory.uri.resolve('dart_directory_listing.pb'),
+  ).writeAsBytesSync(encodeTransportFrame(directoryFrame));
 }

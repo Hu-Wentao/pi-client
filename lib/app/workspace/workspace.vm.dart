@@ -12,6 +12,10 @@ class WorkspaceViewModel
       ) {
     on<WorkspaceStarted>(_onStarted);
     on<WorkspaceConnectionRetried>(_onConnectionRetried);
+    on<WorkspaceProjectDirectoryBrowsed>(_onProjectDirectoryBrowsed);
+    on<WorkspaceProjectPathValidated>(_onProjectPathValidated);
+    on<WorkspaceProjectSelected>(_onProjectSelected);
+    on<WorkspaceProjectTrustApproved>(_onProjectTrustApproved);
     on<WorkspaceSessionsRefreshed>(_onSessionsRefreshed);
     on<WorkspaceSessionSelected>(_onSessionSelected);
     on<WorkspaceNewSessionRequested>(_onNewSessionRequested);
@@ -33,12 +37,16 @@ class WorkspaceViewModel
   StreamSubscription<PiSessionEvent>? _sessionEventSubscription;
 
   bool _connecting = false;
+  bool _browsingProject = false;
+  bool _validatingProject = false;
+  bool _approvingProjectTrust = false;
   bool _refreshingSessions = false;
   bool _creatingSession = false;
   bool _promptInFlight = false;
   bool _abortInFlight = false;
   bool _closing = false;
   int _connectionGeneration = 0;
+  int _projectSelectionGeneration = 0;
   int _sessionListGeneration = 0;
   int _sessionLoadGeneration = 0;
   int _eventGeneration = 0;
@@ -61,6 +69,7 @@ class WorkspaceViewModel
     if (_connecting || _closing) return;
     _connecting = true;
     final generation = ++_connectionGeneration;
+    _projectSelectionGeneration += 1;
     _sessionListGeneration += 1;
     _sessionLoadGeneration += 1;
     _promptGeneration += 1;
@@ -69,15 +78,25 @@ class WorkspaceViewModel
     emit(
       state.copyWith(
         connection: const PiNodeConnectionSnapshot.connecting(),
+        projectLoading: true,
+        projectBrowsing: false,
+        projectValidating: false,
+        projectTrustApproving: false,
         sessionsLoading: true,
         conversationLoading: false,
         sending: false,
         stopping: false,
         eventStatus: WorkspaceEventStatus.idle,
         promptAdmissionStatus: WorkspacePromptAdmissionStatus.idle,
+        projectBootstrap: null,
+        knownProjects: const <PiKnownProject>[],
+        selectedProject: null,
+        projectDirectory: null,
         selectedSessionId: null,
+        sessions: const <PiSessionSummary>[],
         messages: const <PiMessage>[],
         nodeError: null,
+        projectError: null,
         sessionError: null,
         conversationError: null,
         promptError: null,
@@ -90,18 +109,32 @@ class WorkspaceViewModel
     try {
       final connection = await _service.connect();
       connected = true;
-      final sessions = await _service.loadSessions();
+      final bootstrap = await _service.loadProjectBootstrap();
+      final projectResults = await Future.wait<Object>(<Future<Object>>[
+        _service.loadKnownProjects(),
+        _service.browseDirectory(bootstrap.homeDirectory),
+        _service.loadSessions(bootstrap.defaultProject.identity.projectId),
+      ]);
+      final knownProjects = projectResults[0] as List<PiKnownProject>;
+      final directory = projectResults[1] as PiDirectoryListing;
+      final sessions = projectResults[2] as List<PiSessionSummary>;
       if (!_isCurrentConnection(generation)) return;
       emit(
         state.copyWith(
           connection: connection,
+          projectLoading: false,
+          projectBootstrap: bootstrap,
+          knownProjects: knownProjects,
+          selectedProject: bootstrap.defaultProject,
+          projectDirectory: directory,
           sessionsLoading: false,
           sessions: sessions,
           nodeError: null,
+          projectError: null,
           sessionError: null,
           statusMessage: sessions.isEmpty
-              ? 'Pi Node connected. No sessions were found.'
-              : 'Pi Node connected. ${sessions.length} sessions loaded.',
+              ? 'Pi Node connected. The default project has no sessions.'
+              : 'Pi Node connected. ${sessions.length} project sessions loaded.',
         ),
       );
     } catch (error, stackTrace) {
@@ -118,11 +151,13 @@ class WorkspaceViewModel
       emit(
         state.copyWith(
           connection: connection,
+          projectLoading: false,
           sessionsLoading: false,
           nodeError: connected ? null : message,
-          sessionError: connected ? message : null,
+          projectError: connected ? message : null,
+          sessionError: null,
           statusMessage: connected
-              ? 'Pi Node connected, but sessions could not be loaded.'
+              ? 'Pi Node connected, but project discovery failed.'
               : 'Pi Node connection failed.',
         ),
       );
@@ -131,12 +166,265 @@ class WorkspaceViewModel
     }
   }
 
+  Future<void> _onProjectDirectoryBrowsed(
+    WorkspaceProjectDirectoryBrowsed event,
+    Emitter<WorkspaceModel> emit,
+  ) async {
+    if (_browsingProject || _closing) return;
+    if (state.connection.status != PiNodeConnectionStatus.connected) {
+      emit(
+        state.copyWith(
+          projectError: 'Connect to Pi Node before browsing projects.',
+        ),
+      );
+      return;
+    }
+    _browsingProject = true;
+    emit(
+      state.copyWith(
+        projectBrowsing: true,
+        projectError: null,
+        statusMessage: 'Browsing project directories…',
+      ),
+    );
+    try {
+      final directory = await _service.browseDirectory(event.directory);
+      if (_closing || isClosed) return;
+      emit(
+        state.copyWith(
+          projectBrowsing: false,
+          projectDirectory: directory,
+          projectError: null,
+          statusMessage: directory.truncated
+              ? 'Directory loaded with a bounded child list.'
+              : 'Directory loaded.',
+        ),
+      );
+    } catch (error, stackTrace) {
+      if (_closing || isClosed) return;
+      logE(
+        'Browsing Pi Node project directories failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      emit(
+        state.copyWith(
+          projectBrowsing: false,
+          projectError: _service.describeError(error),
+          statusMessage: 'Project directory browse failed.',
+        ),
+      );
+    } finally {
+      _browsingProject = false;
+    }
+  }
+
+  Future<void> _onProjectPathValidated(
+    WorkspaceProjectPathValidated event,
+    Emitter<WorkspaceModel> emit,
+  ) async {
+    final candidate = event.candidateDirectory.trim();
+    if (_validatingProject || _closing) return;
+    if (candidate.isEmpty) {
+      emit(
+        state.copyWith(projectError: 'Enter a project directory to validate.'),
+      );
+      return;
+    }
+    _validatingProject = true;
+    emit(
+      state.copyWith(
+        projectValidating: true,
+        projectError: null,
+        statusMessage: 'Validating the project in Pi Node…',
+      ),
+    );
+    try {
+      final project = await _service.validateProject(candidate);
+      if (_closing || isClosed) return;
+      emit(
+        state.copyWith(
+          projectValidating: false,
+          projectError: null,
+          statusMessage: 'Project validated by Pi Node.',
+        ),
+      );
+      add(WorkspaceProjectSelected(project));
+    } catch (error, stackTrace) {
+      if (_closing || isClosed) return;
+      logE(
+        'Validating a Pi Node project failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      emit(
+        state.copyWith(
+          projectValidating: false,
+          projectError: _service.describeError(error),
+          statusMessage: 'Project validation failed.',
+        ),
+      );
+    } finally {
+      _validatingProject = false;
+    }
+  }
+
+  Future<void> _onProjectSelected(
+    WorkspaceProjectSelected event,
+    Emitter<WorkspaceModel> emit,
+  ) async {
+    if (_closing ||
+        state.connection.status != PiNodeConnectionStatus.connected) {
+      return;
+    }
+    final project = event.project;
+    final generation = ++_projectSelectionGeneration;
+    _sessionListGeneration += 1;
+    _sessionLoadGeneration += 1;
+    _promptGeneration += 1;
+    _activePromptCommandId = null;
+    await _stopSessionEvents();
+    if (_closing || isClosed || generation != _projectSelectionGeneration) {
+      return;
+    }
+
+    emit(
+      state.copyWith(
+        selectedProject: project,
+        sessionsLoading: true,
+        selectedSessionId: null,
+        sessions: const <PiSessionSummary>[],
+        messages: const <PiMessage>[],
+        conversationLoading: false,
+        eventStatus: WorkspaceEventStatus.idle,
+        promptAdmissionStatus: WorkspacePromptAdmissionStatus.idle,
+        sending: false,
+        stopping: false,
+        projectError: null,
+        sessionError: null,
+        conversationError: null,
+        promptError: null,
+        statusMessage: 'Loading the selected project…',
+      ),
+    );
+
+    try {
+      final results = await Future.wait<Object>(<Future<Object>>[
+        _service.loadSessions(project.identity.projectId),
+        _service.browseDirectory(project.identity.canonicalWorkingDirectory),
+      ]);
+      if (_closing || isClosed || generation != _projectSelectionGeneration) {
+        return;
+      }
+      final sessions = results[0] as List<PiSessionSummary>;
+      final directory = results[1] as PiDirectoryListing;
+      emit(
+        state.copyWith(
+          selectedProject: project,
+          knownProjects: _replaceKnownProject(state.knownProjects, project),
+          projectDirectory: directory,
+          sessionsLoading: false,
+          sessions: sessions,
+          projectError: null,
+          sessionError: null,
+          statusMessage: sessions.isEmpty
+              ? 'Project selected. No sessions were found.'
+              : 'Project selected. ${sessions.length} sessions loaded.',
+        ),
+      );
+    } catch (error, stackTrace) {
+      if (_closing || isClosed || generation != _projectSelectionGeneration) {
+        return;
+      }
+      logE(
+        'Loading a selected Pi Node project failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      emit(
+        state.copyWith(
+          sessionsLoading: false,
+          projectError: _service.describeError(error),
+          statusMessage: 'Selected project load failed.',
+        ),
+      );
+    }
+  }
+
+  Future<void> _onProjectTrustApproved(
+    WorkspaceProjectTrustApproved event,
+    Emitter<WorkspaceModel> emit,
+  ) async {
+    final project = state.selectedProject;
+    if (_approvingProjectTrust || _closing || project == null) return;
+    if (!project.trust.requiresApproval) {
+      if (event.createSessionAfterApproval) {
+        add(const WorkspaceNewSessionRequested());
+      } else if (event.sessionIdAfterApproval case final sessionId?) {
+        add(WorkspaceSessionSelected(sessionId));
+      }
+      return;
+    }
+
+    _approvingProjectTrust = true;
+    emit(
+      state.copyWith(
+        projectTrustApproving: true,
+        projectError: null,
+        sessionError: null,
+        statusMessage: 'Persisting explicit project trust approval…',
+      ),
+    );
+    try {
+      final approved = await _service.approveProjectTrust(project);
+      if (_closing ||
+          isClosed ||
+          state.selectedProject?.identity.projectId !=
+              project.identity.projectId) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          projectTrustApproving: false,
+          selectedProject: approved,
+          knownProjects: _replaceKnownProject(state.knownProjects, approved),
+          projectError: null,
+          statusMessage:
+              'Project trust approved. Session runtimes will reload.',
+        ),
+      );
+      if (event.createSessionAfterApproval) {
+        add(const WorkspaceNewSessionRequested());
+      } else if (event.sessionIdAfterApproval case final sessionId?) {
+        add(WorkspaceSessionSelected(sessionId));
+      }
+    } catch (error, stackTrace) {
+      if (_closing || isClosed) return;
+      logE(
+        'Approving Pi Node project trust failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      emit(
+        state.copyWith(
+          projectTrustApproving: false,
+          projectError: _service.describeError(error),
+          statusMessage: 'Project trust approval failed.',
+        ),
+      );
+    } finally {
+      _approvingProjectTrust = false;
+    }
+  }
+
   Future<void> _onSessionsRefreshed(
     WorkspaceSessionsRefreshed event,
     Emitter<WorkspaceModel> emit,
   ) async {
+    final project = state.selectedProject;
     if (_refreshingSessions ||
         _closing ||
+        project == null ||
         state.connection.status != PiNodeConnectionStatus.connected) {
       return;
     }
@@ -151,7 +439,7 @@ class WorkspaceViewModel
     );
 
     try {
-      final sessions = await _service.loadSessions();
+      final sessions = await _service.loadSessions(project.identity.projectId);
       if (!_isCurrentSessionList(generation)) return;
       final selectedSessionId = state.selectedSessionId;
       final selectedStillExists =
@@ -202,6 +490,17 @@ class WorkspaceViewModel
         state.connection.status != PiNodeConnectionStatus.connected) {
       return;
     }
+    if (state.selectedProject?.trust.requiresApproval ?? true) {
+      emit(
+        state.copyWith(
+          sessionError:
+              'Approve project trust before opening a resource-bearing session.',
+          statusMessage: 'Project trust approval is required.',
+        ),
+      );
+      return;
+    }
+    final project = state.selectedProject!;
     final sessionId = event.sessionId;
     final generation = ++_sessionLoadGeneration;
     _promptGeneration += 1;
@@ -225,7 +524,10 @@ class WorkspaceViewModel
     );
 
     try {
-      final detail = await _service.loadSession(sessionId);
+      final detail = await _service.loadSession(
+        project.identity.projectId,
+        sessionId,
+      );
       if (!_isCurrentSessionLoad(generation, sessionId)) return;
       emit(
         state.copyWith(
@@ -259,7 +561,7 @@ class WorkspaceViewModel
     WorkspaceNewSessionRequested event,
     Emitter<WorkspaceModel> emit,
   ) async {
-    final workingDirectory = event.workingDirectory.trim();
+    final project = state.selectedProject;
     if (_creatingSession || _closing) return;
     if (state.connection.status != PiNodeConnectionStatus.connected) {
       emit(
@@ -269,10 +571,21 @@ class WorkspaceViewModel
       );
       return;
     }
-    if (workingDirectory.isEmpty) {
+    if (project == null) {
       emit(
         state.copyWith(
-          sessionError: 'Enter a working directory for the new session.',
+          sessionError:
+              'Select a Node-validated project before creating a session.',
+        ),
+      );
+      return;
+    }
+    if (project.trust.requiresApproval) {
+      emit(
+        state.copyWith(
+          sessionError:
+              'Approve project trust before creating a resource-bearing session.',
+          statusMessage: 'Project trust approval is required.',
         ),
       );
       return;
@@ -283,15 +596,20 @@ class WorkspaceViewModel
       state.copyWith(
         creatingSession: true,
         sessionError: null,
-        statusMessage: 'Creating a Pi session…',
+        statusMessage: 'Creating a Pi session in the validated project…',
       ),
     );
     try {
-      final detail = await _service.createSession(workingDirectory);
-      if (_closing || isClosed) return;
+      final detail = await _service.createSession(project.identity.projectId);
+      if (_closing ||
+          isClosed ||
+          state.selectedProject?.identity.projectId !=
+              project.identity.projectId) {
+        return;
+      }
       List<PiSessionSummary> sessions;
       try {
-        sessions = await _service.loadSessions();
+        sessions = await _service.loadSessions(project.identity.projectId);
       } catch (_) {
         sessions = _replaceSession(state.sessions, detail.summary);
       }
@@ -669,9 +987,14 @@ class WorkspaceViewModel
     Emitter<WorkspaceModel> emit,
   ) async {
     final sessionListGeneration = ++_sessionListGeneration;
+    final project = state.selectedProject;
+    if (project == null) return;
     try {
-      final detail = await _service.loadSession(sessionId);
-      final sessions = await _service.loadSessions();
+      final detail = await _service.loadSession(
+        project.identity.projectId,
+        sessionId,
+      );
+      final sessions = await _service.loadSessions(project.identity.projectId);
       if (!_isCurrentEvent(eventGeneration, sessionId) ||
           sessionListGeneration != _sessionListGeneration) {
         return;
@@ -796,6 +1119,7 @@ class WorkspaceViewModel
     if (existing != null) return existing;
     _closing = true;
     _connectionGeneration += 1;
+    _projectSelectionGeneration += 1;
     _sessionListGeneration += 1;
     _sessionLoadGeneration += 1;
     _promptGeneration += 1;
@@ -809,6 +1133,22 @@ class WorkspaceViewModel
     return future;
   }
 }
+
+List<PiKnownProject> _replaceKnownProject(
+  List<PiKnownProject> projects,
+  PiProject replacement,
+) => projects
+    .map(
+      (known) =>
+          known.project.identity.projectId == replacement.identity.projectId
+          ? PiKnownProject(
+              project: replacement,
+              lastSessionAt: known.lastSessionAt,
+              sessionCount: known.sessionCount,
+            )
+          : known,
+    )
+    .toList(growable: false);
 
 PiSessionSummary? _selectedSession(WorkspaceModel model) {
   final selectedSessionId = model.selectedSessionId;

@@ -43,6 +43,17 @@ test("projects without protected resources remain restricted and do not ask for 
   assert.equal(decisionCalls, 0);
 });
 
+test("metadata inspection stays restricted without loading protected resources", async () => {
+  const coordinator = new ProjectTrustCoordinator({
+    backend: backend({ protectedResources: true, savedDecision: null }),
+    canonicalizePath: () => canonicalCwd,
+  });
+
+  const authorization = await coordinator.authorizeMetadata({ cwd: "/input", agentDir });
+  assert.equal(authorization.projectResourcesAllowed, false);
+  assert.equal(authorization.source, "restricted");
+});
+
 test("protected project resources fail closed without an explicit decision", async () => {
   const coordinator = new ProjectTrustCoordinator({
     backend: backend({ protectedResources: true, savedDecision: null }),
@@ -90,6 +101,26 @@ test("saved and injected approvals authorize protected project resources", async
     assert.equal(authorization.projectResourcesAllowed, true);
     assert.equal(authorization.source, "decision-provider");
   });
+});
+
+test("explicit approval persists and confirms through the trust backend", async () => {
+  let savedDecision: boolean | null = null;
+  const coordinator = new ProjectTrustCoordinator({
+    backend: {
+      hasProtectedProjectResources: () => true,
+      readSavedDecision: () => savedDecision,
+      writeSavedDecision: (_cwd, _agentDir, decision) => {
+        savedDecision = decision;
+      },
+    },
+    canonicalizePath: () => canonicalCwd,
+  });
+
+  const authorization = await coordinator.approve({ cwd: "/input", agentDir });
+  assert.equal(savedDecision, true);
+  assert.equal(authorization.cwd, canonicalCwd);
+  assert.equal(authorization.projectResourcesAllowed, true);
+  assert.equal(authorization.source, "saved");
 });
 
 test("decision provider and evidence failures remain closed", async (t) => {

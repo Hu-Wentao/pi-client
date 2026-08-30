@@ -15,13 +15,21 @@ import {
   type StableError,
 } from "@pi-client/protocol";
 
-import type { PiNodeSessionEvent, PiNodeSessionSnapshot } from "../pi-node-domain.js";
+import {
+  PiNodeDomainError,
+  type PiNodeProjectSnapshot,
+  type PiNodeSessionEvent,
+  type PiNodeSessionSnapshot,
+} from "../pi-node-domain.js";
 import {
   mapCommandFailure,
   mapDomainError,
   piNodeMessageText,
   stableError,
+  toProtocolDirectoryListing,
+  toProtocolKnownProjectSnapshot,
   toProtocolMessageSnapshot,
+  toProtocolProjectSnapshot,
   toProtocolSessionDetail,
   toProtocolSessionSummary,
 } from "./protobuf-domain-adapter.js";
@@ -39,6 +47,8 @@ export const SUPPORTED_PROTOCOL_CAPABILITIES = Object.freeze([
   Capability.PROMPT_COMMAND,
   Capability.ABORT_COMMAND,
   Capability.SESSION_EVENTS,
+  Capability.PROJECT_DISCOVERY,
+  Capability.PROJECT_TRUST,
 ] as const);
 
 export interface PiNodeProtocolLogger {
@@ -56,7 +66,6 @@ export type PiNodeProtocolLogCode =
 
 export interface PiNodeProtocolConnectionOptions {
   readonly domain: PiNodeProtocolDomain;
-  readonly workingDirectory: string;
   readonly nodeInstanceId?: string;
   readonly implementationVersion: string;
   readonly writeFrame: (payload: Uint8Array) => void | Promise<void>;
@@ -95,7 +104,6 @@ class OutboundFrameLimitError extends Error {
 
 export class PiNodeProtobufConnection {
   readonly #domain: PiNodeProtocolDomain;
-  readonly #workingDirectory: string;
   readonly #nodeInstanceId: string;
   readonly #implementationVersion: string;
   readonly #writeFrame: (payload: Uint8Array) => void | Promise<void>;
@@ -107,7 +115,7 @@ export class PiNodeProtobufConnection {
   readonly #commandIds = new Set<string>();
   readonly #observations = new Map<string, ObservedSession>();
   readonly #pendingAdmissions = new Map<string, PendingAdmission>();
-  readonly #sessionWorkingDirectories = new Map<string, string>();
+  readonly #projectWorkingDirectories = new Map<string, string>();
 
   #handshake: "awaiting" | "accepted" | "rejected" = "awaiting";
   #lastClientFrameSequence = 0n;
@@ -121,7 +129,6 @@ export class PiNodeProtobufConnection {
 
   constructor(options: PiNodeProtocolConnectionOptions) {
     this.#domain = options.domain;
-    this.#workingDirectory = options.workingDirectory;
     this.#nodeInstanceId = options.nodeInstanceId ?? randomUUID();
     this.#implementationVersion = options.implementationVersion;
     this.#writeFrame = options.writeFrame;
@@ -256,19 +263,52 @@ export class PiNodeProtobufConnection {
 
   async #routeOperation(frame: PiTransportFrame): Promise<void> {
     switch (frame.operation.case) {
+      case "getProjectBootstrapRequest":
+        await this.#handleProjectBootstrap(frame.operation.value.requestId);
+        return;
+      case "browseDirectoryRequest":
+        await this.#handleBrowseDirectory(
+          frame.operation.value.requestId,
+          frame.operation.value.directory,
+          frame.operation.value.maxChildren,
+        );
+        return;
+      case "validateProjectRequest":
+        await this.#handleValidateProject(
+          frame.operation.value.requestId,
+          frame.operation.value.candidateDirectory,
+        );
+        return;
+      case "listKnownProjectsRequest":
+        await this.#handleListKnownProjects(
+          frame.operation.value.requestId,
+          frame.operation.value.maxProjects,
+        );
+        return;
+      case "approveProjectTrustRequest":
+        await this.#handleApproveProjectTrust(
+          frame.operation.value.requestId,
+          frame.operation.value.projectId,
+          frame.operation.value.trustRevision,
+        );
+        return;
       case "listSessionsRequest":
-        await this.#handleListSessions(frame.operation.value.requestId);
+        await this.#handleListSessions(
+          frame.operation.value.requestId,
+          frame.operation.value.projectId,
+        );
         return;
       case "getSessionRequest":
         await this.#handleGetSession(
           frame.operation.value.requestId,
           frame.operation.value.sessionId,
+          frame.operation.value.projectId,
         );
         return;
       case "createSessionRequest":
         await this.#handleCreateSession(
           frame.operation.value.requestId,
-          frame.operation.value.workingDirectory,
+          frame.operation.value.projectId,
         );
         return;
       case "promptCommand":
@@ -292,6 +332,11 @@ export class PiNodeProtobufConnection {
       case "serverHandshakeAccepted":
       case "serverHandshakeRejected":
       case "healthResponse":
+      case "getProjectBootstrapResponse":
+      case "browseDirectoryResponse":
+      case "validateProjectResponse":
+      case "listKnownProjectsResponse":
+      case "approveProjectTrustResponse":
       case "listSessionsResponse":
       case "getSessionResponse":
       case "createSessionResponse":
@@ -318,7 +363,138 @@ export class PiNodeProtobufConnection {
     }
   }
 
-  async #handleListSessions(requestId: bigint): Promise<void> {
+  async #handleProjectBootstrap(requestId: bigint): Promise<void> {
+    if (!(await this.#claimRequest(requestId, false))) {
+      return;
+    }
+    if (!(await this.#requireCapability(requestId, Capability.PROJECT_DISCOVERY, false))) {
+      return;
+    }
+    try {
+      const bootstrap = await this.#domain.getProjectBootstrap();
+      this.#registerProject(bootstrap.defaultProject);
+      await this.#sendRequestOperation(
+        requestId,
+        {
+          case: "getProjectBootstrapResponse",
+          value: {
+            requestId,
+            homeDirectory: bootstrap.homeDirectory,
+            defaultProject: toProtocolProjectSnapshot(bootstrap.defaultProject),
+          },
+        },
+        false,
+      );
+    } catch (error) {
+      await this.#sendRequestRejected(requestId, mapDomainError(error));
+    }
+  }
+
+  async #handleBrowseDirectory(
+    requestId: bigint,
+    directory: string,
+    maxChildren: number,
+  ): Promise<void> {
+    if (!(await this.#claimRequest(requestId, false))) {
+      return;
+    }
+    if (!(await this.#requireCapability(requestId, Capability.PROJECT_DISCOVERY, false))) {
+      return;
+    }
+    try {
+      const listing = await this.#domain.browseDirectory({ directory, maxChildren });
+      await this.#sendRequestOperation(
+        requestId,
+        {
+          case: "browseDirectoryResponse",
+          value: { requestId, directory: toProtocolDirectoryListing(listing) },
+        },
+        false,
+      );
+    } catch (error) {
+      await this.#sendRequestRejected(requestId, mapDomainError(error));
+    }
+  }
+
+  async #handleValidateProject(requestId: bigint, candidateDirectory: string): Promise<void> {
+    if (!(await this.#claimRequest(requestId, false))) {
+      return;
+    }
+    if (!(await this.#requireCapability(requestId, Capability.PROJECT_DISCOVERY, false))) {
+      return;
+    }
+    try {
+      const project = await this.#domain.validateProject({ candidateDirectory });
+      this.#registerProject(project);
+      await this.#sendRequestOperation(
+        requestId,
+        {
+          case: "validateProjectResponse",
+          value: { requestId, project: toProtocolProjectSnapshot(project) },
+        },
+        false,
+      );
+    } catch (error) {
+      await this.#sendRequestRejected(requestId, mapDomainError(error));
+    }
+  }
+
+  async #handleListKnownProjects(requestId: bigint, maxProjects: number): Promise<void> {
+    if (!(await this.#claimRequest(requestId, false))) {
+      return;
+    }
+    if (!(await this.#requireCapability(requestId, Capability.PROJECT_DISCOVERY, false))) {
+      return;
+    }
+    try {
+      const projects = await this.#domain.listKnownProjects({ maxProjects });
+      for (const known of projects) {
+        this.#registerProject(known.project);
+      }
+      await this.#sendRequestOperation(
+        requestId,
+        {
+          case: "listKnownProjectsResponse",
+          value: { requestId, projects: projects.map(toProtocolKnownProjectSnapshot) },
+        },
+        false,
+      );
+    } catch (error) {
+      await this.#sendRequestRejected(requestId, mapDomainError(error));
+    }
+  }
+
+  async #handleApproveProjectTrust(
+    requestId: bigint,
+    projectId: string,
+    trustRevision: string,
+  ): Promise<void> {
+    if (!(await this.#claimRequest(requestId, false))) {
+      return;
+    }
+    if (!(await this.#requireCapability(requestId, Capability.PROJECT_TRUST, false))) {
+      return;
+    }
+    try {
+      const project = await this.#domain.approveProjectTrust({
+        canonicalCwd: this.#requireRegisteredProject(projectId),
+        trustRevision,
+      });
+      this.#registerProject(project);
+      await this.#sendRequestOperation(
+        requestId,
+        {
+          case: "approveProjectTrustResponse",
+          value: { requestId, project: toProtocolProjectSnapshot(project) },
+        },
+        false,
+      );
+    } catch (error) {
+      await this.#sendRequestRejected(requestId, mapDomainError(error));
+    }
+  }
+
+  async #handleListSessions(requestId: bigint, projectId: string): Promise<void> {
     if (!(await this.#claimRequest(requestId, false))) {
       return;
     }
@@ -327,10 +503,9 @@ export class PiNodeProtobufConnection {
     }
 
     try {
-      const sessions = await this.#domain.listSessions({ cwd: this.#workingDirectory });
-      for (const session of sessions) {
-        this.#sessionWorkingDirectories.set(session.sessionId, session.cwd);
-      }
+      const sessions = await this.#domain.listSessions({
+        cwd: this.#requireRegisteredProject(projectId),
+      });
       await this.#sendRequestOperation(
         requestId,
         {
@@ -344,7 +519,7 @@ export class PiNodeProtobufConnection {
     }
   }
 
-  async #handleGetSession(requestId: bigint, sessionId: string): Promise<void> {
+  async #handleGetSession(requestId: bigint, sessionId: string, projectId: string): Promise<void> {
     if (!(await this.#claimRequest(requestId, false))) {
       return;
     }
@@ -355,10 +530,9 @@ export class PiNodeProtobufConnection {
     let observationPending: PendingAdmission | undefined;
     try {
       const snapshot = await this.#domain.getSession({
-        cwd: this.#sessionWorkingDirectories.get(sessionId) ?? this.#workingDirectory,
+        cwd: this.#requireRegisteredProject(projectId),
         sessionId,
       });
-      this.#sessionWorkingDirectories.set(snapshot.sessionId, snapshot.cwd);
       const observed = this.#negotiatedCapabilities.has(Capability.SESSION_EVENTS)
         ? this.#ensureObservation(snapshot)
         : undefined;
@@ -381,7 +555,7 @@ export class PiNodeProtobufConnection {
     }
   }
 
-  async #handleCreateSession(requestId: bigint, workingDirectory: string): Promise<void> {
+  async #handleCreateSession(requestId: bigint, projectId: string): Promise<void> {
     if (!(await this.#claimRequest(requestId, false))) {
       return;
     }
@@ -392,9 +566,10 @@ export class PiNodeProtobufConnection {
     let sessionId: string | undefined;
     let observationPending: PendingAdmission | undefined;
     try {
-      const snapshot = await this.#domain.createSession({ cwd: workingDirectory });
+      const snapshot = await this.#domain.createSession({
+        cwd: this.#requireRegisteredProject(projectId),
+      });
       sessionId = snapshot.sessionId;
-      this.#sessionWorkingDirectories.set(snapshot.sessionId, snapshot.cwd);
       const observed = this.#negotiatedCapabilities.has(Capability.SESSION_EVENTS)
         ? this.#ensureObservation(snapshot)
         : undefined;
@@ -417,6 +592,21 @@ export class PiNodeProtobufConnection {
         await this.#flushAdmission(sessionId, observationPending);
       }
     }
+  }
+
+  #registerProject(project: PiNodeProjectSnapshot): void {
+    this.#projectWorkingDirectories.set(project.identity.projectId, project.identity.canonicalCwd);
+  }
+
+  #requireRegisteredProject(projectId: string): string {
+    const cwd = this.#projectWorkingDirectories.get(projectId);
+    if (!cwd) {
+      throw new PiNodeDomainError(
+        "project-not-registered",
+        "The project must be validated on this connection before use.",
+      );
+    }
+    return cwd;
   }
 
   async #handlePrompt(

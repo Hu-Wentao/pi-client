@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 import {
@@ -521,6 +524,46 @@ test("process-local ownership rejects a second service until the first releases 
     assert.equal(snapshot.sessionId, "session-1");
   } finally {
     await Promise.all([first.dispose(), second.dispose()]);
+  }
+});
+
+test("trust approval closes loaded restricted runtimes before future resource loading", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "pi-client-domain-trust-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const project = join(root, "project");
+  const runtimeAgentDir = join(root, "agent");
+  await Promise.all([mkdir(project), mkdir(runtimeAgentDir)]);
+  const factory = new FakeSessionFactory();
+  const service = new PiNodeDomainService({
+    agentDir: runtimeAgentDir,
+    defaultWorkingDirectory: project,
+    trustCoordinator: new ProjectTrustCoordinator(),
+    sessionFactory: factory,
+    ownershipRegistry: new InMemoryPiNodeSessionOwnershipRegistry(),
+  });
+
+  try {
+    const created = await service.createPersistentSession({ cwd: project });
+    const backend = serviceBackend(factory, created.sessionId);
+    assert.equal(backend.disposed, false);
+
+    await mkdir(join(project, ".pi"));
+    await writeFile(join(project, ".pi", "settings.json"), "{}\n");
+    const restricted = await service.validateProject({ candidateDirectory: project });
+    assert.equal(restricted.trust.status, "approval-required");
+
+    const approved = await service.approveProjectTrust({
+      canonicalCwd: restricted.identity.canonicalCwd,
+      trustRevision: restricted.trust.revision,
+    });
+    assert.equal(approved.trust.status, "trusted");
+    assert.equal(backend.disposed, true);
+    assert.throws(
+      () => service.getLoadedSessionSnapshot(created.sessionId),
+      (error) => error instanceof PiNodeDomainError && error.code === "session-not-loaded",
+    );
+  } finally {
+    await service.dispose();
   }
 });
 

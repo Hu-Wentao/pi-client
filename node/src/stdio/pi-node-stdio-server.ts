@@ -11,7 +11,6 @@ import type { PiNodeProtocolDomain } from "../protocol/pi-node-protocol-domain-p
 
 export interface PiNodeStdioServerOptions {
   readonly domain: PiNodeProtocolDomain;
-  readonly workingDirectory: string;
   readonly implementationVersion: string;
   readonly input?: Readable;
   readonly output?: Writable;
@@ -63,7 +62,6 @@ export async function runPiNodeStdioServer(
 
   const connection = new PiNodeProtobufConnection({
     domain: options.domain,
-    workingDirectory: options.workingDirectory,
     implementationVersion: options.implementationVersion,
     ...(options.nodeInstanceId === undefined ? {} : { nodeInstanceId: options.nodeInstanceId }),
     ...(options.streamIdFactory === undefined ? {} : { streamIdFactory: options.streamIdFactory }),

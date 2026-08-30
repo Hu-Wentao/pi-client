@@ -8,5 +8,7 @@ export const MAX_ERROR_MESSAGE_BYTES = 4 * 1024;
 export const MAX_PROTOCOL_VERSIONS = 16;
 export const MAX_CAPABILITIES = 32;
 export const MAX_SESSIONS_PER_RESPONSE = 4096;
+export const MAX_DIRECTORY_CHILDREN = 128;
+export const MAX_KNOWN_PROJECTS = 64;
 export const MAX_MESSAGES_PER_SESSION_SNAPSHOT = 16_384;
 export const SHA256_BYTES = 32;
