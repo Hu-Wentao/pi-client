@@ -24,67 +24,70 @@ import { currentCapsuleTargetId } from "./runtime-capsule-config.mjs";
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDirectory, "../..");
-const capsuleRoot = resolve(
-  process.argv[2] ??
-    resolve(repositoryRoot, "build", `pi-node-runtime-capsule-${currentCapsuleTargetId()}`),
-);
-if (process.argv.length > 3) {
-  throw new Error("verify-runtime-capsule.mjs accepts at most one capsule directory path.");
-}
 
-const rootMetadata = await stat(capsuleRoot);
-if (!rootMetadata.isDirectory()) {
-  throw new Error(`Runtime capsule path is not a directory: ${capsuleRoot}`);
-}
-const manifest = await readJson(resolve(capsuleRoot, CAPSULE_MANIFEST_NAME));
-const target = validateManifestDocument(manifest);
-if (target.id !== currentCapsuleTargetId()) {
-  throw new Error(
-    `Runtime E2E verification requires host target ${currentCapsuleTargetId()}; capsule is ${target.id}.`,
+async function main() {
+  const capsuleRoot = resolve(
+    process.argv[2] ??
+      resolve(repositoryRoot, "build", `pi-node-runtime-capsule-${currentCapsuleTargetId()}`),
   );
-}
-const expectedSourceCommit = process.env.PI_RUNTIME_CAPSULE_EXPECTED_SOURCE_COMMIT;
-if (expectedSourceCommit && manifest.sourceCommit !== expectedSourceCommit) {
-  throw new Error(
-    `Capsule source commit ${manifest.sourceCommit} does not match ${expectedSourceCommit}.`,
-  );
-}
-
-await assertReadOnlyTree(capsuleRoot);
-await verifyPayloadIntegrity(capsuleRoot, manifest);
-await verifyLockCopies(capsuleRoot, manifest);
-const packages = await verifyPackageMetadata(capsuleRoot, manifest);
-await scanForbiddenArtifacts(capsuleRoot);
-for (const licensePath of manifest.runtime.licenses) {
-  const metadata = await stat(resolveCapsulePath(capsuleRoot, licensePath, "runtime license"));
-  if (!metadata.isFile() || metadata.size === 0) {
-    throw new Error(`Capsule license is missing or empty: ${licensePath}.`);
+  if (process.argv.length > 3) {
+    throw new Error("verify-runtime-capsule.mjs accepts at most one capsule directory path.");
   }
-}
-const runtime = await verifyRuntimeMetadata(capsuleRoot, manifest);
-const e2e = await runRuntimeProtocolE2e(capsuleRoot, manifest, runtime);
 
-process.stdout.write(
-  `${JSON.stringify(
-    {
-      capsulePath: capsuleRoot,
-      sourceCommit: manifest.sourceCommit,
-      target: target.id,
-      payloadFileCount: manifest.integrity.payloadFileCount,
-      payloadSize: manifest.integrity.payloadSize,
-      installedPackageCount: packages.length,
-      nodeVersion: manifest.versions.node,
-      npmVersion: manifest.versions.npm,
-      piSdkVersion: manifest.versions.piSdk,
-      protocolVersion: manifest.versions.protocol,
-      runtimeE2e: e2e,
-      readOnly: true,
-      path: runtime.isolatedEnvironment.PATH,
-    },
-    null,
-    2,
-  )}\n`,
-);
+  const rootMetadata = await stat(capsuleRoot);
+  if (!rootMetadata.isDirectory()) {
+    throw new Error(`Runtime capsule path is not a directory: ${capsuleRoot}`);
+  }
+  const manifest = await readJson(resolve(capsuleRoot, CAPSULE_MANIFEST_NAME));
+  const target = validateManifestDocument(manifest);
+  if (target.id !== currentCapsuleTargetId()) {
+    throw new Error(
+      `Runtime E2E verification requires host target ${currentCapsuleTargetId()}; capsule is ${target.id}.`,
+    );
+  }
+  const expectedSourceCommit = process.env.PI_RUNTIME_CAPSULE_EXPECTED_SOURCE_COMMIT;
+  if (expectedSourceCommit && manifest.sourceCommit !== expectedSourceCommit) {
+    throw new Error(
+      `Capsule source commit ${manifest.sourceCommit} does not match ${expectedSourceCommit}.`,
+    );
+  }
+
+  await assertReadOnlyTree(capsuleRoot);
+  await verifyPayloadIntegrity(capsuleRoot, manifest);
+  await verifyLockCopies(capsuleRoot, manifest);
+  const packages = await verifyPackageMetadata(capsuleRoot, manifest);
+  await scanForbiddenArtifacts(capsuleRoot);
+  for (const licensePath of manifest.runtime.licenses) {
+    const metadata = await stat(resolveCapsulePath(capsuleRoot, licensePath, "runtime license"));
+    if (!metadata.isFile() || metadata.size === 0) {
+      throw new Error(`Capsule license is missing or empty: ${licensePath}.`);
+    }
+  }
+  const runtime = await verifyRuntimeMetadata(capsuleRoot, manifest);
+  const e2e = await runRuntimeProtocolE2e(capsuleRoot, manifest, runtime);
+
+  process.stdout.write(
+    `${JSON.stringify(
+      {
+        capsulePath: capsuleRoot,
+        sourceCommit: manifest.sourceCommit,
+        target: target.id,
+        payloadFileCount: manifest.integrity.payloadFileCount,
+        payloadSize: manifest.integrity.payloadSize,
+        installedPackageCount: packages.length,
+        nodeVersion: manifest.versions.node,
+        npmVersion: manifest.versions.npm,
+        piSdkVersion: manifest.versions.piSdk,
+        protocolVersion: manifest.versions.protocol,
+        runtimeE2e: e2e,
+        readOnly: true,
+        path: runtime.isolatedEnvironment.PATH,
+      },
+      null,
+      2,
+    )}\n`,
+  );
+}
 
 async function runRuntimeProtocolE2e(capsule, capsuleManifest, runtime) {
   const verificationRoot = resolve(
@@ -328,3 +331,5 @@ class CapsuleProtocolClient {
 function asError(error) {
   return error instanceof Error ? error : new Error("Unknown capsule protocol failure.");
 }
+
+await main();
