@@ -22,9 +22,23 @@ export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
 export 'protocol.pbenum.dart';
 
 enum PiTransportFrame_Operation {
-  bootstrapHello,
+  clientProtocolOffer,
+  serverHandshakeAccepted,
+  serverHandshakeRejected,
   healthRequest,
   healthResponse,
+  listSessionsRequest,
+  listSessionsResponse,
+  getSessionRequest,
+  getSessionResponse,
+  createSessionRequest,
+  createSessionResponse,
+  promptCommand,
+  abortCommand,
+  requestRejected,
+  commandAccepted,
+  commandRejected,
+  sessionEventStream,
   eventStream,
   cancel,
   windowUpdate,
@@ -37,14 +51,29 @@ enum PiTransportFrame_Operation {
   notSet
 }
 
-/// PiTransportFrame is the single public Protobuf wire envelope. Multiplexing
-/// identifiers remain flat scalar fields on typed operations.
+/// PiTransportFrame is the single public Protobuf wire envelope. Numeric
+/// multiplexing identifiers use uint64; domain and transport resource
+/// identifiers remain opaque strings.
 class PiTransportFrame extends $pb.GeneratedMessage {
   factory PiTransportFrame({
     $fixnum.Int64? frameSequence,
-    BootstrapHello? bootstrapHello,
+    ClientProtocolOffer? clientProtocolOffer,
+    ServerHandshakeAccepted? serverHandshakeAccepted,
+    ServerHandshakeRejected? serverHandshakeRejected,
     HealthRequest? healthRequest,
     HealthResponse? healthResponse,
+    ListSessionsRequest? listSessionsRequest,
+    ListSessionsResponse? listSessionsResponse,
+    GetSessionRequest? getSessionRequest,
+    GetSessionResponse? getSessionResponse,
+    CreateSessionRequest? createSessionRequest,
+    CreateSessionResponse? createSessionResponse,
+    PromptCommand? promptCommand,
+    AbortCommand? abortCommand,
+    RequestRejected? requestRejected,
+    CommandAccepted? commandAccepted,
+    CommandRejected? commandRejected,
+    SessionEventStreamEnvelope? sessionEventStream,
     EventStreamEnvelope? eventStream,
     Cancel? cancel,
     WindowUpdate? windowUpdate,
@@ -57,9 +86,32 @@ class PiTransportFrame extends $pb.GeneratedMessage {
   }) {
     final result = create();
     if (frameSequence != null) result.frameSequence = frameSequence;
-    if (bootstrapHello != null) result.bootstrapHello = bootstrapHello;
+    if (clientProtocolOffer != null)
+      result.clientProtocolOffer = clientProtocolOffer;
+    if (serverHandshakeAccepted != null)
+      result.serverHandshakeAccepted = serverHandshakeAccepted;
+    if (serverHandshakeRejected != null)
+      result.serverHandshakeRejected = serverHandshakeRejected;
     if (healthRequest != null) result.healthRequest = healthRequest;
     if (healthResponse != null) result.healthResponse = healthResponse;
+    if (listSessionsRequest != null)
+      result.listSessionsRequest = listSessionsRequest;
+    if (listSessionsResponse != null)
+      result.listSessionsResponse = listSessionsResponse;
+    if (getSessionRequest != null) result.getSessionRequest = getSessionRequest;
+    if (getSessionResponse != null)
+      result.getSessionResponse = getSessionResponse;
+    if (createSessionRequest != null)
+      result.createSessionRequest = createSessionRequest;
+    if (createSessionResponse != null)
+      result.createSessionResponse = createSessionResponse;
+    if (promptCommand != null) result.promptCommand = promptCommand;
+    if (abortCommand != null) result.abortCommand = abortCommand;
+    if (requestRejected != null) result.requestRejected = requestRejected;
+    if (commandAccepted != null) result.commandAccepted = commandAccepted;
+    if (commandRejected != null) result.commandRejected = commandRejected;
+    if (sessionEventStream != null)
+      result.sessionEventStream = sessionEventStream;
     if (eventStream != null) result.eventStream = eventStream;
     if (cancel != null) result.cancel = cancel;
     if (windowUpdate != null) result.windowUpdate = windowUpdate;
@@ -83,18 +135,32 @@ class PiTransportFrame extends $pb.GeneratedMessage {
 
   static const $core.Map<$core.int, PiTransportFrame_Operation>
       _PiTransportFrame_OperationByTag = {
-    10: PiTransportFrame_Operation.bootstrapHello,
-    11: PiTransportFrame_Operation.healthRequest,
-    12: PiTransportFrame_Operation.healthResponse,
-    13: PiTransportFrame_Operation.eventStream,
-    14: PiTransportFrame_Operation.cancel,
-    15: PiTransportFrame_Operation.windowUpdate,
-    16: PiTransportFrame_Operation.transferOpen,
-    17: PiTransportFrame_Operation.transferChunk,
-    18: PiTransportFrame_Operation.transferAck,
-    19: PiTransportFrame_Operation.transferComplete,
-    20: PiTransportFrame_Operation.transferAbort,
-    21: PiTransportFrame_Operation.error,
+    10: PiTransportFrame_Operation.clientProtocolOffer,
+    11: PiTransportFrame_Operation.serverHandshakeAccepted,
+    12: PiTransportFrame_Operation.serverHandshakeRejected,
+    20: PiTransportFrame_Operation.healthRequest,
+    21: PiTransportFrame_Operation.healthResponse,
+    30: PiTransportFrame_Operation.listSessionsRequest,
+    31: PiTransportFrame_Operation.listSessionsResponse,
+    32: PiTransportFrame_Operation.getSessionRequest,
+    33: PiTransportFrame_Operation.getSessionResponse,
+    34: PiTransportFrame_Operation.createSessionRequest,
+    35: PiTransportFrame_Operation.createSessionResponse,
+    36: PiTransportFrame_Operation.promptCommand,
+    37: PiTransportFrame_Operation.abortCommand,
+    38: PiTransportFrame_Operation.requestRejected,
+    39: PiTransportFrame_Operation.commandAccepted,
+    40: PiTransportFrame_Operation.commandRejected,
+    50: PiTransportFrame_Operation.sessionEventStream,
+    51: PiTransportFrame_Operation.eventStream,
+    60: PiTransportFrame_Operation.cancel,
+    61: PiTransportFrame_Operation.windowUpdate,
+    70: PiTransportFrame_Operation.transferOpen,
+    71: PiTransportFrame_Operation.transferChunk,
+    72: PiTransportFrame_Operation.transferAck,
+    73: PiTransportFrame_Operation.transferComplete,
+    74: PiTransportFrame_Operation.transferAbort,
+    80: PiTransportFrame_Operation.error,
     0: PiTransportFrame_Operation.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -102,33 +168,94 @@ class PiTransportFrame extends $pb.GeneratedMessage {
       package: const $pb.PackageName(
           _omitMessageNames ? '' : 'pi.client.protocol.v0'),
       createEmptyInstance: create)
-    ..oo(0, [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21])
+    ..oo(0, [
+      10,
+      11,
+      12,
+      20,
+      21,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      50,
+      51,
+      60,
+      61,
+      70,
+      71,
+      72,
+      73,
+      74,
+      80
+    ])
     ..a<$fixnum.Int64>(
         1, _omitFieldNames ? '' : 'frameSequence', $pb.PbFieldType.OU6,
         defaultOrMaker: $fixnum.Int64.ZERO)
-    ..aOM<BootstrapHello>(10, _omitFieldNames ? '' : 'bootstrapHello',
-        subBuilder: BootstrapHello.create)
-    ..aOM<HealthRequest>(11, _omitFieldNames ? '' : 'healthRequest',
+    ..aOM<ClientProtocolOffer>(10, _omitFieldNames ? '' : 'clientProtocolOffer',
+        subBuilder: ClientProtocolOffer.create)
+    ..aOM<ServerHandshakeAccepted>(
+        11, _omitFieldNames ? '' : 'serverHandshakeAccepted',
+        subBuilder: ServerHandshakeAccepted.create)
+    ..aOM<ServerHandshakeRejected>(
+        12, _omitFieldNames ? '' : 'serverHandshakeRejected',
+        subBuilder: ServerHandshakeRejected.create)
+    ..aOM<HealthRequest>(20, _omitFieldNames ? '' : 'healthRequest',
         subBuilder: HealthRequest.create)
-    ..aOM<HealthResponse>(12, _omitFieldNames ? '' : 'healthResponse',
+    ..aOM<HealthResponse>(21, _omitFieldNames ? '' : 'healthResponse',
         subBuilder: HealthResponse.create)
-    ..aOM<EventStreamEnvelope>(13, _omitFieldNames ? '' : 'eventStream',
+    ..aOM<ListSessionsRequest>(30, _omitFieldNames ? '' : 'listSessionsRequest',
+        subBuilder: ListSessionsRequest.create)
+    ..aOM<ListSessionsResponse>(
+        31, _omitFieldNames ? '' : 'listSessionsResponse',
+        subBuilder: ListSessionsResponse.create)
+    ..aOM<GetSessionRequest>(32, _omitFieldNames ? '' : 'getSessionRequest',
+        subBuilder: GetSessionRequest.create)
+    ..aOM<GetSessionResponse>(33, _omitFieldNames ? '' : 'getSessionResponse',
+        subBuilder: GetSessionResponse.create)
+    ..aOM<CreateSessionRequest>(
+        34, _omitFieldNames ? '' : 'createSessionRequest',
+        subBuilder: CreateSessionRequest.create)
+    ..aOM<CreateSessionResponse>(
+        35, _omitFieldNames ? '' : 'createSessionResponse',
+        subBuilder: CreateSessionResponse.create)
+    ..aOM<PromptCommand>(36, _omitFieldNames ? '' : 'promptCommand',
+        subBuilder: PromptCommand.create)
+    ..aOM<AbortCommand>(37, _omitFieldNames ? '' : 'abortCommand',
+        subBuilder: AbortCommand.create)
+    ..aOM<RequestRejected>(38, _omitFieldNames ? '' : 'requestRejected',
+        subBuilder: RequestRejected.create)
+    ..aOM<CommandAccepted>(39, _omitFieldNames ? '' : 'commandAccepted',
+        subBuilder: CommandAccepted.create)
+    ..aOM<CommandRejected>(40, _omitFieldNames ? '' : 'commandRejected',
+        subBuilder: CommandRejected.create)
+    ..aOM<SessionEventStreamEnvelope>(
+        50, _omitFieldNames ? '' : 'sessionEventStream',
+        subBuilder: SessionEventStreamEnvelope.create)
+    ..aOM<EventStreamEnvelope>(51, _omitFieldNames ? '' : 'eventStream',
         subBuilder: EventStreamEnvelope.create)
-    ..aOM<Cancel>(14, _omitFieldNames ? '' : 'cancel',
+    ..aOM<Cancel>(60, _omitFieldNames ? '' : 'cancel',
         subBuilder: Cancel.create)
-    ..aOM<WindowUpdate>(15, _omitFieldNames ? '' : 'windowUpdate',
+    ..aOM<WindowUpdate>(61, _omitFieldNames ? '' : 'windowUpdate',
         subBuilder: WindowUpdate.create)
-    ..aOM<TransferOpen>(16, _omitFieldNames ? '' : 'transferOpen',
+    ..aOM<TransferOpen>(70, _omitFieldNames ? '' : 'transferOpen',
         subBuilder: TransferOpen.create)
-    ..aOM<TransferChunk>(17, _omitFieldNames ? '' : 'transferChunk',
+    ..aOM<TransferChunk>(71, _omitFieldNames ? '' : 'transferChunk',
         subBuilder: TransferChunk.create)
-    ..aOM<TransferAck>(18, _omitFieldNames ? '' : 'transferAck',
+    ..aOM<TransferAck>(72, _omitFieldNames ? '' : 'transferAck',
         subBuilder: TransferAck.create)
-    ..aOM<TransferComplete>(19, _omitFieldNames ? '' : 'transferComplete',
+    ..aOM<TransferComplete>(73, _omitFieldNames ? '' : 'transferComplete',
         subBuilder: TransferComplete.create)
-    ..aOM<TransferAbort>(20, _omitFieldNames ? '' : 'transferAbort',
+    ..aOM<TransferAbort>(74, _omitFieldNames ? '' : 'transferAbort',
         subBuilder: TransferAbort.create)
-    ..aOM<ErrorEnvelope>(21, _omitFieldNames ? '' : 'error',
+    ..aOM<ErrorEnvelope>(80, _omitFieldNames ? '' : 'error',
         subBuilder: ErrorEnvelope.create)
     ..hasRequiredFields = false;
 
@@ -154,29 +281,57 @@ class PiTransportFrame extends $pb.GeneratedMessage {
   @$pb.TagNumber(10)
   @$pb.TagNumber(11)
   @$pb.TagNumber(12)
-  @$pb.TagNumber(13)
-  @$pb.TagNumber(14)
-  @$pb.TagNumber(15)
-  @$pb.TagNumber(16)
-  @$pb.TagNumber(17)
-  @$pb.TagNumber(18)
-  @$pb.TagNumber(19)
   @$pb.TagNumber(20)
   @$pb.TagNumber(21)
+  @$pb.TagNumber(30)
+  @$pb.TagNumber(31)
+  @$pb.TagNumber(32)
+  @$pb.TagNumber(33)
+  @$pb.TagNumber(34)
+  @$pb.TagNumber(35)
+  @$pb.TagNumber(36)
+  @$pb.TagNumber(37)
+  @$pb.TagNumber(38)
+  @$pb.TagNumber(39)
+  @$pb.TagNumber(40)
+  @$pb.TagNumber(50)
+  @$pb.TagNumber(51)
+  @$pb.TagNumber(60)
+  @$pb.TagNumber(61)
+  @$pb.TagNumber(70)
+  @$pb.TagNumber(71)
+  @$pb.TagNumber(72)
+  @$pb.TagNumber(73)
+  @$pb.TagNumber(74)
+  @$pb.TagNumber(80)
   PiTransportFrame_Operation whichOperation() =>
       _PiTransportFrame_OperationByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(10)
   @$pb.TagNumber(11)
   @$pb.TagNumber(12)
-  @$pb.TagNumber(13)
-  @$pb.TagNumber(14)
-  @$pb.TagNumber(15)
-  @$pb.TagNumber(16)
-  @$pb.TagNumber(17)
-  @$pb.TagNumber(18)
-  @$pb.TagNumber(19)
   @$pb.TagNumber(20)
   @$pb.TagNumber(21)
+  @$pb.TagNumber(30)
+  @$pb.TagNumber(31)
+  @$pb.TagNumber(32)
+  @$pb.TagNumber(33)
+  @$pb.TagNumber(34)
+  @$pb.TagNumber(35)
+  @$pb.TagNumber(36)
+  @$pb.TagNumber(37)
+  @$pb.TagNumber(38)
+  @$pb.TagNumber(39)
+  @$pb.TagNumber(40)
+  @$pb.TagNumber(50)
+  @$pb.TagNumber(51)
+  @$pb.TagNumber(60)
+  @$pb.TagNumber(61)
+  @$pb.TagNumber(70)
+  @$pb.TagNumber(71)
+  @$pb.TagNumber(72)
+  @$pb.TagNumber(73)
+  @$pb.TagNumber(74)
+  @$pb.TagNumber(80)
   void clearOperation() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -189,157 +344,395 @@ class PiTransportFrame extends $pb.GeneratedMessage {
   void clearFrameSequence() => $_clearField(1);
 
   @$pb.TagNumber(10)
-  BootstrapHello get bootstrapHello => $_getN(1);
+  ClientProtocolOffer get clientProtocolOffer => $_getN(1);
   @$pb.TagNumber(10)
-  set bootstrapHello(BootstrapHello value) => $_setField(10, value);
+  set clientProtocolOffer(ClientProtocolOffer value) => $_setField(10, value);
   @$pb.TagNumber(10)
-  $core.bool hasBootstrapHello() => $_has(1);
+  $core.bool hasClientProtocolOffer() => $_has(1);
   @$pb.TagNumber(10)
-  void clearBootstrapHello() => $_clearField(10);
+  void clearClientProtocolOffer() => $_clearField(10);
   @$pb.TagNumber(10)
-  BootstrapHello ensureBootstrapHello() => $_ensure(1);
+  ClientProtocolOffer ensureClientProtocolOffer() => $_ensure(1);
 
   @$pb.TagNumber(11)
-  HealthRequest get healthRequest => $_getN(2);
+  ServerHandshakeAccepted get serverHandshakeAccepted => $_getN(2);
   @$pb.TagNumber(11)
-  set healthRequest(HealthRequest value) => $_setField(11, value);
+  set serverHandshakeAccepted(ServerHandshakeAccepted value) =>
+      $_setField(11, value);
   @$pb.TagNumber(11)
-  $core.bool hasHealthRequest() => $_has(2);
+  $core.bool hasServerHandshakeAccepted() => $_has(2);
   @$pb.TagNumber(11)
-  void clearHealthRequest() => $_clearField(11);
+  void clearServerHandshakeAccepted() => $_clearField(11);
   @$pb.TagNumber(11)
-  HealthRequest ensureHealthRequest() => $_ensure(2);
+  ServerHandshakeAccepted ensureServerHandshakeAccepted() => $_ensure(2);
 
   @$pb.TagNumber(12)
-  HealthResponse get healthResponse => $_getN(3);
+  ServerHandshakeRejected get serverHandshakeRejected => $_getN(3);
   @$pb.TagNumber(12)
-  set healthResponse(HealthResponse value) => $_setField(12, value);
+  set serverHandshakeRejected(ServerHandshakeRejected value) =>
+      $_setField(12, value);
   @$pb.TagNumber(12)
-  $core.bool hasHealthResponse() => $_has(3);
+  $core.bool hasServerHandshakeRejected() => $_has(3);
   @$pb.TagNumber(12)
-  void clearHealthResponse() => $_clearField(12);
+  void clearServerHandshakeRejected() => $_clearField(12);
   @$pb.TagNumber(12)
-  HealthResponse ensureHealthResponse() => $_ensure(3);
-
-  @$pb.TagNumber(13)
-  EventStreamEnvelope get eventStream => $_getN(4);
-  @$pb.TagNumber(13)
-  set eventStream(EventStreamEnvelope value) => $_setField(13, value);
-  @$pb.TagNumber(13)
-  $core.bool hasEventStream() => $_has(4);
-  @$pb.TagNumber(13)
-  void clearEventStream() => $_clearField(13);
-  @$pb.TagNumber(13)
-  EventStreamEnvelope ensureEventStream() => $_ensure(4);
-
-  @$pb.TagNumber(14)
-  Cancel get cancel => $_getN(5);
-  @$pb.TagNumber(14)
-  set cancel(Cancel value) => $_setField(14, value);
-  @$pb.TagNumber(14)
-  $core.bool hasCancel() => $_has(5);
-  @$pb.TagNumber(14)
-  void clearCancel() => $_clearField(14);
-  @$pb.TagNumber(14)
-  Cancel ensureCancel() => $_ensure(5);
-
-  @$pb.TagNumber(15)
-  WindowUpdate get windowUpdate => $_getN(6);
-  @$pb.TagNumber(15)
-  set windowUpdate(WindowUpdate value) => $_setField(15, value);
-  @$pb.TagNumber(15)
-  $core.bool hasWindowUpdate() => $_has(6);
-  @$pb.TagNumber(15)
-  void clearWindowUpdate() => $_clearField(15);
-  @$pb.TagNumber(15)
-  WindowUpdate ensureWindowUpdate() => $_ensure(6);
-
-  @$pb.TagNumber(16)
-  TransferOpen get transferOpen => $_getN(7);
-  @$pb.TagNumber(16)
-  set transferOpen(TransferOpen value) => $_setField(16, value);
-  @$pb.TagNumber(16)
-  $core.bool hasTransferOpen() => $_has(7);
-  @$pb.TagNumber(16)
-  void clearTransferOpen() => $_clearField(16);
-  @$pb.TagNumber(16)
-  TransferOpen ensureTransferOpen() => $_ensure(7);
-
-  @$pb.TagNumber(17)
-  TransferChunk get transferChunk => $_getN(8);
-  @$pb.TagNumber(17)
-  set transferChunk(TransferChunk value) => $_setField(17, value);
-  @$pb.TagNumber(17)
-  $core.bool hasTransferChunk() => $_has(8);
-  @$pb.TagNumber(17)
-  void clearTransferChunk() => $_clearField(17);
-  @$pb.TagNumber(17)
-  TransferChunk ensureTransferChunk() => $_ensure(8);
-
-  @$pb.TagNumber(18)
-  TransferAck get transferAck => $_getN(9);
-  @$pb.TagNumber(18)
-  set transferAck(TransferAck value) => $_setField(18, value);
-  @$pb.TagNumber(18)
-  $core.bool hasTransferAck() => $_has(9);
-  @$pb.TagNumber(18)
-  void clearTransferAck() => $_clearField(18);
-  @$pb.TagNumber(18)
-  TransferAck ensureTransferAck() => $_ensure(9);
-
-  @$pb.TagNumber(19)
-  TransferComplete get transferComplete => $_getN(10);
-  @$pb.TagNumber(19)
-  set transferComplete(TransferComplete value) => $_setField(19, value);
-  @$pb.TagNumber(19)
-  $core.bool hasTransferComplete() => $_has(10);
-  @$pb.TagNumber(19)
-  void clearTransferComplete() => $_clearField(19);
-  @$pb.TagNumber(19)
-  TransferComplete ensureTransferComplete() => $_ensure(10);
+  ServerHandshakeRejected ensureServerHandshakeRejected() => $_ensure(3);
 
   @$pb.TagNumber(20)
-  TransferAbort get transferAbort => $_getN(11);
+  HealthRequest get healthRequest => $_getN(4);
   @$pb.TagNumber(20)
-  set transferAbort(TransferAbort value) => $_setField(20, value);
+  set healthRequest(HealthRequest value) => $_setField(20, value);
   @$pb.TagNumber(20)
-  $core.bool hasTransferAbort() => $_has(11);
+  $core.bool hasHealthRequest() => $_has(4);
   @$pb.TagNumber(20)
-  void clearTransferAbort() => $_clearField(20);
+  void clearHealthRequest() => $_clearField(20);
   @$pb.TagNumber(20)
-  TransferAbort ensureTransferAbort() => $_ensure(11);
+  HealthRequest ensureHealthRequest() => $_ensure(4);
 
   @$pb.TagNumber(21)
-  ErrorEnvelope get error => $_getN(12);
+  HealthResponse get healthResponse => $_getN(5);
   @$pb.TagNumber(21)
-  set error(ErrorEnvelope value) => $_setField(21, value);
+  set healthResponse(HealthResponse value) => $_setField(21, value);
   @$pb.TagNumber(21)
-  $core.bool hasError() => $_has(12);
+  $core.bool hasHealthResponse() => $_has(5);
   @$pb.TagNumber(21)
-  void clearError() => $_clearField(21);
+  void clearHealthResponse() => $_clearField(21);
   @$pb.TagNumber(21)
-  ErrorEnvelope ensureError() => $_ensure(12);
+  HealthResponse ensureHealthResponse() => $_ensure(5);
+
+  @$pb.TagNumber(30)
+  ListSessionsRequest get listSessionsRequest => $_getN(6);
+  @$pb.TagNumber(30)
+  set listSessionsRequest(ListSessionsRequest value) => $_setField(30, value);
+  @$pb.TagNumber(30)
+  $core.bool hasListSessionsRequest() => $_has(6);
+  @$pb.TagNumber(30)
+  void clearListSessionsRequest() => $_clearField(30);
+  @$pb.TagNumber(30)
+  ListSessionsRequest ensureListSessionsRequest() => $_ensure(6);
+
+  @$pb.TagNumber(31)
+  ListSessionsResponse get listSessionsResponse => $_getN(7);
+  @$pb.TagNumber(31)
+  set listSessionsResponse(ListSessionsResponse value) => $_setField(31, value);
+  @$pb.TagNumber(31)
+  $core.bool hasListSessionsResponse() => $_has(7);
+  @$pb.TagNumber(31)
+  void clearListSessionsResponse() => $_clearField(31);
+  @$pb.TagNumber(31)
+  ListSessionsResponse ensureListSessionsResponse() => $_ensure(7);
+
+  @$pb.TagNumber(32)
+  GetSessionRequest get getSessionRequest => $_getN(8);
+  @$pb.TagNumber(32)
+  set getSessionRequest(GetSessionRequest value) => $_setField(32, value);
+  @$pb.TagNumber(32)
+  $core.bool hasGetSessionRequest() => $_has(8);
+  @$pb.TagNumber(32)
+  void clearGetSessionRequest() => $_clearField(32);
+  @$pb.TagNumber(32)
+  GetSessionRequest ensureGetSessionRequest() => $_ensure(8);
+
+  @$pb.TagNumber(33)
+  GetSessionResponse get getSessionResponse => $_getN(9);
+  @$pb.TagNumber(33)
+  set getSessionResponse(GetSessionResponse value) => $_setField(33, value);
+  @$pb.TagNumber(33)
+  $core.bool hasGetSessionResponse() => $_has(9);
+  @$pb.TagNumber(33)
+  void clearGetSessionResponse() => $_clearField(33);
+  @$pb.TagNumber(33)
+  GetSessionResponse ensureGetSessionResponse() => $_ensure(9);
+
+  @$pb.TagNumber(34)
+  CreateSessionRequest get createSessionRequest => $_getN(10);
+  @$pb.TagNumber(34)
+  set createSessionRequest(CreateSessionRequest value) => $_setField(34, value);
+  @$pb.TagNumber(34)
+  $core.bool hasCreateSessionRequest() => $_has(10);
+  @$pb.TagNumber(34)
+  void clearCreateSessionRequest() => $_clearField(34);
+  @$pb.TagNumber(34)
+  CreateSessionRequest ensureCreateSessionRequest() => $_ensure(10);
+
+  @$pb.TagNumber(35)
+  CreateSessionResponse get createSessionResponse => $_getN(11);
+  @$pb.TagNumber(35)
+  set createSessionResponse(CreateSessionResponse value) =>
+      $_setField(35, value);
+  @$pb.TagNumber(35)
+  $core.bool hasCreateSessionResponse() => $_has(11);
+  @$pb.TagNumber(35)
+  void clearCreateSessionResponse() => $_clearField(35);
+  @$pb.TagNumber(35)
+  CreateSessionResponse ensureCreateSessionResponse() => $_ensure(11);
+
+  @$pb.TagNumber(36)
+  PromptCommand get promptCommand => $_getN(12);
+  @$pb.TagNumber(36)
+  set promptCommand(PromptCommand value) => $_setField(36, value);
+  @$pb.TagNumber(36)
+  $core.bool hasPromptCommand() => $_has(12);
+  @$pb.TagNumber(36)
+  void clearPromptCommand() => $_clearField(36);
+  @$pb.TagNumber(36)
+  PromptCommand ensurePromptCommand() => $_ensure(12);
+
+  @$pb.TagNumber(37)
+  AbortCommand get abortCommand => $_getN(13);
+  @$pb.TagNumber(37)
+  set abortCommand(AbortCommand value) => $_setField(37, value);
+  @$pb.TagNumber(37)
+  $core.bool hasAbortCommand() => $_has(13);
+  @$pb.TagNumber(37)
+  void clearAbortCommand() => $_clearField(37);
+  @$pb.TagNumber(37)
+  AbortCommand ensureAbortCommand() => $_ensure(13);
+
+  @$pb.TagNumber(38)
+  RequestRejected get requestRejected => $_getN(14);
+  @$pb.TagNumber(38)
+  set requestRejected(RequestRejected value) => $_setField(38, value);
+  @$pb.TagNumber(38)
+  $core.bool hasRequestRejected() => $_has(14);
+  @$pb.TagNumber(38)
+  void clearRequestRejected() => $_clearField(38);
+  @$pb.TagNumber(38)
+  RequestRejected ensureRequestRejected() => $_ensure(14);
+
+  @$pb.TagNumber(39)
+  CommandAccepted get commandAccepted => $_getN(15);
+  @$pb.TagNumber(39)
+  set commandAccepted(CommandAccepted value) => $_setField(39, value);
+  @$pb.TagNumber(39)
+  $core.bool hasCommandAccepted() => $_has(15);
+  @$pb.TagNumber(39)
+  void clearCommandAccepted() => $_clearField(39);
+  @$pb.TagNumber(39)
+  CommandAccepted ensureCommandAccepted() => $_ensure(15);
+
+  @$pb.TagNumber(40)
+  CommandRejected get commandRejected => $_getN(16);
+  @$pb.TagNumber(40)
+  set commandRejected(CommandRejected value) => $_setField(40, value);
+  @$pb.TagNumber(40)
+  $core.bool hasCommandRejected() => $_has(16);
+  @$pb.TagNumber(40)
+  void clearCommandRejected() => $_clearField(40);
+  @$pb.TagNumber(40)
+  CommandRejected ensureCommandRejected() => $_ensure(16);
+
+  @$pb.TagNumber(50)
+  SessionEventStreamEnvelope get sessionEventStream => $_getN(17);
+  @$pb.TagNumber(50)
+  set sessionEventStream(SessionEventStreamEnvelope value) =>
+      $_setField(50, value);
+  @$pb.TagNumber(50)
+  $core.bool hasSessionEventStream() => $_has(17);
+  @$pb.TagNumber(50)
+  void clearSessionEventStream() => $_clearField(50);
+  @$pb.TagNumber(50)
+  SessionEventStreamEnvelope ensureSessionEventStream() => $_ensure(17);
+
+  @$pb.TagNumber(51)
+  EventStreamEnvelope get eventStream => $_getN(18);
+  @$pb.TagNumber(51)
+  set eventStream(EventStreamEnvelope value) => $_setField(51, value);
+  @$pb.TagNumber(51)
+  $core.bool hasEventStream() => $_has(18);
+  @$pb.TagNumber(51)
+  void clearEventStream() => $_clearField(51);
+  @$pb.TagNumber(51)
+  EventStreamEnvelope ensureEventStream() => $_ensure(18);
+
+  @$pb.TagNumber(60)
+  Cancel get cancel => $_getN(19);
+  @$pb.TagNumber(60)
+  set cancel(Cancel value) => $_setField(60, value);
+  @$pb.TagNumber(60)
+  $core.bool hasCancel() => $_has(19);
+  @$pb.TagNumber(60)
+  void clearCancel() => $_clearField(60);
+  @$pb.TagNumber(60)
+  Cancel ensureCancel() => $_ensure(19);
+
+  @$pb.TagNumber(61)
+  WindowUpdate get windowUpdate => $_getN(20);
+  @$pb.TagNumber(61)
+  set windowUpdate(WindowUpdate value) => $_setField(61, value);
+  @$pb.TagNumber(61)
+  $core.bool hasWindowUpdate() => $_has(20);
+  @$pb.TagNumber(61)
+  void clearWindowUpdate() => $_clearField(61);
+  @$pb.TagNumber(61)
+  WindowUpdate ensureWindowUpdate() => $_ensure(20);
+
+  @$pb.TagNumber(70)
+  TransferOpen get transferOpen => $_getN(21);
+  @$pb.TagNumber(70)
+  set transferOpen(TransferOpen value) => $_setField(70, value);
+  @$pb.TagNumber(70)
+  $core.bool hasTransferOpen() => $_has(21);
+  @$pb.TagNumber(70)
+  void clearTransferOpen() => $_clearField(70);
+  @$pb.TagNumber(70)
+  TransferOpen ensureTransferOpen() => $_ensure(21);
+
+  @$pb.TagNumber(71)
+  TransferChunk get transferChunk => $_getN(22);
+  @$pb.TagNumber(71)
+  set transferChunk(TransferChunk value) => $_setField(71, value);
+  @$pb.TagNumber(71)
+  $core.bool hasTransferChunk() => $_has(22);
+  @$pb.TagNumber(71)
+  void clearTransferChunk() => $_clearField(71);
+  @$pb.TagNumber(71)
+  TransferChunk ensureTransferChunk() => $_ensure(22);
+
+  @$pb.TagNumber(72)
+  TransferAck get transferAck => $_getN(23);
+  @$pb.TagNumber(72)
+  set transferAck(TransferAck value) => $_setField(72, value);
+  @$pb.TagNumber(72)
+  $core.bool hasTransferAck() => $_has(23);
+  @$pb.TagNumber(72)
+  void clearTransferAck() => $_clearField(72);
+  @$pb.TagNumber(72)
+  TransferAck ensureTransferAck() => $_ensure(23);
+
+  @$pb.TagNumber(73)
+  TransferComplete get transferComplete => $_getN(24);
+  @$pb.TagNumber(73)
+  set transferComplete(TransferComplete value) => $_setField(73, value);
+  @$pb.TagNumber(73)
+  $core.bool hasTransferComplete() => $_has(24);
+  @$pb.TagNumber(73)
+  void clearTransferComplete() => $_clearField(73);
+  @$pb.TagNumber(73)
+  TransferComplete ensureTransferComplete() => $_ensure(24);
+
+  @$pb.TagNumber(74)
+  TransferAbort get transferAbort => $_getN(25);
+  @$pb.TagNumber(74)
+  set transferAbort(TransferAbort value) => $_setField(74, value);
+  @$pb.TagNumber(74)
+  $core.bool hasTransferAbort() => $_has(25);
+  @$pb.TagNumber(74)
+  void clearTransferAbort() => $_clearField(74);
+  @$pb.TagNumber(74)
+  TransferAbort ensureTransferAbort() => $_ensure(25);
+
+  @$pb.TagNumber(80)
+  ErrorEnvelope get error => $_getN(26);
+  @$pb.TagNumber(80)
+  set error(ErrorEnvelope value) => $_setField(80, value);
+  @$pb.TagNumber(80)
+  $core.bool hasError() => $_has(26);
+  @$pb.TagNumber(80)
+  void clearError() => $_clearField(80);
+  @$pb.TagNumber(80)
+  ErrorEnvelope ensureError() => $_ensure(26);
 }
 
-class BootstrapHello extends $pb.GeneratedMessage {
-  factory BootstrapHello({
-    $core.String? connectionId,
-    $core.String? peerId,
-    PeerRole? role,
-    $core.int? protocolMajor,
-    $core.int? protocolMinor,
+/// ProtocolVersion is the numeric SemVer core used for exact wire negotiation.
+/// The v0 package accepts only major zero. Prerelease and build identifiers are
+/// intentionally not part of protocol identity.
+class ProtocolVersion extends $pb.GeneratedMessage {
+  factory ProtocolVersion({
+    $core.int? major,
+    $core.int? minor,
+    $core.int? patch,
+  }) {
+    final result = create();
+    if (major != null) result.major = major;
+    if (minor != null) result.minor = minor;
+    if (patch != null) result.patch = patch;
+    return result;
+  }
+
+  ProtocolVersion._();
+
+  factory ProtocolVersion.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ProtocolVersion.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ProtocolVersion',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aI(1, _omitFieldNames ? '' : 'major', fieldType: $pb.PbFieldType.OU3)
+    ..aI(2, _omitFieldNames ? '' : 'minor', fieldType: $pb.PbFieldType.OU3)
+    ..aI(3, _omitFieldNames ? '' : 'patch', fieldType: $pb.PbFieldType.OU3)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ProtocolVersion clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ProtocolVersion copyWith(void Function(ProtocolVersion) updates) =>
+      super.copyWith((message) => updates(message as ProtocolVersion))
+          as ProtocolVersion;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ProtocolVersion create() => ProtocolVersion._();
+  @$core.override
+  ProtocolVersion createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ProtocolVersion getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ProtocolVersion>(create);
+  static ProtocolVersion? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get major => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set major($core.int value) => $_setUnsignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasMajor() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearMajor() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get minor => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set minor($core.int value) => $_setUnsignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasMinor() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMinor() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get patch => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set patch($core.int value) => $_setUnsignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasPatch() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearPatch() => $_clearField(3);
+}
+
+/// protocol_versions is ordered by client preference. The server selects one
+/// exact offered version and a subset of the advertised capabilities.
+class ClientProtocolOffer extends $pb.GeneratedMessage {
+  factory ClientProtocolOffer({
+    $core.Iterable<ProtocolVersion>? protocolVersions,
+    $core.Iterable<Capability>? capabilities,
+    $core.String? clientInstanceId,
     $core.String? implementationName,
     $core.String? implementationVersion,
     $core.int? maxFrameBytes,
     $core.int? maxTransferChunkBytes,
-    $core.Iterable<Capability>? capabilities,
   }) {
     final result = create();
-    if (connectionId != null) result.connectionId = connectionId;
-    if (peerId != null) result.peerId = peerId;
-    if (role != null) result.role = role;
-    if (protocolMajor != null) result.protocolMajor = protocolMajor;
-    if (protocolMinor != null) result.protocolMinor = protocolMinor;
+    if (protocolVersions != null)
+      result.protocolVersions.addAll(protocolVersions);
+    if (capabilities != null) result.capabilities.addAll(capabilities);
+    if (clientInstanceId != null) result.clientInstanceId = clientInstanceId;
     if (implementationName != null)
       result.implementationName = implementationName;
     if (implementationVersion != null)
@@ -347,152 +740,316 @@ class BootstrapHello extends $pb.GeneratedMessage {
     if (maxFrameBytes != null) result.maxFrameBytes = maxFrameBytes;
     if (maxTransferChunkBytes != null)
       result.maxTransferChunkBytes = maxTransferChunkBytes;
-    if (capabilities != null) result.capabilities.addAll(capabilities);
     return result;
   }
 
-  BootstrapHello._();
+  ClientProtocolOffer._();
 
-  factory BootstrapHello.fromBuffer($core.List<$core.int> data,
+  factory ClientProtocolOffer.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromBuffer(data, registry);
-  factory BootstrapHello.fromJson($core.String json,
+  factory ClientProtocolOffer.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'BootstrapHello',
+      _omitMessageNames ? '' : 'ClientProtocolOffer',
       package: const $pb.PackageName(
           _omitMessageNames ? '' : 'pi.client.protocol.v0'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'connectionId')
-    ..aOS(2, _omitFieldNames ? '' : 'peerId')
-    ..aE<PeerRole>(3, _omitFieldNames ? '' : 'role',
-        enumValues: PeerRole.values)
-    ..aI(4, _omitFieldNames ? '' : 'protocolMajor',
-        fieldType: $pb.PbFieldType.OU3)
-    ..aI(5, _omitFieldNames ? '' : 'protocolMinor',
-        fieldType: $pb.PbFieldType.OU3)
-    ..aOS(6, _omitFieldNames ? '' : 'implementationName')
-    ..aOS(7, _omitFieldNames ? '' : 'implementationVersion')
-    ..aI(8, _omitFieldNames ? '' : 'maxFrameBytes',
-        fieldType: $pb.PbFieldType.OU3)
-    ..aI(9, _omitFieldNames ? '' : 'maxTransferChunkBytes',
-        fieldType: $pb.PbFieldType.OU3)
+    ..pPM<ProtocolVersion>(1, _omitFieldNames ? '' : 'protocolVersions',
+        subBuilder: ProtocolVersion.create)
     ..pc<Capability>(
-        10, _omitFieldNames ? '' : 'capabilities', $pb.PbFieldType.KE,
+        2, _omitFieldNames ? '' : 'capabilities', $pb.PbFieldType.KE,
         valueOf: Capability.valueOf,
         enumValues: Capability.values,
         defaultEnumValue: Capability.CAPABILITY_UNSPECIFIED)
+    ..aOS(3, _omitFieldNames ? '' : 'clientInstanceId')
+    ..aOS(4, _omitFieldNames ? '' : 'implementationName')
+    ..aOS(5, _omitFieldNames ? '' : 'implementationVersion')
+    ..aI(6, _omitFieldNames ? '' : 'maxFrameBytes',
+        fieldType: $pb.PbFieldType.OU3)
+    ..aI(7, _omitFieldNames ? '' : 'maxTransferChunkBytes',
+        fieldType: $pb.PbFieldType.OU3)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  BootstrapHello clone() => deepCopy();
+  ClientProtocolOffer clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  BootstrapHello copyWith(void Function(BootstrapHello) updates) =>
-      super.copyWith((message) => updates(message as BootstrapHello))
-          as BootstrapHello;
+  ClientProtocolOffer copyWith(void Function(ClientProtocolOffer) updates) =>
+      super.copyWith((message) => updates(message as ClientProtocolOffer))
+          as ClientProtocolOffer;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static BootstrapHello create() => BootstrapHello._();
+  static ClientProtocolOffer create() => ClientProtocolOffer._();
   @$core.override
-  BootstrapHello createEmptyInstance() => create();
+  ClientProtocolOffer createEmptyInstance() => create();
   @$core.pragma('dart2js:noInline')
-  static BootstrapHello getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<BootstrapHello>(create);
-  static BootstrapHello? _defaultInstance;
+  static ClientProtocolOffer getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientProtocolOffer>(create);
+  static ClientProtocolOffer? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get connectionId => $_getSZ(0);
+  $pb.PbList<ProtocolVersion> get protocolVersions => $_getList(0);
+
+  @$pb.TagNumber(2)
+  $pb.PbList<Capability> get capabilities => $_getList(1);
+
+  @$pb.TagNumber(3)
+  $core.String get clientInstanceId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set clientInstanceId($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasClientInstanceId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearClientInstanceId() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get implementationName => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set implementationName($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasImplementationName() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearImplementationName() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get implementationVersion => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set implementationVersion($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasImplementationVersion() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearImplementationVersion() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get maxFrameBytes => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set maxFrameBytes($core.int value) => $_setUnsignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasMaxFrameBytes() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearMaxFrameBytes() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.int get maxTransferChunkBytes => $_getIZ(6);
+  @$pb.TagNumber(7)
+  set maxTransferChunkBytes($core.int value) => $_setUnsignedInt32(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasMaxTransferChunkBytes() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearMaxTransferChunkBytes() => $_clearField(7);
+}
+
+class ServerHandshakeAccepted extends $pb.GeneratedMessage {
+  factory ServerHandshakeAccepted({
+    ProtocolVersion? selectedProtocolVersion,
+    $core.Iterable<Capability>? capabilities,
+    $core.String? nodeInstanceId,
+    $core.String? implementationName,
+    $core.String? implementationVersion,
+    $core.int? maxFrameBytes,
+    $core.int? maxTransferChunkBytes,
+  }) {
+    final result = create();
+    if (selectedProtocolVersion != null)
+      result.selectedProtocolVersion = selectedProtocolVersion;
+    if (capabilities != null) result.capabilities.addAll(capabilities);
+    if (nodeInstanceId != null) result.nodeInstanceId = nodeInstanceId;
+    if (implementationName != null)
+      result.implementationName = implementationName;
+    if (implementationVersion != null)
+      result.implementationVersion = implementationVersion;
+    if (maxFrameBytes != null) result.maxFrameBytes = maxFrameBytes;
+    if (maxTransferChunkBytes != null)
+      result.maxTransferChunkBytes = maxTransferChunkBytes;
+    return result;
+  }
+
+  ServerHandshakeAccepted._();
+
+  factory ServerHandshakeAccepted.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ServerHandshakeAccepted.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ServerHandshakeAccepted',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOM<ProtocolVersion>(1, _omitFieldNames ? '' : 'selectedProtocolVersion',
+        subBuilder: ProtocolVersion.create)
+    ..pc<Capability>(
+        2, _omitFieldNames ? '' : 'capabilities', $pb.PbFieldType.KE,
+        valueOf: Capability.valueOf,
+        enumValues: Capability.values,
+        defaultEnumValue: Capability.CAPABILITY_UNSPECIFIED)
+    ..aOS(3, _omitFieldNames ? '' : 'nodeInstanceId')
+    ..aOS(4, _omitFieldNames ? '' : 'implementationName')
+    ..aOS(5, _omitFieldNames ? '' : 'implementationVersion')
+    ..aI(6, _omitFieldNames ? '' : 'maxFrameBytes',
+        fieldType: $pb.PbFieldType.OU3)
+    ..aI(7, _omitFieldNames ? '' : 'maxTransferChunkBytes',
+        fieldType: $pb.PbFieldType.OU3)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerHandshakeAccepted clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerHandshakeAccepted copyWith(
+          void Function(ServerHandshakeAccepted) updates) =>
+      super.copyWith((message) => updates(message as ServerHandshakeAccepted))
+          as ServerHandshakeAccepted;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ServerHandshakeAccepted create() => ServerHandshakeAccepted._();
+  @$core.override
+  ServerHandshakeAccepted createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ServerHandshakeAccepted getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ServerHandshakeAccepted>(create);
+  static ServerHandshakeAccepted? _defaultInstance;
+
   @$pb.TagNumber(1)
-  set connectionId($core.String value) => $_setString(0, value);
+  ProtocolVersion get selectedProtocolVersion => $_getN(0);
   @$pb.TagNumber(1)
-  $core.bool hasConnectionId() => $_has(0);
+  set selectedProtocolVersion(ProtocolVersion value) => $_setField(1, value);
   @$pb.TagNumber(1)
-  void clearConnectionId() => $_clearField(1);
+  $core.bool hasSelectedProtocolVersion() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSelectedProtocolVersion() => $_clearField(1);
+  @$pb.TagNumber(1)
+  ProtocolVersion ensureSelectedProtocolVersion() => $_ensure(0);
 
   @$pb.TagNumber(2)
-  $core.String get peerId => $_getSZ(1);
+  $pb.PbList<Capability> get capabilities => $_getList(1);
+
+  @$pb.TagNumber(3)
+  $core.String get nodeInstanceId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set nodeInstanceId($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasNodeInstanceId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearNodeInstanceId() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get implementationName => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set implementationName($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasImplementationName() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearImplementationName() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get implementationVersion => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set implementationVersion($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasImplementationVersion() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearImplementationVersion() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get maxFrameBytes => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set maxFrameBytes($core.int value) => $_setUnsignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasMaxFrameBytes() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearMaxFrameBytes() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.int get maxTransferChunkBytes => $_getIZ(6);
+  @$pb.TagNumber(7)
+  set maxTransferChunkBytes($core.int value) => $_setUnsignedInt32(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasMaxTransferChunkBytes() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearMaxTransferChunkBytes() => $_clearField(7);
+}
+
+class ServerHandshakeRejected extends $pb.GeneratedMessage {
+  factory ServerHandshakeRejected({
+    StableError? error,
+    $core.Iterable<ProtocolVersion>? supportedProtocolVersions,
+  }) {
+    final result = create();
+    if (error != null) result.error = error;
+    if (supportedProtocolVersions != null)
+      result.supportedProtocolVersions.addAll(supportedProtocolVersions);
+    return result;
+  }
+
+  ServerHandshakeRejected._();
+
+  factory ServerHandshakeRejected.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ServerHandshakeRejected.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ServerHandshakeRejected',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOM<StableError>(1, _omitFieldNames ? '' : 'error',
+        subBuilder: StableError.create)
+    ..pPM<ProtocolVersion>(
+        2, _omitFieldNames ? '' : 'supportedProtocolVersions',
+        subBuilder: ProtocolVersion.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerHandshakeRejected clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerHandshakeRejected copyWith(
+          void Function(ServerHandshakeRejected) updates) =>
+      super.copyWith((message) => updates(message as ServerHandshakeRejected))
+          as ServerHandshakeRejected;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ServerHandshakeRejected create() => ServerHandshakeRejected._();
+  @$core.override
+  ServerHandshakeRejected createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ServerHandshakeRejected getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ServerHandshakeRejected>(create);
+  static ServerHandshakeRejected? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  StableError get error => $_getN(0);
+  @$pb.TagNumber(1)
+  set error(StableError value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasError() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearError() => $_clearField(1);
+  @$pb.TagNumber(1)
+  StableError ensureError() => $_ensure(0);
+
   @$pb.TagNumber(2)
-  set peerId($core.String value) => $_setString(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasPeerId() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearPeerId() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  PeerRole get role => $_getN(2);
-  @$pb.TagNumber(3)
-  set role(PeerRole value) => $_setField(3, value);
-  @$pb.TagNumber(3)
-  $core.bool hasRole() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearRole() => $_clearField(3);
-
-  @$pb.TagNumber(4)
-  $core.int get protocolMajor => $_getIZ(3);
-  @$pb.TagNumber(4)
-  set protocolMajor($core.int value) => $_setUnsignedInt32(3, value);
-  @$pb.TagNumber(4)
-  $core.bool hasProtocolMajor() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearProtocolMajor() => $_clearField(4);
-
-  @$pb.TagNumber(5)
-  $core.int get protocolMinor => $_getIZ(4);
-  @$pb.TagNumber(5)
-  set protocolMinor($core.int value) => $_setUnsignedInt32(4, value);
-  @$pb.TagNumber(5)
-  $core.bool hasProtocolMinor() => $_has(4);
-  @$pb.TagNumber(5)
-  void clearProtocolMinor() => $_clearField(5);
-
-  @$pb.TagNumber(6)
-  $core.String get implementationName => $_getSZ(5);
-  @$pb.TagNumber(6)
-  set implementationName($core.String value) => $_setString(5, value);
-  @$pb.TagNumber(6)
-  $core.bool hasImplementationName() => $_has(5);
-  @$pb.TagNumber(6)
-  void clearImplementationName() => $_clearField(6);
-
-  @$pb.TagNumber(7)
-  $core.String get implementationVersion => $_getSZ(6);
-  @$pb.TagNumber(7)
-  set implementationVersion($core.String value) => $_setString(6, value);
-  @$pb.TagNumber(7)
-  $core.bool hasImplementationVersion() => $_has(6);
-  @$pb.TagNumber(7)
-  void clearImplementationVersion() => $_clearField(7);
-
-  @$pb.TagNumber(8)
-  $core.int get maxFrameBytes => $_getIZ(7);
-  @$pb.TagNumber(8)
-  set maxFrameBytes($core.int value) => $_setUnsignedInt32(7, value);
-  @$pb.TagNumber(8)
-  $core.bool hasMaxFrameBytes() => $_has(7);
-  @$pb.TagNumber(8)
-  void clearMaxFrameBytes() => $_clearField(8);
-
-  @$pb.TagNumber(9)
-  $core.int get maxTransferChunkBytes => $_getIZ(8);
-  @$pb.TagNumber(9)
-  set maxTransferChunkBytes($core.int value) => $_setUnsignedInt32(8, value);
-  @$pb.TagNumber(9)
-  $core.bool hasMaxTransferChunkBytes() => $_has(8);
-  @$pb.TagNumber(9)
-  void clearMaxTransferChunkBytes() => $_clearField(9);
-
-  @$pb.TagNumber(10)
-  $pb.PbList<Capability> get capabilities => $_getList(9);
+  $pb.PbList<ProtocolVersion> get supportedProtocolVersions => $_getList(1);
 }
 
 class HealthRequest extends $pb.GeneratedMessage {
   factory HealthRequest({
-    $core.String? requestId,
+    $fixnum.Int64? requestId,
     $core.bool? includeBuildInfo,
   }) {
     final result = create();
@@ -515,7 +1072,9 @@ class HealthRequest extends $pb.GeneratedMessage {
       package: const $pb.PackageName(
           _omitMessageNames ? '' : 'pi.client.protocol.v0'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'requestId')
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
     ..aOB(2, _omitFieldNames ? '' : 'includeBuildInfo')
     ..hasRequiredFields = false;
 
@@ -539,9 +1098,9 @@ class HealthRequest extends $pb.GeneratedMessage {
   static HealthRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get requestId => $_getSZ(0);
+  $fixnum.Int64 get requestId => $_getI64(0);
   @$pb.TagNumber(1)
-  set requestId($core.String value) => $_setString(0, value);
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
   @$pb.TagNumber(1)
   $core.bool hasRequestId() => $_has(0);
   @$pb.TagNumber(1)
@@ -559,7 +1118,7 @@ class HealthRequest extends $pb.GeneratedMessage {
 
 class HealthResponse extends $pb.GeneratedMessage {
   factory HealthResponse({
-    $core.String? requestId,
+    $fixnum.Int64? requestId,
     HealthStatus? status,
     $core.String? nodeVersion,
     $fixnum.Int64? uptimeMillis,
@@ -586,7 +1145,9 @@ class HealthResponse extends $pb.GeneratedMessage {
       package: const $pb.PackageName(
           _omitMessageNames ? '' : 'pi.client.protocol.v0'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'requestId')
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
     ..aE<HealthStatus>(2, _omitFieldNames ? '' : 'status',
         enumValues: HealthStatus.values)
     ..aOS(3, _omitFieldNames ? '' : 'nodeVersion')
@@ -615,9 +1176,9 @@ class HealthResponse extends $pb.GeneratedMessage {
   static HealthResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get requestId => $_getSZ(0);
+  $fixnum.Int64 get requestId => $_getI64(0);
   @$pb.TagNumber(1)
-  set requestId($core.String value) => $_setString(0, value);
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
   @$pb.TagNumber(1)
   $core.bool hasRequestId() => $_has(0);
   @$pb.TagNumber(1)
@@ -651,6 +1212,1575 @@ class HealthResponse extends $pb.GeneratedMessage {
   void clearUptimeMillis() => $_clearField(4);
 }
 
+class ListSessionsRequest extends $pb.GeneratedMessage {
+  factory ListSessionsRequest({
+    $fixnum.Int64? requestId,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    return result;
+  }
+
+  ListSessionsRequest._();
+
+  factory ListSessionsRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ListSessionsRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListSessionsRequest',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListSessionsRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListSessionsRequest copyWith(void Function(ListSessionsRequest) updates) =>
+      super.copyWith((message) => updates(message as ListSessionsRequest))
+          as ListSessionsRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ListSessionsRequest create() => ListSessionsRequest._();
+  @$core.override
+  ListSessionsRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ListSessionsRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ListSessionsRequest>(create);
+  static ListSessionsRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+}
+
+class ListSessionsResponse extends $pb.GeneratedMessage {
+  factory ListSessionsResponse({
+    $fixnum.Int64? requestId,
+    $core.Iterable<SessionSummarySnapshot>? sessions,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (sessions != null) result.sessions.addAll(sessions);
+    return result;
+  }
+
+  ListSessionsResponse._();
+
+  factory ListSessionsResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ListSessionsResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListSessionsResponse',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..pPM<SessionSummarySnapshot>(2, _omitFieldNames ? '' : 'sessions',
+        subBuilder: SessionSummarySnapshot.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListSessionsResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListSessionsResponse copyWith(void Function(ListSessionsResponse) updates) =>
+      super.copyWith((message) => updates(message as ListSessionsResponse))
+          as ListSessionsResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ListSessionsResponse create() => ListSessionsResponse._();
+  @$core.override
+  ListSessionsResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ListSessionsResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ListSessionsResponse>(create);
+  static ListSessionsResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $pb.PbList<SessionSummarySnapshot> get sessions => $_getList(1);
+}
+
+class GetSessionRequest extends $pb.GeneratedMessage {
+  factory GetSessionRequest({
+    $fixnum.Int64? requestId,
+    $core.String? sessionId,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (sessionId != null) result.sessionId = sessionId;
+    return result;
+  }
+
+  GetSessionRequest._();
+
+  factory GetSessionRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory GetSessionRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetSessionRequest',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(2, _omitFieldNames ? '' : 'sessionId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetSessionRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetSessionRequest copyWith(void Function(GetSessionRequest) updates) =>
+      super.copyWith((message) => updates(message as GetSessionRequest))
+          as GetSessionRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GetSessionRequest create() => GetSessionRequest._();
+  @$core.override
+  GetSessionRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static GetSessionRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetSessionRequest>(create);
+  static GetSessionRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get sessionId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set sessionId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSessionId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSessionId() => $_clearField(2);
+}
+
+class GetSessionResponse extends $pb.GeneratedMessage {
+  factory GetSessionResponse({
+    $fixnum.Int64? requestId,
+    SessionDetailSnapshot? session,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (session != null) result.session = session;
+    return result;
+  }
+
+  GetSessionResponse._();
+
+  factory GetSessionResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory GetSessionResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetSessionResponse',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOM<SessionDetailSnapshot>(2, _omitFieldNames ? '' : 'session',
+        subBuilder: SessionDetailSnapshot.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetSessionResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetSessionResponse copyWith(void Function(GetSessionResponse) updates) =>
+      super.copyWith((message) => updates(message as GetSessionResponse))
+          as GetSessionResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GetSessionResponse create() => GetSessionResponse._();
+  @$core.override
+  GetSessionResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static GetSessionResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetSessionResponse>(create);
+  static GetSessionResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  SessionDetailSnapshot get session => $_getN(1);
+  @$pb.TagNumber(2)
+  set session(SessionDetailSnapshot value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSession() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSession() => $_clearField(2);
+  @$pb.TagNumber(2)
+  SessionDetailSnapshot ensureSession() => $_ensure(1);
+}
+
+class CreateSessionRequest extends $pb.GeneratedMessage {
+  factory CreateSessionRequest({
+    $fixnum.Int64? requestId,
+    $core.String? workingDirectory,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (workingDirectory != null) result.workingDirectory = workingDirectory;
+    return result;
+  }
+
+  CreateSessionRequest._();
+
+  factory CreateSessionRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CreateSessionRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateSessionRequest',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(2, _omitFieldNames ? '' : 'workingDirectory')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateSessionRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateSessionRequest copyWith(void Function(CreateSessionRequest) updates) =>
+      super.copyWith((message) => updates(message as CreateSessionRequest))
+          as CreateSessionRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreateSessionRequest create() => CreateSessionRequest._();
+  @$core.override
+  CreateSessionRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CreateSessionRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateSessionRequest>(create);
+  static CreateSessionRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get workingDirectory => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set workingDirectory($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasWorkingDirectory() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearWorkingDirectory() => $_clearField(2);
+}
+
+class CreateSessionResponse extends $pb.GeneratedMessage {
+  factory CreateSessionResponse({
+    $fixnum.Int64? requestId,
+    SessionDetailSnapshot? session,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (session != null) result.session = session;
+    return result;
+  }
+
+  CreateSessionResponse._();
+
+  factory CreateSessionResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CreateSessionResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateSessionResponse',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOM<SessionDetailSnapshot>(2, _omitFieldNames ? '' : 'session',
+        subBuilder: SessionDetailSnapshot.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateSessionResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateSessionResponse copyWith(
+          void Function(CreateSessionResponse) updates) =>
+      super.copyWith((message) => updates(message as CreateSessionResponse))
+          as CreateSessionResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreateSessionResponse create() => CreateSessionResponse._();
+  @$core.override
+  CreateSessionResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CreateSessionResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateSessionResponse>(create);
+  static CreateSessionResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  SessionDetailSnapshot get session => $_getN(1);
+  @$pb.TagNumber(2)
+  set session(SessionDetailSnapshot value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSession() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSession() => $_clearField(2);
+  @$pb.TagNumber(2)
+  SessionDetailSnapshot ensureSession() => $_ensure(1);
+}
+
+class PromptCommand extends $pb.GeneratedMessage {
+  factory PromptCommand({
+    $fixnum.Int64? requestId,
+    $core.String? commandId,
+    $core.String? sessionId,
+    $core.String? prompt,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (commandId != null) result.commandId = commandId;
+    if (sessionId != null) result.sessionId = sessionId;
+    if (prompt != null) result.prompt = prompt;
+    return result;
+  }
+
+  PromptCommand._();
+
+  factory PromptCommand.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PromptCommand.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PromptCommand',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(2, _omitFieldNames ? '' : 'commandId')
+    ..aOS(3, _omitFieldNames ? '' : 'sessionId')
+    ..aOS(4, _omitFieldNames ? '' : 'prompt')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PromptCommand clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PromptCommand copyWith(void Function(PromptCommand) updates) =>
+      super.copyWith((message) => updates(message as PromptCommand))
+          as PromptCommand;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PromptCommand create() => PromptCommand._();
+  @$core.override
+  PromptCommand createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PromptCommand getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PromptCommand>(create);
+  static PromptCommand? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get commandId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set commandId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasCommandId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCommandId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get sessionId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set sessionId($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSessionId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSessionId() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get prompt => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set prompt($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasPrompt() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearPrompt() => $_clearField(4);
+}
+
+class AbortCommand extends $pb.GeneratedMessage {
+  factory AbortCommand({
+    $fixnum.Int64? requestId,
+    $core.String? commandId,
+    $core.String? sessionId,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (commandId != null) result.commandId = commandId;
+    if (sessionId != null) result.sessionId = sessionId;
+    return result;
+  }
+
+  AbortCommand._();
+
+  factory AbortCommand.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory AbortCommand.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AbortCommand',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(2, _omitFieldNames ? '' : 'commandId')
+    ..aOS(3, _omitFieldNames ? '' : 'sessionId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AbortCommand clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AbortCommand copyWith(void Function(AbortCommand) updates) =>
+      super.copyWith((message) => updates(message as AbortCommand))
+          as AbortCommand;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static AbortCommand create() => AbortCommand._();
+  @$core.override
+  AbortCommand createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static AbortCommand getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<AbortCommand>(create);
+  static AbortCommand? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get commandId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set commandId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasCommandId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCommandId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get sessionId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set sessionId($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSessionId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSessionId() => $_clearField(3);
+}
+
+class RequestRejected extends $pb.GeneratedMessage {
+  factory RequestRejected({
+    $fixnum.Int64? requestId,
+    StableError? error,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (error != null) result.error = error;
+    return result;
+  }
+
+  RequestRejected._();
+
+  factory RequestRejected.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory RequestRejected.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RequestRejected',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOM<StableError>(2, _omitFieldNames ? '' : 'error',
+        subBuilder: StableError.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RequestRejected clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RequestRejected copyWith(void Function(RequestRejected) updates) =>
+      super.copyWith((message) => updates(message as RequestRejected))
+          as RequestRejected;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static RequestRejected create() => RequestRejected._();
+  @$core.override
+  RequestRejected createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static RequestRejected getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<RequestRejected>(create);
+  static RequestRejected? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  StableError get error => $_getN(1);
+  @$pb.TagNumber(2)
+  set error(StableError value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasError() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearError() => $_clearField(2);
+  @$pb.TagNumber(2)
+  StableError ensureError() => $_ensure(1);
+}
+
+class CommandAccepted extends $pb.GeneratedMessage {
+  factory CommandAccepted({
+    $fixnum.Int64? requestId,
+    $core.String? commandId,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (commandId != null) result.commandId = commandId;
+    return result;
+  }
+
+  CommandAccepted._();
+
+  factory CommandAccepted.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CommandAccepted.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CommandAccepted',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(2, _omitFieldNames ? '' : 'commandId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CommandAccepted clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CommandAccepted copyWith(void Function(CommandAccepted) updates) =>
+      super.copyWith((message) => updates(message as CommandAccepted))
+          as CommandAccepted;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CommandAccepted create() => CommandAccepted._();
+  @$core.override
+  CommandAccepted createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CommandAccepted getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CommandAccepted>(create);
+  static CommandAccepted? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get commandId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set commandId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasCommandId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCommandId() => $_clearField(2);
+}
+
+class CommandRejected extends $pb.GeneratedMessage {
+  factory CommandRejected({
+    $fixnum.Int64? requestId,
+    $core.String? commandId,
+    StableError? error,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (commandId != null) result.commandId = commandId;
+    if (error != null) result.error = error;
+    return result;
+  }
+
+  CommandRejected._();
+
+  factory CommandRejected.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CommandRejected.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CommandRejected',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(2, _omitFieldNames ? '' : 'commandId')
+    ..aOM<StableError>(3, _omitFieldNames ? '' : 'error',
+        subBuilder: StableError.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CommandRejected clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CommandRejected copyWith(void Function(CommandRejected) updates) =>
+      super.copyWith((message) => updates(message as CommandRejected))
+          as CommandRejected;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CommandRejected create() => CommandRejected._();
+  @$core.override
+  CommandRejected createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CommandRejected getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CommandRejected>(create);
+  static CommandRejected? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get commandId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set commandId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasCommandId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCommandId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  StableError get error => $_getN(2);
+  @$pb.TagNumber(3)
+  set error(StableError value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasError() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearError() => $_clearField(3);
+  @$pb.TagNumber(3)
+  StableError ensureError() => $_ensure(2);
+}
+
+class SessionSummarySnapshot extends $pb.GeneratedMessage {
+  factory SessionSummarySnapshot({
+    $core.String? sessionId,
+    $core.String? title,
+    $core.String? workingDirectory,
+    $fixnum.Int64? createdAtUnixMillis,
+    $fixnum.Int64? updatedAtUnixMillis,
+    $core.bool? isRunning,
+    $core.bool? hasUnread,
+  }) {
+    final result = create();
+    if (sessionId != null) result.sessionId = sessionId;
+    if (title != null) result.title = title;
+    if (workingDirectory != null) result.workingDirectory = workingDirectory;
+    if (createdAtUnixMillis != null)
+      result.createdAtUnixMillis = createdAtUnixMillis;
+    if (updatedAtUnixMillis != null)
+      result.updatedAtUnixMillis = updatedAtUnixMillis;
+    if (isRunning != null) result.isRunning = isRunning;
+    if (hasUnread != null) result.hasUnread = hasUnread;
+    return result;
+  }
+
+  SessionSummarySnapshot._();
+
+  factory SessionSummarySnapshot.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SessionSummarySnapshot.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SessionSummarySnapshot',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'sessionId')
+    ..aOS(2, _omitFieldNames ? '' : 'title')
+    ..aOS(3, _omitFieldNames ? '' : 'workingDirectory')
+    ..a<$fixnum.Int64>(
+        4, _omitFieldNames ? '' : 'createdAtUnixMillis', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..a<$fixnum.Int64>(
+        5, _omitFieldNames ? '' : 'updatedAtUnixMillis', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOB(6, _omitFieldNames ? '' : 'isRunning')
+    ..aOB(7, _omitFieldNames ? '' : 'hasUnread')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SessionSummarySnapshot clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SessionSummarySnapshot copyWith(
+          void Function(SessionSummarySnapshot) updates) =>
+      super.copyWith((message) => updates(message as SessionSummarySnapshot))
+          as SessionSummarySnapshot;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SessionSummarySnapshot create() => SessionSummarySnapshot._();
+  @$core.override
+  SessionSummarySnapshot createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SessionSummarySnapshot getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SessionSummarySnapshot>(create);
+  static SessionSummarySnapshot? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get sessionId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set sessionId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSessionId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSessionId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get title => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set title($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasTitle() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearTitle() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get workingDirectory => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set workingDirectory($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasWorkingDirectory() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearWorkingDirectory() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $fixnum.Int64 get createdAtUnixMillis => $_getI64(3);
+  @$pb.TagNumber(4)
+  set createdAtUnixMillis($fixnum.Int64 value) => $_setInt64(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasCreatedAtUnixMillis() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearCreatedAtUnixMillis() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get updatedAtUnixMillis => $_getI64(4);
+  @$pb.TagNumber(5)
+  set updatedAtUnixMillis($fixnum.Int64 value) => $_setInt64(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasUpdatedAtUnixMillis() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearUpdatedAtUnixMillis() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.bool get isRunning => $_getBF(5);
+  @$pb.TagNumber(6)
+  set isRunning($core.bool value) => $_setBool(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasIsRunning() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearIsRunning() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.bool get hasUnread => $_getBF(6);
+  @$pb.TagNumber(7)
+  set hasUnread($core.bool value) => $_setBool(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasHasUnread() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearHasUnread() => $_clearField(7);
+}
+
+class SessionDetailSnapshot extends $pb.GeneratedMessage {
+  factory SessionDetailSnapshot({
+    SessionSummarySnapshot? summary,
+    $core.Iterable<MessageSnapshot>? messages,
+  }) {
+    final result = create();
+    if (summary != null) result.summary = summary;
+    if (messages != null) result.messages.addAll(messages);
+    return result;
+  }
+
+  SessionDetailSnapshot._();
+
+  factory SessionDetailSnapshot.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SessionDetailSnapshot.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SessionDetailSnapshot',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOM<SessionSummarySnapshot>(1, _omitFieldNames ? '' : 'summary',
+        subBuilder: SessionSummarySnapshot.create)
+    ..pPM<MessageSnapshot>(2, _omitFieldNames ? '' : 'messages',
+        subBuilder: MessageSnapshot.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SessionDetailSnapshot clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SessionDetailSnapshot copyWith(
+          void Function(SessionDetailSnapshot) updates) =>
+      super.copyWith((message) => updates(message as SessionDetailSnapshot))
+          as SessionDetailSnapshot;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SessionDetailSnapshot create() => SessionDetailSnapshot._();
+  @$core.override
+  SessionDetailSnapshot createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SessionDetailSnapshot getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SessionDetailSnapshot>(create);
+  static SessionDetailSnapshot? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  SessionSummarySnapshot get summary => $_getN(0);
+  @$pb.TagNumber(1)
+  set summary(SessionSummarySnapshot value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSummary() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSummary() => $_clearField(1);
+  @$pb.TagNumber(1)
+  SessionSummarySnapshot ensureSummary() => $_ensure(0);
+
+  @$pb.TagNumber(2)
+  $pb.PbList<MessageSnapshot> get messages => $_getList(1);
+}
+
+class MessageSnapshot extends $pb.GeneratedMessage {
+  factory MessageSnapshot({
+    $core.String? messageId,
+    MessageRole? role,
+    $core.String? text,
+    $fixnum.Int64? createdAtUnixMillis,
+    $core.bool? isStreaming,
+  }) {
+    final result = create();
+    if (messageId != null) result.messageId = messageId;
+    if (role != null) result.role = role;
+    if (text != null) result.text = text;
+    if (createdAtUnixMillis != null)
+      result.createdAtUnixMillis = createdAtUnixMillis;
+    if (isStreaming != null) result.isStreaming = isStreaming;
+    return result;
+  }
+
+  MessageSnapshot._();
+
+  factory MessageSnapshot.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory MessageSnapshot.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'MessageSnapshot',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'messageId')
+    ..aE<MessageRole>(2, _omitFieldNames ? '' : 'role',
+        enumValues: MessageRole.values)
+    ..aOS(3, _omitFieldNames ? '' : 'text')
+    ..a<$fixnum.Int64>(
+        4, _omitFieldNames ? '' : 'createdAtUnixMillis', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOB(5, _omitFieldNames ? '' : 'isStreaming')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MessageSnapshot clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MessageSnapshot copyWith(void Function(MessageSnapshot) updates) =>
+      super.copyWith((message) => updates(message as MessageSnapshot))
+          as MessageSnapshot;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MessageSnapshot create() => MessageSnapshot._();
+  @$core.override
+  MessageSnapshot createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static MessageSnapshot getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<MessageSnapshot>(create);
+  static MessageSnapshot? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get messageId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set messageId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasMessageId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearMessageId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  MessageRole get role => $_getN(1);
+  @$pb.TagNumber(2)
+  set role(MessageRole value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasRole() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearRole() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get text => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set text($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasText() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearText() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $fixnum.Int64 get createdAtUnixMillis => $_getI64(3);
+  @$pb.TagNumber(4)
+  set createdAtUnixMillis($fixnum.Int64 value) => $_setInt64(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasCreatedAtUnixMillis() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearCreatedAtUnixMillis() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.bool get isStreaming => $_getBF(4);
+  @$pb.TagNumber(5)
+  set isStreaming($core.bool value) => $_setBool(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasIsStreaming() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearIsStreaming() => $_clearField(5);
+}
+
+enum SessionEventStreamEnvelope_Event {
+  messageAdded,
+  messageDelta,
+  runningChanged,
+  commandCompleted,
+  streamClosed,
+  notSet
+}
+
+/// Each stream is bound to one session. event_sequence is strictly increasing
+/// within stream_id and is independent of PiTransportFrame.frame_sequence.
+class SessionEventStreamEnvelope extends $pb.GeneratedMessage {
+  factory SessionEventStreamEnvelope({
+    $core.String? streamId,
+    $core.String? sessionId,
+    $fixnum.Int64? eventSequence,
+    MessageAddedEvent? messageAdded,
+    MessageDeltaEvent? messageDelta,
+    SessionRunningChangedEvent? runningChanged,
+    CommandCompletedEvent? commandCompleted,
+    StreamClosedEvent? streamClosed,
+  }) {
+    final result = create();
+    if (streamId != null) result.streamId = streamId;
+    if (sessionId != null) result.sessionId = sessionId;
+    if (eventSequence != null) result.eventSequence = eventSequence;
+    if (messageAdded != null) result.messageAdded = messageAdded;
+    if (messageDelta != null) result.messageDelta = messageDelta;
+    if (runningChanged != null) result.runningChanged = runningChanged;
+    if (commandCompleted != null) result.commandCompleted = commandCompleted;
+    if (streamClosed != null) result.streamClosed = streamClosed;
+    return result;
+  }
+
+  SessionEventStreamEnvelope._();
+
+  factory SessionEventStreamEnvelope.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SessionEventStreamEnvelope.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static const $core.Map<$core.int, SessionEventStreamEnvelope_Event>
+      _SessionEventStreamEnvelope_EventByTag = {
+    10: SessionEventStreamEnvelope_Event.messageAdded,
+    11: SessionEventStreamEnvelope_Event.messageDelta,
+    12: SessionEventStreamEnvelope_Event.runningChanged,
+    13: SessionEventStreamEnvelope_Event.commandCompleted,
+    14: SessionEventStreamEnvelope_Event.streamClosed,
+    0: SessionEventStreamEnvelope_Event.notSet
+  };
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SessionEventStreamEnvelope',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..oo(0, [10, 11, 12, 13, 14])
+    ..aOS(1, _omitFieldNames ? '' : 'streamId')
+    ..aOS(2, _omitFieldNames ? '' : 'sessionId')
+    ..a<$fixnum.Int64>(
+        3, _omitFieldNames ? '' : 'eventSequence', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOM<MessageAddedEvent>(10, _omitFieldNames ? '' : 'messageAdded',
+        subBuilder: MessageAddedEvent.create)
+    ..aOM<MessageDeltaEvent>(11, _omitFieldNames ? '' : 'messageDelta',
+        subBuilder: MessageDeltaEvent.create)
+    ..aOM<SessionRunningChangedEvent>(
+        12, _omitFieldNames ? '' : 'runningChanged',
+        subBuilder: SessionRunningChangedEvent.create)
+    ..aOM<CommandCompletedEvent>(13, _omitFieldNames ? '' : 'commandCompleted',
+        subBuilder: CommandCompletedEvent.create)
+    ..aOM<StreamClosedEvent>(14, _omitFieldNames ? '' : 'streamClosed',
+        subBuilder: StreamClosedEvent.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SessionEventStreamEnvelope clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SessionEventStreamEnvelope copyWith(
+          void Function(SessionEventStreamEnvelope) updates) =>
+      super.copyWith(
+              (message) => updates(message as SessionEventStreamEnvelope))
+          as SessionEventStreamEnvelope;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SessionEventStreamEnvelope create() => SessionEventStreamEnvelope._();
+  @$core.override
+  SessionEventStreamEnvelope createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SessionEventStreamEnvelope getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SessionEventStreamEnvelope>(create);
+  static SessionEventStreamEnvelope? _defaultInstance;
+
+  @$pb.TagNumber(10)
+  @$pb.TagNumber(11)
+  @$pb.TagNumber(12)
+  @$pb.TagNumber(13)
+  @$pb.TagNumber(14)
+  SessionEventStreamEnvelope_Event whichEvent() =>
+      _SessionEventStreamEnvelope_EventByTag[$_whichOneof(0)]!;
+  @$pb.TagNumber(10)
+  @$pb.TagNumber(11)
+  @$pb.TagNumber(12)
+  @$pb.TagNumber(13)
+  @$pb.TagNumber(14)
+  void clearEvent() => $_clearField($_whichOneof(0));
+
+  @$pb.TagNumber(1)
+  $core.String get streamId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set streamId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasStreamId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearStreamId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get sessionId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set sessionId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSessionId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSessionId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get eventSequence => $_getI64(2);
+  @$pb.TagNumber(3)
+  set eventSequence($fixnum.Int64 value) => $_setInt64(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasEventSequence() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearEventSequence() => $_clearField(3);
+
+  @$pb.TagNumber(10)
+  MessageAddedEvent get messageAdded => $_getN(3);
+  @$pb.TagNumber(10)
+  set messageAdded(MessageAddedEvent value) => $_setField(10, value);
+  @$pb.TagNumber(10)
+  $core.bool hasMessageAdded() => $_has(3);
+  @$pb.TagNumber(10)
+  void clearMessageAdded() => $_clearField(10);
+  @$pb.TagNumber(10)
+  MessageAddedEvent ensureMessageAdded() => $_ensure(3);
+
+  @$pb.TagNumber(11)
+  MessageDeltaEvent get messageDelta => $_getN(4);
+  @$pb.TagNumber(11)
+  set messageDelta(MessageDeltaEvent value) => $_setField(11, value);
+  @$pb.TagNumber(11)
+  $core.bool hasMessageDelta() => $_has(4);
+  @$pb.TagNumber(11)
+  void clearMessageDelta() => $_clearField(11);
+  @$pb.TagNumber(11)
+  MessageDeltaEvent ensureMessageDelta() => $_ensure(4);
+
+  @$pb.TagNumber(12)
+  SessionRunningChangedEvent get runningChanged => $_getN(5);
+  @$pb.TagNumber(12)
+  set runningChanged(SessionRunningChangedEvent value) => $_setField(12, value);
+  @$pb.TagNumber(12)
+  $core.bool hasRunningChanged() => $_has(5);
+  @$pb.TagNumber(12)
+  void clearRunningChanged() => $_clearField(12);
+  @$pb.TagNumber(12)
+  SessionRunningChangedEvent ensureRunningChanged() => $_ensure(5);
+
+  @$pb.TagNumber(13)
+  CommandCompletedEvent get commandCompleted => $_getN(6);
+  @$pb.TagNumber(13)
+  set commandCompleted(CommandCompletedEvent value) => $_setField(13, value);
+  @$pb.TagNumber(13)
+  $core.bool hasCommandCompleted() => $_has(6);
+  @$pb.TagNumber(13)
+  void clearCommandCompleted() => $_clearField(13);
+  @$pb.TagNumber(13)
+  CommandCompletedEvent ensureCommandCompleted() => $_ensure(6);
+
+  @$pb.TagNumber(14)
+  StreamClosedEvent get streamClosed => $_getN(7);
+  @$pb.TagNumber(14)
+  set streamClosed(StreamClosedEvent value) => $_setField(14, value);
+  @$pb.TagNumber(14)
+  $core.bool hasStreamClosed() => $_has(7);
+  @$pb.TagNumber(14)
+  void clearStreamClosed() => $_clearField(14);
+  @$pb.TagNumber(14)
+  StreamClosedEvent ensureStreamClosed() => $_ensure(7);
+}
+
+class MessageAddedEvent extends $pb.GeneratedMessage {
+  factory MessageAddedEvent({
+    MessageSnapshot? message,
+  }) {
+    final result = create();
+    if (message != null) result.message = message;
+    return result;
+  }
+
+  MessageAddedEvent._();
+
+  factory MessageAddedEvent.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory MessageAddedEvent.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'MessageAddedEvent',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOM<MessageSnapshot>(1, _omitFieldNames ? '' : 'message',
+        subBuilder: MessageSnapshot.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MessageAddedEvent clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MessageAddedEvent copyWith(void Function(MessageAddedEvent) updates) =>
+      super.copyWith((message) => updates(message as MessageAddedEvent))
+          as MessageAddedEvent;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MessageAddedEvent create() => MessageAddedEvent._();
+  @$core.override
+  MessageAddedEvent createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static MessageAddedEvent getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<MessageAddedEvent>(create);
+  static MessageAddedEvent? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  MessageSnapshot get message => $_getN(0);
+  @$pb.TagNumber(1)
+  set message(MessageSnapshot value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasMessage() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearMessage() => $_clearField(1);
+  @$pb.TagNumber(1)
+  MessageSnapshot ensureMessage() => $_ensure(0);
+}
+
+class MessageDeltaEvent extends $pb.GeneratedMessage {
+  factory MessageDeltaEvent({
+    $core.String? messageId,
+    $core.String? delta,
+  }) {
+    final result = create();
+    if (messageId != null) result.messageId = messageId;
+    if (delta != null) result.delta = delta;
+    return result;
+  }
+
+  MessageDeltaEvent._();
+
+  factory MessageDeltaEvent.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory MessageDeltaEvent.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'MessageDeltaEvent',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'messageId')
+    ..aOS(2, _omitFieldNames ? '' : 'delta')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MessageDeltaEvent clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MessageDeltaEvent copyWith(void Function(MessageDeltaEvent) updates) =>
+      super.copyWith((message) => updates(message as MessageDeltaEvent))
+          as MessageDeltaEvent;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MessageDeltaEvent create() => MessageDeltaEvent._();
+  @$core.override
+  MessageDeltaEvent createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static MessageDeltaEvent getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<MessageDeltaEvent>(create);
+  static MessageDeltaEvent? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get messageId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set messageId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasMessageId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearMessageId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get delta => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set delta($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDelta() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDelta() => $_clearField(2);
+}
+
+class SessionRunningChangedEvent extends $pb.GeneratedMessage {
+  factory SessionRunningChangedEvent({
+    $core.bool? isRunning,
+  }) {
+    final result = create();
+    if (isRunning != null) result.isRunning = isRunning;
+    return result;
+  }
+
+  SessionRunningChangedEvent._();
+
+  factory SessionRunningChangedEvent.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SessionRunningChangedEvent.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SessionRunningChangedEvent',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'isRunning')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SessionRunningChangedEvent clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SessionRunningChangedEvent copyWith(
+          void Function(SessionRunningChangedEvent) updates) =>
+      super.copyWith(
+              (message) => updates(message as SessionRunningChangedEvent))
+          as SessionRunningChangedEvent;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SessionRunningChangedEvent create() => SessionRunningChangedEvent._();
+  @$core.override
+  SessionRunningChangedEvent createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SessionRunningChangedEvent getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SessionRunningChangedEvent>(create);
+  static SessionRunningChangedEvent? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get isRunning => $_getBF(0);
+  @$pb.TagNumber(1)
+  set isRunning($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasIsRunning() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearIsRunning() => $_clearField(1);
+}
+
+class CommandCompletedEvent extends $pb.GeneratedMessage {
+  factory CommandCompletedEvent({
+    $core.String? commandId,
+    $core.bool? succeeded,
+    StableError? error,
+  }) {
+    final result = create();
+    if (commandId != null) result.commandId = commandId;
+    if (succeeded != null) result.succeeded = succeeded;
+    if (error != null) result.error = error;
+    return result;
+  }
+
+  CommandCompletedEvent._();
+
+  factory CommandCompletedEvent.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CommandCompletedEvent.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CommandCompletedEvent',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'commandId')
+    ..aOB(2, _omitFieldNames ? '' : 'succeeded')
+    ..aOM<StableError>(3, _omitFieldNames ? '' : 'error',
+        subBuilder: StableError.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CommandCompletedEvent clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CommandCompletedEvent copyWith(
+          void Function(CommandCompletedEvent) updates) =>
+      super.copyWith((message) => updates(message as CommandCompletedEvent))
+          as CommandCompletedEvent;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CommandCompletedEvent create() => CommandCompletedEvent._();
+  @$core.override
+  CommandCompletedEvent createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CommandCompletedEvent getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CommandCompletedEvent>(create);
+  static CommandCompletedEvent? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get commandId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set commandId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasCommandId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearCommandId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get succeeded => $_getBF(1);
+  @$pb.TagNumber(2)
+  set succeeded($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSucceeded() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSucceeded() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  StableError get error => $_getN(2);
+  @$pb.TagNumber(3)
+  set error(StableError value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasError() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearError() => $_clearField(3);
+  @$pb.TagNumber(3)
+  StableError ensureError() => $_ensure(2);
+}
+
 enum EventStreamEnvelope_Event {
   heartbeat,
   healthStatusChanged,
@@ -658,6 +2788,8 @@ enum EventStreamEnvelope_Event {
   notSet
 }
 
+/// EventStreamEnvelope retains non-session streams used by transport health and
+/// future bounded control surfaces.
 class EventStreamEnvelope extends $pb.GeneratedMessage {
   factory EventStreamEnvelope({
     $core.String? streamId,
@@ -994,7 +3126,7 @@ enum Cancel_Target { requestId, streamId, transferId, notSet }
 
 class Cancel extends $pb.GeneratedMessage {
   factory Cancel({
-    $core.String? requestId,
+    $fixnum.Int64? requestId,
     $core.String? streamId,
     $core.String? transferId,
     $core.String? reason,
@@ -1028,7 +3160,9 @@ class Cancel extends $pb.GeneratedMessage {
           _omitMessageNames ? '' : 'pi.client.protocol.v0'),
       createEmptyInstance: create)
     ..oo(0, [1, 2, 3])
-    ..aOS(1, _omitFieldNames ? '' : 'requestId')
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
     ..aOS(2, _omitFieldNames ? '' : 'streamId')
     ..aOS(3, _omitFieldNames ? '' : 'transferId')
     ..aOS(4, _omitFieldNames ? '' : 'reason')
@@ -1062,9 +3196,9 @@ class Cancel extends $pb.GeneratedMessage {
   void clearTarget() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
-  $core.String get requestId => $_getSZ(0);
+  $fixnum.Int64 get requestId => $_getI64(0);
   @$pb.TagNumber(1)
-  set requestId($core.String value) => $_setString(0, value);
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
   @$pb.TagNumber(1)
   $core.bool hasRequestId() => $_has(0);
   @$pb.TagNumber(1)
@@ -1687,15 +3821,15 @@ class TransferAbort extends $pb.GeneratedMessage {
 class StableError extends $pb.GeneratedMessage {
   factory StableError({
     ErrorCode? code,
-    $core.String? message,
     $core.bool? retryable,
     $core.int? retryAfterMillis,
+    $core.String? safeMessage,
   }) {
     final result = create();
     if (code != null) result.code = code;
-    if (message != null) result.message = message;
     if (retryable != null) result.retryable = retryable;
     if (retryAfterMillis != null) result.retryAfterMillis = retryAfterMillis;
+    if (safeMessage != null) result.safeMessage = safeMessage;
     return result;
   }
 
@@ -1715,10 +3849,10 @@ class StableError extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aE<ErrorCode>(1, _omitFieldNames ? '' : 'code',
         enumValues: ErrorCode.values)
-    ..aOS(2, _omitFieldNames ? '' : 'message')
-    ..aOB(3, _omitFieldNames ? '' : 'retryable')
-    ..aI(4, _omitFieldNames ? '' : 'retryAfterMillis',
+    ..aOB(2, _omitFieldNames ? '' : 'retryable')
+    ..aI(3, _omitFieldNames ? '' : 'retryAfterMillis',
         fieldType: $pb.PbFieldType.OU3)
+    ..aOS(4, _omitFieldNames ? '' : 'safeMessage')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1750,38 +3884,38 @@ class StableError extends $pb.GeneratedMessage {
   void clearCode() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $core.String get message => $_getSZ(1);
+  $core.bool get retryable => $_getBF(1);
   @$pb.TagNumber(2)
-  set message($core.String value) => $_setString(1, value);
+  set retryable($core.bool value) => $_setBool(1, value);
   @$pb.TagNumber(2)
-  $core.bool hasMessage() => $_has(1);
+  $core.bool hasRetryable() => $_has(1);
   @$pb.TagNumber(2)
-  void clearMessage() => $_clearField(2);
+  void clearRetryable() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $core.bool get retryable => $_getBF(2);
+  $core.int get retryAfterMillis => $_getIZ(2);
   @$pb.TagNumber(3)
-  set retryable($core.bool value) => $_setBool(2, value);
+  set retryAfterMillis($core.int value) => $_setUnsignedInt32(2, value);
   @$pb.TagNumber(3)
-  $core.bool hasRetryable() => $_has(2);
+  $core.bool hasRetryAfterMillis() => $_has(2);
   @$pb.TagNumber(3)
-  void clearRetryable() => $_clearField(3);
+  void clearRetryAfterMillis() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $core.int get retryAfterMillis => $_getIZ(3);
+  $core.String get safeMessage => $_getSZ(3);
   @$pb.TagNumber(4)
-  set retryAfterMillis($core.int value) => $_setUnsignedInt32(3, value);
+  set safeMessage($core.String value) => $_setString(3, value);
   @$pb.TagNumber(4)
-  $core.bool hasRetryAfterMillis() => $_has(3);
+  $core.bool hasSafeMessage() => $_has(3);
   @$pb.TagNumber(4)
-  void clearRetryAfterMillis() => $_clearField(4);
+  void clearSafeMessage() => $_clearField(4);
 }
 
 enum ErrorEnvelope_Correlation { requestId, streamId, transferId, notSet }
 
 class ErrorEnvelope extends $pb.GeneratedMessage {
   factory ErrorEnvelope({
-    $core.String? requestId,
+    $fixnum.Int64? requestId,
     $core.String? streamId,
     $core.String? transferId,
     StableError? error,
@@ -1816,7 +3950,9 @@ class ErrorEnvelope extends $pb.GeneratedMessage {
           _omitMessageNames ? '' : 'pi.client.protocol.v0'),
       createEmptyInstance: create)
     ..oo(0, [1, 2, 3])
-    ..aOS(1, _omitFieldNames ? '' : 'requestId')
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
     ..aOS(2, _omitFieldNames ? '' : 'streamId')
     ..aOS(3, _omitFieldNames ? '' : 'transferId')
     ..aOM<StableError>(4, _omitFieldNames ? '' : 'error',
@@ -1853,9 +3989,9 @@ class ErrorEnvelope extends $pb.GeneratedMessage {
   void clearCorrelation() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
-  $core.String get requestId => $_getSZ(0);
+  $fixnum.Int64 get requestId => $_getI64(0);
   @$pb.TagNumber(1)
-  set requestId($core.String value) => $_setString(0, value);
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
   @$pb.TagNumber(1)
   $core.bool hasRequestId() => $_has(0);
   @$pb.TagNumber(1)

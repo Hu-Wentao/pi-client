@@ -4,6 +4,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   HealthStatus,
+  MessageRole,
   PiTransportFrameSchema,
 } from "../gen/ts/pi/client/protocol/v0/protocol_pb.ts";
 import { encodeTransportFrame } from "../src/frame_codec.ts";
@@ -12,20 +13,40 @@ const protocolRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const vectorDirectory = resolve(protocolRoot, "test-vectors");
 mkdirSync(vectorDirectory, { recursive: true });
 
-const healthFrame = create(PiTransportFrameSchema, {
-  frameSequence: 9_007_199_254_740_993n,
+const sessionResponse = create(PiTransportFrameSchema, {
+  frameSequence: 18_446_744_073_709_551_615n,
   operation: {
-    case: "healthResponse",
+    case: "getSessionResponse",
     value: {
-      requestId: "health-ts-1",
-      status: HealthStatus.SERVING,
-      nodeVersion: "ts-vector-node-0",
-      uptimeMillis: 9_007_199_254_741_111n,
+      requestId: 18_446_744_073_709_551_615n,
+      session: {
+        summary: {
+          sessionId: "session-ts-1",
+          title: "Cross-language session",
+          workingDirectory: "/tmp/pi-client-vector",
+          createdAtUnixMillis: 9_007_199_254_740_993n,
+          updatedAtUnixMillis: 9_007_199_254_740_999n,
+          isRunning: true,
+          hasUnread: false,
+        },
+        messages: [
+          {
+            messageId: "message-ts-1",
+            role: MessageRole.ASSISTANT,
+            text: "Typed Protobuf response",
+            createdAtUnixMillis: 9_007_199_254_741_001n,
+            isStreaming: true,
+          },
+        ],
+      },
     },
   },
 });
-const healthBytes = encodeTransportFrame(healthFrame);
-writeFileSync(resolve(vectorDirectory, "ts_health_response.pb"), healthBytes);
+const sessionBytes = encodeTransportFrame(sessionResponse);
+writeFileSync(
+  resolve(vectorDirectory, "ts_session_response.pb"),
+  sessionBytes,
+);
 
 // Unknown top-level field 19000, varint value 123. It is appended to a valid
 // typed frame so both runtimes can prove decode/re-encode preservation.
@@ -33,10 +54,40 @@ const unknownSuffix = Uint8Array.from([
   ...encodeVarint(BigInt((19_000 << 3) | 0)),
   ...encodeVarint(123n),
 ]);
-const unknownBytes = new Uint8Array(healthBytes.length + unknownSuffix.length);
-unknownBytes.set(healthBytes);
-unknownBytes.set(unknownSuffix, healthBytes.length);
+const unknownBytes = new Uint8Array(sessionBytes.length + unknownSuffix.length);
+unknownBytes.set(sessionBytes);
+unknownBytes.set(unknownSuffix, sessionBytes.length);
 writeFileSync(resolve(vectorDirectory, "unknown_field.pb"), unknownBytes);
+
+// The generated runtime can encode an unknown enum number. The bounded codec
+// must reject it instead of treating it as a future known status.
+const unknownEnum = create(PiTransportFrameSchema, {
+  frameSequence: 1n,
+  operation: {
+    case: "healthResponse",
+    value: {
+      requestId: 1n,
+      status: 99 as HealthStatus,
+      nodeVersion: "0.1.0",
+    },
+  },
+});
+writeFileSync(
+  resolve(vectorDirectory, "unknown_enum.pb"),
+  toBinary(PiTransportFrameSchema, unknownEnum),
+);
+
+// Unknown top-level length-delimited operation 19001. frame_sequence remains
+// valid, but no known operation is selected after decoding.
+writeFileSync(
+  resolve(vectorDirectory, "unknown_operation.pb"),
+  Uint8Array.from([
+    0x08,
+    0x01,
+    ...encodeVarint(BigInt((19_001 << 3) | 2)),
+    0x00,
+  ]),
+);
 
 function encodeVarint(value: bigint): number[] {
   const output: number[] = [];

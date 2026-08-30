@@ -3,25 +3,29 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { PiTransportFrameSchema } from "../gen/ts/pi/client/protocol/v0/protocol_pb.ts";
-import { decodeTransportFrame } from "../src/frame_codec.ts";
+import {
+  decodeTransportFrame,
+  FrameValidationError,
+} from "../src/frame_codec.ts";
 
 const vectors = resolve(import.meta.dir, "../test-vectors");
 const unknownSuffix = Uint8Array.from([0xc0, 0xa3, 0x09, 0x7b]);
+const maximumUint64 = 18_446_744_073_709_551_615n;
 
 describe("cross-language Protobuf vectors", () => {
-  test("decodes Dart event stream and uint64 values", () => {
+  test("decodes Dart session event and full-range uint64 values", () => {
     const frame = decodeTransportFrame(
-      readFileSync(resolve(vectors, "dart_event_stream.pb")),
+      readFileSync(resolve(vectors, "dart_session_event.pb")),
     );
 
-    expect(frame.frameSequence).toBe(9_007_199_254_740_995n);
-    expect(frame.operation.case).toBe("eventStream");
-    if (frame.operation.case !== "eventStream") {
-      throw new Error("expected event stream operation");
+    expect(frame.frameSequence).toBe(maximumUint64);
+    expect(frame.operation.case).toBe("sessionEventStream");
+    if (frame.operation.case !== "sessionEventStream") {
+      throw new Error("expected session event stream operation");
     }
-    expect(frame.operation.value.streamId).toBe("events-dart-1");
-    expect(frame.operation.value.eventSequence).toBe(9_007_199_254_740_997n);
-    expect(frame.operation.value.event.case).toBe("heartbeat");
+    expect(frame.operation.value.streamId).toBe("session-events-dart-1");
+    expect(frame.operation.value.eventSequence).toBe(maximumUint64);
+    expect(frame.operation.value.event.case).toBe("commandCompleted");
   });
 
   test("preserves unknown fields when decoded and re-encoded by Protobuf-ES", () => {
@@ -30,7 +34,16 @@ describe("cross-language Protobuf vectors", () => {
     const output = toBinary(PiTransportFrameSchema, decoded);
 
     expect(containsSubsequence(output, unknownSuffix)).toBeTrue();
-    expect(decodeTransportFrame(output).operation.case).toBe("healthResponse");
+    expect(decodeTransportFrame(output).operation.case).toBe("getSessionResponse");
+  });
+
+  test("rejects unknown operation and enum vectors", () => {
+    expect(() =>
+      decodeTransportFrame(readFileSync(resolve(vectors, "unknown_operation.pb"))),
+    ).toThrow(FrameValidationError);
+    expect(() =>
+      decodeTransportFrame(readFileSync(resolve(vectors, "unknown_enum.pb"))),
+    ).toThrow(FrameValidationError);
   });
 });
 
