@@ -49,3 +49,4 @@ app.*.map.json
 
 # FVM local SDK link/cache; .fvmrc remains tracked
 .fvm/
+.pi/
