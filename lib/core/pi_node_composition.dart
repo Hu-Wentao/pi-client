@@ -2,10 +2,10 @@ import 'dart:async';
 
 import '../api/pi_node/pi_node.dart';
 import '../platform/agent_host/pi_node_host_controller.dart';
+import '../platform/agent_host/pi_node_runtime_locator.dart';
 import '../platform/platform_capabilities.dart';
 import '../protocol/pi_protocol.dart';
 import '../transport/pi_transport.dart';
-import 'pi_node_runtime_defaults.dart';
 
 enum PiNodeCompositionAvailability {
   localHost,
@@ -58,10 +58,13 @@ PiNodeApi createAppPiNodeApi({
   return LazyHostedPiNodeApi(
     hostControllerFactory:
         hostControllerFactory ??
-        () => LocalProcessPiNodeHostController(
-          capabilities: capabilities,
-          configuration: createDefaultPiNodeProcessConfiguration(),
-        ),
+        () {
+          final runtimeLocator = createPlatformPiNodeRuntimeLocator();
+          return LocalProcessPiNodeHostController.locating(
+            capabilities: capabilities,
+            configurationLoader: runtimeLocator.locate,
+          );
+        },
     clientFactory: clientFactory ?? _createProductionPiNodeClient,
   );
 }

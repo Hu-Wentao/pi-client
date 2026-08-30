@@ -265,8 +265,15 @@ jobs:
       - name: Resolve locked Flutter dependencies
         run: fvm flutter pub get --enforce-lockfile
 
-      - name: Build macOS debug app
+      - name: Build macOS debug app without downloading a runtime capsule
         run: fvm flutter build macos --debug --no-pub
+
+      - name: Verify ordinary macOS source builds remain capsule-free
+        run: |
+          APP='build/macos/Build/Products/Debug/Pi Client.app'
+          test -d "$APP"
+          test ! -e "$APP/Contents/Helpers/PiNode"
+          ! grep -Eq 'app-sandbox|disable-library-validation|allow-unsigned-executable-memory' macos/Runner/Debug.entitlements
 
       - name: Build unsigned iOS debug app
         run: fvm flutter build ios --debug --no-codesign --no-pub

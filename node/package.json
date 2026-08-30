@@ -32,9 +32,11 @@
     "test": "bun run test:node && bun run test:capsule",
     "test:node": "bun run protocol:sync && bun run test:node:raw",
     "test:node:raw": "node ./scripts/run-tests.mjs",
-    "test:capsule": "node --test test/runtime-capsule.test.mjs",
+    "test:capsule": "node --test test/runtime-capsule.test.mjs test/macos-app-runtime-capsule.test.mjs",
     "capsule:build": "node ./scripts/build-runtime-capsule.mjs",
     "capsule:verify": "node ./scripts/verify-runtime-capsule.mjs",
+    "capsule:install:macos": "node ./scripts/install-runtime-capsule-in-macos-app.mjs",
+    "capsule:verify:macos-app": "node ./scripts/verify-macos-app-runtime-capsule.mjs",
     "scan:forbidden": "node ./scripts/scan-forbidden.mjs",
     "check": "bun run runtime:check && bun run format:check && bun run protocol:sync && bun run typecheck:raw && bun run build:raw && bun run smoke:dist && bun run test:node:raw && bun run test:capsule && bun run scan:forbidden"
   },

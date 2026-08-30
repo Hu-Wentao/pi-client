@@ -57,6 +57,8 @@ typedef PiNodeTransportLauncher =
     Future<PiTransport> Function(
       LocalDirectPiProcessConfiguration configuration,
     );
+typedef PiNodeDesktopProcessConfigurationLoader =
+    Future<PiNodeDesktopProcessConfiguration> Function();
 
 /// Default desktop Pi Node controller used lazily by application composition.
 /// Process startup still occurs only when the app-owned PiNodeApi connects.
@@ -65,12 +67,32 @@ final class LocalProcessPiNodeHostController implements PiNodeHostController {
     required PlatformCapabilities capabilities,
     required PiNodeDesktopProcessConfiguration configuration,
     PiNodeTransportLauncher? launcher,
+  }) : this._(
+         capabilities: capabilities,
+         configurationLoader: () async => configuration,
+         launcher: launcher,
+       );
+
+  LocalProcessPiNodeHostController.locating({
+    required PlatformCapabilities capabilities,
+    required PiNodeDesktopProcessConfigurationLoader configurationLoader,
+    PiNodeTransportLauncher? launcher,
+  }) : this._(
+         capabilities: capabilities,
+         configurationLoader: configurationLoader,
+         launcher: launcher,
+       );
+
+  LocalProcessPiNodeHostController._({
+    required PlatformCapabilities capabilities,
+    required PiNodeDesktopProcessConfigurationLoader configurationLoader,
+    PiNodeTransportLauncher? launcher,
   }) : _capabilities = capabilities,
-       _configuration = configuration,
+       _configurationLoader = configurationLoader,
        _launcher = launcher ?? _launchLocalDirect;
 
   final PlatformCapabilities _capabilities;
-  final PiNodeDesktopProcessConfiguration _configuration;
+  final PiNodeDesktopProcessConfigurationLoader _configurationLoader;
   final PiNodeTransportLauncher _launcher;
   PiTransport? _transport;
   Future<PiTransport>? _startFuture;
@@ -99,7 +121,8 @@ final class LocalProcessPiNodeHostController implements PiNodeHostController {
 
   Future<PiTransport> _start() async {
     try {
-      final transport = await _launcher(_configuration.transportConfiguration);
+      final configuration = await _configurationLoader();
+      final transport = await _launcher(configuration.transportConfiguration);
       if (_closed) {
         await transport.close();
         throw const PiNodeHostException(PiNodeHostErrorCode.closed);
