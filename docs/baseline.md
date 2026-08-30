@@ -63,3 +63,14 @@ Default review level: L6.
 - Observable behavior and protocol evidence are pinned to `agegr/pi-web` commit `28bab3c25f5f6770c9b0b745ebbfec1c27f7b948` (`0.8.11`, MIT).
 - Pi-web's HTTP routes are not declared as a stable public API. Upstream movement requires an explicit compatibility decision, focused adapter tests, live smoke, and release notes.
 - Pi-web branding, screenshots, icons, and substantial implementation are not treated as Pi Client-owned assets.
+
+## BASE-PI-006 - Preview distribution and product-site integrity
+
+- Status: Active
+- Review level: L9
+- The current public version target is `0.0.2+2`; the app name is `Pi Client`, and the release asset identity is `v0.0.2/Pi-Client-0.0.2-macOS-universal.zip`.
+- The unsigned Preview is a Universal `arm64 + x86_64` ZIP, not a signed, notarized, sandbox-trusted, or DMG distribution. User-facing surfaces must disclose that boundary before download or installation.
+- Unsigned Preview storage uses `fr_storage_unsigned_preview` and a fixed public key that provides no secrecy; standard signed Release storage remains in `fr_storage` with platform secure storage. Preview preferences do not automatically migrate to the signed channel.
+- The Landing Page uses the Pi Client-owned SVG and sanitized Flutter screenshot. It must not use Flutter/pi-web branding, production paths, credentials, private prompts, or real tool output.
+- GitHub Pages may deploy only while its exact current-version GitHub Release asset is public. A passing local site build is not publication evidence.
+- Current pi-web compatibility is transitional and does not authorize a WebAssembly build or weaken the planned independent, versioned Pi SDK/transport boundary.

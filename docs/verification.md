@@ -95,3 +95,19 @@ mdq:
 - Owner: future friday-relay authentication tests plus pi-client platform integration and manual platform verification
 - Planned evidence: Verify native system-browser PKCE and secure storage, WebAssembly canonical handoff and host-only session, callback/handoff denial, and absence of browser-readable long-lived credentials.
 - Blocker: `friday-relay@42cb0a74890700920d411604f07ff70a5bde5bd2` 已建立 Native/WASM Friday identity 的 Planned requirement，但 exact Native callback、Workspace handoff path/session profile、SameSite、Native refresh/rotation/revoke 和 public-client token lifetime 仍未冻结；不存在外部运行时实现声明。
+
+## VER-PI-010 - Landing Page and unsigned Preview source qualification
+
+- Status: PASS
+- Requirements: REQ-PI-004, REQ-PI-010
+- Owner: `test/app_storage_test.dart`, `test/marketing_screenshot_test.dart`, `site/scripts/validate-built-site.mjs`, Astro checks, Flutter checks, and local macOS build inspection
+- Evidence: Distribution-channel tests prove standard/Preview directory and key selection; the committed 1280 × 800 screenshot renders synthetic data with real Flutter fonts and icons; brand generation is source-controlled; English and Chinese static routes build with exact metadata, base-aware assets, exact `v0.0.2` CTA, and no client JavaScript; Flutter analysis/tests and macOS build gates qualify the source.
+- Scope limit: This PASS proves committed source and locally executable workflow logic only. It does not prove a pushed tag, public GitHub Release asset, GitHub-hosted workflow run, Pages deployment, notarization, Gatekeeper trust, or production-browser acceptance.
+
+## VER-PI-011 - Public Release and GitHub Pages acceptance
+
+- Status: PLANNED
+- Requirements: REQ-PI-010
+- Owner: `.github/workflows/release-macos.yml`, `.github/workflows/pages.yml`, GitHub Release evidence, and production manual accessibility/browser verification
+- Planned evidence: The immutable `v0.0.2` tag resolves to the admitted main commit; the public prerelease contains a non-empty Universal ZIP and SHA-256; the app starts in `unsigned-preview` without Keychain `-34018`; Pages serves both locales with live download links; Safari, Chrome, keyboard, VoiceOver, 200% zoom, responsive widths, and Lighthouse checks pass on the production URL.
+- Gap: Push, tag creation, Release publication, Pages deployment, and production manual verification are authorized for this delivery but have not yet executed; source qualification alone cannot mark them complete.

@@ -63,10 +63,10 @@ Default review level: L6. Requirements derived directly from the user-provided M
 - Status: Active
 - Priority: Must
 - Review level: L9
-- Actor and goal: A contributor can build, test, and run the MVP on the chosen target platform.
-- Constraints: Flutter is fixed with FVM; the initial version is `0.0.1`; minimum macOS is 11.0.
-- Source: MVP plan, `DEC-002`, and `DEC-008`.
-- Acceptance: FVM configuration, lockfile, generated sources, tests, a Debug `.app`, and run/build instructions are present.
+- Actor and goal: A contributor can build, test, and run the current macOS product on the chosen target platform.
+- Constraints: Flutter is fixed with FVM; the current release target is `0.0.2`; minimum macOS is 11.0; an unsigned Preview must not be represented as signed or notarized.
+- Source: MVP plan, `DEC-002`, `DEC-008`, and `DEC-014`.
+- Acceptance: FVM configuration, lockfiles, generated sources, tests, a Debug `.app`, an isolated unsigned-Preview build path, and run/build instructions are present.
 
 ## REQ-PI-005 - Preserve a bounded open-source comparison
 
@@ -117,3 +117,13 @@ Default review level: L6. Requirements derived directly from the user-provided M
 - Constraints: Product features depend on one versioned Pi transport contract; Friday Relay may authorize and route remote access but must not persist, log, or decrypt Pi payloads; the E2EE protocol must use an evaluated standard rather than custom cryptography.
 - Source: `PLAN-PI-002` and `DEC-013`.
 - Acceptance: Direct and remote transports pass the same Pi behavior conformance suite, while remote evidence also proves grant binding, encrypted payload opacity, tamper rejection, and bounded revocation.
+
+## REQ-PI-010 - Provide a public product and download entry
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: A prospective user can understand Pi Client in English or Simplified Chinese, inspect its current limits, and download the exact current macOS release from a stable product page.
+- Constraints: The Landing Page must describe only delivered behavior; pi-web `0.8.11` is identified as transitional; unsigned and unnotarized assets disclose Gatekeeper risk; WebAssembly, signed DMG, and planned transport features are not presented as available.
+- Source: `DEC-014` and `PLAN-PI-003`.
+- Acceptance: GitHub Pages serves `/pi-client/` and `/pi-client/zh-cn/`; both routes link to the published `v0.0.2/Pi-Client-0.0.2-macOS-universal.zip`; the ZIP and SHA-256 are public; production metadata, responsive behavior, keyboard access, and representative Safari/Chrome rendering are verified.

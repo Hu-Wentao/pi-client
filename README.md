@@ -1,8 +1,10 @@
 # Pi Client
 
-Pi Client is a native macOS desktop client for the [pi coding agent](https://github.com/earendil-works/pi). It connects to a separately running [pi-web](https://github.com/agegr/pi-web) service, giving you a focused desktop interface for existing pi sessions and live agent runs.
+Pi Client is a native macOS desktop client for the [pi coding agent](https://github.com/earendil-works/pi). It gives you a focused workspace for existing pi sessions and live agent runs.
 
-Pi Client is an early release. The current version targets macOS and pi-web `0.8.11`.
+Visit the [Pi Client product page](https://hu-wentao.github.io/pi-client/) for an overview, screenshot, and release download.
+
+Pi Client `0.0.2` is an early macOS preview. It currently connects through [pi-web](https://github.com/agegr/pi-web) `0.8.11` as a transitional compatibility bridge while the project works toward its own versioned, Pi SDK-based transport.
 
 ## What you can do
 
@@ -23,9 +25,10 @@ Pi-web continues to manage your sessions, models, tools, provider credentials, a
 You need:
 
 - macOS 11.0 or newer.
-- A working Flutter macOS toolchain and [FVM](https://fvm.app/). The repository selects Flutter `3.41.6` through `.fvmrc`.
 - Node.js and `npx` to run pi-web `0.8.11`.
 - A model provider configured for pi if you want the agent to execute prompts.
+
+To run Pi Client from source instead of using the release ZIP, you also need a working Flutter macOS toolchain and [FVM](https://fvm.app/). The repository selects Flutter `3.41.6` through `.fvmrc`.
 
 The default pi-web address is `http://127.0.0.1:30141`.
 
@@ -39,7 +42,24 @@ The default pi-web address is `http://127.0.0.1:30141`.
 
    If your pi-web service uses `PI_WEB_PASSWORD`, you will enter the same password in Pi Client.
 
-2. Clone and run Pi Client from source:
+2. Download both macOS Preview files from the [`v0.0.2` release](https://github.com/Hu-Wentao/pi-client/releases/tag/v0.0.2):
+
+   - [`Pi-Client-0.0.2-macOS-universal.zip`](https://github.com/Hu-Wentao/pi-client/releases/download/v0.0.2/Pi-Client-0.0.2-macOS-universal.zip)
+   - [`Pi-Client-0.0.2-macOS-universal.zip.sha256`](https://github.com/Hu-Wentao/pi-client/releases/download/v0.0.2/Pi-Client-0.0.2-macOS-universal.zip.sha256)
+
+   From the directory that contains both files, verify the download:
+
+   ```bash
+   shasum -a 256 -c Pi-Client-0.0.2-macOS-universal.zip.sha256
+   ```
+
+   Extract the ZIP, then open `Pi Client.app`.
+
+   **Unsigned Preview warning:** Version `0.0.2` is not signed with an Apple Developer ID and is not notarized. macOS Gatekeeper will warn before opening it. Install it only if you trust this repository and the checksum. A signed, notarized DMG is not available yet.
+
+   To open the Preview, in Finder Control-click `Pi Client.app`, select **Open**, then confirm **Open** in the warning dialog. Do not remove quarantine metadata with a shell command.
+
+   To run from source instead, use:
 
    ```bash
    git clone https://github.com/Hu-Wentao/pi-client.git
@@ -90,13 +110,16 @@ For remote access:
 
 Pi Client keeps the password in memory for the current page lifecycle. It does not store the password in workspace data, add it to URLs, or include request and response payloads in application logs.
 
+The unsigned Preview stores only non-sensitive preferences in a separate `fr_storage_unsigned_preview` directory. Its fixed public storage key avoids unavailable Keychain entitlements and provides no secrecy. A future signed release will use the standard secure-storage path and will not automatically inherit Preview preferences.
+
 ## Current limitations
 
 The current release:
 
 - Supports macOS 11.0 or newer only.
-- Targets the observable behavior of pi-web `0.8.11`; pi-web does not declare these HTTP routes as a stable public API.
+- Targets the observable behavior of pi-web `0.8.11` as a transitional bridge; pi-web does not declare these HTTP routes as a stable public API.
 - Requires model and provider setup to be completed outside Pi Client.
+- Does not include a browser or WebAssembly client.
 - Does not include file browsing, uploads, Git diffs, or worktree controls.
 - Does not include model selection, provider login, skill management, plugin management, or subagent configuration.
 - Does not include session rename, deletion, export, branching, compaction controls, rich Markdown, or media rendering.
