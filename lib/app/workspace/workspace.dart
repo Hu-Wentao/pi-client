@@ -1,10 +1,15 @@
 import 'dart:async';
 
 import 'package:flowr/flowr_mvvm.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import '../../api/pi_node/pi_node.dart';
+import '../../components/conversation/conversation.dart';
+import '../../components/node_connection/node_connection.dart';
+import '../../components/prompt_composer/prompt_composer.dart';
+import '../../components/session_browser/session_browser.dart';
+import '../../core/pi_node_composition.dart';
 import 'workspace.srv.dart';
 
 part 'workspace.c.dart';

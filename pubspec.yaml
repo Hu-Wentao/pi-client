@@ -7,8 +7,6 @@ environment:
   sdk: ^3.11.4
 
 dependencies:
-  dio: ^5.11.0
-  efficient_dio_logger: ^2.0.2
   fixnum: 1.1.1
   flowr: ^6.2.1
   flutter:
@@ -16,7 +14,6 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   fr_acdd: ^0.7.0
-  fr_mvvm_env: ^2.0.2
   fr_mvvm_locale: ^2.0.2
   fr_mvvm_theme: ^0.1.1
   fr_storage: ^0.2.0
@@ -26,7 +23,6 @@ dependencies:
   path_provider: ^2.1.6
   pi_client_protocol_spike:
     path: protocol/dart
-  retrofit: ^4.10.0
 
 dev_dependencies:
   flutter_test:
@@ -36,7 +32,6 @@ dev_dependencies:
   build_runner: ^2.15.1
   go_router_builder: ^4.4.1
   json_serializable: ^6.14.1
-  retrofit_generator: ^10.2.9
 
 flutter:
   uses-material-design: true

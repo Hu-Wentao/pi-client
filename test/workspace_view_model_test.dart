@@ -1,107 +1,393 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pi_client/api/pi_node/pi_node.dart';
 import 'package:pi_client/app/workspace/workspace.dart';
 import 'package:pi_client/app/workspace/workspace.srv.dart';
 
+import 'support/fake_pi_node_api.dart';
+
 void main() {
   test(
-    'loads sessions, streams output, refreshes final messages, and aborts',
+    'connects, loads typed sessions, streams output, aborts, and reconciles completion',
     () async {
-      final api = _FakePiWebApi();
-      final viewModel = WorkspaceViewModel(
-        gateway: api,
-        initialBaseUrl: 'http://127.0.0.1:30141',
-        reconnectDelay: Duration.zero,
+      final session = fakeSession(
+        id: 's1',
+        title: 'Test session',
+        workingDirectory: '/Projects/test-session',
       );
+      final history = fakeDetail(
+        session,
+        messages: <PiMessage>[
+          fakeMessage(
+            id: 'history-1',
+            role: PiMessageRole.assistant,
+            text: 'Hello from history',
+          ),
+        ],
+      );
+      final api = FakePiNodeApi(
+        sessions: <PiSessionSummary>[session],
+        details: <PiSessionId, PiSessionDetail>{session.id: history},
+      );
+      final viewModel = WorkspaceViewModel(service: WorkspaceService(api));
 
       viewModel.add(const WorkspaceStarted());
       await _waitFor(
         viewModel,
         (state) =>
-            state.connectionStatus == WorkspaceConnectionStatus.connected,
+            state.connection.status == PiNodeConnectionStatus.connected &&
+            !state.sessionsLoading,
       );
-      expect(viewModel.state.sessions.single.id, 's1');
+      expect(viewModel.state.sessions.single, session);
+      final serializedKeys = viewModel.state.toJson().keys;
+      expect(serializedKeys, isNot(contains('connection')));
+      expect(serializedKeys, isNot(contains('sessions')));
+      expect(serializedKeys, isNot(contains('selectedSessionId')));
+      expect(serializedKeys, isNot(contains('messages')));
 
-      viewModel.add(const WorkspaceSessionSelected('s1'));
+      viewModel.add(WorkspaceSessionSelected(session.id));
       await _waitFor(
         viewModel,
         (state) =>
-            state.selectedSessionId == 's1' && !state.conversationLoading,
+            state.selectedSessionId == session.id &&
+            !state.conversationLoading &&
+            state.eventStatus == WorkspaceEventStatus.listening,
       );
       expect(viewModel.state.messages.single.text, 'Hello from history');
-      await _waitUntil(() => api.watchCalls == 1);
-      api.currentEvents.add(<String, dynamic>{
-        'type': 'connected',
-        'sessionId': 's1',
-        'isStreaming': false,
-      });
-      await _waitFor(
-        viewModel,
-        (state) => state.streamStatus == WorkspaceStreamStatus.connected,
-      );
 
-      api.promptCompleter = Completer<void>();
       viewModel.add(const WorkspacePromptSubmitted('Inspect the project'));
-      await _waitFor(viewModel, (state) => state.sending);
-      expect(viewModel.state.messages.last.text, 'Inspect the project');
-      await _waitUntil(() => api.watchCalls == 2);
-
-      api.currentEvents.add(<String, dynamic>{
-        'type': 'message_update',
-        'assistantMessageEvent': <String, dynamic>{
-          'type': 'text_delta',
-          'delta': 'Live answer',
-        },
-      });
       await _waitFor(
         viewModel,
         (state) =>
-            state.messages.any((message) => message.text == 'Live answer'),
+            state.promptAdmissionStatus ==
+            WorkspacePromptAdmissionStatus.accepted,
+      );
+      expect(api.lastPrompt?.prompt, 'Inspect the project');
+      expect(viewModel.state.messages.last.text, 'Inspect the project');
+      expect(viewModel.state.sessions.single.isRunning, isTrue);
+
+      final commandId = api.lastPrompt!.commandId;
+      api.emitEvent(
+        PiSessionMessageAddedEvent(
+          sessionId: session.id,
+          sequence: 1,
+          message: fakeMessage(
+            id: 'assistant-live',
+            role: PiMessageRole.assistant,
+            text: 'Working',
+            isStreaming: true,
+          ),
+        ),
+      );
+      api.emitEvent(
+        PiSessionMessageDeltaEvent(
+          sessionId: session.id,
+          sequence: 2,
+          messageId: PiMessageId('assistant-live'),
+          delta: ' now',
+        ),
+      );
+      await _waitFor(
+        viewModel,
+        (state) => state.messages.any(
+          (message) =>
+              message.id == PiMessageId('assistant-live') &&
+              message.text == 'Working now',
+        ),
       );
 
       viewModel.add(const WorkspaceAgentStopped());
       await _waitUntil(() => api.abortCalls == 1);
+      expect(api.lastAbort?.sessionId, session.id);
 
-      api.detailMessage = 'Final answer';
-      api.promptCompleter!.complete();
-      await _waitFor(viewModel, (state) => !state.sending);
-      expect(viewModel.state.messages.last.text, 'Final answer');
+      final settledSession = fakeSession(
+        id: 's1',
+        title: 'Test session',
+        workingDirectory: '/Projects/test-session',
+        updatedAt: DateTime.utc(2026, 1, 1, 10),
+      );
+      api.updateDetail(
+        fakeDetail(
+          settledSession,
+          messages: <PiMessage>[
+            fakeMessage(
+              id: 'prompt-user',
+              role: PiMessageRole.user,
+              text: 'Inspect the project',
+            ),
+            fakeMessage(
+              id: 'prompt-answer',
+              role: PiMessageRole.assistant,
+              text: 'Final answer',
+            ),
+          ],
+        ),
+      );
+      api.emitEvent(
+        PiSessionRunningChangedEvent(
+          sessionId: session.id,
+          sequence: 3,
+          isRunning: false,
+        ),
+      );
+      api.emitEvent(
+        PiSessionCommandCompletedEvent(
+          sessionId: session.id,
+          sequence: 4,
+          commandId: commandId,
+          succeeded: true,
+        ),
+      );
+      await _waitFor(
+        viewModel,
+        (state) =>
+            !state.conversationLoading &&
+            state.messages.last.text == 'Final answer',
+      );
+      expect(viewModel.state.sessions.single.isRunning, isFalse);
 
-      final watchCallsBeforeClose = api.watchCalls;
-      final firstController = api.currentEvents;
-      await firstController.close();
-      await _waitUntil(() => api.watchCalls > watchCallsBeforeClose);
-      expect(viewModel.state.streamStatus, WorkspaceStreamStatus.connecting);
+      await viewModel.close();
+      expect(api.closeCalls, 0);
+      await api.close();
+    },
+  );
+
+  test('removes an optimistic prompt only for definitive rejection', () async {
+    final session = fakeSession(
+      id: 'rejected-session',
+      title: 'Rejected session',
+      workingDirectory: '/Projects/rejected',
+    );
+    final api =
+        FakePiNodeApi(
+            sessions: <PiSessionSummary>[session],
+            details: <PiSessionId, PiSessionDetail>{
+              session.id: fakeDetail(session),
+            },
+          )
+          ..promptHandler = (command) async => PiCommandRejected(
+            command.commandId,
+            const PiNodeException(
+              PiNodeErrorCode.invalidRequest,
+              retryable: false,
+            ),
+          );
+    final viewModel = WorkspaceViewModel(service: WorkspaceService(api));
+
+    viewModel.add(const WorkspaceStarted());
+    await _waitFor(
+      viewModel,
+      (state) => state.connection.status == PiNodeConnectionStatus.connected,
+    );
+    viewModel.add(WorkspaceSessionSelected(session.id));
+    await _waitFor(
+      viewModel,
+      (state) =>
+          state.selectedSessionId == session.id && !state.conversationLoading,
+    );
+    viewModel.add(const WorkspacePromptSubmitted('Reject this prompt'));
+    await _waitFor(
+      viewModel,
+      (state) =>
+          state.promptAdmissionStatus ==
+          WorkspacePromptAdmissionStatus.rejected,
+    );
+
+    expect(
+      viewModel.state.messages.where(
+        (message) => message.text == 'Reject this prompt',
+      ),
+      isEmpty,
+    );
+    expect(viewModel.state.promptError, isNotNull);
+
+    await viewModel.close();
+    await api.close();
+  });
+
+  test('retains the optimistic prompt when admission is uncertain', () async {
+    final session = fakeSession(
+      id: 'uncertain-session',
+      title: 'Uncertain session',
+      workingDirectory: '/Projects/uncertain',
+    );
+    final api =
+        FakePiNodeApi(
+            sessions: <PiSessionSummary>[session],
+            details: <PiSessionId, PiSessionDetail>{
+              session.id: fakeDetail(session),
+            },
+          )
+          ..promptHandler = (command) async => PiCommandUncertain(
+            command.commandId,
+            const PiNodeException(
+              PiNodeErrorCode.disconnected,
+              retryable: true,
+            ),
+          );
+    final viewModel = WorkspaceViewModel(service: WorkspaceService(api));
+
+    viewModel.add(const WorkspaceStarted());
+    await _waitFor(
+      viewModel,
+      (state) => state.connection.status == PiNodeConnectionStatus.connected,
+    );
+    viewModel.add(WorkspaceSessionSelected(session.id));
+    await _waitFor(
+      viewModel,
+      (state) =>
+          state.selectedSessionId == session.id && !state.conversationLoading,
+    );
+    viewModel.add(const WorkspacePromptSubmitted('Maybe accepted'));
+    await _waitFor(
+      viewModel,
+      (state) =>
+          state.promptAdmissionStatus ==
+          WorkspacePromptAdmissionStatus.uncertain,
+    );
+
+    expect(viewModel.state.messages.last.text, 'Maybe accepted');
+    expect(viewModel.state.sessions.single.isRunning, isTrue);
+    expect(viewModel.state.promptError, contains('uncertain'));
+
+    await viewModel.close();
+    await api.close();
+  });
+
+  test(
+    'reloads authoritative session state after an event sequence gap',
+    () async {
+      final session = fakeSession(
+        id: 'gap-session',
+        title: 'Gap session',
+        workingDirectory: '/Projects/gap',
+      );
+      final api = FakePiNodeApi(
+        sessions: <PiSessionSummary>[session],
+        details: <PiSessionId, PiSessionDetail>{
+          session.id: fakeDetail(
+            session,
+            messages: <PiMessage>[
+              fakeMessage(
+                id: 'before-gap',
+                role: PiMessageRole.assistant,
+                text: 'Before gap',
+              ),
+            ],
+          ),
+        },
+      );
+      final viewModel = WorkspaceViewModel(service: WorkspaceService(api));
+
+      viewModel.add(const WorkspaceStarted());
+      await _waitFor(
+        viewModel,
+        (state) => state.connection.status == PiNodeConnectionStatus.connected,
+      );
+      viewModel.add(WorkspaceSessionSelected(session.id));
+      await _waitFor(
+        viewModel,
+        (state) => state.eventStatus == WorkspaceEventStatus.listening,
+      );
+      final getCallsBeforeGap = api.getCalls;
+      api.updateDetail(
+        fakeDetail(
+          session,
+          messages: <PiMessage>[
+            fakeMessage(
+              id: 'after-gap',
+              role: PiMessageRole.assistant,
+              text: 'Authoritative answer',
+            ),
+          ],
+        ),
+      );
+      api.emitEvent(
+        PiSessionSequenceGapEvent(
+          sessionId: session.id,
+          expectedSequence: 1,
+          receivedSequence: 3,
+        ),
+      );
+
+      await _waitFor(
+        viewModel,
+        (state) =>
+            api.getCalls > getCallsBeforeGap &&
+            state.eventStatus == WorkspaceEventStatus.listening &&
+            state.messages.single.text == 'Authoritative answer',
+      );
 
       await viewModel.close();
       await api.close();
     },
   );
 
-  test('keeps the password outside serializable workspace state', () async {
-    final api = _FakePiWebApi();
-    final viewModel = WorkspaceViewModel(
-      gateway: api,
-      initialBaseUrl: 'http://127.0.0.1:30141',
+  test('ignores a stale selected-session load that completes last', () async {
+    final first = fakeSession(
+      id: 'first-session',
+      title: 'First session',
+      workingDirectory: '/Projects/first',
     );
+    final second = fakeSession(
+      id: 'second-session',
+      title: 'Second session',
+      workingDirectory: '/Projects/second',
+    );
+    final completers = <PiSessionId, Completer<PiSessionDetail>>{
+      first.id: Completer<PiSessionDetail>(),
+      second.id: Completer<PiSessionDetail>(),
+    };
+    final api = FakePiNodeApi(sessions: <PiSessionSummary>[first, second])
+      ..getSessionHandler = (sessionId) => completers[sessionId]!.future;
+    final viewModel = WorkspaceViewModel(service: WorkspaceService(api));
 
-    viewModel.add(
-      const WorkspaceConnectionApplied(
-        baseUrl: 'http://localhost:30141',
-        password: 'do-not-serialize',
+    viewModel.add(const WorkspaceStarted());
+    await _waitFor(
+      viewModel,
+      (state) => state.connection.status == PiNodeConnectionStatus.connected,
+    );
+    viewModel.add(WorkspaceSessionSelected(first.id));
+    await _waitUntil(() => api.getCalls == 1);
+    viewModel.add(WorkspaceSessionSelected(second.id));
+    await _waitUntil(() => api.getCalls == 2);
+
+    completers[second.id]!.complete(
+      fakeDetail(
+        second,
+        messages: <PiMessage>[
+          fakeMessage(
+            id: 'second-answer',
+            role: PiMessageRole.assistant,
+            text: 'Second answer',
+          ),
+        ],
       ),
     );
     await _waitFor(
       viewModel,
-      (state) => state.connectionStatus == WorkspaceConnectionStatus.connected,
+      (state) =>
+          state.selectedSessionId == second.id &&
+          state.messages.isNotEmpty &&
+          state.messages.single.text == 'Second answer',
     );
+    completers[first.id]!.complete(
+      fakeDetail(
+        first,
+        messages: <PiMessage>[
+          fakeMessage(
+            id: 'first-answer',
+            role: PiMessageRole.assistant,
+            text: 'First answer',
+          ),
+        ],
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
 
-    expect(
-      viewModel.state.toJson().toString(),
-      isNot(contains('do-not-serialize')),
-    );
-    expect(api.lastPassword, 'do-not-serialize');
+    expect(viewModel.state.selectedSessionId, second.id);
+    expect(viewModel.state.messages.single.text, 'Second answer');
 
     await viewModel.close();
     await api.close();
@@ -115,117 +401,15 @@ Future<WorkspaceModel> _waitFor(
   if (predicate(viewModel.state)) return viewModel.state;
   return viewModel.stream
       .firstWhere(predicate)
-      .timeout(const Duration(seconds: 2));
+      .timeout(const Duration(seconds: 3));
 }
 
 Future<void> _waitUntil(bool Function() predicate) async {
-  final deadline = DateTime.now().add(const Duration(seconds: 2));
+  final deadline = DateTime.now().add(const Duration(seconds: 3));
   while (!predicate()) {
     if (DateTime.now().isAfter(deadline)) {
       throw TimeoutException('Condition was not met.');
     }
     await Future<void>.delayed(Duration.zero);
-  }
-}
-
-final class _FakePiWebApi implements PiWebApi {
-  String detailMessage = 'Hello from history';
-  Completer<void>? promptCompleter;
-  int watchCalls = 0;
-  int abortCalls = 0;
-  String lastPassword = '';
-  StreamController<Map<String, dynamic>> currentEvents =
-      StreamController<Map<String, dynamic>>();
-
-  @override
-  String normalizeBaseUrl(String value) =>
-      value.replaceFirst('localhost', '127.0.0.1');
-
-  @override
-  Future<Map<String, dynamic>> loadSessions({
-    required String baseUrl,
-    required String password,
-    bool force = false,
-  }) async {
-    lastPassword = password;
-    return <String, dynamic>{
-      'sessions': <Map<String, dynamic>>[
-        <String, dynamic>{
-          'id': 's1',
-          'cwd': '/tmp/project',
-          'name': 'Test session',
-          'created': '2026-01-01T00:00:00Z',
-          'modified': '2026-01-01T00:00:00Z',
-          'messageCount': 2,
-          'firstMessage': 'Inspect the project',
-        },
-      ],
-      'runningSessionIds': <String>[],
-    };
-  }
-
-  @override
-  Future<Map<String, dynamic>> loadSession({
-    required String baseUrl,
-    required String password,
-    required String sessionId,
-  }) async => <String, dynamic>{
-    'context': <String, dynamic>{
-      'messages': <Map<String, dynamic>>[
-        <String, dynamic>{
-          'role': 'assistant',
-          'content': <Map<String, dynamic>>[
-            <String, dynamic>{'type': 'text', 'text': detailMessage},
-          ],
-        },
-      ],
-      'entryIds': <String>['entry-1'],
-    },
-  };
-
-  @override
-  Future<String> ensureSession({
-    required String baseUrl,
-    required String password,
-    required String cwd,
-  }) async => 's1';
-
-  @override
-  Future<void> sendPrompt({
-    required String baseUrl,
-    required String password,
-    required String sessionId,
-    required String message,
-  }) async {
-    await promptCompleter?.future;
-  }
-
-  @override
-  Future<void> abort({
-    required String baseUrl,
-    required String password,
-    required String sessionId,
-  }) async {
-    abortCalls += 1;
-  }
-
-  @override
-  Stream<Map<String, dynamic>> watchEvents({
-    required String baseUrl,
-    required String password,
-    required String sessionId,
-  }) {
-    watchCalls += 1;
-    currentEvents = StreamController<Map<String, dynamic>>();
-    return currentEvents.stream;
-  }
-
-  Future<void> close() async {
-    if (currentEvents.isClosed) return;
-    if (currentEvents.hasListener) {
-      await currentEvents.close();
-    } else {
-      unawaited(currentEvents.close());
-    }
   }
 }

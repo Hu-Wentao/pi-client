@@ -1,287 +1,90 @@
-import 'dart:convert';
+import '../../api/pi_node/pi_node.dart';
+import '../../core/pi_node_composition.dart';
+import '../../platform/agent_host/pi_node_host_controller.dart';
 
-import 'package:dio/dio.dart';
+final class WorkspaceService {
+  const WorkspaceService(this._api);
 
-abstract interface class PiWebApi {
-  String normalizeBaseUrl(String value);
+  final PiNodeApi _api;
 
-  Future<Map<String, dynamic>> loadSessions({
-    required String baseUrl,
-    required String password,
-    bool force = false,
-  });
+  PiNodeConnectionSnapshot get connection => _api.connection;
 
-  Future<Map<String, dynamic>> loadSession({
-    required String baseUrl,
-    required String password,
-    required String sessionId,
-  });
+  Stream<PiNodeConnectionSnapshot> get connectionStates =>
+      _api.connectionStates;
 
-  Future<String> ensureSession({
-    required String baseUrl,
-    required String password,
-    required String cwd,
-  });
+  PiNodeCompositionAvailability get availability {
+    final metadata = _api is PiNodeCompositionMetadata
+        ? _api as PiNodeCompositionMetadata
+        : null;
+    return metadata?.availability ?? PiNodeCompositionAvailability.externalNode;
+  }
 
-  Future<void> sendPrompt({
-    required String baseUrl,
-    required String password,
-    required String sessionId,
-    required String message,
-  });
+  Future<PiNodeConnectionSnapshot> connect() => _api.connect();
 
-  Future<void> abort({
-    required String baseUrl,
-    required String password,
-    required String sessionId,
-  });
+  Future<List<PiSessionSummary>> loadSessions() => _api.listSessions();
 
-  Stream<Map<String, dynamic>> watchEvents({
-    required String baseUrl,
-    required String password,
-    required String sessionId,
-  });
-}
+  Future<PiSessionDetail> loadSession(PiSessionId sessionId) =>
+      _api.getSession(sessionId);
 
-final class PiWebGateway implements PiWebApi {
-  PiWebGateway(this._dio);
-
-  final Dio _dio;
-
-  @override
-  String normalizeBaseUrl(String value) {
-    var normalized = value.trim();
-    if (normalized.isEmpty) {
-      throw const PiWebGatewayException('Server URL is required.');
-    }
-    if (!normalized.contains('://')) normalized = 'http://$normalized';
-    final uri = Uri.tryParse(normalized);
-    if (uri == null ||
-        (uri.scheme != 'http' && uri.scheme != 'https') ||
-        uri.host.isEmpty ||
-        uri.hasQuery ||
-        uri.hasFragment ||
-        uri.userInfo.isNotEmpty) {
-      throw const PiWebGatewayException(
-        'Enter an absolute http(s) URL without credentials, query, or fragment.',
+  Future<PiSessionDetail> createSession(String workingDirectory) =>
+      _api.createSession(
+        PiCreateSessionRequest(workingDirectory: workingDirectory),
       );
-    }
-    final path = uri.path == '/'
-        ? ''
-        : uri.path.replaceFirst(RegExp(r'/+$'), '');
-    return uri.replace(path: path).toString();
-  }
 
-  @override
-  Future<Map<String, dynamic>> loadSessions({
-    required String baseUrl,
-    required String password,
-    bool force = false,
-  }) async {
-    final response = await _request(
-      'GET',
-      _endpoint(baseUrl, 'api/sessions'),
-      password: password,
-      queryParameters: force ? const <String, dynamic>{'force': '1'} : null,
-    );
-    return _object(response.data);
-  }
+  Future<PiCommandResult> submitPrompt({
+    required PiCommandId commandId,
+    required PiSessionId sessionId,
+    required String prompt,
+  }) => _api.prompt(
+    PiPromptCommand(commandId: commandId, sessionId: sessionId, prompt: prompt),
+  );
 
-  @override
-  Future<Map<String, dynamic>> loadSession({
-    required String baseUrl,
-    required String password,
-    required String sessionId,
-  }) async {
-    final encoded = Uri.encodeComponent(sessionId);
-    final response = await _request(
-      'GET',
-      _endpoint(baseUrl, 'api/sessions/$encoded'),
-      password: password,
-      queryParameters: const <String, dynamic>{
-        'deferThinking': '1',
-        'deferMedia': '1',
-        'tail': '100',
-      },
-    );
-    return _object(response.data);
-  }
+  Future<PiCommandResult> abort({
+    required PiCommandId commandId,
+    required PiSessionId sessionId,
+  }) => _api.abort(PiAbortCommand(commandId: commandId, sessionId: sessionId));
 
-  @override
-  Future<String> ensureSession({
-    required String baseUrl,
-    required String password,
-    required String cwd,
-  }) async {
-    final response = await _request(
-      'POST',
-      _endpoint(baseUrl, 'api/agent/new'),
-      password: password,
-      data: <String, dynamic>{'cwd': cwd, 'type': 'ensure_session'},
-    );
-    final data = _object(response.data);
-    final sessionId = data['sessionId'];
-    if (sessionId is! String || sessionId.isEmpty) {
-      throw const PiWebGatewayException('pi-web did not return a session id.');
-    }
-    return sessionId;
-  }
+  Stream<PiSessionEvent> watchSession(PiSessionId sessionId) =>
+      _api.sessionEvents(sessionId);
 
-  @override
-  Future<void> sendPrompt({
-    required String baseUrl,
-    required String password,
-    required String sessionId,
-    required String message,
-  }) async {
-    final encoded = Uri.encodeComponent(sessionId);
-    await _request(
-      'POST',
-      _endpoint(baseUrl, 'api/agent/$encoded'),
-      password: password,
-      data: <String, dynamic>{'type': 'prompt', 'message': message},
-    );
-  }
-
-  @override
-  Future<void> abort({
-    required String baseUrl,
-    required String password,
-    required String sessionId,
-  }) async {
-    final encoded = Uri.encodeComponent(sessionId);
-    await _request(
-      'POST',
-      _endpoint(baseUrl, 'api/agent/$encoded'),
-      password: password,
-      data: const <String, dynamic>{'type': 'abort'},
-    );
-  }
-
-  @override
-  Stream<Map<String, dynamic>> watchEvents({
-    required String baseUrl,
-    required String password,
-    required String sessionId,
-  }) async* {
-    final encoded = Uri.encodeComponent(sessionId);
-    final response = await _request(
-      'GET',
-      _endpoint(baseUrl, 'api/agent/$encoded/events'),
-      password: password,
-      responseType: ResponseType.stream,
-      receiveTimeout: Duration.zero,
-    );
-    final body = response.data;
-    if (body is! ResponseBody) {
-      throw const PiWebGatewayException('pi-web returned an invalid SSE body.');
-    }
-
-    final dataLines = <String>[];
-    await for (final line
-        in utf8.decoder.bind(body.stream).transform(const LineSplitter())) {
-      if (line.isEmpty) {
-        if (dataLines.isEmpty) continue;
-        final raw = dataLines.join('\n');
-        dataLines.clear();
-        final decoded = jsonDecode(raw);
-        if (decoded is Map) {
-          yield Map<String, dynamic>.from(decoded);
-        }
-        continue;
-      }
-      if (line.startsWith(':')) continue;
-      if (line.startsWith('data:')) {
-        dataLines.add(line.substring(5).trimLeft());
-      }
-    }
-  }
-
-  Uri _endpoint(String baseUrl, String relativePath) {
-    final root = Uri.parse('${normalizeBaseUrl(baseUrl)}/');
-    return root.resolve(relativePath);
-  }
-
-  Options _options(
-    String password, {
-    ResponseType responseType = ResponseType.json,
-    Duration? receiveTimeout,
-  }) {
-    final headers = <String, dynamic>{
-      Headers.acceptHeader: responseType == ResponseType.stream
-          ? 'text/event-stream'
-          : Headers.jsonContentType,
-    };
-    if (password.isNotEmpty) {
-      headers['Authorization'] =
-          'Basic ${base64Encode(utf8.encode('pi:$password'))}';
-    }
-    return Options(
-      responseType: responseType,
-      headers: headers,
-      contentType: Headers.jsonContentType,
-      receiveTimeout: receiveTimeout,
-      sendTimeout: const Duration(seconds: 20),
-    );
-  }
-
-  Future<Response<dynamic>> _request(
-    String method,
-    Uri uri, {
-    required String password,
-    Object? data,
-    Map<String, dynamic>? queryParameters,
-    ResponseType responseType = ResponseType.json,
-    Duration? receiveTimeout = const Duration(seconds: 45),
-  }) async {
-    final requestUri = queryParameters == null
-        ? uri
-        : uri.replace(queryParameters: queryParameters);
-    try {
-      return await _dio.requestUri<dynamic>(
-        requestUri,
-        data: data,
-        options: _options(
-          password,
-          responseType: responseType,
-          receiveTimeout: receiveTimeout,
-        ).copyWith(method: method),
-      );
-    } on DioException catch (error) {
-      final response = error.response;
-      final body = response?.data;
-      final object = body is Map ? Map<String, dynamic>.from(body) : null;
-      throw PiWebGatewayException(
-        object?['error']?.toString() ??
-            error.message ??
-            'pi-web request failed.',
-        statusCode: response?.statusCode,
-        code: object?['code']?.toString(),
-        accepted: object?['accepted'] as bool?,
-      );
-    }
-  }
-
-  Map<String, dynamic> _object(Object? value) {
-    if (value is Map<String, dynamic>) return value;
-    if (value is Map) return Map<String, dynamic>.from(value);
-    throw const PiWebGatewayException('pi-web returned invalid JSON.');
-  }
-}
-
-final class PiWebGatewayException implements Exception {
-  const PiWebGatewayException(
-    this.message, {
-    this.statusCode,
-    this.code,
-    this.accepted,
-  });
-
-  final String message;
-  final int? statusCode;
-  final String? code;
-  final bool? accepted;
-
-  @override
-  String toString() => message;
+  String describeError(Object error) => switch (error) {
+    PiNodeCompositionException(:final code) => switch (code) {
+      PiNodeCompositionErrorCode.remoteNodeRequired =>
+        'This platform requires a remote Pi Node. Remote transport is not configured yet.',
+      PiNodeCompositionErrorCode.unsupported =>
+        'Pi Node hosting and remote transport are unavailable on this platform.',
+      PiNodeCompositionErrorCode.notConnected =>
+        'The Pi Node is not connected. Retry the connection.',
+      PiNodeCompositionErrorCode.closed =>
+        'The Pi Node connection has been closed.',
+    },
+    PiNodeHostException(:final code) => switch (code) {
+      PiNodeHostErrorCode.unsupportedPlatform =>
+        'This platform cannot host a local Pi Node.',
+      PiNodeHostErrorCode.launchFailed =>
+        'The local Pi Node could not start. Verify the Node runtime and built stdio entrypoint.',
+      PiNodeHostErrorCode.closed => 'The local Pi Node host has been closed.',
+    },
+    PiNodeException(:final code) => switch (code) {
+      PiNodeErrorCode.authenticationRequired =>
+        'The Pi Node requires authentication.',
+      PiNodeErrorCode.permissionDenied =>
+        'Pi Node denied access to this operation.',
+      PiNodeErrorCode.notFound => 'The requested Pi session was not found.',
+      PiNodeErrorCode.invalidRequest => 'Pi Node rejected an invalid request.',
+      PiNodeErrorCode.conflict =>
+        'The Pi session changed before the operation completed.',
+      PiNodeErrorCode.nodeBusy => 'Pi Node is busy. Try again shortly.',
+      PiNodeErrorCode.protocolMismatch =>
+        'Pi Node does not support protocol 0.1.0.',
+      PiNodeErrorCode.malformedFrame || PiNodeErrorCode.unexpectedResponse =>
+        'Pi Node returned an invalid protocol response.',
+      PiNodeErrorCode.disconnected =>
+        'The Pi Node disconnected. Retry the connection.',
+      PiNodeErrorCode.closed => 'The Pi Node connection has been closed.',
+      PiNodeErrorCode.remoteRejected => 'Pi Node rejected the operation.',
+    },
+    ArgumentError() => 'Enter a valid working directory or prompt.',
+    _ => 'The Pi Node operation failed.',
+  };
 }

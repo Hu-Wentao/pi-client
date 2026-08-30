@@ -3,19 +3,55 @@ import 'dart:async';
 import 'package:flowr/flowr_mvvm.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pi_client/api/pi_node/pi_node.dart';
 import 'package:pi_client/app/workspace/workspace.dart';
 import 'package:pi_client/app/workspace/workspace.srv.dart';
 
+import 'support/fake_pi_node_api.dart';
+
 void main() {
-  testWidgets('renders the desktop workspace baseline', (tester) async {
+  testWidgets('renders the first-party desktop workspace baseline', (
+    tester,
+  ) async {
     await tester.binding.setSurfaceSize(const Size(1200, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    final api = _GoldenPiWebApi();
-    final viewModel = WorkspaceViewModel(
-      gateway: api,
-      initialBaseUrl: 'http://127.0.0.1:30141',
-      reconnectDelay: Duration.zero,
+    final primary = fakeSession(
+      id: 'session-1',
+      title: 'Integrate the first-party Pi Node',
+      workingDirectory: '/Projects/pi-client',
+      isRunning: true,
+      updatedAt: DateTime.utc(2026, 8, 29, 9, 30),
     );
+    final protocol = fakeSession(
+      id: 'session-2',
+      title: 'Verify protocol 0.1.0',
+      workingDirectory: '/Projects/protocol-lab',
+      updatedAt: DateTime.utc(2026, 8, 28, 10),
+    );
+    final api = FakePiNodeApi(
+      sessions: <PiSessionSummary>[primary, protocol],
+      details: <PiSessionId, PiSessionDetail>{
+        primary.id: fakeDetail(
+          primary,
+          messages: <PiMessage>[
+            fakeMessage(
+              id: 'entry-user',
+              role: PiMessageRole.user,
+              text: 'Connect the Flutter workspace directly to Pi Node.',
+              createdAt: DateTime.utc(2026, 8, 29, 8),
+            ),
+            fakeMessage(
+              id: 'entry-assistant',
+              role: PiMessageRole.assistant,
+              text:
+                  'The app-owned PiNodeApi is connected through the typed protocol. Sessions, prompts, ordered events, abort, and authoritative recovery are active.',
+              createdAt: DateTime.utc(2026, 8, 29, 8, 1),
+            ),
+          ],
+        ),
+      },
+    );
+    final viewModel = WorkspaceViewModel(service: WorkspaceService(api));
 
     await tester.pumpWidget(
       MaterialApp(
@@ -32,17 +68,17 @@ void main() {
     );
     viewModel.add(const WorkspaceStarted());
     await tester.pumpAndSettle();
-    viewModel.add(const WorkspaceSessionSelected('session-1'));
+    viewModel.add(WorkspaceSessionSelected(primary.id));
     await tester.pump();
     await tester.runAsync(
       () => _waitUntil(
         () =>
-            viewModel.state.selectedSessionId == 'session-1' &&
+            viewModel.state.selectedSessionId == primary.id &&
             !viewModel.state.conversationLoading &&
             viewModel.state.messages.length == 2,
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 100));
 
     await expectLater(
       find.byKey(const Key('workspaceScaffold')),
@@ -57,127 +93,11 @@ void main() {
 }
 
 Future<void> _waitUntil(bool Function() predicate) async {
-  final deadline = DateTime.now().add(const Duration(seconds: 2));
+  final deadline = DateTime.now().add(const Duration(seconds: 3));
   while (!predicate()) {
     if (DateTime.now().isAfter(deadline)) {
       throw TimeoutException('Golden condition was not met.');
     }
     await Future<void>.delayed(Duration.zero);
-  }
-}
-
-final class _GoldenPiWebApi implements PiWebApi {
-  final _controllers = <StreamController<Map<String, dynamic>>>[];
-
-  @override
-  String normalizeBaseUrl(String value) => value;
-
-  @override
-  Future<Map<String, dynamic>> loadSessions({
-    required String baseUrl,
-    required String password,
-    bool force = false,
-  }) async => <String, dynamic>{
-    'sessions': <Map<String, dynamic>>[
-      <String, dynamic>{
-        'id': 'session-1',
-        'cwd': '/Users/demo/projects/pi-client',
-        'name': 'Implement the Flutter client',
-        'created': '2026-08-29T08:00:00Z',
-        'modified': '2026-08-29T09:30:00Z',
-        'messageCount': 12,
-        'firstMessage': 'Implement a native Flutter pi client',
-      },
-      <String, dynamic>{
-        'id': 'session-2',
-        'cwd': '/Users/demo/projects/pi-web',
-        'name': 'Review pi-web protocol',
-        'created': '2026-08-28T08:00:00Z',
-        'modified': '2026-08-28T10:00:00Z',
-        'messageCount': 8,
-        'firstMessage': 'Audit the HTTP and SSE boundaries',
-      },
-    ],
-    'runningSessionIds': <String>['session-1'],
-  };
-
-  @override
-  Future<Map<String, dynamic>> loadSession({
-    required String baseUrl,
-    required String password,
-    required String sessionId,
-  }) async => <String, dynamic>{
-    'context': <String, dynamic>{
-      'messages': <Map<String, dynamic>>[
-        <String, dynamic>{
-          'role': 'user',
-          'content': 'Implement the macOS MVP and verify every state.',
-          'timestamp': 1787961600000,
-        },
-        <String, dynamic>{
-          'role': 'assistant',
-          'content': <Map<String, dynamic>>[
-            <String, dynamic>{
-              'type': 'text',
-              'text':
-                  'The workspace contract is active. Sessions, messages, prompt submission, abort, and SSE reconnect are covered by focused tests.',
-            },
-          ],
-          'timestamp': 1787961660000,
-        },
-      ],
-      'entryIds': <String>['entry-user', 'entry-assistant'],
-    },
-  };
-
-  @override
-  Future<String> ensureSession({
-    required String baseUrl,
-    required String password,
-    required String cwd,
-  }) async => 'session-1';
-
-  @override
-  Future<void> sendPrompt({
-    required String baseUrl,
-    required String password,
-    required String sessionId,
-    required String message,
-  }) async {}
-
-  @override
-  Future<void> abort({
-    required String baseUrl,
-    required String password,
-    required String sessionId,
-  }) async {}
-
-  @override
-  Stream<Map<String, dynamic>> watchEvents({
-    required String baseUrl,
-    required String password,
-    required String sessionId,
-  }) {
-    final controller = StreamController<Map<String, dynamic>>();
-    _controllers.add(controller);
-    scheduleMicrotask(
-      () => controller.add(<String, dynamic>{
-        'type': 'connected',
-        'sessionId': sessionId,
-        'isStreaming': false,
-      }),
-    );
-    return controller.stream;
-  }
-
-  Future<void> close() async {
-    for (final controller in _controllers) {
-      if (controller.isClosed) continue;
-      if (controller.hasListener) {
-        await controller.close();
-      } else {
-        unawaited(controller.close());
-      }
-    }
   }
 }

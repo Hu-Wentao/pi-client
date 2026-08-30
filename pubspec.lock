@@ -129,14 +129,6 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "1.2.1"
-  code_builder:
-    dependency: transitive
-    description:
-      name: code_builder
-      sha256: aa5932e94c6c39c2f9ec4e5e06dfdd11a9430a61f6c41b6ba75b28ce0c481baf
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "4.12.0"
   collection:
     dependency: transitive
     description:
@@ -169,30 +161,6 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "3.1.7"
-  dio:
-    dependency: "direct main"
-    description:
-      name: dio
-      sha256: "0df44ebba85e503958eb75d07eedd3c86275a58c1d3eda2f2ce8f0a2c3abbb3c"
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "5.11.0"
-  dio_web_adapter:
-    dependency: transitive
-    description:
-      name: dio_web_adapter
-      sha256: "0786d0b7295a373de356fc0af4f6f1d0ab2844ed31b19dfc5e7556b70e24212c"
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "2.2.1"
-  efficient_dio_logger:
-    dependency: "direct main"
-    description:
-      name: efficient_dio_logger
-      sha256: b0e85af890f43ba0ae98092d927d6f9c88eb5fe708542750c7519e562742f1ba
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "2.0.2"
   fake_async:
     dependency: transitive
     description:
@@ -341,14 +309,6 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "0.7.0"
-  fr_mvvm_env:
-    dependency: "direct main"
-    description:
-      name: fr_mvvm_env
-      sha256: "0f7f29cc3784e8cf6b05a75617484ebf5a4d80fb5a78ed9c3e39528775bd8787"
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "2.0.2"
   fr_mvvm_locale:
     dependency: "direct main"
     description:
@@ -780,22 +740,6 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "0.6.0"
-  retrofit:
-    dependency: "direct main"
-    description:
-      name: retrofit
-      sha256: d700c1e7599bc6327cbe19ec7a2c87b595f6063ce888e8015f30cab655972331
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "4.10.0"
-  retrofit_generator:
-    dependency: "direct dev"
-    description:
-      name: retrofit_generator
-      sha256: b130dd5a2325ed2bd55dc31a83fe54dd76a87d1a35f1f7d302c8b74b5dbb3d04
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "10.2.9"
   sembast:
     dependency: transitive
     description:
