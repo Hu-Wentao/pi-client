@@ -40,6 +40,11 @@ message PiTransportFrame {
     CommandRejected command_rejected = 40;
     ApproveProjectTrustRequest approve_project_trust_request = 41;
     ApproveProjectTrustResponse approve_project_trust_response = 42;
+    RenameSessionCommand rename_session_command = 43;
+    ClearSessionNameCommand clear_session_name_command = 44;
+    AutoNameSessionCommand auto_name_session_command = 45;
+    DeleteSessionCommand delete_session_command = 46;
+    SessionAdminCommandOutcome session_admin_command_outcome = 47;
 
     SessionEventStreamEnvelope session_event_stream = 50;
     EventStreamEnvelope event_stream = 51;
@@ -58,7 +63,7 @@ message PiTransportFrame {
 
   reserved 2 to 9;
   reserved 13 to 19;
-  reserved 43 to 49;
+  reserved 48 to 49;
   reserved 52 to 59;
   reserved 62 to 69;
   reserved 75 to 79;
@@ -87,6 +92,7 @@ enum Capability {
   CAPABILITY_TRANSFER = 9;
   CAPABILITY_PROJECT_DISCOVERY = 10;
   CAPABILITY_PROJECT_TRUST = 11;
+  CAPABILITY_SESSION_ADMIN = 12;
 }
 
 // protocol_versions is ordered by client preference. The server selects one
@@ -296,6 +302,71 @@ message AbortCommand {
   string session_id = 3;
 }
 
+enum SessionAdminOperation {
+  SESSION_ADMIN_OPERATION_UNSPECIFIED = 0;
+  SESSION_ADMIN_OPERATION_RENAME = 1;
+  SESSION_ADMIN_OPERATION_CLEAR_NAME = 2;
+  SESSION_ADMIN_OPERATION_AUTO_NAME = 3;
+  SESSION_ADMIN_OPERATION_DELETE = 4;
+}
+
+message RenameSessionCommand {
+  uint64 request_id = 1;
+  string command_id = 2;
+  string project_id = 3;
+  string session_id = 4;
+  string name = 5;
+}
+
+message ClearSessionNameCommand {
+  uint64 request_id = 1;
+  string command_id = 2;
+  string project_id = 3;
+  string session_id = 4;
+}
+
+message AutoNameSessionCommand {
+  uint64 request_id = 1;
+  string command_id = 2;
+  string project_id = 3;
+  string session_id = 4;
+  uint32 timeout_millis = 5;
+}
+
+message DeleteSessionConfirmationEvidence {
+  string session_id = 1;
+  string admin_revision = 2;
+  string displayed_title = 3;
+  bool destructive_action_acknowledged = 4;
+}
+
+message DeleteSessionCommand {
+  uint64 request_id = 1;
+  string command_id = 2;
+  string project_id = 3;
+  string session_id = 4;
+  DeleteSessionConfirmationEvidence confirmation = 5;
+}
+
+message DeleteSessionOutcome {
+  string session_id = 1;
+  uint32 reparented_child_count = 2;
+}
+
+message SessionAdminCommandOutcome {
+  uint64 request_id = 1;
+  string command_id = 2;
+  SessionAdminOperation operation = 3;
+
+  oneof outcome {
+    SessionSummarySnapshot session = 10;
+    DeleteSessionOutcome deletion = 11;
+    StableError error = 12;
+  }
+
+  reserved 4 to 9;
+}
+
 message RequestRejected {
   uint64 request_id = 1;
   StableError error = 2;
@@ -320,6 +391,8 @@ message SessionSummarySnapshot {
   uint64 updated_at_unix_millis = 5;
   bool is_running = 6;
   bool has_unread = 7;
+  string admin_revision = 8;
+  bool has_custom_name = 9;
 }
 
 message SessionDetailSnapshot {

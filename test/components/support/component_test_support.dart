@@ -25,6 +25,8 @@ PiSessionSummary testSession(
     updatedAt: createdAt.add(const Duration(minutes: 5)),
     isRunning: isRunning,
     hasUnread: hasUnread,
+    adminRevision: PiSessionAdminRevision('revision-$id-1'),
+    hasCustomName: true,
   );
 }
 

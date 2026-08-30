@@ -24,6 +24,8 @@ SessionSummarySnapshot _sessionSummary() => SessionSummarySnapshot(
   updatedAtUnixMillis: Int64.parseInt('9007199254740999'),
   isRunning: true,
   hasUnread: false,
+  adminRevision: 'revision-session-1',
+  hasCustomName: true,
 );
 
 SessionDetailSnapshot _sessionDetail() => SessionDetailSnapshot(

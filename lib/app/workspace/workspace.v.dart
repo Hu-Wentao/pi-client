@@ -64,7 +64,7 @@ class _WorkspaceViewBodyState extends State<_WorkspaceViewBody> {
         sessions: model.sessions,
         selectedSessionId: model.selectedSessionId,
         isLoading: model.sessionsLoading,
-        errorMessage: model.sessionError,
+        errorMessage: model.sessionAdminError ?? model.sessionError,
         onRetry: connected
             ? () => viewModel.add(const WorkspaceSessionsRefreshed())
             : null,
@@ -74,6 +74,24 @@ class _WorkspaceViewBodyState extends State<_WorkspaceViewBody> {
         onCreateSession: connected
             ? () => _requestCreateSession(viewModel, model.selectedProject)
             : null,
+        onRenameSession: connected && !model.sessionAdminLoading
+            ? (session, name) => viewModel.add(
+                WorkspaceSessionRenamed(sessionId: session.id, name: name),
+              )
+            : null,
+        onClearSessionName: connected && !model.sessionAdminLoading
+            ? (session) =>
+                  viewModel.add(WorkspaceSessionCustomNameCleared(session.id))
+            : null,
+        onAutoNameSession: connected && !model.sessionAdminLoading
+            ? (session) => viewModel.add(WorkspaceSessionAutoNamed(session.id))
+            : null,
+        onDeleteSessionConfirmed: connected && !model.sessionAdminLoading
+            ? (confirmation) =>
+                  viewModel.add(WorkspaceSessionDeleted(confirmation))
+            : null,
+        sessionActionInProgressId: model.sessionAdminSessionId,
+        sessionActionInProgressOperation: model.sessionAdminOperation,
         onSessionSelected: (sessionId) => _requestSessionSelection(
           viewModel,
           model.selectedProject,
@@ -313,6 +331,7 @@ class _WorkspaceStatusLine extends StatelessWidget {
     final active =
         model.sending ||
         model.stopping ||
+        model.sessionAdminLoading ||
         model.conversationLoading ||
         model.eventStatus == WorkspaceEventStatus.recovering;
     return Container(

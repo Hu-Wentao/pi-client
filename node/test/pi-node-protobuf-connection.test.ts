@@ -8,6 +8,7 @@ import {
   MAX_FRAME_BYTES,
   MAX_TRANSFER_CHUNK_BYTES,
   PiTransportFrameSchema,
+  SessionAdminOperation,
   decodeTransportFrame,
   encodeTransportFrame,
   type PiTransportFrame,
@@ -38,6 +39,7 @@ function protocolOffer(
     Capability.SESSION_EVENTS,
     Capability.PROJECT_DISCOVERY,
     Capability.PROJECT_TRUST,
+    Capability.SESSION_ADMIN,
   ],
 ): FrameOperationInit {
   return {
@@ -170,6 +172,99 @@ test("establishes one observation and sends its response before synchronous even
     await server.dispose();
   }
   assert.equal(domain.unsubscribedCount.get("session-1"), 1);
+});
+
+test("routes typed session administration outcomes with explicit delete evidence", async () => {
+  const { output, server } = connection();
+  try {
+    await handshake(server);
+    await bootstrapProject(server);
+    await server.receive(
+      clientFrame(3n, {
+        case: "listSessionsRequest",
+        value: { requestId: 1n, projectId: defaultProjectId },
+      }),
+    );
+    const listed = output.at(-1);
+    assert.equal(listed?.operation.case, "listSessionsResponse");
+    const revision =
+      listed?.operation.case === "listSessionsResponse"
+        ? listed.operation.value.sessions[0]?.adminRevision
+        : undefined;
+    assert.ok(revision);
+
+    await server.receive(
+      clientFrame(4n, {
+        case: "renameSessionCommand",
+        value: {
+          requestId: 2n,
+          commandId: "admin-rename-1",
+          projectId: defaultProjectId,
+          sessionId: "session-1",
+          name: "Renamed session",
+        },
+      }),
+    );
+    const renamed = output.at(-1);
+    assert.equal(renamed?.operation.case, "sessionAdminCommandOutcome");
+    if (renamed?.operation.case === "sessionAdminCommandOutcome") {
+      assert.equal(renamed.operation.value.operation, SessionAdminOperation.RENAME);
+      assert.equal(renamed.operation.value.outcome.case, "session");
+      if (renamed.operation.value.outcome.case === "session") {
+        assert.equal(renamed.operation.value.outcome.value.title, "Renamed session");
+      }
+    }
+
+    await server.receive(
+      clientFrame(5n, {
+        case: "autoNameSessionCommand",
+        value: {
+          requestId: 3n,
+          commandId: "admin-auto-1",
+          projectId: defaultProjectId,
+          sessionId: "session-1",
+          timeoutMillis: 15_000,
+        },
+      }),
+    );
+    const autoNamed = output.at(-1);
+    assert.equal(autoNamed?.operation.case, "sessionAdminCommandOutcome");
+    const autoRevision =
+      autoNamed?.operation.case === "sessionAdminCommandOutcome" &&
+      autoNamed.operation.value.outcome.case === "session"
+        ? autoNamed.operation.value.outcome.value.adminRevision
+        : undefined;
+    assert.ok(autoRevision);
+
+    await server.receive(
+      clientFrame(6n, {
+        case: "deleteSessionCommand",
+        value: {
+          requestId: 4n,
+          commandId: "admin-delete-1",
+          projectId: defaultProjectId,
+          sessionId: "session-1",
+          confirmation: {
+            sessionId: "session-1",
+            adminRevision: autoRevision,
+            displayedTitle: "Generated session title",
+            destructiveActionAcknowledged: true,
+          },
+        },
+      }),
+    );
+    const deleted = output.at(-1);
+    assert.equal(deleted?.operation.case, "sessionAdminCommandOutcome");
+    if (deleted?.operation.case === "sessionAdminCommandOutcome") {
+      assert.equal(deleted.operation.value.operation, SessionAdminOperation.DELETE);
+      assert.equal(deleted.operation.value.outcome.case, "deletion");
+      if (deleted.operation.value.outcome.case === "deletion") {
+        assert.equal(deleted.operation.value.outcome.value.sessionId, "session-1");
+      }
+    }
+  } finally {
+    await server.dispose();
+  }
 });
 
 test("routes session requests and admits commands before forwarding ordered session events", async () => {

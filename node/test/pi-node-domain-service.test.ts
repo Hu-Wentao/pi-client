@@ -67,6 +67,7 @@ function summary(sessionId: string): PiNodeSessionSummary {
     messageCount: 1,
     firstMessage: "hello",
     running: false,
+    adminRevision: `revision-${sessionId}-1`,
   });
 }
 
@@ -95,6 +96,9 @@ class FakeSessionBackend implements PiNodeDomainSessionBackend {
 
   isRunning = false;
   disposed = false;
+  name: string | undefined;
+  modifiedAtMs = 20;
+  adminRevision: string;
   startCalls = 0;
   abortCalls = 0;
   admission: PiNodePromptExecution["admission"] = { status: "accepted" };
@@ -107,13 +111,17 @@ class FakeSessionBackend implements PiNodeDomainSessionBackend {
   ) {
     this.disposeLog = disposeLog;
     this.messages = messages;
+    this.adminRevision = `revision-${sessionId}-1`;
   }
 
   getSnapshot(): PiNodeSessionBackendSnapshot {
     return {
       ...summary(this.sessionId),
       cwd: this.cwd,
+      ...(this.name === undefined ? {} : { name: this.name }),
+      modifiedAtMs: this.modifiedAtMs,
       running: this.isRunning,
+      adminRevision: this.adminRevision,
       persistence: "persistent",
       messages: this.messages,
     };
@@ -183,6 +191,10 @@ class FakeSessionFactory implements PiNodeDomainSessionBackendFactory {
   readonly projectResourceAccess: boolean[] = [];
   createCount = 0;
   openCount = 0;
+  activeAdminOperations = 0;
+  maximumConcurrentAdminOperations = 0;
+  readonly adminOrder: string[] = [];
+  adminGate: Deferred<void> | undefined;
 
   constructor(order: string[] = [], disposeLog: string[] = []) {
     this.order = order;
@@ -232,6 +244,78 @@ class FakeSessionFactory implements PiNodeDomainSessionBackendFactory {
     );
     this.loadedBackends.set(input.sessionId, loaded);
     return Promise.resolve(loaded);
+  }
+
+  async renamePersistentSession(input: {
+    readonly sessionId: string;
+    readonly name: string;
+  }): Promise<PiNodeSessionSummary> {
+    return this.#admin(input.sessionId, `rename:${input.sessionId}`, (backend) => {
+      backend.name = input.name;
+    });
+  }
+
+  async clearPersistentSessionName(input: {
+    readonly sessionId: string;
+  }): Promise<PiNodeSessionSummary> {
+    return this.#admin(input.sessionId, `clear:${input.sessionId}`, (backend) => {
+      backend.name = undefined;
+    });
+  }
+
+  async autoNamePersistentSession(input: {
+    readonly sessionId: string;
+  }): Promise<PiNodeSessionSummary> {
+    return this.#admin(input.sessionId, `auto:${input.sessionId}`, (backend) => {
+      backend.name = "Generated fake name";
+    });
+  }
+
+  async deletePersistentSession(input: {
+    readonly sessionId: string;
+    readonly confirmation: {
+      readonly sessionId: string;
+      readonly adminRevision: string;
+      readonly destructiveActionAcknowledged: boolean;
+    };
+  }): Promise<{ readonly sessionId: string; readonly reparentedChildCount: number }> {
+    const backend = this.backends.get(input.sessionId);
+    if (
+      !backend ||
+      !input.confirmation.destructiveActionAcknowledged ||
+      input.confirmation.sessionId !== input.sessionId ||
+      input.confirmation.adminRevision !== backend.adminRevision
+    ) {
+      throw new PiNodeDomainError("session-admin-conflict", "Fake confirmation is stale.");
+    }
+    await this.#admin(input.sessionId, `delete:${input.sessionId}`, () => undefined);
+    this.backends.delete(input.sessionId);
+    return { sessionId: input.sessionId, reparentedChildCount: 0 };
+  }
+
+  async #admin(
+    sessionId: string,
+    label: string,
+    mutate: (backend: FakeSessionBackend) => void,
+  ): Promise<PiNodeSessionSummary> {
+    const backend = this.backends.get(sessionId);
+    if (!backend) throw new PiNodeDomainError("session-not-found", "Missing fake session.");
+    this.activeAdminOperations += 1;
+    this.maximumConcurrentAdminOperations = Math.max(
+      this.maximumConcurrentAdminOperations,
+      this.activeAdminOperations,
+    );
+    this.adminOrder.push(`start:${label}`);
+    try {
+      await this.adminGate?.promise;
+      mutate(backend);
+      backend.modifiedAtMs += 1;
+      backend.adminRevision = `revision-${sessionId}-${backend.modifiedAtMs}-${backend.name ?? "clear"}`;
+      return backend.getSnapshot();
+    } finally {
+      this.adminOrder.push(`end:${label}`);
+      this.activeAdminOperations -= 1;
+    }
   }
 }
 
@@ -524,6 +608,100 @@ test("process-local ownership rejects a second service until the first releases 
     assert.equal(snapshot.sessionId, "session-1");
   } finally {
     await Promise.all([first.dispose(), second.dispose()]);
+  }
+});
+
+test("session administration closes a loaded runtime before mutation", async () => {
+  const order: string[] = [];
+  const factory = new FakeSessionFactory([], order);
+  factory.backends.set("session-1", new FakeSessionBackend("session-1", canonicalCwd, order));
+  const service = new PiNodeDomainService({
+    agentDir,
+    trustCoordinator: trustCoordinator(),
+    sessionFactory: factory,
+    ownershipRegistry: new InMemoryPiNodeSessionOwnershipRegistry(),
+  });
+
+  try {
+    await service.loadSessionSnapshot({ cwd: "/input", sessionId: "session-1" });
+    const loaded = serviceBackend(factory, "session-1");
+    assert.equal(loaded.disposed, false);
+
+    const renamed = await service.renamePersistentSession({
+      cwd: "/input",
+      sessionId: "session-1",
+      name: "Renamed session",
+    });
+
+    assert.equal(loaded.disposed, true);
+    assert.equal(renamed.name, "Renamed session");
+    assert.equal(order[0], "dispose:session-1");
+    assert.throws(
+      () => service.getLoadedSessionSnapshot("session-1"),
+      (error) => error instanceof PiNodeDomainError && error.code === "session-not-loaded",
+    );
+  } finally {
+    await service.dispose();
+  }
+});
+
+test("session administration serializes one session while allowing different sessions concurrently", async () => {
+  const factory = new FakeSessionFactory();
+  factory.backends.set("session-1", new FakeSessionBackend("session-1"));
+  factory.backends.set("session-2", new FakeSessionBackend("session-2"));
+  const service = new PiNodeDomainService({
+    agentDir,
+    trustCoordinator: trustCoordinator(),
+    sessionFactory: factory,
+    ownershipRegistry: new InMemoryPiNodeSessionOwnershipRegistry(),
+  });
+
+  try {
+    const sameSessionGate = deferred<void>();
+    factory.adminGate = sameSessionGate;
+    const first = service.renamePersistentSession({
+      cwd: "/input",
+      sessionId: "session-1",
+      name: "First",
+    });
+    const second = service.clearPersistentSessionName({
+      cwd: "/input",
+      sessionId: "session-1",
+    });
+    await nextTask();
+    assert.equal(factory.activeAdminOperations, 1);
+    assert.deepEqual(factory.adminOrder, ["start:rename:session-1"]);
+    sameSessionGate.resolve(undefined);
+    await Promise.all([first, second]);
+    assert.equal(factory.maximumConcurrentAdminOperations, 1);
+    assert.deepEqual(factory.adminOrder, [
+      "start:rename:session-1",
+      "end:rename:session-1",
+      "start:clear:session-1",
+      "end:clear:session-1",
+    ]);
+
+    factory.adminOrder.length = 0;
+    factory.maximumConcurrentAdminOperations = 0;
+    const differentSessionGate = deferred<void>();
+    factory.adminGate = differentSessionGate;
+    const left = service.renamePersistentSession({
+      cwd: "/input",
+      sessionId: "session-1",
+      name: "Left",
+    });
+    const right = service.renamePersistentSession({
+      cwd: "/input",
+      sessionId: "session-2",
+      name: "Right",
+    });
+    await nextTask();
+    assert.equal(factory.activeAdminOperations, 2);
+    differentSessionGate.resolve(undefined);
+    await Promise.all([left, right]);
+    assert.equal(factory.maximumConcurrentAdminOperations, 2);
+  } finally {
+    await service.dispose();
   }
 });
 

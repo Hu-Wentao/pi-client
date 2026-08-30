@@ -33,6 +33,23 @@ final class PiMessageId {
   String toString() => 'PiMessageId(<redacted>)';
 }
 
+final class PiSessionAdminRevision {
+  PiSessionAdminRevision(String value)
+    : value = _validatedOpaqueId(value, 'adminRevision');
+
+  final String value;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PiSessionAdminRevision && value == other.value;
+
+  @override
+  int get hashCode => value.hashCode;
+
+  @override
+  String toString() => 'PiSessionAdminRevision(<redacted>)';
+}
+
 final class PiCommandId {
   PiCommandId(String value) : value = _validatedOpaqueId(value, 'commandId');
 
@@ -517,6 +534,8 @@ final class PiSessionSummary {
     required DateTime updatedAt,
     required this.isRunning,
     required this.hasUnread,
+    required this.adminRevision,
+    required this.hasCustomName,
   }) : title = _validatedText(title, 'title', allowEmpty: false),
        workingDirectory = _validatedPath(workingDirectory),
        createdAt = _validatedUtcInstant(createdAt, 'createdAt'),
@@ -533,6 +552,8 @@ final class PiSessionSummary {
   final DateTime updatedAt;
   final bool isRunning;
   final bool hasUnread;
+  final PiSessionAdminRevision adminRevision;
+  final bool hasCustomName;
 
   @override
   bool operator ==(Object other) =>
@@ -543,7 +564,9 @@ final class PiSessionSummary {
       createdAt == other.createdAt &&
       updatedAt == other.updatedAt &&
       isRunning == other.isRunning &&
-      hasUnread == other.hasUnread;
+      hasUnread == other.hasUnread &&
+      adminRevision == other.adminRevision &&
+      hasCustomName == other.hasCustomName;
 
   @override
   int get hashCode => Object.hash(
@@ -554,6 +577,8 @@ final class PiSessionSummary {
     updatedAt,
     isRunning,
     hasUnread,
+    adminRevision,
+    hasCustomName,
   );
 
   @override
@@ -593,6 +618,154 @@ final class PiCreateSessionRequest {
 
   @override
   String toString() => 'PiCreateSessionRequest(<redacted>)';
+}
+
+enum PiSessionAdminOperation { rename, clearName, autoName, delete }
+
+sealed class PiSessionAdminCommand {
+  const PiSessionAdminCommand({
+    required this.commandId,
+    required this.projectId,
+    required this.sessionId,
+  });
+
+  final PiCommandId commandId;
+  final PiProjectId projectId;
+  final PiSessionId sessionId;
+}
+
+final class PiRenameSessionCommand extends PiSessionAdminCommand {
+  PiRenameSessionCommand({
+    required super.commandId,
+    required super.projectId,
+    required super.sessionId,
+    required String name,
+  }) : name = _validatedText(name, 'name', allowEmpty: false);
+
+  final String name;
+
+  @override
+  String toString() => 'PiRenameSessionCommand(<redacted>)';
+}
+
+final class PiClearSessionNameCommand extends PiSessionAdminCommand {
+  const PiClearSessionNameCommand({
+    required super.commandId,
+    required super.projectId,
+    required super.sessionId,
+  });
+
+  @override
+  String toString() => 'PiClearSessionNameCommand(<redacted>)';
+}
+
+final class PiAutoNameSessionCommand extends PiSessionAdminCommand {
+  PiAutoNameSessionCommand({
+    required super.commandId,
+    required super.projectId,
+    required super.sessionId,
+    this.timeout = const Duration(seconds: 15),
+  }) {
+    if (timeout < const Duration(seconds: 1) ||
+        timeout > const Duration(seconds: 30)) {
+      throw ArgumentError('timeout is outside the supported range.');
+    }
+  }
+
+  final Duration timeout;
+
+  @override
+  String toString() => 'PiAutoNameSessionCommand(<redacted>)';
+}
+
+final class PiDeleteSessionConfirmation {
+  const PiDeleteSessionConfirmation({
+    required this.sessionId,
+    required this.adminRevision,
+    required this.displayedTitle,
+    required this.destructiveActionAcknowledged,
+  });
+
+  factory PiDeleteSessionConfirmation.confirmed(PiSessionSummary session) =>
+      PiDeleteSessionConfirmation(
+        sessionId: session.id,
+        adminRevision: session.adminRevision,
+        displayedTitle: session.title,
+        destructiveActionAcknowledged: true,
+      );
+
+  final PiSessionId sessionId;
+  final PiSessionAdminRevision adminRevision;
+  final String displayedTitle;
+  final bool destructiveActionAcknowledged;
+
+  @override
+  String toString() => 'PiDeleteSessionConfirmation(<redacted>)';
+}
+
+final class PiDeleteSessionCommand extends PiSessionAdminCommand {
+  const PiDeleteSessionCommand({
+    required super.commandId,
+    required super.projectId,
+    required super.sessionId,
+    required this.confirmation,
+  });
+
+  final PiDeleteSessionConfirmation confirmation;
+
+  @override
+  String toString() => 'PiDeleteSessionCommand(<redacted>)';
+}
+
+sealed class PiSessionAdminResult {
+  const PiSessionAdminResult({
+    required this.commandId,
+    required this.operation,
+  });
+
+  final PiCommandId commandId;
+  final PiSessionAdminOperation operation;
+}
+
+final class PiSessionAdminUpdated extends PiSessionAdminResult {
+  const PiSessionAdminUpdated({
+    required super.commandId,
+    required super.operation,
+    required this.session,
+  });
+
+  final PiSessionSummary session;
+}
+
+final class PiSessionAdminDeleted extends PiSessionAdminResult {
+  const PiSessionAdminDeleted({
+    required super.commandId,
+    required this.sessionId,
+    required this.reparentedChildCount,
+  }) : super(operation: PiSessionAdminOperation.delete);
+
+  final PiSessionId sessionId;
+  final int reparentedChildCount;
+}
+
+final class PiSessionAdminRejected extends PiSessionAdminResult {
+  const PiSessionAdminRejected({
+    required super.commandId,
+    required super.operation,
+    required this.error,
+  });
+
+  final PiNodeException error;
+}
+
+final class PiSessionAdminUncertain extends PiSessionAdminResult {
+  const PiSessionAdminUncertain({
+    required super.commandId,
+    required super.operation,
+    required this.error,
+  });
+
+  final PiNodeException error;
 }
 
 sealed class PiSessionCommand {

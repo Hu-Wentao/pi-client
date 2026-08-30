@@ -26,6 +26,18 @@ abstract interface class PiNodeApi {
 
   Future<PiSessionDetail> createSession(PiCreateSessionRequest request);
 
+  Future<PiSessionAdminResult> renameSession(PiRenameSessionCommand command);
+
+  Future<PiSessionAdminResult> clearSessionName(
+    PiClearSessionNameCommand command,
+  );
+
+  Future<PiSessionAdminResult> autoNameSession(
+    PiAutoNameSessionCommand command,
+  );
+
+  Future<PiSessionAdminResult> deleteSession(PiDeleteSessionCommand command);
+
   Future<PiCommandResult> prompt(PiPromptCommand command);
 
   Future<PiCommandResult> abort(PiAbortCommand command);

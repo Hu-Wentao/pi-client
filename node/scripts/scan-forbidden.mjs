@@ -93,6 +93,7 @@ const publicSdkPackage = "@earendil-works/pi-coding-agent";
 const sdkAdapterSourceFiles = new Set([
   "pi-sdk-domain-session.ts",
   "pi-sdk-project-session-catalog.ts",
+  "pi-sdk-session-administration.ts",
   "pi-sdk-session-factory.ts",
   "project-trust.ts",
   "runtime-metadata.ts",

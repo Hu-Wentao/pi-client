@@ -53,4 +53,23 @@ void main() {
   File.fromUri(
     vectorDirectory.uri.resolve('dart_directory_listing.pb'),
   ).writeAsBytesSync(encodeTransportFrame(directoryFrame));
+
+  final deleteCommand = PiTransportFrame(
+    frameSequence: Int64(9),
+    deleteSessionCommand: DeleteSessionCommand(
+      requestId: Int64(13),
+      commandId: 'admin-command-dart-1',
+      projectId: 'project-dart-1',
+      sessionId: 'session-dart-delete-1',
+      confirmation: DeleteSessionConfirmationEvidence(
+        sessionId: 'session-dart-delete-1',
+        adminRevision: 'revision-session-dart-delete-1',
+        displayedTitle: 'Delete vector session',
+        destructiveActionAcknowledged: true,
+      ),
+    ),
+  );
+  File.fromUri(
+    vectorDirectory.uri.resolve('dart_delete_session_command.pb'),
+  ).writeAsBytesSync(encodeTransportFrame(deleteCommand));
 }

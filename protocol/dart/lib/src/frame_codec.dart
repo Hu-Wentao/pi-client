@@ -24,6 +24,7 @@ final _knownCapabilities = <Capability>{
   Capability.CAPABILITY_TRANSFER,
   Capability.CAPABILITY_PROJECT_DISCOVERY,
   Capability.CAPABILITY_PROJECT_TRUST,
+  Capability.CAPABILITY_SESSION_ADMIN,
 };
 final _knownHealthStatuses = <HealthStatus>{
   HealthStatus.HEALTH_STATUS_STARTING,
@@ -334,6 +335,96 @@ void validateTransportFrame(PiTransportFrame frame) {
       _validateIdentifier('command_id', command.commandId);
       _validateIdentifier('session_id', command.sessionId);
       return;
+    case PiTransportFrame_Operation.renameSessionCommand:
+      final command = frame.renameSessionCommand;
+      _validateSessionAdminCommand(
+        command.requestId,
+        command.commandId,
+        command.projectId,
+        command.sessionId,
+      );
+      _validateRequiredShortText('session name', command.name);
+      return;
+    case PiTransportFrame_Operation.clearSessionNameCommand:
+      final command = frame.clearSessionNameCommand;
+      _validateSessionAdminCommand(
+        command.requestId,
+        command.commandId,
+        command.projectId,
+        command.sessionId,
+      );
+      return;
+    case PiTransportFrame_Operation.autoNameSessionCommand:
+      final command = frame.autoNameSessionCommand;
+      _validateSessionAdminCommand(
+        command.requestId,
+        command.commandId,
+        command.projectId,
+        command.sessionId,
+      );
+      if (command.timeoutMillis < 1000 || command.timeoutMillis > 30000) {
+        _fail('auto-name timeout is outside the supported bounds');
+      }
+      return;
+    case PiTransportFrame_Operation.deleteSessionCommand:
+      final command = frame.deleteSessionCommand;
+      _validateSessionAdminCommand(
+        command.requestId,
+        command.commandId,
+        command.projectId,
+        command.sessionId,
+      );
+      if (!command.hasConfirmation()) {
+        _fail('delete session command must contain confirmation evidence');
+      }
+      final confirmation = command.confirmation;
+      _validateIdentifier('confirmation session_id', confirmation.sessionId);
+      _validateIdentifier(
+        'confirmation admin_revision',
+        confirmation.adminRevision,
+      );
+      _validateRequiredShortText(
+        'confirmation displayed_title',
+        confirmation.displayedTitle,
+      );
+      if (!confirmation.destructiveActionAcknowledged ||
+          confirmation.sessionId != command.sessionId) {
+        _fail('delete confirmation evidence is incomplete');
+      }
+      return;
+    case PiTransportFrame_Operation.sessionAdminCommandOutcome:
+      final outcome = frame.sessionAdminCommandOutcome;
+      _validateRequestId(outcome.requestId);
+      _validateIdentifier('command_id', outcome.commandId);
+      if (outcome.operation ==
+          SessionAdminOperation.SESSION_ADMIN_OPERATION_UNSPECIFIED) {
+        _fail('session administration outcome must identify its operation');
+      }
+      switch (outcome.whichOutcome()) {
+        case SessionAdminCommandOutcome_Outcome.session:
+          _validateSessionSummary(outcome.session);
+          if (outcome.operation ==
+              SessionAdminOperation.SESSION_ADMIN_OPERATION_DELETE) {
+            _fail('delete outcome cannot contain an updated session');
+          }
+          return;
+        case SessionAdminCommandOutcome_Outcome.deletion:
+          _validateIdentifier('deleted session_id', outcome.deletion.sessionId);
+          if (outcome.operation !=
+              SessionAdminOperation.SESSION_ADMIN_OPERATION_DELETE) {
+            _fail('only delete outcomes may contain deletion evidence');
+          }
+          return;
+        case SessionAdminCommandOutcome_Outcome.error:
+          _requireStableError(
+            'session administration outcome',
+            outcome.hasError(),
+            outcome.error,
+          );
+          return;
+        case SessionAdminCommandOutcome_Outcome.notSet:
+          _fail('session administration outcome must contain a typed result');
+      }
     case PiTransportFrame_Operation.requestRejected:
       final rejected = frame.requestRejected;
       _validateRequestId(rejected.requestId);
@@ -682,8 +773,21 @@ void _validateSessionDetail(SessionDetailSnapshot detail) {
   }
 }
 
+void _validateSessionAdminCommand(
+  Int64 requestId,
+  String commandId,
+  String projectId,
+  String sessionId,
+) {
+  _validateRequestId(requestId);
+  _validateIdentifier('command_id', commandId);
+  _validateIdentifier('project_id', projectId);
+  _validateIdentifier('session_id', sessionId);
+}
+
 void _validateSessionSummary(SessionSummarySnapshot summary) {
   _validateIdentifier('session_id', summary.sessionId);
+  _validateIdentifier('admin_revision', summary.adminRevision);
   _validateRequiredShortText('session title', summary.title);
   _validatePath('working_directory', summary.workingDirectory);
   _validatePositiveUint64(

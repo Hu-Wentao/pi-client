@@ -7,6 +7,7 @@ import {
   PiTransportFrameSchema,
   ProjectTrustReason,
   ProjectTrustStatus,
+  SessionAdminOperation,
   TransferDirection,
   TransferPurpose,
   type DirectoryListingSnapshot,
@@ -52,6 +53,7 @@ const knownCapabilities = new Set<Capability>([
   Capability.TRANSFER,
   Capability.PROJECT_DISCOVERY,
   Capability.PROJECT_TRUST,
+  Capability.SESSION_ADMIN,
 ]);
 const knownHealthStatuses = new Set<HealthStatus>([
   HealthStatus.STARTING,
@@ -310,6 +312,63 @@ export function validateTransportFrame(frame: PiTransportFrame): void {
       validateIdentifier("command_id", operation.value.commandId);
       validateIdentifier("session_id", operation.value.sessionId);
       return;
+    case "renameSessionCommand":
+      validateSessionAdminCommand(operation.value);
+      validateRequiredShortText("session name", operation.value.name);
+      return;
+    case "clearSessionNameCommand":
+      validateSessionAdminCommand(operation.value);
+      return;
+    case "autoNameSessionCommand":
+      validateSessionAdminCommand(operation.value);
+      if (operation.value.timeoutMillis < 1_000 || operation.value.timeoutMillis > 30_000) {
+        fail("auto-name timeout is outside the supported bounds");
+      }
+      return;
+    case "deleteSessionCommand": {
+      validateSessionAdminCommand(operation.value);
+      const confirmation = operation.value.confirmation;
+      if (confirmation === undefined) {
+        fail("delete session command must contain confirmation evidence");
+      }
+      validateIdentifier("confirmation session_id", confirmation.sessionId);
+      validateIdentifier("confirmation admin_revision", confirmation.adminRevision);
+      validateRequiredShortText("confirmation displayed_title", confirmation.displayedTitle);
+      if (
+        !confirmation.destructiveActionAcknowledged ||
+        confirmation.sessionId !== operation.value.sessionId
+      ) {
+        fail("delete confirmation evidence is incomplete");
+      }
+      return;
+    }
+    case "sessionAdminCommandOutcome": {
+      const admin = operation.value;
+      validateRequestId(admin.requestId);
+      validateIdentifier("command_id", admin.commandId);
+      if (admin.operation === SessionAdminOperation.UNSPECIFIED) {
+        fail("session administration outcome must identify its operation");
+      }
+      switch (admin.outcome.case) {
+        case "session":
+          validateSessionSummary(admin.outcome.value);
+          if (admin.operation === SessionAdminOperation.DELETE) {
+            fail("delete outcome cannot contain an updated session");
+          }
+          return;
+        case "deletion":
+          validateIdentifier("deleted session_id", admin.outcome.value.sessionId);
+          if (admin.operation !== SessionAdminOperation.DELETE) {
+            fail("only delete outcomes may contain deletion evidence");
+          }
+          return;
+        case "error":
+          requireStableError("session administration outcome", admin.outcome.value);
+          return;
+        case undefined:
+          fail("session administration outcome must contain a typed result");
+      }
+    }
     case "requestRejected":
       validateRequestId(operation.value.requestId);
       requireStableError("request rejection", operation.value.error);
@@ -644,8 +703,21 @@ function validateSessionDetail(detail: SessionDetailSnapshot): void {
   }
 }
 
+function validateSessionAdminCommand(command: {
+  readonly requestId: bigint;
+  readonly commandId: string;
+  readonly projectId: string;
+  readonly sessionId: string;
+}): void {
+  validateRequestId(command.requestId);
+  validateIdentifier("command_id", command.commandId);
+  validateIdentifier("project_id", command.projectId);
+  validateIdentifier("session_id", command.sessionId);
+}
+
 function validateSessionSummary(summary: SessionSummarySnapshot): void {
   validateIdentifier("session_id", summary.sessionId);
+  validateIdentifier("admin_revision", summary.adminRevision);
   validateRequiredShortText("session title", summary.title);
   validatePath("working_directory", summary.workingDirectory);
   validatePositiveUint64(

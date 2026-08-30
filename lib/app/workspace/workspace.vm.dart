@@ -19,6 +19,10 @@ class WorkspaceViewModel
     on<WorkspaceSessionsRefreshed>(_onSessionsRefreshed);
     on<WorkspaceSessionSelected>(_onSessionSelected);
     on<WorkspaceNewSessionRequested>(_onNewSessionRequested);
+    on<WorkspaceSessionRenamed>(_onSessionRenamed);
+    on<WorkspaceSessionCustomNameCleared>(_onSessionCustomNameCleared);
+    on<WorkspaceSessionAutoNamed>(_onSessionAutoNamed);
+    on<WorkspaceSessionDeleted>(_onSessionDeleted);
     on<WorkspacePromptSubmitted>(_onPromptSubmitted);
     on<WorkspaceAgentStopped>(_onAgentStopped);
     on<_WorkspaceConnectionSnapshotReceived>(_onConnectionSnapshotReceived);
@@ -42,6 +46,7 @@ class WorkspaceViewModel
   bool _approvingProjectTrust = false;
   bool _refreshingSessions = false;
   bool _creatingSession = false;
+  bool _sessionAdminInFlight = false;
   bool _promptInFlight = false;
   bool _abortInFlight = false;
   bool _closing = false;
@@ -49,6 +54,7 @@ class WorkspaceViewModel
   int _projectSelectionGeneration = 0;
   int _sessionListGeneration = 0;
   int _sessionLoadGeneration = 0;
+  int _sessionAdminGeneration = 0;
   int _eventGeneration = 0;
   int _promptGeneration = 0;
   int _commandOrdinal = 0;
@@ -72,6 +78,8 @@ class WorkspaceViewModel
     _projectSelectionGeneration += 1;
     _sessionListGeneration += 1;
     _sessionLoadGeneration += 1;
+    _sessionAdminGeneration += 1;
+    _sessionAdminInFlight = false;
     _promptGeneration += 1;
     _activePromptCommandId = null;
 
@@ -93,11 +101,15 @@ class WorkspaceViewModel
         selectedProject: null,
         projectDirectory: null,
         selectedSessionId: null,
+        sessionAdminSessionId: null,
+        sessionAdminOperation: null,
+        sessionAdminLoading: false,
         sessions: const <PiSessionSummary>[],
         messages: const <PiMessage>[],
         nodeError: null,
         projectError: null,
         sessionError: null,
+        sessionAdminError: null,
         conversationError: null,
         promptError: null,
         statusMessage: 'Connecting to the first-party Pi Node…',
@@ -281,6 +293,8 @@ class WorkspaceViewModel
     final generation = ++_projectSelectionGeneration;
     _sessionListGeneration += 1;
     _sessionLoadGeneration += 1;
+    _sessionAdminGeneration += 1;
+    _sessionAdminInFlight = false;
     _promptGeneration += 1;
     _activePromptCommandId = null;
     await _stopSessionEvents();
@@ -293,6 +307,9 @@ class WorkspaceViewModel
         selectedProject: project,
         sessionsLoading: true,
         selectedSessionId: null,
+        sessionAdminSessionId: null,
+        sessionAdminOperation: null,
+        sessionAdminLoading: false,
         sessions: const <PiSessionSummary>[],
         messages: const <PiMessage>[],
         conversationLoading: false,
@@ -302,6 +319,7 @@ class WorkspaceViewModel
         stopping: false,
         projectError: null,
         sessionError: null,
+        sessionAdminError: null,
         conversationError: null,
         promptError: null,
         statusMessage: 'Loading the selected project…',
@@ -434,6 +452,7 @@ class WorkspaceViewModel
       state.copyWith(
         sessionsLoading: true,
         sessionError: null,
+        sessionAdminError: null,
         statusMessage: 'Refreshing Pi sessions…',
       ),
     );
@@ -455,6 +474,7 @@ class WorkspaceViewModel
               ? state.eventStatus
               : WorkspaceEventStatus.idle,
           sessionError: null,
+          sessionAdminError: null,
           conversationError: selectedStillExists
               ? state.conversationError
               : null,
@@ -639,6 +659,289 @@ class WorkspaceViewModel
       );
     } finally {
       _creatingSession = false;
+    }
+  }
+
+  Future<void> _onSessionRenamed(
+    WorkspaceSessionRenamed event,
+    Emitter<WorkspaceModel> emit,
+  ) async {
+    final name = event.name.trim();
+    if (name.isEmpty) {
+      emit(
+        state.copyWith(
+          sessionAdminError: 'Enter a non-empty session name.',
+          statusMessage: 'Session rename requires a name.',
+        ),
+      );
+      return;
+    }
+    await _runSessionAdministration(
+      sessionId: event.sessionId,
+      operation: PiSessionAdminOperation.rename,
+      emit: emit,
+      invoke: (commandId, projectId) => _service.renameSession(
+        commandId: commandId,
+        projectId: projectId,
+        sessionId: event.sessionId,
+        name: name,
+      ),
+    );
+  }
+
+  Future<void> _onSessionCustomNameCleared(
+    WorkspaceSessionCustomNameCleared event,
+    Emitter<WorkspaceModel> emit,
+  ) => _runSessionAdministration(
+    sessionId: event.sessionId,
+    operation: PiSessionAdminOperation.clearName,
+    emit: emit,
+    invoke: (commandId, projectId) => _service.clearSessionName(
+      commandId: commandId,
+      projectId: projectId,
+      sessionId: event.sessionId,
+    ),
+  );
+
+  Future<void> _onSessionAutoNamed(
+    WorkspaceSessionAutoNamed event,
+    Emitter<WorkspaceModel> emit,
+  ) => _runSessionAdministration(
+    sessionId: event.sessionId,
+    operation: PiSessionAdminOperation.autoName,
+    emit: emit,
+    invoke: (commandId, projectId) => _service.autoNameSession(
+      commandId: commandId,
+      projectId: projectId,
+      sessionId: event.sessionId,
+    ),
+  );
+
+  Future<void> _onSessionDeleted(
+    WorkspaceSessionDeleted event,
+    Emitter<WorkspaceModel> emit,
+  ) => _runSessionAdministration(
+    sessionId: event.confirmation.sessionId,
+    operation: PiSessionAdminOperation.delete,
+    emit: emit,
+    invoke: (commandId, projectId) => _service.deleteSession(
+      commandId: commandId,
+      projectId: projectId,
+      sessionId: event.confirmation.sessionId,
+      confirmation: event.confirmation,
+    ),
+  );
+
+  Future<void> _runSessionAdministration({
+    required PiSessionId sessionId,
+    required PiSessionAdminOperation operation,
+    required Emitter<WorkspaceModel> emit,
+    required Future<PiSessionAdminResult> Function(
+      PiCommandId commandId,
+      PiProjectId projectId,
+    )
+    invoke,
+  }) async {
+    final project = state.selectedProject;
+    final target = state.sessions
+        .where((session) => session.id == sessionId)
+        .firstOrNull;
+    if (_sessionAdminInFlight || _closing) return;
+    if (project == null || target == null) {
+      emit(
+        state.copyWith(
+          sessionAdminError: 'Refresh sessions before using session actions.',
+          statusMessage:
+              'Session administration requires current project state.',
+        ),
+      );
+      return;
+    }
+    if (state.connection.status != PiNodeConnectionStatus.connected) {
+      emit(
+        state.copyWith(
+          sessionAdminError: 'Connect to Pi Node before using session actions.',
+        ),
+      );
+      return;
+    }
+    if (operation == PiSessionAdminOperation.autoName &&
+        project.trust.requiresApproval) {
+      emit(
+        state.copyWith(
+          sessionAdminError:
+              'Approve project trust before using model-assisted session naming.',
+          statusMessage: 'Project trust approval is required for auto-name.',
+        ),
+      );
+      return;
+    }
+
+    _sessionAdminInFlight = true;
+    final generation = ++_sessionAdminGeneration;
+    final projectId = project.identity.projectId;
+    final wasSelected = state.selectedSessionId == sessionId;
+    _sessionListGeneration += 1;
+    _sessionLoadGeneration += 1;
+    _promptGeneration += 1;
+    _activePromptCommandId = null;
+    if (wasSelected) await _stopSessionEvents();
+    if (!_isCurrentSessionAdmin(generation, projectId)) return;
+
+    final immediateDeleteCleanup =
+        wasSelected && operation == PiSessionAdminOperation.delete;
+    emit(
+      state.copyWith(
+        sessionAdminSessionId: sessionId,
+        sessionAdminOperation: operation,
+        sessionAdminLoading: true,
+        sessionAdminError: null,
+        selectedSessionId: immediateDeleteCleanup
+            ? null
+            : state.selectedSessionId,
+        messages: immediateDeleteCleanup ? const <PiMessage>[] : state.messages,
+        conversationLoading: wasSelected && !immediateDeleteCleanup,
+        eventStatus: wasSelected
+            ? WorkspaceEventStatus.idle
+            : state.eventStatus,
+        sending: wasSelected ? false : state.sending,
+        stopping: wasSelected ? false : state.stopping,
+        promptError: wasSelected ? null : state.promptError,
+        statusMessage: switch (operation) {
+          PiSessionAdminOperation.rename => 'Renaming the Pi session…',
+          PiSessionAdminOperation.clearName =>
+            'Clearing the custom session name…',
+          PiSessionAdminOperation.autoName =>
+            'Generating a bounded session name with the current model…',
+          PiSessionAdminOperation.delete =>
+            'Deleting the confirmed Pi session…',
+        },
+      ),
+    );
+
+    PiSessionAdminResult? result;
+    Object? invocationError;
+    try {
+      result = await invoke(_newCommandId('session-admin'), projectId);
+    } catch (error, stackTrace) {
+      invocationError = error;
+      logE(
+        'Pi Node session administration failed before an outcome',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+    if (!_isCurrentSessionAdmin(generation, projectId)) return;
+
+    var provisionalSessions = state.sessions;
+    var outcomeError = invocationError == null
+        ? null
+        : _service.describeError(invocationError);
+    var deleteSucceeded = false;
+    var reparentedChildCount = 0;
+    switch (result) {
+      case PiSessionAdminUpdated(:final session):
+        provisionalSessions = _replaceSession(provisionalSessions, session);
+      case PiSessionAdminDeleted(
+        sessionId: final deletedSessionId,
+        reparentedChildCount: final childCount,
+      ):
+        deleteSucceeded = true;
+        reparentedChildCount = childCount;
+        provisionalSessions = provisionalSessions
+            .where((session) => session.id != deletedSessionId)
+            .toList(growable: false);
+      case PiSessionAdminRejected(:final error):
+        outcomeError = _service.describeError(error);
+      case PiSessionAdminUncertain(:final error):
+        outcomeError =
+            '${_service.describeError(error)} The session action outcome is uncertain; authoritative state was requested.';
+      case null:
+        break;
+    }
+
+    try {
+      final sessions = await _service.loadSessions(projectId);
+      if (!_isCurrentSessionAdmin(generation, projectId)) return;
+      final targetExists = sessions.any((session) => session.id == sessionId);
+      final canRestoreDeletedSelection =
+          immediateDeleteCleanup && !deleteSucceeded && targetExists;
+      final canRestoreUpdatedSelection =
+          wasSelected &&
+          operation != PiSessionAdminOperation.delete &&
+          state.selectedSessionId == sessionId &&
+          targetExists;
+      final restoreTarget =
+          canRestoreDeletedSelection || canRestoreUpdatedSelection;
+      PiSessionDetail? detail;
+      if (restoreTarget && !project.trust.requiresApproval) {
+        detail = await _service.loadSession(projectId, sessionId);
+        if (!_isCurrentSessionAdmin(generation, projectId)) return;
+      }
+      final selectedOtherSession =
+          state.selectedSessionId != null &&
+          state.selectedSessionId != sessionId;
+      emit(
+        state.copyWith(
+          sessions: detail == null
+              ? sessions
+              : _replaceSession(sessions, detail.summary),
+          selectedSessionId: detail != null
+              ? sessionId
+              : selectedOtherSession
+              ? state.selectedSessionId
+              : null,
+          messages: detail != null
+              ? detail.messages
+              : selectedOtherSession
+              ? state.messages
+              : const <PiMessage>[],
+          conversationLoading: false,
+          eventStatus: detail != null
+              ? WorkspaceEventStatus.idle
+              : selectedOtherSession
+              ? state.eventStatus
+              : WorkspaceEventStatus.idle,
+          sessionAdminSessionId: null,
+          sessionAdminOperation: null,
+          sessionAdminLoading: false,
+          sessionAdminError: outcomeError,
+          sessionError: null,
+          conversationError: detail != null ? null : state.conversationError,
+          statusMessage: outcomeError != null
+              ? 'Session action finished with an error; sessions were refreshed.'
+              : deleteSucceeded
+              ? reparentedChildCount == 0
+                    ? 'Pi session deleted.'
+                    : 'Pi session deleted and $reparentedChildCount child sessions reparented.'
+              : 'Pi session updated and refreshed.',
+        ),
+      );
+      if (detail != null) await _startSessionEvents(sessionId, emit);
+    } catch (error, stackTrace) {
+      if (!_isCurrentSessionAdmin(generation, projectId)) return;
+      logE(
+        'Refreshing sessions after administration failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      emit(
+        state.copyWith(
+          sessions: provisionalSessions,
+          conversationLoading: false,
+          sessionAdminSessionId: null,
+          sessionAdminOperation: null,
+          sessionAdminLoading: false,
+          sessionAdminError:
+              outcomeError ??
+              '${_service.describeError(error)} Authoritative session refresh failed.',
+          statusMessage: 'Session action could not be reconciled with Pi Node.',
+        ),
+      );
+    } finally {
+      if (generation == _sessionAdminGeneration) {
+        _sessionAdminInFlight = false;
+      }
     }
   }
 
@@ -829,6 +1132,8 @@ class WorkspaceViewModel
     if (snapshot.status == PiNodeConnectionStatus.disconnected &&
         state.connection.status == PiNodeConnectionStatus.connected) {
       _sessionLoadGeneration += 1;
+      _sessionAdminGeneration += 1;
+      _sessionAdminInFlight = false;
       _promptGeneration += 1;
       _activePromptCommandId = null;
       await _stopSessionEvents();
@@ -836,6 +1141,9 @@ class WorkspaceViewModel
         state.copyWith(
           connection: snapshot,
           eventStatus: WorkspaceEventStatus.error,
+          sessionAdminSessionId: null,
+          sessionAdminOperation: null,
+          sessionAdminLoading: false,
           sending: false,
           stopping: false,
           nodeError: 'The Pi Node disconnected. Retry the connection.',
@@ -1101,6 +1409,12 @@ class WorkspaceViewModel
       generation == _sessionLoadGeneration &&
       state.selectedSessionId == sessionId;
 
+  bool _isCurrentSessionAdmin(int generation, PiProjectId projectId) =>
+      !_closing &&
+      !isClosed &&
+      generation == _sessionAdminGeneration &&
+      state.selectedProject?.identity.projectId == projectId;
+
   bool _isCurrentPrompt(int generation, PiSessionId sessionId) =>
       !_closing &&
       !isClosed &&
@@ -1122,6 +1436,7 @@ class WorkspaceViewModel
     _projectSelectionGeneration += 1;
     _sessionListGeneration += 1;
     _sessionLoadGeneration += 1;
+    _sessionAdminGeneration += 1;
     _promptGeneration += 1;
     _eventGeneration += 1;
     final future = Future.wait<void>(<Future<void>>[
@@ -1187,6 +1502,8 @@ List<PiSessionSummary> _setSessionRunning(
               updatedAt: session.updatedAt,
               isRunning: isRunning,
               hasUnread: session.hasUnread,
+              adminRevision: session.adminRevision,
+              hasCustomName: session.hasCustomName,
             )
           : session,
     )

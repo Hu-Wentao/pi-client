@@ -27,7 +27,10 @@ export {
   type PiNodePromptAdmissionStatus,
   type PiNodePromptExecution,
   type PiNodeSessionBackendEvent,
+  type PiNodeSessionAdministrationBackend,
   type PiNodeSessionBackendSnapshot,
+  type PiNodeSessionDeleteConfirmation,
+  type PiNodeSessionDeleteResult,
   type PiNodeSessionEvent,
   type PiNodeSessionEventListener,
   type PiNodeSessionSnapshot,
@@ -41,6 +44,17 @@ export {
   type PiNodeSessionObservation,
   type PiNodeSessionOwnershipRegistry,
 } from "./pi-node-domain-service.js";
+export {
+  createSessionAdminRevision,
+  PiSdkSessionAdministrationError,
+  PublicPiSdkSessionAdministration,
+  sanitizeGeneratedSessionName,
+  sessionInfoToSummary,
+  type PiSdkSessionAdministrationErrorCode,
+  type PiSessionAutoNameGenerator,
+  type PiSessionAutoNameGeneratorInput,
+  type PublicPiSdkSessionAdministrationOptions,
+} from "./pi-sdk-session-administration.js";
 export {
   normalizePiSdkMessage,
   PiSdkDomainAdapterError,

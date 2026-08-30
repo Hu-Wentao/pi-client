@@ -158,6 +158,50 @@ export class FakeProtocolDomain implements PiNodeProtocolDomain {
     };
   }
 
+  renameSession(input: {
+    readonly sessionId: string;
+    readonly name: string;
+  }): Promise<PiNodeSessionSummary> {
+    const session = this.requireSession(input.sessionId);
+    const updated = updatedSession(session, { name: input.name });
+    this.sessions.set(input.sessionId, updated);
+    return Promise.resolve(copySummary(updated));
+  }
+
+  clearSessionName(input: { readonly sessionId: string }): Promise<PiNodeSessionSummary> {
+    const session = this.requireSession(input.sessionId);
+    const updated = updatedSession(session, { clearName: true });
+    this.sessions.set(input.sessionId, updated);
+    return Promise.resolve(copySummary(updated));
+  }
+
+  autoNameSession(input: { readonly sessionId: string }): Promise<PiNodeSessionSummary> {
+    const session = this.requireSession(input.sessionId);
+    const updated = updatedSession(session, { name: "Generated session title" });
+    this.sessions.set(input.sessionId, updated);
+    return Promise.resolve(copySummary(updated));
+  }
+
+  deleteSession(input: {
+    readonly sessionId: string;
+    readonly confirmation: {
+      readonly sessionId: string;
+      readonly adminRevision: string;
+      readonly destructiveActionAcknowledged: boolean;
+    };
+  }): Promise<{ readonly sessionId: string; readonly reparentedChildCount: number }> {
+    const session = this.requireSession(input.sessionId);
+    if (
+      !input.confirmation.destructiveActionAcknowledged ||
+      input.confirmation.sessionId !== input.sessionId ||
+      input.confirmation.adminRevision !== session.adminRevision
+    ) {
+      return Promise.reject(new Error("Stale fake deletion confirmation."));
+    }
+    this.sessions.delete(input.sessionId);
+    return Promise.resolve({ sessionId: input.sessionId, reparentedChildCount: 0 });
+  }
+
   async abort(input: { readonly sessionId: string }): Promise<PiNodeAbortResult> {
     this.requireSession(input.sessionId);
     const activeCommand = this.activeCommands.get(input.sessionId);
@@ -228,6 +272,7 @@ export function sessionSnapshot(
     messageCount: messages.length,
     firstMessage: messages[0]?.parts[0]?.type === "text" ? messages[0].parts[0].text : title,
     running: false,
+    adminRevision: `revision-${sessionId}-1`,
     persistence: "persistent",
     messages,
     lastEventSequence: 0,
@@ -277,7 +322,26 @@ function copySummary(snapshot: PiNodeSessionSnapshot): PiNodeSessionSummary {
     messageCount: snapshot.messageCount,
     firstMessage: snapshot.firstMessage,
     running: snapshot.running,
+    adminRevision: snapshot.adminRevision,
   };
+}
+
+function updatedSession(
+  session: PiNodeSessionSnapshot,
+  change: { readonly name?: string; readonly clearName?: boolean },
+): PiNodeSessionSnapshot {
+  const modifiedAtMs = session.modifiedAtMs + 1;
+  const name = change.clearName ? undefined : (change.name ?? session.name);
+  const updated = {
+    ...session,
+    modifiedAtMs,
+    adminRevision: `revision-${session.sessionId}-${modifiedAtMs}-${name ?? "clear"}`,
+  };
+  if (name === undefined) {
+    const { name: _discarded, ...withoutName } = updated;
+    return withoutName;
+  }
+  return { ...updated, name };
 }
 
 function copySnapshot(snapshot: PiNodeSessionSnapshot): PiNodeSessionSnapshot {

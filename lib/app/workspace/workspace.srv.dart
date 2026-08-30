@@ -58,6 +58,58 @@ final class WorkspaceService {
   Future<PiSessionDetail> createSession(PiProjectId projectId) =>
       _api.createSession(PiCreateSessionRequest(projectId: projectId));
 
+  Future<PiSessionAdminResult> renameSession({
+    required PiCommandId commandId,
+    required PiProjectId projectId,
+    required PiSessionId sessionId,
+    required String name,
+  }) => _api.renameSession(
+    PiRenameSessionCommand(
+      commandId: commandId,
+      projectId: projectId,
+      sessionId: sessionId,
+      name: name,
+    ),
+  );
+
+  Future<PiSessionAdminResult> clearSessionName({
+    required PiCommandId commandId,
+    required PiProjectId projectId,
+    required PiSessionId sessionId,
+  }) => _api.clearSessionName(
+    PiClearSessionNameCommand(
+      commandId: commandId,
+      projectId: projectId,
+      sessionId: sessionId,
+    ),
+  );
+
+  Future<PiSessionAdminResult> autoNameSession({
+    required PiCommandId commandId,
+    required PiProjectId projectId,
+    required PiSessionId sessionId,
+  }) => _api.autoNameSession(
+    PiAutoNameSessionCommand(
+      commandId: commandId,
+      projectId: projectId,
+      sessionId: sessionId,
+    ),
+  );
+
+  Future<PiSessionAdminResult> deleteSession({
+    required PiCommandId commandId,
+    required PiProjectId projectId,
+    required PiSessionId sessionId,
+    required PiDeleteSessionConfirmation confirmation,
+  }) => _api.deleteSession(
+    PiDeleteSessionCommand(
+      commandId: commandId,
+      projectId: projectId,
+      sessionId: sessionId,
+      confirmation: confirmation,
+    ),
+  );
+
   Future<PiCommandResult> submitPrompt({
     required PiCommandId commandId,
     required PiSessionId sessionId,
@@ -102,6 +154,11 @@ final class WorkspaceService {
       PiNodeErrorCode.conflict =>
         'The Pi session changed before the operation completed.',
       PiNodeErrorCode.nodeBusy => 'Pi Node is busy. Try again shortly.',
+      PiNodeErrorCode.cancelled => 'The Pi Node operation was cancelled.',
+      PiNodeErrorCode.deadlineExceeded =>
+        'The Pi Node operation exceeded its deadline.',
+      PiNodeErrorCode.failedPrecondition =>
+        'The Pi Node operation requires refreshed or additional state.',
       PiNodeErrorCode.protocolMismatch =>
         'Pi Node does not support protocol 0.1.0.',
       PiNodeErrorCode.malformedFrame || PiNodeErrorCode.unexpectedResponse =>

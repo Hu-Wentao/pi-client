@@ -31,6 +31,7 @@ const Capability$json = {
     {'1': 'CAPABILITY_TRANSFER', '2': 9},
     {'1': 'CAPABILITY_PROJECT_DISCOVERY', '2': 10},
     {'1': 'CAPABILITY_PROJECT_TRUST', '2': 11},
+    {'1': 'CAPABILITY_SESSION_ADMIN', '2': 12},
   ],
 };
 
@@ -42,7 +43,8 @@ final $typed_data.Uint8List capabilityDescriptor = $convert.base64Decode(
     'FQQUJJTElUWV9TRVNTSU9OX0VWRU5UUxAFEhUKEUNBUEFCSUxJVFlfSEVBTFRIEAYSGwoXQ0FQ'
     'QUJJTElUWV9DQU5DRUxMQVRJT04QBxIbChdDQVBBQklMSVRZX0ZMT1dfQ09OVFJPTBAIEhcKE0'
     'NBUEFCSUxJVFlfVFJBTlNGRVIQCRIgChxDQVBBQklMSVRZX1BST0pFQ1RfRElTQ09WRVJZEAoS'
-    'HAoYQ0FQQUJJTElUWV9QUk9KRUNUX1RSVVNUEAs=');
+    'HAoYQ0FQQUJJTElUWV9QUk9KRUNUX1RSVVNUEAsSHAoYQ0FQQUJJTElUWV9TRVNTSU9OX0FETU'
+    'lOEAw=');
 
 @$core.Deprecated('Use healthStatusDescriptor instead')
 const HealthStatus$json = {
@@ -108,6 +110,25 @@ final $typed_data.Uint8List projectTrustReasonDescriptor = $convert.base64Decode
     'VNX1BST01QVBAGEiUKIVBST0pFQ1RfVFJVU1RfUkVBU09OX0FHRU5UX1NLSUxMUxAHEicKI1BS'
     'T0pFQ1RfVFJVU1RfUkVBU09OX1NBVkVEX0FQUFJPVkFMEAgSJQohUFJPSkVDVF9UUlVTVF9SRU'
     'FTT05fU0FWRURfREVOSUFMEAk=');
+
+@$core.Deprecated('Use sessionAdminOperationDescriptor instead')
+const SessionAdminOperation$json = {
+  '1': 'SessionAdminOperation',
+  '2': [
+    {'1': 'SESSION_ADMIN_OPERATION_UNSPECIFIED', '2': 0},
+    {'1': 'SESSION_ADMIN_OPERATION_RENAME', '2': 1},
+    {'1': 'SESSION_ADMIN_OPERATION_CLEAR_NAME', '2': 2},
+    {'1': 'SESSION_ADMIN_OPERATION_AUTO_NAME', '2': 3},
+    {'1': 'SESSION_ADMIN_OPERATION_DELETE', '2': 4},
+  ],
+};
+
+/// Descriptor for `SessionAdminOperation`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List sessionAdminOperationDescriptor = $convert.base64Decode(
+    'ChVTZXNzaW9uQWRtaW5PcGVyYXRpb24SJwojU0VTU0lPTl9BRE1JTl9PUEVSQVRJT05fVU5TUE'
+    'VDSUZJRUQQABIiCh5TRVNTSU9OX0FETUlOX09QRVJBVElPTl9SRU5BTUUQARImCiJTRVNTSU9O'
+    'X0FETUlOX09QRVJBVElPTl9DTEVBUl9OQU1FEAISJQohU0VTU0lPTl9BRE1JTl9PUEVSQVRJT0'
+    '5fQVVUT19OQU1FEAMSIgoeU0VTU0lPTl9BRE1JTl9PUEVSQVRJT05fREVMRVRFEAQ=');
 
 @$core.Deprecated('Use messageRoleDescriptor instead')
 const MessageRole$json = {
@@ -437,6 +458,51 @@ const PiTransportFrame$json = {
       '10': 'approveProjectTrustResponse'
     },
     {
+      '1': 'rename_session_command',
+      '3': 43,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.RenameSessionCommand',
+      '9': 0,
+      '10': 'renameSessionCommand'
+    },
+    {
+      '1': 'clear_session_name_command',
+      '3': 44,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.ClearSessionNameCommand',
+      '9': 0,
+      '10': 'clearSessionNameCommand'
+    },
+    {
+      '1': 'auto_name_session_command',
+      '3': 45,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.AutoNameSessionCommand',
+      '9': 0,
+      '10': 'autoNameSessionCommand'
+    },
+    {
+      '1': 'delete_session_command',
+      '3': 46,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.DeleteSessionCommand',
+      '9': 0,
+      '10': 'deleteSessionCommand'
+    },
+    {
+      '1': 'session_admin_command_outcome',
+      '3': 47,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.SessionAdminCommandOutcome',
+      '9': 0,
+      '10': 'sessionAdminCommandOutcome'
+    },
+    {
       '1': 'session_event_stream',
       '3': 50,
       '4': 1,
@@ -533,7 +599,7 @@ const PiTransportFrame$json = {
   '9': [
     {'1': 2, '2': 10},
     {'1': 13, '2': 20},
-    {'1': 43, '2': 50},
+    {'1': 48, '2': 50},
     {'1': 52, '2': 60},
     {'1': 62, '2': 70},
     {'1': 75, '2': 80},
@@ -591,22 +657,32 @@ final $typed_data.Uint8List piTransportFrameDescriptor = $convert.base64Decode(
     'Byb3RvY29sLnYwLkFwcHJvdmVQcm9qZWN0VHJ1c3RSZXF1ZXN0SABSGmFwcHJvdmVQcm9qZWN0'
     'VHJ1c3RSZXF1ZXN0EnkKHmFwcHJvdmVfcHJvamVjdF90cnVzdF9yZXNwb25zZRgqIAEoCzIyLn'
     'BpLmNsaWVudC5wcm90b2NvbC52MC5BcHByb3ZlUHJvamVjdFRydXN0UmVzcG9uc2VIAFIbYXBw'
-    'cm92ZVByb2plY3RUcnVzdFJlc3BvbnNlEmUKFHNlc3Npb25fZXZlbnRfc3RyZWFtGDIgASgLMj'
-    'EucGkuY2xpZW50LnByb3RvY29sLnYwLlNlc3Npb25FdmVudFN0cmVhbUVudmVsb3BlSABSEnNl'
-    'c3Npb25FdmVudFN0cmVhbRJPCgxldmVudF9zdHJlYW0YMyABKAsyKi5waS5jbGllbnQucHJvdG'
-    '9jb2wudjAuRXZlbnRTdHJlYW1FbnZlbG9wZUgAUgtldmVudFN0cmVhbRI3CgZjYW5jZWwYPCAB'
-    'KAsyHS5waS5jbGllbnQucHJvdG9jb2wudjAuQ2FuY2VsSABSBmNhbmNlbBJKCg13aW5kb3dfdX'
-    'BkYXRlGD0gASgLMiMucGkuY2xpZW50LnByb3RvY29sLnYwLldpbmRvd1VwZGF0ZUgAUgx3aW5k'
-    'b3dVcGRhdGUSSgoNdHJhbnNmZXJfb3BlbhhGIAEoCzIjLnBpLmNsaWVudC5wcm90b2NvbC52MC'
-    '5UcmFuc2Zlck9wZW5IAFIMdHJhbnNmZXJPcGVuEk0KDnRyYW5zZmVyX2NodW5rGEcgASgLMiQu'
-    'cGkuY2xpZW50LnByb3RvY29sLnYwLlRyYW5zZmVyQ2h1bmtIAFINdHJhbnNmZXJDaHVuaxJHCg'
-    'x0cmFuc2Zlcl9hY2sYSCABKAsyIi5waS5jbGllbnQucHJvdG9jb2wudjAuVHJhbnNmZXJBY2tI'
-    'AFILdHJhbnNmZXJBY2sSVgoRdHJhbnNmZXJfY29tcGxldGUYSSABKAsyJy5waS5jbGllbnQucH'
-    'JvdG9jb2wudjAuVHJhbnNmZXJDb21wbGV0ZUgAUhB0cmFuc2ZlckNvbXBsZXRlEk0KDnRyYW5z'
-    'ZmVyX2Fib3J0GEogASgLMiQucGkuY2xpZW50LnByb3RvY29sLnYwLlRyYW5zZmVyQWJvcnRIAF'
-    'INdHJhbnNmZXJBYm9ydBI8CgVlcnJvchhQIAEoCzIkLnBpLmNsaWVudC5wcm90b2NvbC52MC5F'
-    'cnJvckVudmVsb3BlSABSBWVycm9yQgsKCW9wZXJhdGlvbkoECAIQCkoECA0QFEoECCsQMkoECD'
-    'QQPEoECD4QRkoECEsQUEoECFEQZA==');
+    'cm92ZVByb2plY3RUcnVzdFJlc3BvbnNlEmMKFnJlbmFtZV9zZXNzaW9uX2NvbW1hbmQYKyABKA'
+    'syKy5waS5jbGllbnQucHJvdG9jb2wudjAuUmVuYW1lU2Vzc2lvbkNvbW1hbmRIAFIUcmVuYW1l'
+    'U2Vzc2lvbkNvbW1hbmQSbQoaY2xlYXJfc2Vzc2lvbl9uYW1lX2NvbW1hbmQYLCABKAsyLi5waS'
+    '5jbGllbnQucHJvdG9jb2wudjAuQ2xlYXJTZXNzaW9uTmFtZUNvbW1hbmRIAFIXY2xlYXJTZXNz'
+    'aW9uTmFtZUNvbW1hbmQSagoZYXV0b19uYW1lX3Nlc3Npb25fY29tbWFuZBgtIAEoCzItLnBpLm'
+    'NsaWVudC5wcm90b2NvbC52MC5BdXRvTmFtZVNlc3Npb25Db21tYW5kSABSFmF1dG9OYW1lU2Vz'
+    'c2lvbkNvbW1hbmQSYwoWZGVsZXRlX3Nlc3Npb25fY29tbWFuZBguIAEoCzIrLnBpLmNsaWVudC'
+    '5wcm90b2NvbC52MC5EZWxldGVTZXNzaW9uQ29tbWFuZEgAUhRkZWxldGVTZXNzaW9uQ29tbWFu'
+    'ZBJ2Ch1zZXNzaW9uX2FkbWluX2NvbW1hbmRfb3V0Y29tZRgvIAEoCzIxLnBpLmNsaWVudC5wcm'
+    '90b2NvbC52MC5TZXNzaW9uQWRtaW5Db21tYW5kT3V0Y29tZUgAUhpzZXNzaW9uQWRtaW5Db21t'
+    'YW5kT3V0Y29tZRJlChRzZXNzaW9uX2V2ZW50X3N0cmVhbRgyIAEoCzIxLnBpLmNsaWVudC5wcm'
+    '90b2NvbC52MC5TZXNzaW9uRXZlbnRTdHJlYW1FbnZlbG9wZUgAUhJzZXNzaW9uRXZlbnRTdHJl'
+    'YW0STwoMZXZlbnRfc3RyZWFtGDMgASgLMioucGkuY2xpZW50LnByb3RvY29sLnYwLkV2ZW50U3'
+    'RyZWFtRW52ZWxvcGVIAFILZXZlbnRTdHJlYW0SNwoGY2FuY2VsGDwgASgLMh0ucGkuY2xpZW50'
+    'LnByb3RvY29sLnYwLkNhbmNlbEgAUgZjYW5jZWwSSgoNd2luZG93X3VwZGF0ZRg9IAEoCzIjLn'
+    'BpLmNsaWVudC5wcm90b2NvbC52MC5XaW5kb3dVcGRhdGVIAFIMd2luZG93VXBkYXRlEkoKDXRy'
+    'YW5zZmVyX29wZW4YRiABKAsyIy5waS5jbGllbnQucHJvdG9jb2wudjAuVHJhbnNmZXJPcGVuSA'
+    'BSDHRyYW5zZmVyT3BlbhJNCg50cmFuc2Zlcl9jaHVuaxhHIAEoCzIkLnBpLmNsaWVudC5wcm90'
+    'b2NvbC52MC5UcmFuc2ZlckNodW5rSABSDXRyYW5zZmVyQ2h1bmsSRwoMdHJhbnNmZXJfYWNrGE'
+    'ggASgLMiIucGkuY2xpZW50LnByb3RvY29sLnYwLlRyYW5zZmVyQWNrSABSC3RyYW5zZmVyQWNr'
+    'ElYKEXRyYW5zZmVyX2NvbXBsZXRlGEkgASgLMicucGkuY2xpZW50LnByb3RvY29sLnYwLlRyYW'
+    '5zZmVyQ29tcGxldGVIAFIQdHJhbnNmZXJDb21wbGV0ZRJNCg50cmFuc2Zlcl9hYm9ydBhKIAEo'
+    'CzIkLnBpLmNsaWVudC5wcm90b2NvbC52MC5UcmFuc2ZlckFib3J0SABSDXRyYW5zZmVyQWJvcn'
+    'QSPAoFZXJyb3IYUCABKAsyJC5waS5jbGllbnQucHJvdG9jb2wudjAuRXJyb3JFbnZlbG9wZUgA'
+    'UgVlcnJvckILCglvcGVyYXRpb25KBAgCEApKBAgNEBRKBAgwEDJKBAg0EDxKBAg+EEZKBAhLEF'
+    'BKBAhREGQ=');
 
 @$core.Deprecated('Use protocolVersionDescriptor instead')
 const ProtocolVersion$json = {
@@ -1340,6 +1416,194 @@ final $typed_data.Uint8List abortCommandDescriptor = $convert.base64Decode(
     'CgxBYm9ydENvbW1hbmQSHQoKcmVxdWVzdF9pZBgBIAEoBFIJcmVxdWVzdElkEh0KCmNvbW1hbm'
     'RfaWQYAiABKAlSCWNvbW1hbmRJZBIdCgpzZXNzaW9uX2lkGAMgASgJUglzZXNzaW9uSWQ=');
 
+@$core.Deprecated('Use renameSessionCommandDescriptor instead')
+const RenameSessionCommand$json = {
+  '1': 'RenameSessionCommand',
+  '2': [
+    {'1': 'request_id', '3': 1, '4': 1, '5': 4, '10': 'requestId'},
+    {'1': 'command_id', '3': 2, '4': 1, '5': 9, '10': 'commandId'},
+    {'1': 'project_id', '3': 3, '4': 1, '5': 9, '10': 'projectId'},
+    {'1': 'session_id', '3': 4, '4': 1, '5': 9, '10': 'sessionId'},
+    {'1': 'name', '3': 5, '4': 1, '5': 9, '10': 'name'},
+  ],
+};
+
+/// Descriptor for `RenameSessionCommand`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List renameSessionCommandDescriptor = $convert.base64Decode(
+    'ChRSZW5hbWVTZXNzaW9uQ29tbWFuZBIdCgpyZXF1ZXN0X2lkGAEgASgEUglyZXF1ZXN0SWQSHQ'
+    'oKY29tbWFuZF9pZBgCIAEoCVIJY29tbWFuZElkEh0KCnByb2plY3RfaWQYAyABKAlSCXByb2pl'
+    'Y3RJZBIdCgpzZXNzaW9uX2lkGAQgASgJUglzZXNzaW9uSWQSEgoEbmFtZRgFIAEoCVIEbmFtZQ'
+    '==');
+
+@$core.Deprecated('Use clearSessionNameCommandDescriptor instead')
+const ClearSessionNameCommand$json = {
+  '1': 'ClearSessionNameCommand',
+  '2': [
+    {'1': 'request_id', '3': 1, '4': 1, '5': 4, '10': 'requestId'},
+    {'1': 'command_id', '3': 2, '4': 1, '5': 9, '10': 'commandId'},
+    {'1': 'project_id', '3': 3, '4': 1, '5': 9, '10': 'projectId'},
+    {'1': 'session_id', '3': 4, '4': 1, '5': 9, '10': 'sessionId'},
+  ],
+};
+
+/// Descriptor for `ClearSessionNameCommand`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clearSessionNameCommandDescriptor = $convert.base64Decode(
+    'ChdDbGVhclNlc3Npb25OYW1lQ29tbWFuZBIdCgpyZXF1ZXN0X2lkGAEgASgEUglyZXF1ZXN0SW'
+    'QSHQoKY29tbWFuZF9pZBgCIAEoCVIJY29tbWFuZElkEh0KCnByb2plY3RfaWQYAyABKAlSCXBy'
+    'b2plY3RJZBIdCgpzZXNzaW9uX2lkGAQgASgJUglzZXNzaW9uSWQ=');
+
+@$core.Deprecated('Use autoNameSessionCommandDescriptor instead')
+const AutoNameSessionCommand$json = {
+  '1': 'AutoNameSessionCommand',
+  '2': [
+    {'1': 'request_id', '3': 1, '4': 1, '5': 4, '10': 'requestId'},
+    {'1': 'command_id', '3': 2, '4': 1, '5': 9, '10': 'commandId'},
+    {'1': 'project_id', '3': 3, '4': 1, '5': 9, '10': 'projectId'},
+    {'1': 'session_id', '3': 4, '4': 1, '5': 9, '10': 'sessionId'},
+    {'1': 'timeout_millis', '3': 5, '4': 1, '5': 13, '10': 'timeoutMillis'},
+  ],
+};
+
+/// Descriptor for `AutoNameSessionCommand`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List autoNameSessionCommandDescriptor = $convert.base64Decode(
+    'ChZBdXRvTmFtZVNlc3Npb25Db21tYW5kEh0KCnJlcXVlc3RfaWQYASABKARSCXJlcXVlc3RJZB'
+    'IdCgpjb21tYW5kX2lkGAIgASgJUgljb21tYW5kSWQSHQoKcHJvamVjdF9pZBgDIAEoCVIJcHJv'
+    'amVjdElkEh0KCnNlc3Npb25faWQYBCABKAlSCXNlc3Npb25JZBIlCg50aW1lb3V0X21pbGxpcx'
+    'gFIAEoDVINdGltZW91dE1pbGxpcw==');
+
+@$core.Deprecated('Use deleteSessionConfirmationEvidenceDescriptor instead')
+const DeleteSessionConfirmationEvidence$json = {
+  '1': 'DeleteSessionConfirmationEvidence',
+  '2': [
+    {'1': 'session_id', '3': 1, '4': 1, '5': 9, '10': 'sessionId'},
+    {'1': 'admin_revision', '3': 2, '4': 1, '5': 9, '10': 'adminRevision'},
+    {'1': 'displayed_title', '3': 3, '4': 1, '5': 9, '10': 'displayedTitle'},
+    {
+      '1': 'destructive_action_acknowledged',
+      '3': 4,
+      '4': 1,
+      '5': 8,
+      '10': 'destructiveActionAcknowledged'
+    },
+  ],
+};
+
+/// Descriptor for `DeleteSessionConfirmationEvidence`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List deleteSessionConfirmationEvidenceDescriptor =
+    $convert.base64Decode(
+        'CiFEZWxldGVTZXNzaW9uQ29uZmlybWF0aW9uRXZpZGVuY2USHQoKc2Vzc2lvbl9pZBgBIAEoCV'
+        'IJc2Vzc2lvbklkEiUKDmFkbWluX3JldmlzaW9uGAIgASgJUg1hZG1pblJldmlzaW9uEicKD2Rp'
+        'c3BsYXllZF90aXRsZRgDIAEoCVIOZGlzcGxheWVkVGl0bGUSRgofZGVzdHJ1Y3RpdmVfYWN0aW'
+        '9uX2Fja25vd2xlZGdlZBgEIAEoCFIdZGVzdHJ1Y3RpdmVBY3Rpb25BY2tub3dsZWRnZWQ=');
+
+@$core.Deprecated('Use deleteSessionCommandDescriptor instead')
+const DeleteSessionCommand$json = {
+  '1': 'DeleteSessionCommand',
+  '2': [
+    {'1': 'request_id', '3': 1, '4': 1, '5': 4, '10': 'requestId'},
+    {'1': 'command_id', '3': 2, '4': 1, '5': 9, '10': 'commandId'},
+    {'1': 'project_id', '3': 3, '4': 1, '5': 9, '10': 'projectId'},
+    {'1': 'session_id', '3': 4, '4': 1, '5': 9, '10': 'sessionId'},
+    {
+      '1': 'confirmation',
+      '3': 5,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.DeleteSessionConfirmationEvidence',
+      '10': 'confirmation'
+    },
+  ],
+};
+
+/// Descriptor for `DeleteSessionCommand`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List deleteSessionCommandDescriptor = $convert.base64Decode(
+    'ChREZWxldGVTZXNzaW9uQ29tbWFuZBIdCgpyZXF1ZXN0X2lkGAEgASgEUglyZXF1ZXN0SWQSHQ'
+    'oKY29tbWFuZF9pZBgCIAEoCVIJY29tbWFuZElkEh0KCnByb2plY3RfaWQYAyABKAlSCXByb2pl'
+    'Y3RJZBIdCgpzZXNzaW9uX2lkGAQgASgJUglzZXNzaW9uSWQSXAoMY29uZmlybWF0aW9uGAUgAS'
+    'gLMjgucGkuY2xpZW50LnByb3RvY29sLnYwLkRlbGV0ZVNlc3Npb25Db25maXJtYXRpb25Fdmlk'
+    'ZW5jZVIMY29uZmlybWF0aW9u');
+
+@$core.Deprecated('Use deleteSessionOutcomeDescriptor instead')
+const DeleteSessionOutcome$json = {
+  '1': 'DeleteSessionOutcome',
+  '2': [
+    {'1': 'session_id', '3': 1, '4': 1, '5': 9, '10': 'sessionId'},
+    {
+      '1': 'reparented_child_count',
+      '3': 2,
+      '4': 1,
+      '5': 13,
+      '10': 'reparentedChildCount'
+    },
+  ],
+};
+
+/// Descriptor for `DeleteSessionOutcome`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List deleteSessionOutcomeDescriptor = $convert.base64Decode(
+    'ChREZWxldGVTZXNzaW9uT3V0Y29tZRIdCgpzZXNzaW9uX2lkGAEgASgJUglzZXNzaW9uSWQSNA'
+    'oWcmVwYXJlbnRlZF9jaGlsZF9jb3VudBgCIAEoDVIUcmVwYXJlbnRlZENoaWxkQ291bnQ=');
+
+@$core.Deprecated('Use sessionAdminCommandOutcomeDescriptor instead')
+const SessionAdminCommandOutcome$json = {
+  '1': 'SessionAdminCommandOutcome',
+  '2': [
+    {'1': 'request_id', '3': 1, '4': 1, '5': 4, '10': 'requestId'},
+    {'1': 'command_id', '3': 2, '4': 1, '5': 9, '10': 'commandId'},
+    {
+      '1': 'operation',
+      '3': 3,
+      '4': 1,
+      '5': 14,
+      '6': '.pi.client.protocol.v0.SessionAdminOperation',
+      '10': 'operation'
+    },
+    {
+      '1': 'session',
+      '3': 10,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.SessionSummarySnapshot',
+      '9': 0,
+      '10': 'session'
+    },
+    {
+      '1': 'deletion',
+      '3': 11,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.DeleteSessionOutcome',
+      '9': 0,
+      '10': 'deletion'
+    },
+    {
+      '1': 'error',
+      '3': 12,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.StableError',
+      '9': 0,
+      '10': 'error'
+    },
+  ],
+  '8': [
+    {'1': 'outcome'},
+  ],
+  '9': [
+    {'1': 4, '2': 10},
+  ],
+};
+
+/// Descriptor for `SessionAdminCommandOutcome`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List sessionAdminCommandOutcomeDescriptor = $convert.base64Decode(
+    'ChpTZXNzaW9uQWRtaW5Db21tYW5kT3V0Y29tZRIdCgpyZXF1ZXN0X2lkGAEgASgEUglyZXF1ZX'
+    'N0SWQSHQoKY29tbWFuZF9pZBgCIAEoCVIJY29tbWFuZElkEkoKCW9wZXJhdGlvbhgDIAEoDjIs'
+    'LnBpLmNsaWVudC5wcm90b2NvbC52MC5TZXNzaW9uQWRtaW5PcGVyYXRpb25SCW9wZXJhdGlvbh'
+    'JJCgdzZXNzaW9uGAogASgLMi0ucGkuY2xpZW50LnByb3RvY29sLnYwLlNlc3Npb25TdW1tYXJ5'
+    'U25hcHNob3RIAFIHc2Vzc2lvbhJJCghkZWxldGlvbhgLIAEoCzIrLnBpLmNsaWVudC5wcm90b2'
+    'NvbC52MC5EZWxldGVTZXNzaW9uT3V0Y29tZUgAUghkZWxldGlvbhI6CgVlcnJvchgMIAEoCzIi'
+    'LnBpLmNsaWVudC5wcm90b2NvbC52MC5TdGFibGVFcnJvckgAUgVlcnJvckIJCgdvdXRjb21lSg'
+    'QIBBAK');
+
 @$core.Deprecated('Use requestRejectedDescriptor instead')
 const RequestRejected$json = {
   '1': 'RequestRejected',
@@ -1427,6 +1691,8 @@ const SessionSummarySnapshot$json = {
     },
     {'1': 'is_running', '3': 6, '4': 1, '5': 8, '10': 'isRunning'},
     {'1': 'has_unread', '3': 7, '4': 1, '5': 8, '10': 'hasUnread'},
+    {'1': 'admin_revision', '3': 8, '4': 1, '5': 9, '10': 'adminRevision'},
+    {'1': 'has_custom_name', '3': 9, '4': 1, '5': 8, '10': 'hasCustomName'},
   ],
 };
 
@@ -1437,7 +1703,8 @@ final $typed_data.Uint8List sessionSummarySnapshotDescriptor = $convert.base64De
     'bmdEaXJlY3RvcnkSMwoWY3JlYXRlZF9hdF91bml4X21pbGxpcxgEIAEoBFITY3JlYXRlZEF0VW'
     '5peE1pbGxpcxIzChZ1cGRhdGVkX2F0X3VuaXhfbWlsbGlzGAUgASgEUhN1cGRhdGVkQXRVbml4'
     'TWlsbGlzEh0KCmlzX3J1bm5pbmcYBiABKAhSCWlzUnVubmluZxIdCgpoYXNfdW5yZWFkGAcgAS'
-    'gIUgloYXNVbnJlYWQ=');
+    'gIUgloYXNVbnJlYWQSJQoOYWRtaW5fcmV2aXNpb24YCCABKAlSDWFkbWluUmV2aXNpb24SJgoP'
+    'aGFzX2N1c3RvbV9uYW1lGAkgASgIUg1oYXNDdXN0b21OYW1l');
 
 @$core.Deprecated('Use sessionDetailSnapshotDescriptor instead')
 const SessionDetailSnapshot$json = {

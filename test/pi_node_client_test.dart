@@ -190,6 +190,79 @@ void main() {
       },
     );
 
+    test('maps typed session administration requests and outcomes', () async {
+      final fixture = await _connectedFixture();
+      addTearDown(fixture.client.close);
+      final session = _protocolSession('session-admin').summary;
+      final projectId = PiProjectId('project-1');
+      final sessionId = PiSessionId('session-admin');
+
+      final renameFuture = fixture.client.renameSession(
+        PiRenameSessionCommand(
+          commandId: PiCommandId('admin-rename'),
+          projectId: projectId,
+          sessionId: sessionId,
+          name: 'Renamed session',
+        ),
+      );
+      final rename = fixture.take<PiProtocolRenameSessionCommandRequest>();
+      expect(rename.projectId, 'project-1');
+      expect(rename.sessionId, 'session-admin');
+      expect(rename.name, 'Renamed session');
+      final renamedSummary = PiProtocolSessionSummary(
+        id: session.id,
+        title: 'Renamed session',
+        workingDirectory: session.workingDirectory,
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt.add(const Duration(milliseconds: 1)),
+        isRunning: false,
+        hasUnread: false,
+        adminRevision: 'revision-session-admin-2',
+        hasCustomName: true,
+      );
+      await fixture.send(
+        PiProtocolSessionAdminOutcomeMessage(
+          requestId: rename.requestId,
+          commandId: rename.commandId,
+          operation: PiProtocolSessionAdminOperation.rename,
+          outcome: PiProtocolSessionAdminUpdated(renamedSummary),
+        ),
+      );
+      final renamed = await renameFuture as PiSessionAdminUpdated;
+      expect(renamed.operation, PiSessionAdminOperation.rename);
+      expect(renamed.session.title, 'Renamed session');
+      expect(
+        renamed.session.adminRevision,
+        PiSessionAdminRevision('revision-session-admin-2'),
+      );
+
+      final deleteFuture = fixture.client.deleteSession(
+        PiDeleteSessionCommand(
+          commandId: PiCommandId('admin-delete'),
+          projectId: projectId,
+          sessionId: sessionId,
+          confirmation: PiDeleteSessionConfirmation.confirmed(renamed.session),
+        ),
+      );
+      final delete = fixture.take<PiProtocolDeleteSessionCommandRequest>();
+      expect(delete.confirmation.destructiveActionAcknowledged, isTrue);
+      expect(delete.confirmation.adminRevision, 'revision-session-admin-2');
+      await fixture.send(
+        PiProtocolSessionAdminOutcomeMessage(
+          requestId: delete.requestId,
+          commandId: delete.commandId,
+          operation: PiProtocolSessionAdminOperation.delete,
+          outcome: PiProtocolSessionAdminDeleted(
+            sessionId: 'session-admin',
+            reparentedChildCount: 2,
+          ),
+        ),
+      );
+      final deleted = await deleteFuture as PiSessionAdminDeleted;
+      expect(deleted.sessionId, sessionId);
+      expect(deleted.reparentedChildCount, 2);
+    });
+
     test('returns accepted, rejected, and remote uncertain commands', () async {
       final fixture = await _connectedFixture();
       addTearDown(fixture.client.close);
@@ -632,6 +705,8 @@ PiProtocolSessionDetail _protocolSession(String id) {
       updatedAt: createdAt.add(const Duration(minutes: 1)),
       isRunning: false,
       hasUnread: false,
+      adminRevision: 'revision-$id-1',
+      hasCustomName: true,
     ),
     messages: <PiProtocolMessageSnapshot>[
       PiProtocolMessageSnapshot(

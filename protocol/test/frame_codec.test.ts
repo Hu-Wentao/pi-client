@@ -11,6 +11,7 @@ import {
   MessageRole,
   PiTransportFrameSchema,
   ProtocolVersionSchema,
+  SessionAdminOperation,
   SessionDetailSnapshotSchema,
   SessionSummarySnapshotSchema,
   StableErrorSchema,
@@ -59,6 +60,8 @@ function sessionSummary() {
     updatedAtUnixMillis: 9_007_199_254_740_999n,
     isRunning: true,
     hasUnread: false,
+    adminRevision: "revision-session-1",
+    hasCustomName: true,
   });
 }
 
@@ -195,6 +198,59 @@ describe("bounded Protobuf frame codec", () => {
           requestId: 8n,
           commandId: "command-2",
           sessionId: "session-1",
+        },
+      },
+      {
+        case: "renameSessionCommand",
+        value: {
+          requestId: 9n,
+          commandId: "admin-rename-1",
+          projectId: "project-1",
+          sessionId: "session-1",
+          name: "Renamed session",
+        },
+      },
+      {
+        case: "clearSessionNameCommand",
+        value: {
+          requestId: 10n,
+          commandId: "admin-clear-1",
+          projectId: "project-1",
+          sessionId: "session-1",
+        },
+      },
+      {
+        case: "autoNameSessionCommand",
+        value: {
+          requestId: 11n,
+          commandId: "admin-auto-1",
+          projectId: "project-1",
+          sessionId: "session-1",
+          timeoutMillis: 15_000,
+        },
+      },
+      {
+        case: "deleteSessionCommand",
+        value: {
+          requestId: 12n,
+          commandId: "admin-delete-1",
+          projectId: "project-1",
+          sessionId: "session-1",
+          confirmation: {
+            sessionId: "session-1",
+            adminRevision: "revision-session-1",
+            displayedTitle: "Protocol work",
+            destructiveActionAcknowledged: true,
+          },
+        },
+      },
+      {
+        case: "sessionAdminCommandOutcome",
+        value: {
+          requestId: 13n,
+          commandId: "admin-auto-1",
+          operation: SessionAdminOperation.AUTO_NAME,
+          outcome: { case: "session", value: sessionSummary() },
         },
       },
       {

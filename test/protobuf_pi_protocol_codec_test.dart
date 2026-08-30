@@ -50,6 +50,7 @@ void main() {
           wire.Capability.CAPABILITY_SESSION_EVENTS,
           wire.Capability.CAPABILITY_PROJECT_DISCOVERY,
           wire.Capability.CAPABILITY_PROJECT_TRUST,
+          wire.Capability.CAPABILITY_SESSION_ADMIN,
         ]),
       );
 
@@ -91,6 +92,54 @@ void main() {
           ),
         ),
       );
+      final rename = wire.decodeTransportFrame(
+        codec.encode(
+          PiProtocolRenameSessionCommandRequest(
+            requestId: 6,
+            commandId: 'admin-rename',
+            projectId: 'project-1',
+            sessionId: 'session-1',
+            name: 'Renamed session',
+          ),
+        ),
+      );
+      final clearName = wire.decodeTransportFrame(
+        codec.encode(
+          PiProtocolClearSessionNameCommandRequest(
+            requestId: 7,
+            commandId: 'admin-clear',
+            projectId: 'project-1',
+            sessionId: 'session-1',
+          ),
+        ),
+      );
+      final autoName = wire.decodeTransportFrame(
+        codec.encode(
+          PiProtocolAutoNameSessionCommandRequest(
+            requestId: 8,
+            commandId: 'admin-auto',
+            projectId: 'project-1',
+            sessionId: 'session-1',
+            timeoutMillis: 15000,
+          ),
+        ),
+      );
+      final delete = wire.decodeTransportFrame(
+        codec.encode(
+          PiProtocolDeleteSessionCommandRequest(
+            requestId: 9,
+            commandId: 'admin-delete',
+            projectId: 'project-1',
+            sessionId: 'session-1',
+            confirmation: PiProtocolDeleteSessionConfirmationEvidence(
+              sessionId: 'session-1',
+              adminRevision: 'revision-session-1',
+              displayedTitle: 'Session title',
+              destructiveActionAcknowledged: true,
+            ),
+          ),
+        ),
+      );
 
       expect(
         list.whichOperation(),
@@ -118,6 +167,16 @@ void main() {
         wire.PiTransportFrame_Operation.abortCommand,
       );
       expect(abort.abortCommand.commandId, 'command-2');
+      expect(rename.renameSessionCommand.name, 'Renamed session');
+      expect(
+        clearName.whichOperation(),
+        wire.PiTransportFrame_Operation.clearSessionNameCommand,
+      );
+      expect(autoName.autoNameSessionCommand.timeoutMillis, 15000);
+      expect(
+        delete.deleteSessionCommand.confirmation.adminRevision,
+        'revision-session-1',
+      );
       expect(
         <int>[
           handshake.frameSequence.toInt(),
@@ -126,8 +185,12 @@ void main() {
           create.frameSequence.toInt(),
           prompt.frameSequence.toInt(),
           abort.frameSequence.toInt(),
+          rename.frameSequence.toInt(),
+          clearName.frameSequence.toInt(),
+          autoName.frameSequence.toInt(),
+          delete.frameSequence.toInt(),
         ],
-        <int>[1, 2, 3, 4, 5, 6],
+        <int>[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
       );
     });
 
@@ -389,6 +452,25 @@ void main() {
               )
               as PiProtocolCommandRejectedMessage;
       expect(commandRejected.failure.code, 'conflict');
+
+      final adminOutcome =
+          codec.decode(
+                server.encode(
+                  wire.PiTransportFrame(
+                    sessionAdminCommandOutcome: wire.SessionAdminCommandOutcome(
+                      requestId: Int64(8),
+                      commandId: 'admin-auto',
+                      operation: wire
+                          .SessionAdminOperation
+                          .SESSION_ADMIN_OPERATION_AUTO_NAME,
+                      session: _summary('session-admin'),
+                    ),
+                  ),
+                ),
+              )
+              as PiProtocolSessionAdminOutcomeMessage;
+      expect(adminOutcome.operation, PiProtocolSessionAdminOperation.autoName);
+      expect(adminOutcome.outcome, isA<PiProtocolSessionAdminUpdated>());
     });
 
     test('maps correlated error envelopes to command uncertainty', () {
@@ -652,6 +734,8 @@ wire.SessionSummarySnapshot _summary(String id) => wire.SessionSummarySnapshot(
   updatedAtUnixMillis: Int64(1767268860000),
   isRunning: false,
   hasUnread: false,
+  adminRevision: 'revision-$id-1',
+  hasCustomName: true,
 );
 
 wire.SessionDetailSnapshot _detail(String id) => wire.SessionDetailSnapshot(

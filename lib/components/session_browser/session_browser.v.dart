@@ -10,6 +10,12 @@ class SessionBrowserView extends StatefulWidget {
     this.onRetry,
     this.onRefresh,
     this.onCreateSession,
+    this.onRenameSession,
+    this.onClearSessionName,
+    this.onAutoNameSession,
+    this.onDeleteSessionConfirmed,
+    this.sessionActionInProgressId,
+    this.sessionActionInProgressOperation,
     this.title = 'Sessions',
     super.key,
   });
@@ -22,6 +28,12 @@ class SessionBrowserView extends StatefulWidget {
   final VoidCallback? onRetry;
   final VoidCallback? onRefresh;
   final VoidCallback? onCreateSession;
+  final void Function(PiSessionSummary session, String name)? onRenameSession;
+  final ValueChanged<PiSessionSummary>? onClearSessionName;
+  final ValueChanged<PiSessionSummary>? onAutoNameSession;
+  final ValueChanged<PiDeleteSessionConfirmation>? onDeleteSessionConfirmed;
+  final PiSessionId? sessionActionInProgressId;
+  final PiSessionAdminOperation? sessionActionInProgressOperation;
   final String title;
 
   @override
@@ -32,6 +44,17 @@ class _SessionBrowserViewState extends State<SessionBrowserView> {
   final TextEditingController _filterController = TextEditingController();
   final FocusNode _listFocusNode = FocusNode(debugLabel: 'session browser');
   int _keyboardIndex = -1;
+  PiSessionId? _deleteConfirmationSessionId;
+
+  @override
+  void didUpdateWidget(covariant SessionBrowserView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final confirmationId = _deleteConfirmationSessionId;
+    if (confirmationId != null &&
+        !widget.sessions.any((session) => session.id == confirmationId)) {
+      _deleteConfirmationSessionId = null;
+    }
+  }
 
   @override
   void dispose() {
@@ -85,6 +108,32 @@ class _SessionBrowserViewState extends State<SessionBrowserView> {
     _listFocusNode.requestFocus();
     setState(() => _keyboardIndex = index);
     widget.onSessionSelected(session.id);
+  }
+
+  Future<void> _showRenameDialog(PiSessionSummary session) async {
+    final name = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => _SessionRenameDialog(
+        initialName: session.hasCustomName ? session.title : '',
+      ),
+    );
+    if (!mounted || name == null || name.trim().isEmpty) return;
+    widget.onRenameSession?.call(session, name.trim());
+  }
+
+  void _requestDelete(PiSessionSummary session) {
+    setState(() => _deleteConfirmationSessionId = session.id);
+  }
+
+  void _cancelDelete() {
+    setState(() => _deleteConfirmationSessionId = null);
+  }
+
+  void _confirmDelete(PiSessionSummary session) {
+    setState(() => _deleteConfirmationSessionId = null);
+    widget.onDeleteSessionConfirmed?.call(
+      PiDeleteSessionConfirmation.confirmed(session),
+    );
   }
 
   @override
@@ -249,11 +298,41 @@ class _SessionBrowserViewState extends State<SessionBrowserView> {
               itemCount: sessions.length,
               itemBuilder: (context, index) {
                 final session = sessions[index];
-                return _SessionTile(
+                final busy = widget.sessionActionInProgressId == session.id;
+                return Column(
                   key: ValueKey<PiSessionId>(session.id),
-                  session: session,
-                  selected: session.id == widget.selectedSessionId,
-                  onTap: () => _select(session, index),
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _SessionTile(
+                      session: session,
+                      selected: session.id == widget.selectedSessionId,
+                      busy: busy,
+                      busyOperation: busy
+                          ? widget.sessionActionInProgressOperation
+                          : null,
+                      onTap: () => _select(session, index),
+                      onRename: widget.onRenameSession == null
+                          ? null
+                          : () => _showRenameDialog(session),
+                      onClearName:
+                          widget.onClearSessionName == null ||
+                              !session.hasCustomName
+                          ? null
+                          : () => widget.onClearSessionName!(session),
+                      onAutoName: widget.onAutoNameSession == null
+                          ? null
+                          : () => widget.onAutoNameSession!(session),
+                      onDelete: widget.onDeleteSessionConfirmed == null
+                          ? null
+                          : () => _requestDelete(session),
+                    ),
+                    if (_deleteConfirmationSessionId == session.id)
+                      _SessionDeleteConfirmation(
+                        session: session,
+                        onCancel: _cancelDelete,
+                        onConfirm: () => _confirmDelete(session),
+                      ),
+                  ],
                 );
               },
             ),
@@ -264,17 +343,91 @@ class _SessionBrowserViewState extends State<SessionBrowserView> {
   }
 }
 
+class _SessionRenameDialog extends StatefulWidget {
+  const _SessionRenameDialog({required this.initialName});
+
+  final String initialName;
+
+  @override
+  State<_SessionRenameDialog> createState() => _SessionRenameDialogState();
+}
+
+class _SessionRenameDialogState extends State<_SessionRenameDialog> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initialName,
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final value = _controller.text.trim();
+    if (value.isNotEmpty) Navigator.of(context).pop(value);
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    key: const Key('sessionRenameDialog'),
+    title: const Text('Rename session'),
+    content: TextField(
+      key: const Key('sessionRenameField'),
+      controller: _controller,
+      autofocus: true,
+      maxLength: 120,
+      textInputAction: TextInputAction.done,
+      decoration: const InputDecoration(
+        labelText: 'Custom session name',
+        hintText: 'Describe this session',
+      ),
+      onSubmitted: (_) => _submit(),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.of(context).pop(),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        key: const Key('sessionRenameSaveButton'),
+        onPressed: _submit,
+        child: const Text('Save name'),
+      ),
+    ],
+  );
+}
+
+enum _SessionAction { rename, clearName, autoName, delete }
+
 class _SessionTile extends StatelessWidget {
   const _SessionTile({
     required this.session,
     required this.selected,
+    required this.busy,
     required this.onTap,
-    super.key,
+    this.busyOperation,
+    this.onRename,
+    this.onClearName,
+    this.onAutoName,
+    this.onDelete,
   });
 
   final PiSessionSummary session;
   final bool selected;
+  final bool busy;
+  final PiSessionAdminOperation? busyOperation;
   final VoidCallback onTap;
+  final VoidCallback? onRename;
+  final VoidCallback? onClearName;
+  final VoidCallback? onAutoName;
+  final VoidCallback? onDelete;
+
+  bool get _hasActions =>
+      onRename != null ||
+      onClearName != null ||
+      onAutoName != null ||
+      onDelete != null;
 
   @override
   Widget build(BuildContext context) {
@@ -325,22 +478,172 @@ class _SessionTile extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        trailing: session.hasUnread
-            ? Semantics(
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (session.hasUnread)
+              Semantics(
                 label: 'Unread activity',
                 child: Icon(
                   Icons.circle,
                   size: 10,
                   color: Theme.of(context).colorScheme.primary,
                 ),
+              ),
+            if (busy)
+              Semantics(
+                key: ValueKey<String>(
+                  'sessionActionProgress-${session.id.value}',
+                ),
+                liveRegion: true,
+                label: 'Session ${busyOperation?.name ?? 'action'} in progress',
+                child: const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
               )
-            : Tooltip(
+            else if (_hasActions)
+              PopupMenuButton<_SessionAction>(
+                key: ValueKey<String>('sessionActions-${session.id.value}'),
+                tooltip: 'Session actions for ${session.title}',
+                onSelected: (action) {
+                  switch (action) {
+                    case _SessionAction.rename:
+                      onRename?.call();
+                    case _SessionAction.clearName:
+                      onClearName?.call();
+                    case _SessionAction.autoName:
+                      onAutoName?.call();
+                    case _SessionAction.delete:
+                      onDelete?.call();
+                  }
+                },
+                itemBuilder: (context) => [
+                  if (onRename != null)
+                    const PopupMenuItem(
+                      value: _SessionAction.rename,
+                      child: ListTile(
+                        leading: Icon(Icons.drive_file_rename_outline_rounded),
+                        title: Text('Rename'),
+                      ),
+                    ),
+                  if (onClearName != null)
+                    const PopupMenuItem(
+                      value: _SessionAction.clearName,
+                      child: ListTile(
+                        leading: Icon(Icons.backspace_outlined),
+                        title: Text('Clear custom name'),
+                      ),
+                    ),
+                  if (onAutoName != null)
+                    const PopupMenuItem(
+                      value: _SessionAction.autoName,
+                      child: ListTile(
+                        leading: Icon(Icons.auto_awesome_outlined),
+                        title: Text('Generate name'),
+                      ),
+                    ),
+                  if (onDelete != null)
+                    PopupMenuItem(
+                      value: _SessionAction.delete,
+                      child: ListTile(
+                        leading: Icon(
+                          Icons.delete_outline_rounded,
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                        title: Text(
+                          'Delete',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              )
+            else
+              Tooltip(
                 message: 'Updated $modified',
                 child: const Icon(Icons.chevron_right_rounded, size: 18),
               ),
+          ],
+        ),
       ),
     );
   }
+}
+
+class _SessionDeleteConfirmation extends StatelessWidget {
+  const _SessionDeleteConfirmation({
+    required this.session,
+    required this.onCancel,
+    required this.onConfirm,
+  });
+
+  final PiSessionSummary session;
+  final VoidCallback onCancel;
+  final VoidCallback onConfirm;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    key: ValueKey<String>(
+      'sessionDeleteConfirmationSemantics-${session.id.value}',
+    ),
+    container: true,
+    liveRegion: true,
+    label: 'Confirm deletion of ${session.title}',
+    child: Container(
+      key: ValueKey<String>('sessionDeleteConfirmation-${session.id.value}'),
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.errorContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Delete “${session.title}”?',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: Theme.of(context).colorScheme.onErrorContainer,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'The session file will be removed. Child sessions are reparented; projects, worktrees, and branches are not deleted.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onErrorContainer,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 8,
+            children: [
+              TextButton(
+                key: const Key('sessionDeleteCancelButton'),
+                onPressed: onCancel,
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                key: const Key('sessionDeleteConfirmButton'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                  foregroundColor: Theme.of(context).colorScheme.onError,
+                ),
+                onPressed: onConfirm,
+                child: const Text('Delete session'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _SessionBrowserState extends StatelessWidget {

@@ -5,6 +5,8 @@ import type {
   PiNodeProjectBootstrap,
   PiNodeProjectSnapshot,
   PiNodePromptAdmission,
+  PiNodeSessionDeleteConfirmation,
+  PiNodeSessionDeleteResult,
   PiNodeSessionEvent,
   PiNodeSessionEventListener,
   PiNodeSessionSnapshot,
@@ -39,6 +41,26 @@ export interface PiNodeProtocolDomain {
     readonly text: string;
   }): Promise<PiNodePromptAdmission>;
   abort(input: { readonly sessionId: string }): Promise<PiNodeAbortResult>;
+  renameSession(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+    readonly name: string;
+  }): Promise<PiNodeSessionSummary>;
+  clearSessionName(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+  }): Promise<PiNodeSessionSummary>;
+  autoNameSession(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+    readonly timeoutMillis: number;
+    readonly signal?: AbortSignal;
+  }): Promise<PiNodeSessionSummary>;
+  deleteSession(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+    readonly confirmation: PiNodeSessionDeleteConfirmation;
+  }): Promise<PiNodeSessionDeleteResult>;
 }
 
 /** Keeps the Protobuf wire coordinator dependent on a narrow Pi Client-owned port. */
@@ -105,5 +127,37 @@ export class PiNodeDomainServiceProtocolAdapter implements PiNodeProtocolDomain 
 
   abort(input: { readonly sessionId: string }): Promise<PiNodeAbortResult> {
     return this.domainService.abortActiveRun(input);
+  }
+
+  renameSession(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+    readonly name: string;
+  }): Promise<PiNodeSessionSummary> {
+    return this.domainService.renamePersistentSession(input);
+  }
+
+  clearSessionName(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+  }): Promise<PiNodeSessionSummary> {
+    return this.domainService.clearPersistentSessionName(input);
+  }
+
+  autoNameSession(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+    readonly timeoutMillis: number;
+    readonly signal?: AbortSignal;
+  }): Promise<PiNodeSessionSummary> {
+    return this.domainService.autoNamePersistentSession(input);
+  }
+
+  deleteSession(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+    readonly confirmation: PiNodeSessionDeleteConfirmation;
+  }): Promise<PiNodeSessionDeleteResult> {
+    return this.domainService.deletePersistentSession(input);
   }
 }

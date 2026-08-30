@@ -17,6 +17,7 @@ const _expectedCapabilities = <PiProtocolCapability>{
   PiProtocolCapability.sessionEvents,
   PiProtocolCapability.projectDiscovery,
   PiProtocolCapability.projectTrust,
+  PiProtocolCapability.sessionAdmin,
 };
 
 void main() {
@@ -244,6 +245,47 @@ void main() {
           PiCreateSessionRequest(projectId: projectId),
         );
         expect(created.summary.id, PiSessionId('fixture-created-1'));
+
+        final renamed = await harness.client.renameSession(
+          PiRenameSessionCommand(
+            commandId: PiCommandId('fixture-admin-rename'),
+            projectId: projectId,
+            sessionId: created.summary.id,
+            name: 'Renamed fixture session',
+          ),
+        );
+        expect(renamed, isA<PiSessionAdminUpdated>());
+        expect(
+          (renamed as PiSessionAdminUpdated).session.title,
+          'Renamed fixture session',
+        );
+        final cleared = await harness.client.clearSessionName(
+          PiClearSessionNameCommand(
+            commandId: PiCommandId('fixture-admin-clear'),
+            projectId: projectId,
+            sessionId: created.summary.id,
+          ),
+        );
+        expect(cleared, isA<PiSessionAdminUpdated>());
+        final autoNamed = await harness.client.autoNameSession(
+          PiAutoNameSessionCommand(
+            commandId: PiCommandId('fixture-admin-auto'),
+            projectId: projectId,
+            sessionId: created.summary.id,
+          ),
+        );
+        expect(autoNamed, isA<PiSessionAdminUpdated>());
+        final autoSummary = (autoNamed as PiSessionAdminUpdated).session;
+        expect(autoSummary.title, 'Generated fixture title');
+        final deleted = await harness.client.deleteSession(
+          PiDeleteSessionCommand(
+            commandId: PiCommandId('fixture-admin-delete'),
+            projectId: projectId,
+            sessionId: created.summary.id,
+            confirmation: PiDeleteSessionConfirmation.confirmed(autoSummary),
+          ),
+        );
+        expect(deleted, isA<PiSessionAdminDeleted>());
 
         final rejected = await harness.client.prompt(
           PiPromptCommand(
