@@ -1,0 +1,48 @@
+{
+  "name": "@pi-client/node",
+  "version": "0.1.0-dev.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.0",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "runtime:check": "node ./scripts/assert-runtime.mjs",
+    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\" \"scripts/**/*.mjs\" \"*.json\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\" \"scripts/**/*.mjs\" \"*.json\"",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json",
+    "smoke:dist": "node ./scripts/smoke-dist.mjs",
+    "test": "bun run test:node",
+    "test:node": "node ./scripts/run-tests.mjs",
+    "scan:forbidden": "node ./scripts/scan-forbidden.mjs",
+    "check": "bun run runtime:check && bun run format:check && bun run typecheck && bun run build && bun run smoke:dist && bun run test:node && bun run scan:forbidden"
+  },
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "0.84.3"
+  },
+  "overrides": {
+    "@earendil-works/pi-agent-core": "0.84.3",
+    "@earendil-works/pi-ai": "0.84.3",
+    "@earendil-works/pi-client": "0.84.3",
+    "@earendil-works/pi-protocol": "0.84.3",
+    "@earendil-works/pi-telemetry": "0.84.3",
+    "@earendil-works/pi-tui": "0.84.3"
+  },
+  "devDependencies": {
+    "@types/node": "22.19.19",
+    "prettier": "3.6.2",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3"
+  }
+}
