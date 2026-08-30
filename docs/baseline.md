@@ -28,18 +28,18 @@ Default review level: L6.
 - Status: Active
 - Review level: L9
 - Pi Client presentation and transport code must not read or rewrite Pi runtime directories directly.
-- On an Agent-host-capable desktop, a first-party host integration owns Pi SDK lifecycle, sessions, tools, project trust, and host filesystem access behind the versioned Pi transport boundary.
-- Connect-only clients consume that transport and must not execute host operations locally.
-- `PiWebGateway` remains a legacy MVP adapter only; new product behavior must not add a runtime or build dependency on pi-web.
+- The current desktop source routes Workspace behavior through the app-owned `PiNodeApi`, a first-party Protobuf transport, and a first-party Pi Node that owns reviewed Pi SDK lifecycle, sessions, tools, project trust, and host operations.
+- Connect-only clients consume a Pi Node transport and must not execute host operations locally.
+- Current source contains no `PiWebGateway`, pi-web HTTP/SSE runtime, or pi-web smoke tool. The immutable public `v0.0.2` Preview remains historical compatibility evidence only and is not a current-source adapter or an independent-release claim.
 
 ## BASE-PI-002 - Credential and payload handling
 
 - Status: Active
 - Review level: L6
-- For the legacy `v0.0.2` adapter, the optional Basic Auth password exists only in private ViewModel/service memory for the current page lifecycle.
-- The legacy password must not enter route state, `WorkspaceModel`, JSON generation, URL user-info, repository files, screenshots, or logs.
-- Request/response headers and bodies remain disabled in Dio logging because they can contain credentials, prompts, messages, tool output, and project data.
-- First-party provider, Node, and Friday credentials remain owned by their accepted secure boundaries and must not be copied into Flutter serializable state or Relay payload logs.
+- Current source has no pi-web URL/password configuration and no Dio HTTP/SSE client or interceptor path. The historical `v0.0.2` Basic Auth handling remains release-scoped evidence and must not be reintroduced into first-party runtime state.
+- Flutter serializable state must not contain reusable provider, Node, or Friday credentials. First-party Provider credentials remain Pi Node-owned when provider flows are implemented.
+- Local Direct reserves stdout for bounded binary protocol frames; transport stderr is drained without decoding or application logging, and Pi Node diagnostics emit only stable redacted codes.
+- Prompts, messages, tool output, project paths, credentials, and raw provider failures must not enter transport diagnostics, Relay payload logs, screenshots, or generated public evidence.
 
 ## BASE-PI-003 - Contract and state ownership
 
@@ -64,20 +64,20 @@ Default review level: L6.
 
 - Status: Active
 - Review level: L6
-- Evidence for the legacy MVP adapter and the bounded completeness snapshot remains pinned to `agegr/pi-web` commit `28bab3c25f5f6770c9b0b745ebbfec1c27f7b948` (`v0.8.11`, MIT).
-- The legacy adapter remains release-scoped to `v0.0.2`; new product behavior must not extend its HTTP/SSE compatibility surface.
+- Historical `v0.0.2` compatibility evidence and the bounded completeness snapshot remain pinned to `agegr/pi-web` commit `28bab3c25f5f6770c9b0b745ebbfec1c27f7b948` (`v0.8.11`, MIT).
+- The current source tree has removed the legacy gateway, its URL/password UI, Dio HTTP/SSE runtime, compatibility tests, and smoke tool. Published `v0.0.2` artifacts and their evidence remain immutable historical facts.
 - Pi-web is not the target runtime, semantic requirement authority, protocol authority, or cross-platform host. No platform may copy its implementation or promote routes, schemas, events, or internal types into first-party contracts.
-- Any maintenance of the legacy adapter requires focused compatibility tests; removal requires the migration and release notes required by `DEC-012` and `DEC-016`.
+- Post-`v0.0.2` work uses the project-owned Pi Node domain, typed `PiNodeApi`, and unpublished first-party protocol; this source cutover does not by itself prove a packaged or published independent release.
 - Pi-web branding, screenshots, icons, substantial implementation, and deployment artifacts are not treated as Pi Client-owned assets.
 
 ## BASE-PI-006 - Platform execution roles
 
 - Status: Active
 - Review level: L9
-- macOS, Windows, and Linux are Agent-host-capable clients: they may connect to another host or use a future first-party integration to run Pi SDK and host an Agent.
-- Android, iOS, and Web are remote-client-only: they may connect to an Agent host but must not embed Pi SDK, launch an Agent runtime, expose host tools, or claim host filesystem authority.
+- macOS, Windows, and Linux are Agent-host-capable clients. Current source provides their shared lazy local-process composition through an app-owned `PiNodeApi`, desktop host controller, stdio Local Direct transport, and first-party Pi Node entrypoint.
+- Android, iOS, and Web are remote-client-only: they must not embed Pi SDK, launch an Agent runtime, expose host tools, or claim host filesystem authority. Until a remote transport is configured, current composition fails explicitly instead of acquiring local host authority.
 - `PlatformCapabilities` is the application-wide code authority for this role mapping; feature code must not duplicate ad hoc platform checks.
-- Agent-host capability does not prove that the Pi SDK runtime is implemented or available in the current release.
+- A reproducible host-targeted runtime Capsule builder exists, but Agent-host capability and source composition do not prove that a Capsule is bundled into every desktop app, that Windows/Linux packages are qualified, or that an independent public release exists.
 
 ## BASE-PI-007 - Preview distribution and product-site integrity
 

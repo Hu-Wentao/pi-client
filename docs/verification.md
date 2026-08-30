@@ -78,11 +78,18 @@ mdq:
 
 ## VER-PI-007 - Local Direct, Pi Node, and transport conformance runtime
 
-- Status: PLANNED
+- Status: PARTIAL
 - Requirements: REQ-PI-006, REQ-PI-009, REQ-PI-013
-- Owner: future pi-client, Pi Protocol, and Pi Node integration/conformance suite
-- Planned evidence: Run accepted Pi behavior fixtures through Local Direct and the unified transport contract while Friday Relay and pi-web are unavailable; verify handshake, command admission, ordered streams, cancellation, limits, Node restart, and incompatible versions.
-- Gap: Pi Node, the versioned Pi protocol, Local Direct transport, desktop host controller, and runtime conformance fixtures are not implemented in this repository.
+- Owner: `protocol/`, `node/`, `lib/api/pi_node/`, `lib/protocol/`, `lib/transport/`, `lib/platform/agent_host/`, `test/pi_node_*`, `test/local_direct_pi_transport_test.dart`, `test/protobuf_pi_protocol_codec_test.dart`, and `tool/run_pi_node_cross_process_e2e.mjs`
+- Source identity: The scoped source evidence is `c10178c930a7176711ae66a9f00736be8e14ef1c`; it is not a published independent release identity.
+- Protocol evidence: Private `@pi-client/protocol 0.1.0-dev.0` defines an unpublished Protobuf v0 envelope, exact `0.1.0` negotiation, stable typed session operations/events, frame and transfer limits, Dart/TypeScript codecs, generated no-diff checks, and cross-language binary vectors including unknown-field, unknown-operation, unknown-enum, and full-range `uint64` cases.
+- Node evidence: First-party Pi Node source imports reviewed public Pi SDK package entry points, gates project resources through `ProjectTrustCoordinator`, owns persistent session list/create/load, prompt/abort admission and ordered events, serves bounded length-prefixed Protobuf over stdio, separates protocol stdout from redacted stderr, and has focused lifecycle/domain/protocol/trust tests.
+- Flutter evidence: `PiNodeApi`, `PiNodeClient`, `ProtobufPiProtocolCodec`, stdio `LocalDirectPiTransport`, desktop `PiNodeHostController`, and app-owned provider composition exist; Workspace has cut over to typed first-party list/load/create/prompt/abort/session-event behavior with stale-load and sequence-gap recovery tests.
+- Cross-process evidence: The built production Node passes offline public-SDK handshake, session list/create/get, missing-session error, and production Workspace creation. A built fixture proves accepted/rejected/uncertain commands, abort, ordered session events, split/coalesced framing, 512 KiB stderr pressure, incompatible-version rejection, process-exit uncertainty, and idempotent close.
+- Capsule evidence: The repository contains a reproducible host-targeted runtime Capsule builder and verifier for pinned Node, Pi Node, Protocol, Pi SDK, manifests, checksums, read-only payloads, and forbidden artifacts; the Capsule is not yet integrated into an application release.
+- Absence evidence: Current tracked source contains no `PiWebGateway`, `PiWebApi`, pi-web URL/password path, Dio HTTP/SSE runtime, gateway compatibility test, or `tool/pi_web_smoke.dart`. Immutable `v0.0.2` historical evidence remains owned by `VER-PI-001` through `VER-PI-003`.
+- Gaps: Protocol v0 remains unpublished and lacks production authentication/pairing, LAN and Friday transports, reconnect/replay completion, and a frozen v1 policy. A real provider-backed production prompt/abort, protected-project trust-decision UX, Node crash restart/session recovery, Capsule bundling on supported desktops, artifact-level pi-web absence, and a public independent release are not yet evidenced.
+- Lifecycle decision: `REQ-PI-006`, `REQ-PI-009`, and `REQ-PI-013` remain Planned because their complete Direct/remote equivalence, authorization, restart, packaging, operational, and release acceptance clauses are not satisfied.
 
 ## VER-PI-008 - Friday Workspace and private tunnel runtime
 
@@ -146,7 +153,7 @@ mdq:
 - Requirements: REQ-PI-014, REQ-PI-015, REQ-PI-016, REQ-PI-030
 - Owner: future Pi Node integration, Flutter ViewModel/Widget tests, deep-tree fixtures, and desktop E2E
 - Planned evidence: Verify project selection/trust, workspace restore, session lifecycle, running/unread state, pagination, branches, edit-from-here, independent sessions, exports, destructive recovery, and existing child-session visibility.
-- Gap: First-party project/session services and replacement Flutter modules are not implemented.
+- Gap: `VER-PI-007` proves the basic first-party session list/create/load foundation and Workspace cutover only. Project selection and trust UX, restore, naming, deletion, export, pagination, branch/fork behavior, child-session presentation, and the full P3 module split remain unimplemented or unevidenced.
 
 ## VER-PI-016 - Agent, composer, shell, and rich conversation behavior
 
@@ -154,7 +161,7 @@ mdq:
 - Requirements: REQ-PI-017, REQ-PI-018, REQ-PI-019, REQ-PI-020
 - Owner: future protocol fixtures, Pi Node runtime integration, focused Flutter concurrency/Widget tests, Golden tests, and desktop E2E
 - Planned evidence: Verify command admission, streaming order, retry, compaction, queue, drafts, attachments, commands, mentions, shell, rich renderers, deferred/oversized content, disconnect recovery, and stale-event rejection.
-- Gap: First-party Agent event model, composer modules, desktop shell service, and rich rendering stack are not implemented.
+- Gap: `VER-PI-007` proves basic typed prompt/abort admission, ordered session events, optimistic Workspace state, and sequence-gap recovery only. Retry, compaction, reload/steer/follow-up queues, full composer inputs, desktop shell, rich rendering, provider-backed production turns, and the complete P4 recovery matrix remain unimplemented or unevidenced.
 
 ## VER-PI-017 - File, Git, and worktree behavior
 
@@ -194,7 +201,7 @@ mdq:
 - Requirements: REQ-PI-033
 - Owner: future protocol and Pi Node adversarial suites, credential scans, transport tests, artifact scans, and operational review
 - Planned evidence: Reject unauthorized roots, traversal, symbolic-link escape, wrong Node, stale/replayed grants, secret logging, oversized frames/uploads, unbounded streams, and unconfirmed destructive operations.
-- Gap: The first-party authorization, pairing, path, stream-limit, and secret-storage implementations do not exist yet.
+- Gap: `VER-PI-007` proves a fail-closed project-trust coordinator, bounded Protobuf frames, and redacted stdio diagnostics only. User trust decisions, allowed-root and symbolic-link enforcement for host services, Node pairing, scoped grants, replay protection, production stream/backpressure limits, provider secret storage, artifact scans, and adversarial operational evidence remain incomplete.
 
 ## VER-PI-022 - 1.0 completeness and release audit
 
@@ -202,4 +209,4 @@ mdq:
 - Requirements: REQ-PI-005, REQ-PI-034
 - Owner: final requirement status review, benchmark-to-requirement audit, release manifest verification, installation matrix, and production operational acceptance
 - Planned evidence: Prove every Must requirement is Active with complete clauses, every benchmark record has a final disposition, all release identities and artifacts are immutable and verified, and no pi-web dependency or unsupported host runtime remains.
-- Gap: P1 through P11 are not implemented; this audit cannot pass from documentation or partial platform builds alone.
+- Gap: P0 governance is complete and P1/P2 source implementation is substantially complete as scoped by `VER-PI-007`, but their full acceptance and independent release evidence remain incomplete. P3 through P11 are not complete, so this audit cannot pass from documentation, source foundations, or partial platform builds alone.
