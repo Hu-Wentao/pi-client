@@ -1,20 +1,26 @@
-name: Release unsigned macOS preview
+name: Release independent unsigned macOS preview
 
 on:
   workflow_dispatch:
 
 permissions:
   contents: write
-  actions: write
 
 concurrency:
-  group: release-macos
+  group: release-independent-macos-preview
   cancel-in-progress: false
+
+env:
+  BUN_VERSION: 1.4.0
+  DART_VERSION: 3.11.4
+  FLUTTER_VERSION: 3.41.6
+  FVM_VERSION: 4.0.5
+  NODE_VERSION: 22.19.0
 
 jobs:
   release:
     runs-on: macos-15
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - name: Require the main branch
         env:
@@ -30,9 +36,19 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Resolve release metadata
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Set up Bun ${{ env.BUN_VERSION }}
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Resolve independent preview metadata
         id: metadata
-        run: node tool/release_metadata.mjs --github-output "$GITHUB_OUTPUT"
+        run: node .github/scripts/release-independent-macos-preview-metadata.mjs --github-output "$GITHUB_OUTPUT"
 
       - name: Reject existing release identity
         env:
@@ -52,26 +68,27 @@ jobs:
             exit 1
           fi
 
-      - name: Set up Dart 3.11.4
+      - name: Set up Dart ${{ env.DART_VERSION }}
         uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1
         with:
-          sdk: 3.11.4
+          sdk: ${{ env.DART_VERSION }}
 
       - name: Cache Flutter SDK
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
-          path: ~/fvm/versions/3.41.6
-          key: macos-fvm-flutter-3.41.6
+          path: ~/fvm/versions/${{ env.FLUTTER_VERSION }}
+          key: macos-fvm-flutter-${{ env.FLUTTER_VERSION }}
 
-      - name: Install FVM 4.0.5 and Flutter 3.41.6
+      - name: Install FVM and Flutter
         run: |
-          dart pub global activate fvm 4.0.5
+          dart pub global activate fvm "$FVM_VERSION"
           echo "$HOME/.pub-cache/bin" >> "$GITHUB_PATH"
-          "$HOME/.pub-cache/bin/fvm" install 3.41.6
-          "$HOME/.pub-cache/bin/fvm" use 3.41.6 --force
+          "$HOME/.pub-cache/bin/fvm" install "$FLUTTER_VERSION"
+          "$HOME/.pub-cache/bin/fvm" use "$FLUTTER_VERSION" --force
+          "$HOME/.pub-cache/bin/fvm" flutter config --enable-macos-desktop
 
-      - name: Resolve Flutter dependencies
-        run: fvm flutter pub get
+      - name: Resolve locked Flutter dependencies
+        run: fvm flutter pub get --enforce-lockfile
 
       - name: Verify generated Dart sources
         run: |
@@ -84,13 +101,28 @@ jobs:
       - name: Analyze and test Flutter source
         run: |
           fvm dart format --output=none --set-exit-if-changed lib test tool
-          fvm flutter analyze
-          fvm flutter test
+          fvm flutter analyze --no-pub
+          fvm flutter test --no-pub
 
-      - name: Build Debug app
-        run: fvm flutter build macos --debug
+      - name: Install locked Protocol dependencies and check package
+        working-directory: protocol
+        run: |
+          bun install --frozen-lockfile
+          bun run check
 
-      - name: Configure unsigned preview Release build
+      - name: Install locked Pi Node dependencies and check package
+        working-directory: node
+        run: |
+          bun install --frozen-lockfile
+          bun run check
+
+      - name: Build and verify the explicit host-targeted runtime capsule
+        working-directory: node
+        env:
+          CAPSULE_TARGET: ${{ steps.metadata.outputs.capsuleTarget }}
+        run: bun run capsule:build --target "$CAPSULE_TARGET"
+
+      - name: Configure unsigned independent Release build
         env:
           VERSION: ${{ steps.metadata.outputs.version }}
           BUILD_NUMBER: ${{ steps.metadata.outputs.buildNumber }}
@@ -100,10 +132,13 @@ jobs:
             --config-only \
             --build-name "$VERSION" \
             --build-number "$BUILD_NUMBER" \
-            --dart-define=PI_CLIENT_DISTRIBUTION_CHANNEL=unsigned-preview
+            --dart-define=PI_CLIENT_DISTRIBUTION_CHANNEL=unsigned-preview \
+            --dart-define=PI_CLIENT_RUNTIME_CAPSULE_SOURCE_COMMIT="$GITHUB_SHA"
 
-      - name: Build unsigned Universal app
+      - name: Build unsigned architecture-matched app with bundled capsule
         env:
+          APP_ARCHITECTURE: ${{ steps.metadata.outputs.appArchitecture }}
+          CAPSULE_DIRECTORY: ${{ steps.metadata.outputs.capsuleDirectory }}
           DERIVED_DATA: ${{ runner.temp }}/pi-client-derived-data
         run: |
           set -o pipefail
@@ -112,19 +147,21 @@ jobs:
             -scheme Runner \
             -configuration Release \
             -derivedDataPath "$DERIVED_DATA" \
-            -arch arm64 \
-            -arch x86_64 \
-            ONLY_ACTIVE_ARCH=NO \
+            -arch "$APP_ARCHITECTURE" \
+            ONLY_ACTIVE_ARCH=YES \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
+            PI_CLIENT_RUNTIME_CAPSULE_PATH="$GITHUB_WORKSPACE/$CAPSULE_DIRECTORY" \
+            PI_CLIENT_RUNTIME_CAPSULE_EXPECTED_SOURCE_COMMIT="$GITHUB_SHA" \
             build | tee "$RUNNER_TEMP/xcodebuild.log"
 
-      - name: Verify app identity and architecture
+      - name: Verify app identity, architecture, entitlements, and capsule
         id: app
         env:
+          APP_ARCHITECTURE: ${{ steps.metadata.outputs.appArchitecture }}
+          BUILD_NUMBER: ${{ steps.metadata.outputs.buildNumber }}
           DERIVED_DATA: ${{ runner.temp }}/pi-client-derived-data
           VERSION: ${{ steps.metadata.outputs.version }}
-          BUILD_NUMBER: ${{ steps.metadata.outputs.buildNumber }}
         run: |
           APP="$DERIVED_DATA/Build/Products/Release/Pi Client.app"
           PLIST="$APP/Contents/Info.plist"
@@ -137,19 +174,22 @@ jobs:
           [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST")" == "$VERSION" ]]
           [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PLIST")" == "$BUILD_NUMBER" ]]
           [[ "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$PLIST")" == '11.0' ]]
-          [[ "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.security.network.client' macos/Runner/Release.entitlements)" == 'true' ]]
+          ! grep -Eq 'app-sandbox|disable-library-validation|allow-unsigned-executable-memory' macos/Runner/Release.entitlements
 
           MACH_O_COUNT=0
           while IFS= read -r -d '' BINARY; do
             if file "$BINARY" | grep -q 'Mach-O'; then
               MACH_O_COUNT=$((MACH_O_COUNT + 1))
               ARCHS="$(lipo -archs "$BINARY")"
-              [[ " $ARCHS " == *" arm64 "* ]]
-              [[ " $ARCHS " == *" x86_64 "* ]]
+              [[ " $ARCHS " == *" $APP_ARCHITECTURE "* ]]
+              [[ "$(wc -w <<<"$ARCHS" | tr -d ' ')" == '1' ]]
             fi
           done < <(find "$APP/Contents" -type f -perm -111 -print0)
           [[ "$MACH_O_COUNT" -gt 0 ]]
 
+          node node/scripts/verify-macos-app-runtime-capsule.mjs \
+            --app "$APP" \
+            --expected-source-commit "$GITHUB_SHA"
           if codesign --verify --deep --strict "$APP" >/dev/null 2>&1; then
             echo 'Expected an unsigned app, but code-sign verification passed.' >&2
             exit 1
@@ -160,26 +200,13 @@ jobs:
           fi
           echo "path=$APP" >> "$GITHUB_OUTPUT"
 
-      - name: Launch unsigned preview without Keychain entitlement errors
+      - name: Launch installed app with system Node removed from PATH
         env:
           APP: ${{ steps.app.outputs.path }}
         run: |
-          LOG="$RUNNER_TEMP/pi-client-launch.log"
-          "$APP/Contents/MacOS/Pi Client" >"$LOG" 2>&1 &
-          PID=$!
-          sleep 8
-          if ! kill -0 "$PID" >/dev/null 2>&1; then
-            cat "$LOG"
-            echo 'Pi Client exited during the unsigned-preview launch check.' >&2
-            exit 1
-          fi
-          kill "$PID"
-          wait "$PID" || true
-          if grep -Eiq -- '-34018|errSecMissingEntitlement|keychain.*entitlement' "$LOG"; then
-            cat "$LOG"
-            echo 'Unsigned preview attempted unavailable Keychain access.' >&2
-            exit 1
-          fi
+          node tool/run_macos_bundled_app_e2e.mjs \
+            --app "$APP" \
+            --expected-source-commit "$GITHUB_SHA"
 
       - name: Package app and checksum
         env:
@@ -206,29 +233,38 @@ jobs:
           git push origin "refs/tags/$TAG"
           [[ "$(git rev-parse "${TAG}^{commit}")" == "$GITHUB_SHA" ]]
 
-      - name: Create draft GitHub Release and upload assets
+      - name: Create draft GitHub prerelease and upload assets
         env:
+          ARCHITECTURE: ${{ steps.metadata.outputs.architecture }}
+          ASSET: ${{ steps.metadata.outputs.asset }}
+          CHECKSUM_ASSET: ${{ steps.metadata.outputs.checksumAsset }}
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.metadata.outputs.tag }}
           VERSION: ${{ steps.metadata.outputs.version }}
-          ASSET: ${{ steps.metadata.outputs.asset }}
-          CHECKSUM_ASSET: ${{ steps.metadata.outputs.checksumAsset }}
         run: |
+          NOTES="$RUNNER_TEMP/release-notes.md"
+          cat > "$NOTES" <<EOF
+          This is the first independent Pi Client preview. It bundles the verified first-party Pi Node runtime capsule and does not require pi-web or a system Node.js installation.
+
+          This ${ARCHITECTURE} app is unsigned and not notarized. Verify the published SHA-256 checksum and expect Gatekeeper to reject ordinary launch until you explicitly approve the app. The unsigned-preview storage directory and public non-secret storage key remain isolated from future signed releases.
+
+          A Universal binary, Developer ID signing, notarization, and DMG packaging remain blocked until both architecture capsules and signed nested-runtime validation are available.
+          EOF
           gh release create "$TAG" \
             "artifacts/$ASSET" \
             "artifacts/$CHECKSUM_ASSET" \
             --verify-tag \
             --draft \
             --prerelease \
-            --title "Pi Client ${VERSION} unsigned macOS preview" \
-            --notes-file ".github/release-notes/${TAG}.md"
+            --title "Pi Client ${VERSION} independent unsigned macOS ${ARCHITECTURE} preview" \
+            --notes-file "$NOTES"
 
-      - name: Verify and publish GitHub Release
+      - name: Verify and publish GitHub prerelease
         env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.metadata.outputs.tag }}
           ASSET: ${{ steps.metadata.outputs.asset }}
           CHECKSUM_ASSET: ${{ steps.metadata.outputs.checksumAsset }}
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.metadata.outputs.tag }}
         run: |
           RELEASE_JSON="$(
             gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" |
@@ -248,8 +284,3 @@ jobs:
             -F draft=false \
             -F prerelease=true >/dev/null
           [[ "$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" --jq '.draft')" == 'false' ]]
-
-      - name: Request Pages deployment
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh workflow run pages.yml --ref main

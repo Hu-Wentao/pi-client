@@ -52,6 +52,34 @@ void main() {
       },
     );
 
+    test('loads bundled process configuration lazily only once', () async {
+      final configuration = PiNodeDesktopProcessConfiguration(
+        nodeExecutable: '/bundle/Contents/Helpers/PiNode/runtime/bin/node',
+        serverArguments: const <String>[
+          '/bundle/Contents/Helpers/PiNode/app/dist/stdio-main.js',
+        ],
+      );
+      final transport = _TrackingTransport();
+      var configurationLoads = 0;
+      final controller = LocalProcessPiNodeHostController.locating(
+        capabilities: PlatformCapabilities.resolve(
+          isWeb: false,
+          targetPlatform: TargetPlatform.macOS,
+        ),
+        configurationLoader: () async {
+          configurationLoads += 1;
+          return configuration;
+        },
+        launcher: (_) async => transport,
+      );
+
+      expect(configurationLoads, 0);
+      expect(await controller.start(), same(transport));
+      expect(await controller.start(), same(transport));
+      expect(configurationLoads, 1);
+      await controller.close();
+    });
+
     for (final entry in <String, PlatformCapabilities>{
       'Android': PlatformCapabilities.resolve(
         isWeb: false,
