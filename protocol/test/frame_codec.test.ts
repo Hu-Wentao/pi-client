@@ -156,14 +156,17 @@ describe("bounded Protobuf frame codec", () => {
           supportedProtocolVersions: [protocolVersion()],
         },
       },
-      { case: "listSessionsRequest", value: { requestId: 1n } },
+      {
+        case: "listSessionsRequest",
+        value: { requestId: 1n, projectId: "project-1" },
+      },
       {
         case: "listSessionsResponse",
         value: { requestId: 2n, sessions: [sessionSummary()] },
       },
       {
         case: "getSessionRequest",
-        value: { requestId: 3n, sessionId: "session-1" },
+        value: { requestId: 3n, sessionId: "session-1", projectId: "project-1" },
       },
       {
         case: "getSessionResponse",
@@ -171,7 +174,7 @@ describe("bounded Protobuf frame codec", () => {
       },
       {
         case: "createSessionRequest",
-        value: { requestId: 5n, workingDirectory: "/tmp/new-project" },
+        value: { requestId: 5n, projectId: "project-1" },
       },
       {
         case: "createSessionResponse",

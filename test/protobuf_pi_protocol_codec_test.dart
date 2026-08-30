@@ -48,23 +48,28 @@ void main() {
           wire.Capability.CAPABILITY_PROMPT_COMMAND,
           wire.Capability.CAPABILITY_ABORT_COMMAND,
           wire.Capability.CAPABILITY_SESSION_EVENTS,
+          wire.Capability.CAPABILITY_PROJECT_DISCOVERY,
+          wire.Capability.CAPABILITY_PROJECT_TRUST,
         ]),
       );
 
       final list = wire.decodeTransportFrame(
-        codec.encode(PiProtocolListSessionsRequest(requestId: 1)),
+        codec.encode(
+          PiProtocolListSessionsRequest(requestId: 1, projectId: 'project-1'),
+        ),
       );
       final get = wire.decodeTransportFrame(
         codec.encode(
-          PiProtocolGetSessionRequest(requestId: 2, sessionId: 'session-1'),
+          PiProtocolGetSessionRequest(
+            requestId: 2,
+            sessionId: 'session-1',
+            projectId: 'project-1',
+          ),
         ),
       );
       final create = wire.decodeTransportFrame(
         codec.encode(
-          PiProtocolCreateSessionRequest(
-            requestId: 3,
-            workingDirectory: '/safe/project',
-          ),
+          PiProtocolCreateSessionRequest(requestId: 3, projectId: 'project-1'),
         ),
       );
       final prompt = wire.decodeTransportFrame(
@@ -97,11 +102,12 @@ void main() {
         wire.PiTransportFrame_Operation.getSessionRequest,
       );
       expect(get.getSessionRequest.sessionId, 'session-1');
+      expect(get.getSessionRequest.projectId, 'project-1');
       expect(
         create.whichOperation(),
         wire.PiTransportFrame_Operation.createSessionRequest,
       );
-      expect(create.createSessionRequest.workingDirectory, '/safe/project');
+      expect(create.createSessionRequest.projectId, 'project-1');
       expect(
         prompt.whichOperation(),
         wire.PiTransportFrame_Operation.promptCommand,
@@ -123,6 +129,121 @@ void main() {
         ],
         <int>[1, 2, 3, 4, 5, 6],
       );
+    });
+
+    test('encodes and decodes first-party project operations', () {
+      final encoded = <wire.PiTransportFrame>[
+        wire.decodeTransportFrame(
+          codec.encode(PiProtocolGetProjectBootstrapRequest(requestId: 20)),
+        ),
+        wire.decodeTransportFrame(
+          codec.encode(
+            PiProtocolBrowseDirectoryRequest(
+              requestId: 21,
+              directory: '/safe/home',
+              maxChildren: 32,
+            ),
+          ),
+        ),
+        wire.decodeTransportFrame(
+          codec.encode(
+            PiProtocolValidateProjectRequest(
+              requestId: 22,
+              candidateDirectory: '/safe/project',
+            ),
+          ),
+        ),
+        wire.decodeTransportFrame(
+          codec.encode(
+            PiProtocolListKnownProjectsRequest(requestId: 23, maxProjects: 8),
+          ),
+        ),
+        wire.decodeTransportFrame(
+          codec.encode(
+            PiProtocolApproveProjectTrustRequest(
+              requestId: 24,
+              projectId: 'project-1',
+              trustRevision:
+                  '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+            ),
+          ),
+        ),
+      ];
+      expect(
+        encoded.map((frame) => frame.whichOperation()),
+        <wire.PiTransportFrame_Operation>[
+          wire.PiTransportFrame_Operation.getProjectBootstrapRequest,
+          wire.PiTransportFrame_Operation.browseDirectoryRequest,
+          wire.PiTransportFrame_Operation.validateProjectRequest,
+          wire.PiTransportFrame_Operation.listKnownProjectsRequest,
+          wire.PiTransportFrame_Operation.approveProjectTrustRequest,
+        ],
+      );
+
+      final project = _projectSnapshot();
+      final bootstrap =
+          codec.decode(
+                server.encode(
+                  wire.PiTransportFrame(
+                    getProjectBootstrapResponse:
+                        wire.GetProjectBootstrapResponse(
+                          requestId: Int64(20),
+                          homeDirectory: '/safe/home',
+                          defaultProject: project,
+                        ),
+                  ),
+                ),
+              )
+              as PiProtocolProjectBootstrapResponse;
+      expect(bootstrap.defaultProject.identity.projectId, 'project-1');
+      expect(
+        bootstrap.defaultProject.trust.status,
+        PiProtocolProjectTrustStatus.approvalRequired,
+      );
+
+      final directory =
+          codec.decode(
+                server.encode(
+                  wire.PiTransportFrame(
+                    browseDirectoryResponse: wire.BrowseDirectoryResponse(
+                      requestId: Int64(21),
+                      directory: wire.DirectoryListingSnapshot(
+                        canonicalDirectory: '/safe/home',
+                        parentDirectory: '/safe',
+                        children: <wire.DirectoryEntrySnapshot>[
+                          wire.DirectoryEntrySnapshot(
+                            name: 'project',
+                            canonicalPath: '/safe/project',
+                            isSymbolicLink: true,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              )
+              as PiProtocolDirectoryResponse;
+      expect(directory.directory.children.single.isSymbolicLink, isTrue);
+
+      final known =
+          codec.decode(
+                server.encode(
+                  wire.PiTransportFrame(
+                    listKnownProjectsResponse: wire.ListKnownProjectsResponse(
+                      requestId: Int64(23),
+                      projects: <wire.KnownProjectSnapshot>[
+                        wire.KnownProjectSnapshot(
+                          project: project,
+                          lastSessionAtUnixMillis: Int64(1767268800000),
+                          sessionCount: 2,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+              as PiProtocolKnownProjectsResponse;
+      expect(known.projects.single.sessionCount, 2);
     });
 
     test('decodes handshake, request, and command outcomes', () {
@@ -467,7 +588,10 @@ void main() {
 
       expect(
         () => codec.encode(
-          PiProtocolListSessionsRequest(requestId: 9007199254740992),
+          PiProtocolListSessionsRequest(
+            requestId: 9007199254740992,
+            projectId: 'project-1',
+          ),
         ),
         throwsA(
           isA<PiProtocolCodecException>().having(
@@ -495,6 +619,29 @@ wire.StableError _stableError(wire.ErrorCode code) => wire.StableError(
   code: code,
   retryable: code == wire.ErrorCode.ERROR_CODE_NODE_BUSY,
   safeMessage: 'Safe remote failure.',
+);
+
+wire.ProjectSnapshot _projectSnapshot() => wire.ProjectSnapshot(
+  identity: wire.ProjectIdentitySnapshot(
+    projectId: 'project-1',
+    canonicalWorkingDirectory: '/safe/project',
+    isGitRepository: true,
+    gitRoot: '/safe/project',
+    mainWorktreeRoot: '/safe/main',
+    branch: 'feature/project',
+    isLinkedWorktree: true,
+    isDetachedHead: false,
+    worktreeId: 'worktree-1',
+    mainProjectId: 'main-project-1',
+  ),
+  trust: wire.ProjectTrustSnapshot(
+    status: wire.ProjectTrustStatus.PROJECT_TRUST_STATUS_APPROVAL_REQUIRED,
+    reasons: <wire.ProjectTrustReason>[
+      wire.ProjectTrustReason.PROJECT_TRUST_REASON_PI_SETTINGS,
+    ],
+    revision:
+        '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+  ),
 );
 
 wire.SessionSummarySnapshot _summary(String id) => wire.SessionSummarySnapshot(

@@ -1,6 +1,10 @@
 import type {
   PiNodeAbortResult,
+  PiNodeDirectoryListing,
+  PiNodeKnownProjectSnapshot,
   PiNodeMessage,
+  PiNodeProjectBootstrap,
+  PiNodeProjectSnapshot,
   PiNodePromptAdmission,
   PiNodeSessionEvent,
   PiNodeSessionEventListener,
@@ -27,6 +31,40 @@ export class FakeProtocolDomain implements PiNodeProtocolDomain {
 
   constructor() {
     this.sessions.set("session-1", sessionSnapshot("session-1", defaultCwd, "Existing session"));
+  }
+
+  getProjectBootstrap(): Promise<PiNodeProjectBootstrap> {
+    return Promise.resolve({
+      homeDirectory: "/home/test",
+      defaultProject: projectSnapshot(defaultCwd),
+    });
+  }
+
+  browseDirectory(input: { readonly directory: string }): Promise<PiNodeDirectoryListing> {
+    return Promise.resolve({
+      canonicalDirectory: input.directory,
+      parentDirectory: "/",
+      children: [],
+      truncated: false,
+    });
+  }
+
+  validateProject(input: { readonly candidateDirectory: string }): Promise<PiNodeProjectSnapshot> {
+    return Promise.resolve(projectSnapshot(input.candidateDirectory));
+  }
+
+  listKnownProjects(): Promise<readonly PiNodeKnownProjectSnapshot[]> {
+    return Promise.resolve([
+      {
+        project: projectSnapshot(defaultCwd),
+        lastSessionAtMs: 200,
+        sessionCount: 1,
+      },
+    ]);
+  }
+
+  approveProjectTrust(input: { readonly canonicalCwd: string }): Promise<PiNodeProjectSnapshot> {
+    return Promise.resolve(projectSnapshot(input.canonicalCwd, "trusted"));
   }
 
   listSessions(): Promise<readonly PiNodeSessionSummary[]> {
@@ -203,6 +241,29 @@ export function message(id: string, text: string, role: PiNodeMessage["role"]): 
     sourceRole: role,
     timestampMs: 100,
     parts: [{ type: "text", text }],
+  };
+}
+
+export function projectSnapshot(
+  canonicalCwd: string,
+  trustStatus: PiNodeProjectSnapshot["trust"]["status"] = "not-required",
+): PiNodeProjectSnapshot {
+  const projectId = `project-${canonicalCwd.replaceAll(/[^A-Za-z0-9]+/gu, "-")}`;
+  return {
+    identity: {
+      projectId,
+      canonicalCwd,
+      isGitRepository: false,
+      isLinkedWorktree: false,
+      isDetachedHead: false,
+      worktreeId: `${projectId}-worktree`,
+      mainProjectId: `${projectId}-main`,
+    },
+    trust: {
+      status: trustStatus,
+      reasons: trustStatus === "not-required" ? [] : ["pi-settings", "saved-approval"],
+      revision: `revision-${trustStatus}`,
+    },
   };
 }
 

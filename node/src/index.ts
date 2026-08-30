@@ -7,13 +7,22 @@ export {
   type PiNodeDomainErrorCode,
   type PiNodeDomainSessionBackend,
   type PiNodeDomainSessionBackendFactory,
+  type PiNodeDirectoryEntry,
+  type PiNodeDirectoryListing,
   type PiNodeEventBase,
   type PiNodeJsonValue,
+  type PiNodeKnownProjectSnapshot,
   type PiNodeMessage,
   type PiNodeMessagePart,
   type PiNodeMessagePhase,
   type PiNodeMessageRole,
   type PiNodeMessageUsage,
+  type PiNodeProjectBootstrap,
+  type PiNodeProjectIdentity,
+  type PiNodeProjectSnapshot,
+  type PiNodeProjectTrustReason,
+  type PiNodeProjectTrustSnapshot,
+  type PiNodeProjectTrustStatus,
   type PiNodePromptAdmission,
   type PiNodePromptAdmissionStatus,
   type PiNodePromptExecution,
@@ -49,6 +58,20 @@ export {
   type PiNodeRuntimeOptions,
 } from "./pi-node-runtime.js";
 export {
+  PublicPiSdkProjectSessionCatalog,
+  type PublicPiSdkProjectSessionCatalogOptions,
+} from "./pi-sdk-project-session-catalog.js";
+export type {
+  PiNodeProjectSessionCatalog,
+  PiNodeProjectSessionRecord,
+} from "./project-session-catalog.js";
+export {
+  PI_NODE_MAX_DIRECTORY_CHILDREN,
+  PI_NODE_MAX_KNOWN_PROJECTS,
+  PiNodeProjectService,
+  type PiNodeProjectServiceOptions,
+} from "./project-service.js";
+export {
   PublicPiSdkRuntimeSessionFactory,
   type PiSdkDiagnosticCounts,
   type PiSdkRuntimeSessionFactory,
@@ -64,6 +87,7 @@ export {
   type ProjectTrustDecision,
   type ProjectTrustDecisionProvider,
   type ProjectTrustErrorCode,
+  type ProjectTrustInspection,
   type ProjectTrustRequest,
   type ProjectTrustSource,
 } from "./project-trust.js";
@@ -87,7 +111,10 @@ export {
   mapDomainError,
   piNodeMessageText,
   stableError,
+  toProtocolDirectoryListing,
+  toProtocolKnownProjectSnapshot,
   toProtocolMessageSnapshot,
+  toProtocolProjectSnapshot,
   toProtocolSessionDetail,
   toProtocolSessionSummary,
 } from "./protocol/protobuf-domain-adapter.js";

@@ -7,9 +7,22 @@ abstract interface class PiNodeApi {
 
   Future<PiNodeConnectionSnapshot> connect();
 
-  Future<List<PiSessionSummary>> listSessions();
+  Future<PiProjectBootstrap> getProjectBootstrap();
 
-  Future<PiSessionDetail> getSession(PiSessionId sessionId);
+  Future<PiDirectoryListing> browseDirectory(PiBrowseDirectoryRequest request);
+
+  Future<PiProject> validateProject(PiValidateProjectRequest request);
+
+  Future<List<PiKnownProject>> listKnownProjects({int maxProjects = 24});
+
+  Future<PiProject> approveProjectTrust(PiProjectTrustApproval approval);
+
+  Future<List<PiSessionSummary>> listSessions(PiProjectId projectId);
+
+  Future<PiSessionDetail> getSession(
+    PiProjectId projectId,
+    PiSessionId sessionId,
+  );
 
   Future<PiSessionDetail> createSession(PiCreateSessionRequest request);
 

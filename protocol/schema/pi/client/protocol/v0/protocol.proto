@@ -18,6 +18,14 @@ message PiTransportFrame {
 
     HealthRequest health_request = 20;
     HealthResponse health_response = 21;
+    GetProjectBootstrapRequest get_project_bootstrap_request = 22;
+    GetProjectBootstrapResponse get_project_bootstrap_response = 23;
+    BrowseDirectoryRequest browse_directory_request = 24;
+    BrowseDirectoryResponse browse_directory_response = 25;
+    ValidateProjectRequest validate_project_request = 26;
+    ValidateProjectResponse validate_project_response = 27;
+    ListKnownProjectsRequest list_known_projects_request = 28;
+    ListKnownProjectsResponse list_known_projects_response = 29;
 
     ListSessionsRequest list_sessions_request = 30;
     ListSessionsResponse list_sessions_response = 31;
@@ -30,6 +38,8 @@ message PiTransportFrame {
     RequestRejected request_rejected = 38;
     CommandAccepted command_accepted = 39;
     CommandRejected command_rejected = 40;
+    ApproveProjectTrustRequest approve_project_trust_request = 41;
+    ApproveProjectTrustResponse approve_project_trust_response = 42;
 
     SessionEventStreamEnvelope session_event_stream = 50;
     EventStreamEnvelope event_stream = 51;
@@ -48,8 +58,7 @@ message PiTransportFrame {
 
   reserved 2 to 9;
   reserved 13 to 19;
-  reserved 22 to 29;
-  reserved 41 to 49;
+  reserved 43 to 49;
   reserved 52 to 59;
   reserved 62 to 69;
   reserved 75 to 79;
@@ -76,6 +85,8 @@ enum Capability {
   CAPABILITY_CANCELLATION = 7;
   CAPABILITY_FLOW_CONTROL = 8;
   CAPABILITY_TRANSFER = 9;
+  CAPABILITY_PROJECT_DISCOVERY = 10;
+  CAPABILITY_PROJECT_TRUST = 11;
 }
 
 // protocol_versions is ordered by client preference. The server selects one
@@ -125,8 +136,125 @@ message HealthResponse {
   uint64 uptime_millis = 4;
 }
 
+message GetProjectBootstrapRequest {
+  uint64 request_id = 1;
+}
+
+message GetProjectBootstrapResponse {
+  uint64 request_id = 1;
+  string home_directory = 2;
+  ProjectSnapshot default_project = 3;
+}
+
+message BrowseDirectoryRequest {
+  uint64 request_id = 1;
+  string directory = 2;
+  uint32 max_children = 3;
+}
+
+message BrowseDirectoryResponse {
+  uint64 request_id = 1;
+  DirectoryListingSnapshot directory = 2;
+}
+
+message ValidateProjectRequest {
+  uint64 request_id = 1;
+  string candidate_directory = 2;
+}
+
+message ValidateProjectResponse {
+  uint64 request_id = 1;
+  ProjectSnapshot project = 2;
+}
+
+message ListKnownProjectsRequest {
+  uint64 request_id = 1;
+  uint32 max_projects = 2;
+}
+
+message ListKnownProjectsResponse {
+  uint64 request_id = 1;
+  repeated KnownProjectSnapshot projects = 2;
+}
+
+message ApproveProjectTrustRequest {
+  uint64 request_id = 1;
+  string project_id = 2;
+  string trust_revision = 3;
+}
+
+message ApproveProjectTrustResponse {
+  uint64 request_id = 1;
+  ProjectSnapshot project = 2;
+}
+
+message DirectoryListingSnapshot {
+  string canonical_directory = 1;
+  string parent_directory = 2;
+  repeated DirectoryEntrySnapshot children = 3;
+  bool truncated = 4;
+}
+
+message DirectoryEntrySnapshot {
+  string name = 1;
+  string canonical_path = 2;
+  bool is_symbolic_link = 3;
+}
+
+enum ProjectTrustStatus {
+  PROJECT_TRUST_STATUS_UNSPECIFIED = 0;
+  PROJECT_TRUST_STATUS_NOT_REQUIRED = 1;
+  PROJECT_TRUST_STATUS_TRUSTED = 2;
+  PROJECT_TRUST_STATUS_APPROVAL_REQUIRED = 3;
+  PROJECT_TRUST_STATUS_DENIED = 4;
+}
+
+enum ProjectTrustReason {
+  PROJECT_TRUST_REASON_UNSPECIFIED = 0;
+  PROJECT_TRUST_REASON_PI_SETTINGS = 1;
+  PROJECT_TRUST_REASON_PI_EXTENSIONS = 2;
+  PROJECT_TRUST_REASON_PI_SKILLS = 3;
+  PROJECT_TRUST_REASON_PI_PROMPTS = 4;
+  PROJECT_TRUST_REASON_PI_THEMES = 5;
+  PROJECT_TRUST_REASON_PI_SYSTEM_PROMPT = 6;
+  PROJECT_TRUST_REASON_AGENT_SKILLS = 7;
+  PROJECT_TRUST_REASON_SAVED_APPROVAL = 8;
+  PROJECT_TRUST_REASON_SAVED_DENIAL = 9;
+}
+
+message ProjectTrustSnapshot {
+  ProjectTrustStatus status = 1;
+  repeated ProjectTrustReason reasons = 2;
+  string revision = 3;
+}
+
+message ProjectIdentitySnapshot {
+  string project_id = 1;
+  string canonical_working_directory = 2;
+  bool is_git_repository = 3;
+  string git_root = 4;
+  string main_worktree_root = 5;
+  string branch = 6;
+  bool is_linked_worktree = 7;
+  bool is_detached_head = 8;
+  string worktree_id = 9;
+  string main_project_id = 10;
+}
+
+message ProjectSnapshot {
+  ProjectIdentitySnapshot identity = 1;
+  ProjectTrustSnapshot trust = 2;
+}
+
+message KnownProjectSnapshot {
+  ProjectSnapshot project = 1;
+  uint64 last_session_at_unix_millis = 2;
+  uint32 session_count = 3;
+}
+
 message ListSessionsRequest {
   uint64 request_id = 1;
+  string project_id = 2;
 }
 
 message ListSessionsResponse {
@@ -137,6 +265,7 @@ message ListSessionsResponse {
 message GetSessionRequest {
   uint64 request_id = 1;
   string session_id = 2;
+  string project_id = 3;
 }
 
 message GetSessionResponse {
@@ -146,7 +275,7 @@ message GetSessionResponse {
 
 message CreateSessionRequest {
   uint64 request_id = 1;
-  string working_directory = 2;
+  string project_id = 2;
 }
 
 message CreateSessionResponse {

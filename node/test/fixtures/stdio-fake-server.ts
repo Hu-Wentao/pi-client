@@ -3,7 +3,6 @@ import { FakeProtocolDomain } from "../support/fake-protocol-domain.js";
 
 const result = await runPiNodeStdioServer({
   domain: new FakeProtocolDomain(),
-  workingDirectory: "/project",
   implementationVersion: "0.1.0-dev.0",
   nodeInstanceId: "fake-stdio-node",
   streamIdFactory: (_sessionId, ordinal) => `stdio-stream-${ordinal}`,

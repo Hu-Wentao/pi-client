@@ -5,10 +5,14 @@ import {
   HealthStatus,
   MessageRole,
   PiTransportFrameSchema,
+  ProjectTrustReason,
+  ProjectTrustStatus,
   TransferDirection,
   TransferPurpose,
+  type DirectoryListingSnapshot,
   type MessageSnapshot,
   type PiTransportFrame,
+  type ProjectSnapshot,
   type ProtocolVersion,
   type SessionDetailSnapshot,
   type SessionSummarySnapshot,
@@ -18,9 +22,11 @@ import {
 import {
   MAX_CAPABILITIES,
   MAX_CONTENT_TEXT_BYTES,
+  MAX_DIRECTORY_CHILDREN,
   MAX_ERROR_MESSAGE_BYTES,
   MAX_FRAME_BYTES,
   MAX_IDENTIFIER_BYTES,
+  MAX_KNOWN_PROJECTS,
   MAX_MESSAGES_PER_SESSION_SNAPSHOT,
   MAX_PATH_BYTES,
   MAX_PROTOCOL_VERSIONS,
@@ -44,12 +50,31 @@ const knownCapabilities = new Set<Capability>([
   Capability.CANCELLATION,
   Capability.FLOW_CONTROL,
   Capability.TRANSFER,
+  Capability.PROJECT_DISCOVERY,
+  Capability.PROJECT_TRUST,
 ]);
 const knownHealthStatuses = new Set<HealthStatus>([
   HealthStatus.STARTING,
   HealthStatus.SERVING,
   HealthStatus.DEGRADED,
   HealthStatus.STOPPING,
+]);
+const knownProjectTrustStatuses = new Set<ProjectTrustStatus>([
+  ProjectTrustStatus.NOT_REQUIRED,
+  ProjectTrustStatus.TRUSTED,
+  ProjectTrustStatus.APPROVAL_REQUIRED,
+  ProjectTrustStatus.DENIED,
+]);
+const knownProjectTrustReasons = new Set<ProjectTrustReason>([
+  ProjectTrustReason.PI_SETTINGS,
+  ProjectTrustReason.PI_EXTENSIONS,
+  ProjectTrustReason.PI_SKILLS,
+  ProjectTrustReason.PI_PROMPTS,
+  ProjectTrustReason.PI_THEMES,
+  ProjectTrustReason.PI_SYSTEM_PROMPT,
+  ProjectTrustReason.AGENT_SKILLS,
+  ProjectTrustReason.SAVED_APPROVAL,
+  ProjectTrustReason.SAVED_DENIAL,
 ]);
 const knownMessageRoles = new Set<MessageRole>([
   MessageRole.USER,
@@ -178,8 +203,68 @@ export function validateTransportFrame(frame: PiTransportFrame): void {
       );
       validateSemanticVersion("node_version", operation.value.nodeVersion);
       return;
+    case "getProjectBootstrapRequest":
+      validateRequestId(operation.value.requestId);
+      return;
+    case "getProjectBootstrapResponse":
+      validateRequestId(operation.value.requestId);
+      validatePath("home_directory", operation.value.homeDirectory);
+      requireProjectSnapshot("project bootstrap", operation.value.defaultProject);
+      return;
+    case "browseDirectoryRequest":
+      validateRequestId(operation.value.requestId);
+      validatePath("directory", operation.value.directory);
+      validateBoundedUint32(
+        "max_children",
+        operation.value.maxChildren,
+        MAX_DIRECTORY_CHILDREN,
+        true,
+      );
+      return;
+    case "browseDirectoryResponse":
+      validateRequestId(operation.value.requestId);
+      requireDirectoryListing("browse directory response", operation.value.directory);
+      return;
+    case "validateProjectRequest":
+      validateRequestId(operation.value.requestId);
+      validatePath("candidate_directory", operation.value.candidateDirectory);
+      return;
+    case "validateProjectResponse":
+      validateRequestId(operation.value.requestId);
+      requireProjectSnapshot("validate project response", operation.value.project);
+      return;
+    case "listKnownProjectsRequest":
+      validateRequestId(operation.value.requestId);
+      validateBoundedUint32(
+        "max_projects",
+        operation.value.maxProjects,
+        MAX_KNOWN_PROJECTS,
+        true,
+      );
+      return;
+    case "listKnownProjectsResponse":
+      validateRequestId(operation.value.requestId);
+      if (operation.value.projects.length > MAX_KNOWN_PROJECTS) {
+        fail("known project response exceeds the local hard limit");
+      }
+      for (const known of operation.value.projects) {
+        requireProjectSnapshot("known project", known.project);
+        validatePositiveUint64("last_session_at_unix_millis", known.lastSessionAtUnixMillis);
+        validateBoundedUint32("session_count", known.sessionCount, 0xffff_ffff, false);
+      }
+      return;
+    case "approveProjectTrustRequest":
+      validateRequestId(operation.value.requestId);
+      validateIdentifier("project_id", operation.value.projectId);
+      validateIdentifier("trust_revision", operation.value.trustRevision);
+      return;
+    case "approveProjectTrustResponse":
+      validateRequestId(operation.value.requestId);
+      requireProjectSnapshot("project trust approval", operation.value.project);
+      return;
     case "listSessionsRequest":
       validateRequestId(operation.value.requestId);
+      validateIdentifier("project_id", operation.value.projectId);
       return;
     case "listSessionsResponse": {
       const response = operation.value;
@@ -200,6 +285,7 @@ export function validateTransportFrame(frame: PiTransportFrame): void {
     case "getSessionRequest":
       validateRequestId(operation.value.requestId);
       validateIdentifier("session_id", operation.value.sessionId);
+      validateIdentifier("project_id", operation.value.projectId);
       return;
     case "getSessionResponse":
       validateRequestId(operation.value.requestId);
@@ -207,7 +293,7 @@ export function validateTransportFrame(frame: PiTransportFrame): void {
       return;
     case "createSessionRequest":
       validateRequestId(operation.value.requestId);
-      validatePath("working_directory", operation.value.workingDirectory);
+      validateIdentifier("project_id", operation.value.projectId);
       return;
     case "createSessionResponse":
       validateRequestId(operation.value.requestId);
@@ -460,6 +546,76 @@ function validateCapabilities(capabilities: Capability[]): void {
   }
 }
 
+function requireDirectoryListing(
+  label: string,
+  listing: DirectoryListingSnapshot | undefined,
+): void {
+  if (listing === undefined) {
+    fail(`${label} must contain a directory listing`);
+  }
+  validatePath("canonical_directory", listing.canonicalDirectory);
+  if (listing.parentDirectory.length > 0) {
+    validatePath("parent_directory", listing.parentDirectory);
+  }
+  if (listing.children.length > MAX_DIRECTORY_CHILDREN) {
+    fail("directory child count exceeds the local hard limit");
+  }
+  const names = new Set<string>();
+  for (const child of listing.children) {
+    validateRequiredShortText("directory child name", child.name);
+    validatePath("directory child canonical_path", child.canonicalPath);
+    if (names.has(child.name)) {
+      fail("directory listing contains a duplicate child name");
+    }
+    names.add(child.name);
+  }
+}
+
+function requireProjectSnapshot(label: string, project: ProjectSnapshot | undefined): void {
+  if (project === undefined || project.identity === undefined || project.trust === undefined) {
+    fail(`${label} must contain project identity and trust snapshots`);
+  }
+  const identity = project.identity;
+  validateIdentifier("project_id", identity.projectId);
+  validatePath("canonical_working_directory", identity.canonicalWorkingDirectory);
+  validateIdentifier("worktree_id", identity.worktreeId);
+  validateIdentifier("main_project_id", identity.mainProjectId);
+  if (identity.isGitRepository) {
+    validatePath("git_root", identity.gitRoot);
+    validatePath("main_worktree_root", identity.mainWorktreeRoot);
+    validateShortText("branch", identity.branch, false);
+    if (identity.isDetachedHead && identity.branch.length > 0) {
+      fail("a detached project identity must not contain a branch");
+    }
+  } else if (
+    identity.gitRoot.length > 0 ||
+    identity.mainWorktreeRoot.length > 0 ||
+    identity.branch.length > 0 ||
+    identity.isLinkedWorktree ||
+    identity.isDetachedHead
+  ) {
+    fail("a non-Git project identity contains Git-only fields");
+  }
+
+  const trust = project.trust;
+  validateKnownEnum("project trust status", trust.status, knownProjectTrustStatuses);
+  validateIdentifier("project trust revision", trust.revision);
+  const reasons = new Set<ProjectTrustReason>();
+  for (const reason of trust.reasons) {
+    validateKnownEnum("project trust reason", reason, knownProjectTrustReasons);
+    if (reasons.has(reason)) {
+      fail("project trust reasons contain a duplicate");
+    }
+    reasons.add(reason);
+  }
+  if (trust.status === ProjectTrustStatus.NOT_REQUIRED && trust.reasons.length > 0) {
+    fail("a not-required project trust snapshot must not contain reasons");
+  }
+  if (trust.status !== ProjectTrustStatus.NOT_REQUIRED && trust.reasons.length === 0) {
+    fail("a restricted or trusted project must contain a trust reason");
+  }
+}
+
 function requireSessionDetail(
   label: string,
   detail: SessionDetailSnapshot | undefined,
@@ -564,6 +720,17 @@ function validateStableError(error: StableError): void {
 function validateDigest(digest: Uint8Array): void {
   if (digest.length !== 0 && digest.length !== SHA256_BYTES) {
     fail("sha256 must be empty or exactly 32 bytes");
+  }
+}
+
+function validateBoundedUint32(
+  label: string,
+  value: number,
+  maximum: number,
+  allowZero: boolean,
+): void {
+  if (!Number.isSafeInteger(value) || value < (allowZero ? 0 : 1) || value > maximum) {
+    fail(`${label} is outside the local uint32 limit`);
   }
 }
 

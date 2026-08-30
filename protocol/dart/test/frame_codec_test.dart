@@ -121,7 +121,10 @@ void main() {
         ),
         PiTransportFrame(
           frameSequence: Int64(3),
-          listSessionsRequest: ListSessionsRequest(requestId: Int64(1)),
+          listSessionsRequest: ListSessionsRequest(
+            requestId: Int64(1),
+            projectId: 'project-1',
+          ),
         ),
         PiTransportFrame(
           frameSequence: Int64(4),
@@ -135,6 +138,7 @@ void main() {
           getSessionRequest: GetSessionRequest(
             requestId: Int64(3),
             sessionId: 'session-1',
+            projectId: 'project-1',
           ),
         ),
         PiTransportFrame(
@@ -148,7 +152,7 @@ void main() {
           frameSequence: Int64(7),
           createSessionRequest: CreateSessionRequest(
             requestId: Int64(5),
-            workingDirectory: '/tmp/new-project',
+            projectId: 'project-1',
           ),
         ),
         PiTransportFrame(

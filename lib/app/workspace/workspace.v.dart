@@ -15,17 +15,10 @@ class _WorkspaceViewBody extends StatefulWidget {
 }
 
 class _WorkspaceViewBodyState extends State<_WorkspaceViewBody> {
-  final TextEditingController _workingDirectoryController =
-      TextEditingController();
-  final FocusNode _workingDirectoryFocusNode = FocusNode(
-    debugLabel: 'new session working directory',
-  );
   final TextEditingController _promptController = TextEditingController();
 
   @override
   void dispose() {
-    _workingDirectoryController.dispose();
-    _workingDirectoryFocusNode.dispose();
     _promptController.dispose();
     super.dispose();
   }
@@ -78,22 +71,40 @@ class _WorkspaceViewBodyState extends State<_WorkspaceViewBody> {
         onRefresh: connected
             ? () => viewModel.add(const WorkspaceSessionsRefreshed())
             : null,
-        onCreateSession: connected ? () => _focusWorkingDirectory() : null,
-        onSessionSelected: (sessionId) =>
-            viewModel.add(WorkspaceSessionSelected(sessionId)),
+        onCreateSession: connected
+            ? () => _requestCreateSession(viewModel, model.selectedProject)
+            : null,
+        onSessionSelected: (sessionId) => _requestSessionSelection(
+          viewModel,
+          model.selectedProject,
+          sessionId,
+        ),
+      );
+      final projectBrowser = ProjectBrowserView(
+        selectedProject: model.selectedProject,
+        knownProjects: model.knownProjects,
+        directory: model.projectDirectory,
+        isLoading: model.projectLoading,
+        isBrowsing: model.projectBrowsing,
+        isValidating: model.projectValidating,
+        errorMessage: model.projectError,
+        onBrowseDirectory: (directory) =>
+            viewModel.add(WorkspaceProjectDirectoryBrowsed(directory)),
+        onValidatePath: (directory) =>
+            viewModel.add(WorkspaceProjectPathValidated(directory)),
+        onProjectSelected: (project) =>
+            viewModel.add(WorkspaceProjectSelected(project)),
       );
       final sidebar = _WorkspaceSidebar(
         connection: connection,
+        projectBrowser: projectBrowser,
         sessionBrowser: sessionBrowser,
-        workingDirectoryController: _workingDirectoryController,
-        workingDirectoryFocusNode: _workingDirectoryFocusNode,
-        canCreate: connected && !model.creatingSession,
+        canCreate:
+            connected &&
+            model.selectedProject != null &&
+            !model.creatingSession,
         creating: model.creatingSession,
-        onCreate: () {
-          viewModel.add(
-            WorkspaceNewSessionRequested(_workingDirectoryController.text),
-          );
-        },
+        onCreate: () => _requestCreateSession(viewModel, model.selectedProject),
       );
       final conversation = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -176,30 +187,73 @@ class _WorkspaceViewBodyState extends State<_WorkspaceViewBody> {
     },
   );
 
-  void _focusWorkingDirectory() {
-    _workingDirectoryFocusNode.requestFocus();
-    _workingDirectoryController.selection = TextSelection(
-      baseOffset: 0,
-      extentOffset: _workingDirectoryController.text.length,
-    );
+  Future<void> _requestCreateSession(
+    WorkspaceViewModel viewModel,
+    PiProject? project,
+  ) async {
+    if (project?.trust.requiresApproval == true) {
+      await _showProjectTrustDialog(
+        viewModel,
+        project!,
+        createSessionAfterApproval: true,
+      );
+      return;
+    }
+    viewModel.add(const WorkspaceNewSessionRequested());
   }
+
+  Future<void> _requestSessionSelection(
+    WorkspaceViewModel viewModel,
+    PiProject? project,
+    PiSessionId sessionId,
+  ) async {
+    if (project?.trust.requiresApproval == true) {
+      await _showProjectTrustDialog(
+        viewModel,
+        project!,
+        sessionIdAfterApproval: sessionId,
+      );
+      return;
+    }
+    viewModel.add(WorkspaceSessionSelected(sessionId));
+  }
+
+  Future<void> _showProjectTrustDialog(
+    WorkspaceViewModel viewModel,
+    PiProject project, {
+    bool createSessionAfterApproval = false,
+    PiSessionId? sessionIdAfterApproval,
+  }) => showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogContext) => ProjectTrustDialog(
+      project: project,
+      onApprove: () {
+        Navigator.of(dialogContext).pop();
+        viewModel.add(
+          WorkspaceProjectTrustApproved(
+            createSessionAfterApproval: createSessionAfterApproval,
+            sessionIdAfterApproval: sessionIdAfterApproval,
+          ),
+        );
+      },
+    ),
+  );
 }
 
 class _WorkspaceSidebar extends StatelessWidget {
   const _WorkspaceSidebar({
     required this.connection,
+    required this.projectBrowser,
     required this.sessionBrowser,
-    required this.workingDirectoryController,
-    required this.workingDirectoryFocusNode,
     required this.canCreate,
     required this.creating,
     required this.onCreate,
   });
 
   final Widget connection;
+  final Widget projectBrowser;
   final Widget sessionBrowser;
-  final TextEditingController workingDirectoryController;
-  final FocusNode workingDirectoryFocusNode;
   final bool canCreate;
   final bool creating;
   final VoidCallback onCreate;
@@ -210,45 +264,40 @@ class _WorkspaceSidebar extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
-          child: connection,
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  key: const Key('workingDirectoryField'),
-                  controller: workingDirectoryController,
-                  focusNode: workingDirectoryFocusNode,
-                  enabled: canCreate,
-                  autocorrect: false,
-                  decoration: const InputDecoration(
-                    labelText: 'New session working directory',
-                    hintText: '/Projects/example',
-                    isDense: true,
-                    border: OutlineInputBorder(),
+        Flexible(
+          flex: 3,
+          child: SingleChildScrollView(
+            key: const Key('workspaceProjectControlsScroll'),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
+                  child: connection,
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+                  child: projectBrowser,
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                  child: FilledButton.icon(
+                    key: const Key('createSessionButton'),
+                    onPressed: canCreate ? onCreate : null,
+                    icon: creating
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.add_rounded),
+                    label: const Text('New session in selected project'),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              IconButton.filledTonal(
-                key: const Key('createSessionButton'),
-                tooltip: 'Create Pi session',
-                onPressed: canCreate ? onCreate : null,
-                icon: creating
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.add_rounded),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-        Expanded(child: sessionBrowser),
+        Expanded(flex: 4, child: sessionBrowser),
       ],
     ),
   );

@@ -29,26 +29,95 @@ sealed class PiProtocolRequestMessage extends PiClientProtocolMessage {
   final int requestId;
 }
 
+final class PiProtocolGetProjectBootstrapRequest
+    extends PiProtocolRequestMessage {
+  PiProtocolGetProjectBootstrapRequest({required super.requestId});
+}
+
+final class PiProtocolBrowseDirectoryRequest extends PiProtocolRequestMessage {
+  PiProtocolBrowseDirectoryRequest({
+    required super.requestId,
+    required String directory,
+    required int maxChildren,
+  }) : directory = _validatedPath(directory),
+       maxChildren = _validatedBoundedCount(maxChildren, 'maxChildren', 128);
+
+  final String directory;
+  final int maxChildren;
+
+  @override
+  String toString() =>
+      'PiProtocolBrowseDirectoryRequest(requestId: $requestId, <redacted>)';
+}
+
+final class PiProtocolValidateProjectRequest extends PiProtocolRequestMessage {
+  PiProtocolValidateProjectRequest({
+    required super.requestId,
+    required String candidateDirectory,
+  }) : candidateDirectory = _validatedPath(candidateDirectory);
+
+  final String candidateDirectory;
+
+  @override
+  String toString() =>
+      'PiProtocolValidateProjectRequest(requestId: $requestId, <redacted>)';
+}
+
+final class PiProtocolListKnownProjectsRequest
+    extends PiProtocolRequestMessage {
+  PiProtocolListKnownProjectsRequest({
+    required super.requestId,
+    required int maxProjects,
+  }) : maxProjects = _validatedBoundedCount(maxProjects, 'maxProjects', 64);
+
+  final int maxProjects;
+}
+
+final class PiProtocolApproveProjectTrustRequest
+    extends PiProtocolRequestMessage {
+  PiProtocolApproveProjectTrustRequest({
+    required super.requestId,
+    required String projectId,
+    required String trustRevision,
+  }) : projectId = _validatedOpaqueId(projectId, 'projectId'),
+       trustRevision = _validatedOpaqueId(trustRevision, 'trustRevision');
+
+  final String projectId;
+  final String trustRevision;
+
+  @override
+  String toString() =>
+      'PiProtocolApproveProjectTrustRequest(requestId: $requestId, <redacted>)';
+}
+
 final class PiProtocolListSessionsRequest extends PiProtocolRequestMessage {
-  PiProtocolListSessionsRequest({required super.requestId});
+  PiProtocolListSessionsRequest({
+    required super.requestId,
+    required String projectId,
+  }) : projectId = _validatedOpaqueId(projectId, 'projectId');
+
+  final String projectId;
 }
 
 final class PiProtocolGetSessionRequest extends PiProtocolRequestMessage {
   PiProtocolGetSessionRequest({
     required super.requestId,
     required String sessionId,
-  }) : sessionId = _validatedOpaqueId(sessionId, 'sessionId');
+    required String projectId,
+  }) : sessionId = _validatedOpaqueId(sessionId, 'sessionId'),
+       projectId = _validatedOpaqueId(projectId, 'projectId');
 
   final String sessionId;
+  final String projectId;
 }
 
 final class PiProtocolCreateSessionRequest extends PiProtocolRequestMessage {
   PiProtocolCreateSessionRequest({
     required super.requestId,
-    required String workingDirectory,
-  }) : workingDirectory = _validatedPath(workingDirectory);
+    required String projectId,
+  }) : projectId = _validatedOpaqueId(projectId, 'projectId');
 
-  final String workingDirectory;
+  final String projectId;
 
   @override
   String toString() =>
@@ -104,6 +173,8 @@ enum PiProtocolCapability {
   promptCommand,
   abortCommand,
   sessionEvents,
+  projectDiscovery,
+  projectTrust,
 }
 
 final class PiProtocolHandshakeAcceptedMessage extends PiServerProtocolMessage {
@@ -128,6 +199,56 @@ sealed class PiProtocolResponseMessage extends PiServerProtocolMessage {
     : requestId = _validatedPositiveInt(requestId, 'requestId');
 
   final int requestId;
+}
+
+final class PiProtocolProjectBootstrapResponse
+    extends PiProtocolResponseMessage {
+  PiProtocolProjectBootstrapResponse({
+    required super.requestId,
+    required String homeDirectory,
+    required this.defaultProject,
+  }) : homeDirectory = _validatedPath(homeDirectory);
+
+  final String homeDirectory;
+  final PiProtocolProjectSnapshot defaultProject;
+}
+
+final class PiProtocolDirectoryResponse extends PiProtocolResponseMessage {
+  PiProtocolDirectoryResponse({
+    required super.requestId,
+    required this.directory,
+  });
+
+  final PiProtocolDirectoryListing directory;
+}
+
+final class PiProtocolProjectValidatedResponse
+    extends PiProtocolResponseMessage {
+  PiProtocolProjectValidatedResponse({
+    required super.requestId,
+    required this.project,
+  });
+
+  final PiProtocolProjectSnapshot project;
+}
+
+final class PiProtocolKnownProjectsResponse extends PiProtocolResponseMessage {
+  PiProtocolKnownProjectsResponse({
+    required super.requestId,
+    required Iterable<PiProtocolKnownProjectSnapshot> projects,
+  }) : projects = List<PiProtocolKnownProjectSnapshot>.unmodifiable(projects);
+
+  final List<PiProtocolKnownProjectSnapshot> projects;
+}
+
+final class PiProtocolProjectTrustApprovedResponse
+    extends PiProtocolResponseMessage {
+  PiProtocolProjectTrustApprovedResponse({
+    required super.requestId,
+    required this.project,
+  });
+
+  final PiProtocolProjectSnapshot project;
 }
 
 final class PiProtocolSessionsResponse extends PiProtocolResponseMessage {
@@ -226,6 +347,177 @@ final class PiProtocolFailure {
   @override
   String toString() =>
       'PiProtocolFailure(code: <redacted>, retryable: $retryable)';
+}
+
+enum PiProtocolProjectTrustStatus {
+  notRequired,
+  trusted,
+  approvalRequired,
+  denied,
+}
+
+enum PiProtocolProjectTrustReason {
+  piSettings,
+  piExtensions,
+  piSkills,
+  piPrompts,
+  piThemes,
+  piSystemPrompt,
+  agentSkills,
+  savedApproval,
+  savedDenial,
+}
+
+final class PiProtocolProjectIdentity {
+  PiProtocolProjectIdentity({
+    required String projectId,
+    required String canonicalWorkingDirectory,
+    required this.isGitRepository,
+    String? gitRoot,
+    String? mainWorktreeRoot,
+    String? branch,
+    required this.isLinkedWorktree,
+    required this.isDetachedHead,
+    required String worktreeId,
+    required String mainProjectId,
+  }) : projectId = _validatedOpaqueId(projectId, 'projectId'),
+       canonicalWorkingDirectory = _validatedPath(canonicalWorkingDirectory),
+       gitRoot = gitRoot == null ? null : _validatedPath(gitRoot),
+       mainWorktreeRoot = mainWorktreeRoot == null
+           ? null
+           : _validatedPath(mainWorktreeRoot),
+       branch = branch == null
+           ? null
+           : _validatedText(branch, 'branch', allowEmpty: false),
+       worktreeId = _validatedOpaqueId(worktreeId, 'worktreeId'),
+       mainProjectId = _validatedOpaqueId(mainProjectId, 'mainProjectId') {
+    if (isGitRepository &&
+        (this.gitRoot == null || this.mainWorktreeRoot == null)) {
+      throw ArgumentError('Git project identity requires Git roots.');
+    }
+    if (!isGitRepository &&
+        (this.gitRoot != null ||
+            this.mainWorktreeRoot != null ||
+            this.branch != null ||
+            isLinkedWorktree ||
+            isDetachedHead)) {
+      throw ArgumentError('Non-Git project identity contains Git-only fields.');
+    }
+    if (isDetachedHead && this.branch != null) {
+      throw ArgumentError(
+        'Detached project identity must not contain a branch.',
+      );
+    }
+  }
+
+  final String projectId;
+  final String canonicalWorkingDirectory;
+  final bool isGitRepository;
+  final String? gitRoot;
+  final String? mainWorktreeRoot;
+  final String? branch;
+  final bool isLinkedWorktree;
+  final bool isDetachedHead;
+  final String worktreeId;
+  final String mainProjectId;
+
+  @override
+  String toString() => 'PiProtocolProjectIdentity(<redacted>)';
+}
+
+final class PiProtocolProjectTrustSnapshot {
+  PiProtocolProjectTrustSnapshot({
+    required this.status,
+    required Iterable<PiProtocolProjectTrustReason> reasons,
+    required String revision,
+  }) : reasons = List<PiProtocolProjectTrustReason>.unmodifiable(reasons),
+       revision = _validatedOpaqueId(revision, 'trustRevision') {
+    if (status == PiProtocolProjectTrustStatus.notRequired &&
+        this.reasons.isNotEmpty) {
+      throw ArgumentError(
+        'A trust-free project must not contain trust reasons.',
+      );
+    }
+    if (status != PiProtocolProjectTrustStatus.notRequired &&
+        this.reasons.isEmpty) {
+      throw ArgumentError(
+        'A restricted or trusted project requires trust reasons.',
+      );
+    }
+  }
+
+  final PiProtocolProjectTrustStatus status;
+  final List<PiProtocolProjectTrustReason> reasons;
+  final String revision;
+
+  @override
+  String toString() => 'PiProtocolProjectTrustSnapshot(<redacted>)';
+}
+
+final class PiProtocolProjectSnapshot {
+  const PiProtocolProjectSnapshot({
+    required this.identity,
+    required this.trust,
+  });
+
+  final PiProtocolProjectIdentity identity;
+  final PiProtocolProjectTrustSnapshot trust;
+
+  @override
+  String toString() => 'PiProtocolProjectSnapshot(<redacted>)';
+}
+
+final class PiProtocolKnownProjectSnapshot {
+  PiProtocolKnownProjectSnapshot({
+    required this.project,
+    required DateTime lastSessionAt,
+    required int sessionCount,
+  }) : lastSessionAt = _validatedUtcInstant(lastSessionAt, 'lastSessionAt'),
+       sessionCount = _validatedPositiveInt(sessionCount, 'sessionCount');
+
+  final PiProtocolProjectSnapshot project;
+  final DateTime lastSessionAt;
+  final int sessionCount;
+
+  @override
+  String toString() => 'PiProtocolKnownProjectSnapshot(<redacted>)';
+}
+
+final class PiProtocolDirectoryEntry {
+  PiProtocolDirectoryEntry({
+    required String name,
+    required String canonicalPath,
+    required this.isSymbolicLink,
+  }) : name = _validatedText(name, 'name', allowEmpty: false),
+       canonicalPath = _validatedPath(canonicalPath);
+
+  final String name;
+  final String canonicalPath;
+  final bool isSymbolicLink;
+
+  @override
+  String toString() => 'PiProtocolDirectoryEntry(<redacted>)';
+}
+
+final class PiProtocolDirectoryListing {
+  PiProtocolDirectoryListing({
+    required String canonicalDirectory,
+    String? parentDirectory,
+    required Iterable<PiProtocolDirectoryEntry> children,
+    required this.truncated,
+  }) : canonicalDirectory = _validatedPath(canonicalDirectory),
+       parentDirectory = parentDirectory == null
+           ? null
+           : _validatedPath(parentDirectory),
+       children = List<PiProtocolDirectoryEntry>.unmodifiable(children);
+
+  final String canonicalDirectory;
+  final String? parentDirectory;
+  final List<PiProtocolDirectoryEntry> children;
+  final bool truncated;
+
+  @override
+  String toString() => 'PiProtocolDirectoryListing(<redacted>)';
 }
 
 enum PiProtocolMessageRole { user, assistant, tool, system }
@@ -335,6 +627,13 @@ final class PiProtocolCommandCompletedEvent
 
   final String commandId;
   final bool succeeded;
+}
+
+int _validatedBoundedCount(int value, String name, int maximum) {
+  if (value < 0 || value > maximum) {
+    throw ArgumentError('$name is outside the supported range.');
+  }
+  return value;
 }
 
 int _validatedPositiveInt(int value, String name) {

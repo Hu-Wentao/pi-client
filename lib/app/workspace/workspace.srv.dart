@@ -21,15 +21,42 @@ final class WorkspaceService {
 
   Future<PiNodeConnectionSnapshot> connect() => _api.connect();
 
-  Future<List<PiSessionSummary>> loadSessions() => _api.listSessions();
+  Future<PiProjectBootstrap> loadProjectBootstrap() =>
+      _api.getProjectBootstrap();
 
-  Future<PiSessionDetail> loadSession(PiSessionId sessionId) =>
-      _api.getSession(sessionId);
+  Future<PiDirectoryListing> browseDirectory(
+    String directory, {
+    int maxChildren = 64,
+  }) => _api.browseDirectory(
+    PiBrowseDirectoryRequest(directory: directory, maxChildren: maxChildren),
+  );
 
-  Future<PiSessionDetail> createSession(String workingDirectory) =>
-      _api.createSession(
-        PiCreateSessionRequest(workingDirectory: workingDirectory),
+  Future<PiProject> validateProject(String candidateDirectory) =>
+      _api.validateProject(
+        PiValidateProjectRequest(candidateDirectory: candidateDirectory),
       );
+
+  Future<List<PiKnownProject>> loadKnownProjects({int maxProjects = 24}) =>
+      _api.listKnownProjects(maxProjects: maxProjects);
+
+  Future<PiProject> approveProjectTrust(PiProject project) =>
+      _api.approveProjectTrust(
+        PiProjectTrustApproval(
+          projectId: project.identity.projectId,
+          revision: project.trust.revision,
+        ),
+      );
+
+  Future<List<PiSessionSummary>> loadSessions(PiProjectId projectId) =>
+      _api.listSessions(projectId);
+
+  Future<PiSessionDetail> loadSession(
+    PiProjectId projectId,
+    PiSessionId sessionId,
+  ) => _api.getSession(projectId, sessionId);
+
+  Future<PiSessionDetail> createSession(PiProjectId projectId) =>
+      _api.createSession(PiCreateSessionRequest(projectId: projectId));
 
   Future<PiCommandResult> submitPrompt({
     required PiCommandId commandId,

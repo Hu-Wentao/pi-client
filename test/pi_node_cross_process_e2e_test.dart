@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -14,6 +15,8 @@ const _expectedCapabilities = <PiProtocolCapability>{
   PiProtocolCapability.promptCommand,
   PiProtocolCapability.abortCommand,
   PiProtocolCapability.sessionEvents,
+  PiProtocolCapability.projectDiscovery,
+  PiProtocolCapability.projectTrust,
 };
 
 void main() {
@@ -42,25 +45,33 @@ void main() {
         final connection = await harness.client.connect();
         _expectSupportedHandshake(connection);
 
-        expect(await harness.client.listSessions(), isEmpty);
+        final bootstrap = await harness.client.getProjectBootstrap();
+        final projectId = bootstrap.defaultProject.identity.projectId;
+        expect(await harness.client.listSessions(projectId), isEmpty);
         final created = await harness.client.createSession(
-          PiCreateSessionRequest(workingDirectory: cwd.path),
+          PiCreateSessionRequest(projectId: projectId),
         );
         final canonicalCwd = await cwd.resolveSymbolicLinks();
         expect(created.summary.workingDirectory, canonicalCwd);
         expect(created.messages, isEmpty);
 
-        final listed = await harness.client.listSessions();
+        final listed = await harness.client.listSessions(projectId);
         expect(
           listed.map((session) => session.id),
           contains(created.summary.id),
         );
-        final loaded = await harness.client.getSession(created.summary.id);
+        final loaded = await harness.client.getSession(
+          projectId,
+          created.summary.id,
+        );
         expect(loaded.summary.id, created.summary.id);
         expect(loaded.summary.workingDirectory, canonicalCwd);
 
         await expectLater(
-          harness.client.getSession(PiSessionId('missing-offline-session')),
+          harness.client.getSession(
+            projectId,
+            PiSessionId('missing-offline-session'),
+          ),
           throwsA(
             isA<PiNodeException>().having(
               (error) => error.code,
@@ -68,6 +79,83 @@ void main() {
               PiNodeErrorCode.notFound,
             ),
           ),
+        );
+      },
+      timeout: const Timeout(Duration(seconds: 60)),
+    );
+
+    test(
+      'browses, validates, and explicitly trusts a synthetic project over stdio',
+      () async {
+        final root = await Directory.systemTemp.createTemp(
+          'pi-client-project-trust-e2e-',
+        );
+        addTearDown(() => root.delete(recursive: true));
+        final defaultCwd = await Directory('${root.path}/default').create();
+        final protectedCwd = await Directory('${root.path}/protected').create();
+        await Directory('${protectedCwd.path}/.pi').create();
+        await File(
+          '${protectedCwd.path}/.pi/settings.json',
+        ).writeAsString('{}\n');
+        final alias = Link('${root.path}/protected-alias');
+        await alias.create(protectedCwd.path);
+        final agentDir = await Directory('${root.path}/agent').create();
+        final sessionDir = await Directory('${root.path}/sessions').create();
+        await File('${agentDir.path}/settings.json').writeAsString(
+          '${jsonEncode(<String, Object>{'sessionDir': sessionDir.path, 'enableAnalytics': false})}\n',
+        );
+
+        final harness = await _startProductionNode(
+          cwd: defaultCwd.path,
+          agentDir: agentDir.path,
+        );
+        addTearDown(harness.client.close);
+        _expectSupportedHandshake(await harness.client.connect());
+
+        final listing = await harness.client.browseDirectory(
+          PiBrowseDirectoryRequest(directory: root.path),
+        );
+        expect(
+          listing.children.map((entry) => entry.name),
+          containsAll(<String>['default', 'protected', 'protected-alias']),
+        );
+        expect(
+          listing.children
+              .firstWhere((entry) => entry.name == 'protected-alias')
+              .isSymbolicLink,
+          isTrue,
+        );
+
+        final restricted = await harness.client.validateProject(
+          PiValidateProjectRequest(candidateDirectory: alias.path),
+        );
+        expect(
+          restricted.identity.canonicalWorkingDirectory,
+          await protectedCwd.resolveSymbolicLinks(),
+        );
+        expect(restricted.trust.status, PiProjectTrustStatus.approvalRequired);
+        expect(
+          restricted.trust.reasons,
+          contains(PiProjectTrustReason.piSettings),
+        );
+
+        final approved = await harness.client.approveProjectTrust(
+          PiProjectTrustApproval(
+            projectId: restricted.identity.projectId,
+            revision: restricted.trust.revision,
+          ),
+        );
+        expect(approved.trust.status, PiProjectTrustStatus.trusted);
+        final created = await harness.client.createSession(
+          PiCreateSessionRequest(projectId: approved.identity.projectId),
+        );
+        expect(
+          created.summary.workingDirectory,
+          await protectedCwd.resolveSymbolicLinks(),
+        );
+        expect(
+          await File('${agentDir.path}/trust.json').readAsString(),
+          contains('true'),
         );
       },
       timeout: const Timeout(Duration(seconds: 60)),
@@ -104,11 +192,13 @@ void main() {
           viewModel,
           (state) =>
               state.connection.status == PiNodeConnectionStatus.connected &&
+              state.selectedProject != null &&
+              !state.projectLoading &&
               !state.sessionsLoading,
         );
         expect(viewModel.state.sessions, isEmpty);
 
-        viewModel.add(WorkspaceNewSessionRequested(cwd.path));
+        viewModel.add(const WorkspaceNewSessionRequested());
         await _waitForWorkspace(
           viewModel,
           (state) =>
@@ -143,13 +233,15 @@ void main() {
         final connection = await harness.client.connect();
         _expectSupportedHandshake(connection);
 
-        final listed = await harness.client.listSessions();
+        final bootstrap = await harness.client.getProjectBootstrap();
+        final projectId = bootstrap.defaultProject.identity.projectId;
+        final listed = await harness.client.listSessions(projectId);
         expect(listed.single.id, PiSessionId('fixture-session'));
         final sessionId = listed.single.id;
-        final loaded = await harness.client.getSession(sessionId);
+        final loaded = await harness.client.getSession(projectId, sessionId);
         expect(loaded.messages.single.text, 'Hello');
         final created = await harness.client.createSession(
-          PiCreateSessionRequest(workingDirectory: root.path),
+          PiCreateSessionRequest(projectId: projectId),
         );
         expect(created.summary.id, PiSessionId('fixture-created-1'));
 
@@ -292,8 +384,14 @@ void main() {
         );
         addTearDown(harness.client.close);
         await harness.client.connect();
-        final sessionId = (await harness.client.listSessions()).single.id;
-        await harness.client.getSession(sessionId);
+        final projectId = (await harness.client.getProjectBootstrap())
+            .defaultProject
+            .identity
+            .projectId;
+        final sessionId = (await harness.client.listSessions(
+          projectId,
+        )).single.id;
+        await harness.client.getSession(projectId, sessionId);
 
         final result = await harness.client
             .prompt(
@@ -347,7 +445,22 @@ Future<WorkspaceModel> _waitForWorkspace(
   }
   return viewModel.stream
       .firstWhere(predicate)
-      .timeout(const Duration(seconds: 15));
+      .timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw TimeoutException(
+          'Workspace wait timed out: '
+          'connection=${viewModel.state.connection.status.name}, '
+          'projectTrust=${viewModel.state.selectedProject?.trust.status.name}, '
+          'sessions=${viewModel.state.sessions.length}, '
+          'selected=${viewModel.state.selectedSessionId != null}, '
+          'creating=${viewModel.state.creatingSession}, '
+          'conversationLoading=${viewModel.state.conversationLoading}, '
+          'eventStatus=${viewModel.state.eventStatus.name}, '
+          'projectError=${viewModel.state.projectError != null}, '
+          'sessionError=${viewModel.state.sessionError != null}, '
+          'conversationError=${viewModel.state.conversationError != null}',
+        ),
+      );
 }
 
 void _expectSupportedHandshake(PiNodeConnectionSnapshot connection) {

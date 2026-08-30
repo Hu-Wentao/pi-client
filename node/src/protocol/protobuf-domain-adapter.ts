@@ -1,16 +1,27 @@
 import { create } from "@bufbuild/protobuf";
 import {
+  DirectoryEntrySnapshotSchema,
+  DirectoryListingSnapshotSchema,
   ErrorCode,
+  KnownProjectSnapshotSchema,
   MAX_CONTENT_TEXT_BYTES,
   MAX_IDENTIFIER_BYTES,
   MAX_PATH_BYTES,
   MAX_SHORT_TEXT_BYTES,
   MessageRole,
   MessageSnapshotSchema,
+  ProjectIdentitySnapshotSchema,
+  ProjectSnapshotSchema,
+  ProjectTrustReason,
+  ProjectTrustSnapshotSchema,
+  ProjectTrustStatus,
   SessionDetailSnapshotSchema,
   SessionSummarySnapshotSchema,
   StableErrorSchema,
+  type DirectoryListingSnapshot,
+  type KnownProjectSnapshot,
   type MessageSnapshot,
+  type ProjectSnapshot,
   type SessionDetailSnapshot,
   type SessionSummarySnapshot,
   type StableError,
@@ -19,7 +30,11 @@ import {
 import {
   PiNodeDomainError,
   type PiNodeCommandFailure,
+  type PiNodeDirectoryListing,
+  type PiNodeKnownProjectSnapshot,
   type PiNodeMessage,
+  type PiNodeProjectSnapshot,
+  type PiNodeProjectTrustReason,
   type PiNodeSessionSnapshot,
   type PiNodeSessionSummary,
 } from "../pi-node-domain.js";
@@ -37,6 +52,59 @@ export class PiNodeProtocolAdapterError extends Error {
     super(message, options);
     this.name = "PiNodeProtocolAdapterError";
   }
+}
+
+export function toProtocolDirectoryListing(
+  listing: PiNodeDirectoryListing,
+): DirectoryListingSnapshot {
+  return create(DirectoryListingSnapshotSchema, {
+    canonicalDirectory: requirePath(listing.canonicalDirectory),
+    parentDirectory:
+      listing.parentDirectory === undefined ? "" : requirePath(listing.parentDirectory),
+    children: listing.children.map((entry) =>
+      create(DirectoryEntrySnapshotSchema, {
+        name: fitShortText(entry.name),
+        canonicalPath: requirePath(entry.canonicalPath),
+        isSymbolicLink: entry.isSymbolicLink,
+      }),
+    ),
+    truncated: listing.truncated,
+  });
+}
+
+export function toProtocolProjectSnapshot(project: PiNodeProjectSnapshot): ProjectSnapshot {
+  return create(ProjectSnapshotSchema, {
+    identity: create(ProjectIdentitySnapshotSchema, {
+      projectId: requireIdentifier(project.identity.projectId, "project identifier"),
+      canonicalWorkingDirectory: requirePath(project.identity.canonicalCwd),
+      isGitRepository: project.identity.isGitRepository,
+      gitRoot: project.identity.gitRoot === undefined ? "" : requirePath(project.identity.gitRoot),
+      mainWorktreeRoot:
+        project.identity.mainWorktreeRoot === undefined
+          ? ""
+          : requirePath(project.identity.mainWorktreeRoot),
+      branch: project.identity.branch === undefined ? "" : fitShortText(project.identity.branch),
+      isLinkedWorktree: project.identity.isLinkedWorktree,
+      isDetachedHead: project.identity.isDetachedHead,
+      worktreeId: requireIdentifier(project.identity.worktreeId, "worktree identifier"),
+      mainProjectId: requireIdentifier(project.identity.mainProjectId, "main project identifier"),
+    }),
+    trust: create(ProjectTrustSnapshotSchema, {
+      status: toProtocolProjectTrustStatus(project.trust.status),
+      reasons: project.trust.reasons.map(toProtocolProjectTrustReason),
+      revision: requireIdentifier(project.trust.revision, "project trust revision"),
+    }),
+  });
+}
+
+export function toProtocolKnownProjectSnapshot(
+  known: PiNodeKnownProjectSnapshot,
+): KnownProjectSnapshot {
+  return create(KnownProjectSnapshotSchema, {
+    project: toProtocolProjectSnapshot(known.project),
+    lastSessionAtUnixMillis: positiveMillis(known.lastSessionAtMs),
+    sessionCount: positiveUint32(known.sessionCount),
+  });
 }
 
 export function toProtocolSessionSummary(summary: PiNodeSessionSummary): SessionSummarySnapshot {
@@ -121,7 +189,15 @@ export function mapDomainError(error: unknown): StableError {
 
   switch (error.code) {
     case "invalid-project-path":
-      return stableError(ErrorCode.INVALID_REQUEST, "The working directory is invalid.");
+    case "project-validation-failed":
+      return stableError(ErrorCode.INVALID_REQUEST, "The project directory is invalid.");
+    case "project-not-registered":
+      return stableError(
+        ErrorCode.FAILED_PRECONDITION,
+        "The project must be validated before it can be used.",
+      );
+    case "project-trust-revision-stale":
+      return stableError(ErrorCode.CONFLICT, "Project trust evidence changed. Validate again.");
     case "project-trust-denied":
       return stableError(ErrorCode.PERMISSION_DENIED, "Project access was denied.");
     case "project-trust-unresolved":
@@ -143,6 +219,9 @@ export function mapDomainError(error: unknown): StableError {
     case "service-disposed":
       return stableError(ErrorCode.UNAVAILABLE, "The Pi Node service is unavailable.", true);
     case "project-trust-resolution-failed":
+    case "project-browse-failed":
+    case "project-list-failed":
+    case "project-trust-persist-failed":
     case "session-list-failed":
     case "session-create-failed":
     case "session-load-failed":
@@ -186,6 +265,44 @@ export function stableError(
     retryAfterMillis: retryable ? retryAfterMillis : 0,
     safeMessage: fitShortText(safeMessage),
   });
+}
+
+function toProtocolProjectTrustStatus(
+  status: PiNodeProjectSnapshot["trust"]["status"],
+): ProjectTrustStatus {
+  switch (status) {
+    case "not-required":
+      return ProjectTrustStatus.NOT_REQUIRED;
+    case "trusted":
+      return ProjectTrustStatus.TRUSTED;
+    case "approval-required":
+      return ProjectTrustStatus.APPROVAL_REQUIRED;
+    case "denied":
+      return ProjectTrustStatus.DENIED;
+  }
+}
+
+function toProtocolProjectTrustReason(reason: PiNodeProjectTrustReason): ProjectTrustReason {
+  switch (reason) {
+    case "pi-settings":
+      return ProjectTrustReason.PI_SETTINGS;
+    case "pi-extensions":
+      return ProjectTrustReason.PI_EXTENSIONS;
+    case "pi-skills":
+      return ProjectTrustReason.PI_SKILLS;
+    case "pi-prompts":
+      return ProjectTrustReason.PI_PROMPTS;
+    case "pi-themes":
+      return ProjectTrustReason.PI_THEMES;
+    case "pi-system-prompt":
+      return ProjectTrustReason.PI_SYSTEM_PROMPT;
+    case "agent-skills":
+      return ProjectTrustReason.AGENT_SKILLS;
+    case "saved-approval":
+      return ProjectTrustReason.SAVED_APPROVAL;
+    case "saved-denial":
+      return ProjectTrustReason.SAVED_DENIAL;
+  }
 }
 
 function toProtocolMessageRole(role: PiNodeMessage["role"]): MessageRole {
@@ -270,4 +387,14 @@ function positiveMillis(value: number): bigint {
 function laterMillis(value: number, minimum: bigint): bigint {
   const candidate = positiveMillis(value);
   return candidate < minimum ? minimum : candidate;
+}
+
+function positiveUint32(value: number): number {
+  if (!Number.isSafeInteger(value) || value < 1 || value > 0xffff_ffff) {
+    throw new PiNodeProtocolAdapterError(
+      "invalid-domain-data",
+      "The project session count is outside the protocol bounds.",
+    );
+  }
+  return value;
 }

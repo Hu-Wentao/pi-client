@@ -16,14 +16,18 @@ void main() {
         addTearDown(fixture.client.close);
         final session = _protocolSession('session-1');
 
-        final listFuture = fixture.client.listSessions();
+        final listFuture = fixture.client.listSessions(
+          PiProjectId('project-1'),
+        );
         final detailFuture = fixture.client.getSession(
+          PiProjectId('project-1'),
           PiSessionId('session-1'),
         );
         final listRequest = fixture.take<PiProtocolListSessionsRequest>();
         final detailRequest = fixture.take<PiProtocolGetSessionRequest>();
 
         expect(detailRequest.sessionId, 'session-1');
+        expect(detailRequest.projectId, 'project-1');
         expect(detailRequest.requestId, isNot(listRequest.requestId));
         await fixture.send(
           PiProtocolSessionResponse(
@@ -48,17 +52,127 @@ void main() {
     );
 
     test(
+      'maps project discovery, identity, directory, and trust operations',
+      () async {
+        final fixture = await _connectedFixture();
+        addTearDown(fixture.client.close);
+        final restricted = _protocolProject(
+          '/safe/project',
+          trustStatus: PiProtocolProjectTrustStatus.approvalRequired,
+        );
+
+        final bootstrapFuture = fixture.client.getProjectBootstrap();
+        final bootstrapRequest = fixture
+            .take<PiProtocolGetProjectBootstrapRequest>();
+        await fixture.send(
+          PiProtocolProjectBootstrapResponse(
+            requestId: bootstrapRequest.requestId,
+            homeDirectory: '/safe/home',
+            defaultProject: restricted,
+          ),
+        );
+        final bootstrap = await bootstrapFuture;
+        expect(bootstrap.homeDirectory, '/safe/home');
+        expect(
+          bootstrap.defaultProject.trust.status,
+          PiProjectTrustStatus.approvalRequired,
+        );
+        expect(bootstrap.toString(), isNot(contains('/safe/home')));
+
+        final browseFuture = fixture.client.browseDirectory(
+          PiBrowseDirectoryRequest(directory: '/safe/home'),
+        );
+        final browseRequest = fixture.take<PiProtocolBrowseDirectoryRequest>();
+        expect(browseRequest.maxChildren, 64);
+        await fixture.send(
+          PiProtocolDirectoryResponse(
+            requestId: browseRequest.requestId,
+            directory: PiProtocolDirectoryListing(
+              canonicalDirectory: '/safe/home',
+              parentDirectory: '/safe',
+              children: <PiProtocolDirectoryEntry>[
+                PiProtocolDirectoryEntry(
+                  name: 'project',
+                  canonicalPath: '/safe/project',
+                  isSymbolicLink: true,
+                ),
+              ],
+              truncated: false,
+            ),
+          ),
+        );
+        final directory = await browseFuture;
+        expect(directory.children.single.isSymbolicLink, isTrue);
+        expect(directory.toString(), isNot(contains('/safe/project')));
+
+        final validateFuture = fixture.client.validateProject(
+          PiValidateProjectRequest(candidateDirectory: '/safe/project'),
+        );
+        final validateRequest = fixture
+            .take<PiProtocolValidateProjectRequest>();
+        await fixture.send(
+          PiProtocolProjectValidatedResponse(
+            requestId: validateRequest.requestId,
+            project: restricted,
+          ),
+        );
+        expect(
+          (await validateFuture).identity.projectId,
+          PiProjectId('project-1'),
+        );
+
+        final knownFuture = fixture.client.listKnownProjects(maxProjects: 4);
+        final knownRequest = fixture.take<PiProtocolListKnownProjectsRequest>();
+        await fixture.send(
+          PiProtocolKnownProjectsResponse(
+            requestId: knownRequest.requestId,
+            projects: <PiProtocolKnownProjectSnapshot>[
+              PiProtocolKnownProjectSnapshot(
+                project: restricted,
+                lastSessionAt: DateTime.utc(2026, 1, 2),
+                sessionCount: 2,
+              ),
+            ],
+          ),
+        );
+        expect((await knownFuture).single.sessionCount, 2);
+
+        final approvalFuture = fixture.client.approveProjectTrust(
+          PiProjectTrustApproval(
+            projectId: PiProjectId('project-1'),
+            revision: PiProjectTrustRevision('revision-approvalRequired'),
+          ),
+        );
+        final approvalRequest = fixture
+            .take<PiProtocolApproveProjectTrustRequest>();
+        await fixture.send(
+          PiProtocolProjectTrustApprovedResponse(
+            requestId: approvalRequest.requestId,
+            project: _protocolProject(
+              '/safe/project',
+              trustStatus: PiProtocolProjectTrustStatus.trusted,
+            ),
+          ),
+        );
+        expect(
+          (await approvalFuture).trust.status,
+          PiProjectTrustStatus.trusted,
+        );
+      },
+    );
+
+    test(
       'creates sessions and preserves typed immutable projections',
       () async {
         final fixture = await _connectedFixture();
         addTearDown(fixture.client.close);
         final future = fixture.client.createSession(
-          PiCreateSessionRequest(workingDirectory: '/safe/project'),
+          PiCreateSessionRequest(projectId: PiProjectId('project-1')),
         );
         final request = fixture.take<PiProtocolCreateSessionRequest>();
         final protocolSession = _protocolSession('created-session');
 
-        expect(request.workingDirectory, '/safe/project');
+        expect(request.projectId, 'project-1');
         await fixture.send(
           PiProtocolSessionCreatedResponse(
             requestId: request.requestId,
@@ -210,7 +324,9 @@ void main() {
             ),
           ),
         );
-        final listFuture = fixture.client.listSessions();
+        final listFuture = fixture.client.listSessions(
+          PiProjectId('project-1'),
+        );
         final commandFuture = fixture.client.prompt(
           PiPromptCommand(
             commandId: PiCommandId('command-disconnect'),
@@ -269,7 +385,7 @@ void main() {
         expect(error.toString(), isNot(contains('secret_remote_code')));
         expect(frame.toString(), isNot(contains('secret frame')));
         expect(
-          () => PiCreateSessionRequest(workingDirectory: ' secret/path'),
+          () => PiValidateProjectRequest(candidateDirectory: ' secret/path'),
           throwsA(
             isA<ArgumentError>().having(
               (value) => value.toString(),
@@ -360,7 +476,9 @@ void main() {
       () async {
         final fixture = await _connectedFixture();
         addTearDown(fixture.client.close);
-        final listFuture = fixture.client.listSessions();
+        final listFuture = fixture.client.listSessions(
+          PiProjectId('project-1'),
+        );
         fixture.take<PiProtocolListSessionsRequest>();
         final listFailure = expectLater(
           listFuture,
@@ -475,6 +593,33 @@ final class _MemoryProtocolCodec implements PiProtocolCodec {
     return message;
   }
 }
+
+PiProtocolProjectSnapshot _protocolProject(
+  String canonicalWorkingDirectory, {
+  PiProtocolProjectTrustStatus trustStatus =
+      PiProtocolProjectTrustStatus.notRequired,
+}) => PiProtocolProjectSnapshot(
+  identity: PiProtocolProjectIdentity(
+    projectId: 'project-1',
+    canonicalWorkingDirectory: canonicalWorkingDirectory,
+    isGitRepository: false,
+    isLinkedWorktree: false,
+    isDetachedHead: false,
+    worktreeId: 'worktree-1',
+    mainProjectId: 'main-project-1',
+  ),
+  trust: PiProtocolProjectTrustSnapshot(
+    status: trustStatus,
+    reasons: trustStatus == PiProtocolProjectTrustStatus.notRequired
+        ? const <PiProtocolProjectTrustReason>[]
+        : <PiProtocolProjectTrustReason>[
+            PiProtocolProjectTrustReason.piSettings,
+            if (trustStatus == PiProtocolProjectTrustStatus.trusted)
+              PiProtocolProjectTrustReason.savedApproval,
+          ],
+    revision: 'revision-${trustStatus.name}',
+  ),
+);
 
 PiProtocolSessionDetail _protocolSession(String id) {
   final createdAt = DateTime.utc(2026, 1, 1, 12);

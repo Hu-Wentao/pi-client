@@ -28,6 +28,23 @@ describe("cross-language Protobuf vectors", () => {
     expect(frame.operation.value.event.case).toBe("commandCompleted");
   });
 
+  test("decodes Dart bounded directory listings with canonical symlink targets", () => {
+    const frame = decodeTransportFrame(
+      readFileSync(resolve(vectors, "dart_directory_listing.pb")),
+    );
+
+    expect(frame.operation.case).toBe("browseDirectoryResponse");
+    if (frame.operation.case !== "browseDirectoryResponse") {
+      throw new Error("expected directory listing response");
+    }
+    expect(frame.operation.value.directory?.canonicalDirectory).toBe(
+      "/tmp/pi-client-projects",
+    );
+    expect(frame.operation.value.directory?.children).toHaveLength(2);
+    expect(frame.operation.value.directory?.children[1]?.isSymbolicLink).toBeTrue();
+    expect(frame.operation.value.directory?.truncated).toBeTrue();
+  });
+
   test("preserves unknown fields when decoded and re-encoded by Protobuf-ES", () => {
     const input = readFileSync(resolve(vectors, "unknown_field.pb"));
     const decoded = fromBinary(PiTransportFrameSchema, input);

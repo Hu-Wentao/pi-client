@@ -324,6 +324,108 @@ void main() {
     },
   );
 
+  test(
+    'validates a manual project path before switching session scope',
+    () async {
+      final defaultProject = fakeProject('/Projects/default');
+      final validatedProject = fakeProject('/Projects/canonical-manual');
+      final api = FakePiNodeApi(defaultProject: defaultProject)
+        ..validateProjectHandler = (request) async {
+          expect(request.candidateDirectory, '/Projects/manual-alias');
+          return validatedProject;
+        };
+      final viewModel = WorkspaceViewModel(service: WorkspaceService(api));
+
+      viewModel.add(const WorkspaceStarted());
+      await _waitFor(
+        viewModel,
+        (state) =>
+            state.connection.status == PiNodeConnectionStatus.connected &&
+            state.selectedProject == defaultProject,
+      );
+      viewModel.add(
+        const WorkspaceProjectPathValidated('/Projects/manual-alias'),
+      );
+      await _waitFor(
+        viewModel,
+        (state) =>
+            state.selectedProject == validatedProject &&
+            !state.sessionsLoading &&
+            !state.projectValidating,
+      );
+
+      expect(api.validateProjectCalls, 1);
+      expect(
+        viewModel.state.selectedProject?.identity.canonicalWorkingDirectory,
+        '/Projects/canonical-manual',
+      );
+      expect(viewModel.state.selectedSessionId, isNull);
+
+      await viewModel.close();
+      await api.close();
+    },
+  );
+
+  test(
+    'requires explicit trust approval before creating or opening sessions',
+    () async {
+      final restrictedProject = fakeProject(
+        '/Projects/restricted',
+        trustStatus: PiProjectTrustStatus.approvalRequired,
+      );
+      final existing = fakeSession(
+        id: 'restricted-existing',
+        title: 'Restricted session',
+        workingDirectory: '/Projects/restricted',
+      );
+      final api = FakePiNodeApi(
+        defaultProject: restrictedProject,
+        sessions: <PiSessionSummary>[existing],
+        details: <PiSessionId, PiSessionDetail>{
+          existing.id: fakeDetail(existing),
+        },
+      );
+      final viewModel = WorkspaceViewModel(service: WorkspaceService(api));
+
+      viewModel.add(const WorkspaceStarted());
+      await _waitFor(
+        viewModel,
+        (state) =>
+            state.connection.status == PiNodeConnectionStatus.connected &&
+            !state.sessionsLoading,
+      );
+      viewModel.add(const WorkspaceNewSessionRequested());
+      viewModel.add(WorkspaceSessionSelected(existing.id));
+      await _waitFor(
+        viewModel,
+        (state) =>
+            state.sessionError?.contains('Approve project trust') == true,
+      );
+      expect(api.createCalls, 0);
+      expect(api.getCalls, 0);
+
+      viewModel.add(
+        const WorkspaceProjectTrustApproved(createSessionAfterApproval: true),
+      );
+      await _waitFor(
+        viewModel,
+        (state) =>
+            api.approveTrustCalls == 1 &&
+            api.createCalls == 1 &&
+            state.selectedProject?.trust.status ==
+                PiProjectTrustStatus.trusted &&
+            state.selectedSessionId != null,
+      );
+      expect(
+        viewModel.state.selectedProject?.trust.allowsProjectResources,
+        isTrue,
+      );
+
+      await viewModel.close();
+      await api.close();
+    },
+  );
+
   test('ignores a stale selected-session load that completes last', () async {
     final first = fakeSession(
       id: 'first-session',

@@ -148,6 +148,67 @@ export type PiNodeSessionEvent =
 
 export type PiNodeSessionEventListener = (event: PiNodeSessionEvent) => void;
 
+export type PiNodeProjectTrustStatus = "not-required" | "trusted" | "approval-required" | "denied";
+
+export type PiNodeProjectTrustReason =
+  | "pi-settings"
+  | "pi-extensions"
+  | "pi-skills"
+  | "pi-prompts"
+  | "pi-themes"
+  | "pi-system-prompt"
+  | "agent-skills"
+  | "saved-approval"
+  | "saved-denial";
+
+export interface PiNodeProjectTrustSnapshot {
+  readonly status: PiNodeProjectTrustStatus;
+  readonly reasons: readonly PiNodeProjectTrustReason[];
+  readonly revision: string;
+}
+
+export interface PiNodeProjectIdentity {
+  readonly projectId: string;
+  readonly canonicalCwd: string;
+  readonly isGitRepository: boolean;
+  readonly gitRoot?: string;
+  readonly mainWorktreeRoot?: string;
+  readonly branch?: string;
+  readonly isLinkedWorktree: boolean;
+  readonly isDetachedHead: boolean;
+  readonly worktreeId: string;
+  readonly mainProjectId: string;
+}
+
+export interface PiNodeProjectSnapshot {
+  readonly identity: PiNodeProjectIdentity;
+  readonly trust: PiNodeProjectTrustSnapshot;
+}
+
+export interface PiNodeKnownProjectSnapshot {
+  readonly project: PiNodeProjectSnapshot;
+  readonly lastSessionAtMs: number;
+  readonly sessionCount: number;
+}
+
+export interface PiNodeDirectoryEntry {
+  readonly name: string;
+  readonly canonicalPath: string;
+  readonly isSymbolicLink: boolean;
+}
+
+export interface PiNodeDirectoryListing {
+  readonly canonicalDirectory: string;
+  readonly parentDirectory?: string;
+  readonly children: readonly PiNodeDirectoryEntry[];
+  readonly truncated: boolean;
+}
+
+export interface PiNodeProjectBootstrap {
+  readonly homeDirectory: string;
+  readonly defaultProject: PiNodeProjectSnapshot;
+}
+
 export type PiNodeSessionBackendEvent =
   | {
       readonly type: "message";
@@ -203,6 +264,12 @@ export interface PiNodeDomainSessionBackendFactory {
 export type PiNodeDomainErrorCode =
   | "service-disposed"
   | "invalid-project-path"
+  | "project-not-registered"
+  | "project-trust-revision-stale"
+  | "project-browse-failed"
+  | "project-validation-failed"
+  | "project-list-failed"
+  | "project-trust-persist-failed"
   | "project-trust-denied"
   | "project-trust-unresolved"
   | "project-trust-resolution-failed"

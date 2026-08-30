@@ -27,6 +27,14 @@ enum PiTransportFrame_Operation {
   serverHandshakeRejected,
   healthRequest,
   healthResponse,
+  getProjectBootstrapRequest,
+  getProjectBootstrapResponse,
+  browseDirectoryRequest,
+  browseDirectoryResponse,
+  validateProjectRequest,
+  validateProjectResponse,
+  listKnownProjectsRequest,
+  listKnownProjectsResponse,
   listSessionsRequest,
   listSessionsResponse,
   getSessionRequest,
@@ -38,6 +46,8 @@ enum PiTransportFrame_Operation {
   requestRejected,
   commandAccepted,
   commandRejected,
+  approveProjectTrustRequest,
+  approveProjectTrustResponse,
   sessionEventStream,
   eventStream,
   cancel,
@@ -62,6 +72,14 @@ class PiTransportFrame extends $pb.GeneratedMessage {
     ServerHandshakeRejected? serverHandshakeRejected,
     HealthRequest? healthRequest,
     HealthResponse? healthResponse,
+    GetProjectBootstrapRequest? getProjectBootstrapRequest,
+    GetProjectBootstrapResponse? getProjectBootstrapResponse,
+    BrowseDirectoryRequest? browseDirectoryRequest,
+    BrowseDirectoryResponse? browseDirectoryResponse,
+    ValidateProjectRequest? validateProjectRequest,
+    ValidateProjectResponse? validateProjectResponse,
+    ListKnownProjectsRequest? listKnownProjectsRequest,
+    ListKnownProjectsResponse? listKnownProjectsResponse,
     ListSessionsRequest? listSessionsRequest,
     ListSessionsResponse? listSessionsResponse,
     GetSessionRequest? getSessionRequest,
@@ -73,6 +91,8 @@ class PiTransportFrame extends $pb.GeneratedMessage {
     RequestRejected? requestRejected,
     CommandAccepted? commandAccepted,
     CommandRejected? commandRejected,
+    ApproveProjectTrustRequest? approveProjectTrustRequest,
+    ApproveProjectTrustResponse? approveProjectTrustResponse,
     SessionEventStreamEnvelope? sessionEventStream,
     EventStreamEnvelope? eventStream,
     Cancel? cancel,
@@ -94,6 +114,22 @@ class PiTransportFrame extends $pb.GeneratedMessage {
       result.serverHandshakeRejected = serverHandshakeRejected;
     if (healthRequest != null) result.healthRequest = healthRequest;
     if (healthResponse != null) result.healthResponse = healthResponse;
+    if (getProjectBootstrapRequest != null)
+      result.getProjectBootstrapRequest = getProjectBootstrapRequest;
+    if (getProjectBootstrapResponse != null)
+      result.getProjectBootstrapResponse = getProjectBootstrapResponse;
+    if (browseDirectoryRequest != null)
+      result.browseDirectoryRequest = browseDirectoryRequest;
+    if (browseDirectoryResponse != null)
+      result.browseDirectoryResponse = browseDirectoryResponse;
+    if (validateProjectRequest != null)
+      result.validateProjectRequest = validateProjectRequest;
+    if (validateProjectResponse != null)
+      result.validateProjectResponse = validateProjectResponse;
+    if (listKnownProjectsRequest != null)
+      result.listKnownProjectsRequest = listKnownProjectsRequest;
+    if (listKnownProjectsResponse != null)
+      result.listKnownProjectsResponse = listKnownProjectsResponse;
     if (listSessionsRequest != null)
       result.listSessionsRequest = listSessionsRequest;
     if (listSessionsResponse != null)
@@ -110,6 +146,10 @@ class PiTransportFrame extends $pb.GeneratedMessage {
     if (requestRejected != null) result.requestRejected = requestRejected;
     if (commandAccepted != null) result.commandAccepted = commandAccepted;
     if (commandRejected != null) result.commandRejected = commandRejected;
+    if (approveProjectTrustRequest != null)
+      result.approveProjectTrustRequest = approveProjectTrustRequest;
+    if (approveProjectTrustResponse != null)
+      result.approveProjectTrustResponse = approveProjectTrustResponse;
     if (sessionEventStream != null)
       result.sessionEventStream = sessionEventStream;
     if (eventStream != null) result.eventStream = eventStream;
@@ -140,6 +180,14 @@ class PiTransportFrame extends $pb.GeneratedMessage {
     12: PiTransportFrame_Operation.serverHandshakeRejected,
     20: PiTransportFrame_Operation.healthRequest,
     21: PiTransportFrame_Operation.healthResponse,
+    22: PiTransportFrame_Operation.getProjectBootstrapRequest,
+    23: PiTransportFrame_Operation.getProjectBootstrapResponse,
+    24: PiTransportFrame_Operation.browseDirectoryRequest,
+    25: PiTransportFrame_Operation.browseDirectoryResponse,
+    26: PiTransportFrame_Operation.validateProjectRequest,
+    27: PiTransportFrame_Operation.validateProjectResponse,
+    28: PiTransportFrame_Operation.listKnownProjectsRequest,
+    29: PiTransportFrame_Operation.listKnownProjectsResponse,
     30: PiTransportFrame_Operation.listSessionsRequest,
     31: PiTransportFrame_Operation.listSessionsResponse,
     32: PiTransportFrame_Operation.getSessionRequest,
@@ -151,6 +199,8 @@ class PiTransportFrame extends $pb.GeneratedMessage {
     38: PiTransportFrame_Operation.requestRejected,
     39: PiTransportFrame_Operation.commandAccepted,
     40: PiTransportFrame_Operation.commandRejected,
+    41: PiTransportFrame_Operation.approveProjectTrustRequest,
+    42: PiTransportFrame_Operation.approveProjectTrustResponse,
     50: PiTransportFrame_Operation.sessionEventStream,
     51: PiTransportFrame_Operation.eventStream,
     60: PiTransportFrame_Operation.cancel,
@@ -174,6 +224,14 @@ class PiTransportFrame extends $pb.GeneratedMessage {
       12,
       20,
       21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
       30,
       31,
       32,
@@ -185,6 +243,8 @@ class PiTransportFrame extends $pb.GeneratedMessage {
       38,
       39,
       40,
+      41,
+      42,
       50,
       51,
       60,
@@ -211,6 +271,30 @@ class PiTransportFrame extends $pb.GeneratedMessage {
         subBuilder: HealthRequest.create)
     ..aOM<HealthResponse>(21, _omitFieldNames ? '' : 'healthResponse',
         subBuilder: HealthResponse.create)
+    ..aOM<GetProjectBootstrapRequest>(
+        22, _omitFieldNames ? '' : 'getProjectBootstrapRequest',
+        subBuilder: GetProjectBootstrapRequest.create)
+    ..aOM<GetProjectBootstrapResponse>(
+        23, _omitFieldNames ? '' : 'getProjectBootstrapResponse',
+        subBuilder: GetProjectBootstrapResponse.create)
+    ..aOM<BrowseDirectoryRequest>(
+        24, _omitFieldNames ? '' : 'browseDirectoryRequest',
+        subBuilder: BrowseDirectoryRequest.create)
+    ..aOM<BrowseDirectoryResponse>(
+        25, _omitFieldNames ? '' : 'browseDirectoryResponse',
+        subBuilder: BrowseDirectoryResponse.create)
+    ..aOM<ValidateProjectRequest>(
+        26, _omitFieldNames ? '' : 'validateProjectRequest',
+        subBuilder: ValidateProjectRequest.create)
+    ..aOM<ValidateProjectResponse>(
+        27, _omitFieldNames ? '' : 'validateProjectResponse',
+        subBuilder: ValidateProjectResponse.create)
+    ..aOM<ListKnownProjectsRequest>(
+        28, _omitFieldNames ? '' : 'listKnownProjectsRequest',
+        subBuilder: ListKnownProjectsRequest.create)
+    ..aOM<ListKnownProjectsResponse>(
+        29, _omitFieldNames ? '' : 'listKnownProjectsResponse',
+        subBuilder: ListKnownProjectsResponse.create)
     ..aOM<ListSessionsRequest>(30, _omitFieldNames ? '' : 'listSessionsRequest',
         subBuilder: ListSessionsRequest.create)
     ..aOM<ListSessionsResponse>(
@@ -236,6 +320,12 @@ class PiTransportFrame extends $pb.GeneratedMessage {
         subBuilder: CommandAccepted.create)
     ..aOM<CommandRejected>(40, _omitFieldNames ? '' : 'commandRejected',
         subBuilder: CommandRejected.create)
+    ..aOM<ApproveProjectTrustRequest>(
+        41, _omitFieldNames ? '' : 'approveProjectTrustRequest',
+        subBuilder: ApproveProjectTrustRequest.create)
+    ..aOM<ApproveProjectTrustResponse>(
+        42, _omitFieldNames ? '' : 'approveProjectTrustResponse',
+        subBuilder: ApproveProjectTrustResponse.create)
     ..aOM<SessionEventStreamEnvelope>(
         50, _omitFieldNames ? '' : 'sessionEventStream',
         subBuilder: SessionEventStreamEnvelope.create)
@@ -283,6 +373,14 @@ class PiTransportFrame extends $pb.GeneratedMessage {
   @$pb.TagNumber(12)
   @$pb.TagNumber(20)
   @$pb.TagNumber(21)
+  @$pb.TagNumber(22)
+  @$pb.TagNumber(23)
+  @$pb.TagNumber(24)
+  @$pb.TagNumber(25)
+  @$pb.TagNumber(26)
+  @$pb.TagNumber(27)
+  @$pb.TagNumber(28)
+  @$pb.TagNumber(29)
   @$pb.TagNumber(30)
   @$pb.TagNumber(31)
   @$pb.TagNumber(32)
@@ -294,6 +392,8 @@ class PiTransportFrame extends $pb.GeneratedMessage {
   @$pb.TagNumber(38)
   @$pb.TagNumber(39)
   @$pb.TagNumber(40)
+  @$pb.TagNumber(41)
+  @$pb.TagNumber(42)
   @$pb.TagNumber(50)
   @$pb.TagNumber(51)
   @$pb.TagNumber(60)
@@ -311,6 +411,14 @@ class PiTransportFrame extends $pb.GeneratedMessage {
   @$pb.TagNumber(12)
   @$pb.TagNumber(20)
   @$pb.TagNumber(21)
+  @$pb.TagNumber(22)
+  @$pb.TagNumber(23)
+  @$pb.TagNumber(24)
+  @$pb.TagNumber(25)
+  @$pb.TagNumber(26)
+  @$pb.TagNumber(27)
+  @$pb.TagNumber(28)
+  @$pb.TagNumber(29)
   @$pb.TagNumber(30)
   @$pb.TagNumber(31)
   @$pb.TagNumber(32)
@@ -322,6 +430,8 @@ class PiTransportFrame extends $pb.GeneratedMessage {
   @$pb.TagNumber(38)
   @$pb.TagNumber(39)
   @$pb.TagNumber(40)
+  @$pb.TagNumber(41)
+  @$pb.TagNumber(42)
   @$pb.TagNumber(50)
   @$pb.TagNumber(51)
   @$pb.TagNumber(60)
@@ -400,238 +510,360 @@ class PiTransportFrame extends $pb.GeneratedMessage {
   @$pb.TagNumber(21)
   HealthResponse ensureHealthResponse() => $_ensure(5);
 
+  @$pb.TagNumber(22)
+  GetProjectBootstrapRequest get getProjectBootstrapRequest => $_getN(6);
+  @$pb.TagNumber(22)
+  set getProjectBootstrapRequest(GetProjectBootstrapRequest value) =>
+      $_setField(22, value);
+  @$pb.TagNumber(22)
+  $core.bool hasGetProjectBootstrapRequest() => $_has(6);
+  @$pb.TagNumber(22)
+  void clearGetProjectBootstrapRequest() => $_clearField(22);
+  @$pb.TagNumber(22)
+  GetProjectBootstrapRequest ensureGetProjectBootstrapRequest() => $_ensure(6);
+
+  @$pb.TagNumber(23)
+  GetProjectBootstrapResponse get getProjectBootstrapResponse => $_getN(7);
+  @$pb.TagNumber(23)
+  set getProjectBootstrapResponse(GetProjectBootstrapResponse value) =>
+      $_setField(23, value);
+  @$pb.TagNumber(23)
+  $core.bool hasGetProjectBootstrapResponse() => $_has(7);
+  @$pb.TagNumber(23)
+  void clearGetProjectBootstrapResponse() => $_clearField(23);
+  @$pb.TagNumber(23)
+  GetProjectBootstrapResponse ensureGetProjectBootstrapResponse() =>
+      $_ensure(7);
+
+  @$pb.TagNumber(24)
+  BrowseDirectoryRequest get browseDirectoryRequest => $_getN(8);
+  @$pb.TagNumber(24)
+  set browseDirectoryRequest(BrowseDirectoryRequest value) =>
+      $_setField(24, value);
+  @$pb.TagNumber(24)
+  $core.bool hasBrowseDirectoryRequest() => $_has(8);
+  @$pb.TagNumber(24)
+  void clearBrowseDirectoryRequest() => $_clearField(24);
+  @$pb.TagNumber(24)
+  BrowseDirectoryRequest ensureBrowseDirectoryRequest() => $_ensure(8);
+
+  @$pb.TagNumber(25)
+  BrowseDirectoryResponse get browseDirectoryResponse => $_getN(9);
+  @$pb.TagNumber(25)
+  set browseDirectoryResponse(BrowseDirectoryResponse value) =>
+      $_setField(25, value);
+  @$pb.TagNumber(25)
+  $core.bool hasBrowseDirectoryResponse() => $_has(9);
+  @$pb.TagNumber(25)
+  void clearBrowseDirectoryResponse() => $_clearField(25);
+  @$pb.TagNumber(25)
+  BrowseDirectoryResponse ensureBrowseDirectoryResponse() => $_ensure(9);
+
+  @$pb.TagNumber(26)
+  ValidateProjectRequest get validateProjectRequest => $_getN(10);
+  @$pb.TagNumber(26)
+  set validateProjectRequest(ValidateProjectRequest value) =>
+      $_setField(26, value);
+  @$pb.TagNumber(26)
+  $core.bool hasValidateProjectRequest() => $_has(10);
+  @$pb.TagNumber(26)
+  void clearValidateProjectRequest() => $_clearField(26);
+  @$pb.TagNumber(26)
+  ValidateProjectRequest ensureValidateProjectRequest() => $_ensure(10);
+
+  @$pb.TagNumber(27)
+  ValidateProjectResponse get validateProjectResponse => $_getN(11);
+  @$pb.TagNumber(27)
+  set validateProjectResponse(ValidateProjectResponse value) =>
+      $_setField(27, value);
+  @$pb.TagNumber(27)
+  $core.bool hasValidateProjectResponse() => $_has(11);
+  @$pb.TagNumber(27)
+  void clearValidateProjectResponse() => $_clearField(27);
+  @$pb.TagNumber(27)
+  ValidateProjectResponse ensureValidateProjectResponse() => $_ensure(11);
+
+  @$pb.TagNumber(28)
+  ListKnownProjectsRequest get listKnownProjectsRequest => $_getN(12);
+  @$pb.TagNumber(28)
+  set listKnownProjectsRequest(ListKnownProjectsRequest value) =>
+      $_setField(28, value);
+  @$pb.TagNumber(28)
+  $core.bool hasListKnownProjectsRequest() => $_has(12);
+  @$pb.TagNumber(28)
+  void clearListKnownProjectsRequest() => $_clearField(28);
+  @$pb.TagNumber(28)
+  ListKnownProjectsRequest ensureListKnownProjectsRequest() => $_ensure(12);
+
+  @$pb.TagNumber(29)
+  ListKnownProjectsResponse get listKnownProjectsResponse => $_getN(13);
+  @$pb.TagNumber(29)
+  set listKnownProjectsResponse(ListKnownProjectsResponse value) =>
+      $_setField(29, value);
+  @$pb.TagNumber(29)
+  $core.bool hasListKnownProjectsResponse() => $_has(13);
+  @$pb.TagNumber(29)
+  void clearListKnownProjectsResponse() => $_clearField(29);
+  @$pb.TagNumber(29)
+  ListKnownProjectsResponse ensureListKnownProjectsResponse() => $_ensure(13);
+
   @$pb.TagNumber(30)
-  ListSessionsRequest get listSessionsRequest => $_getN(6);
+  ListSessionsRequest get listSessionsRequest => $_getN(14);
   @$pb.TagNumber(30)
   set listSessionsRequest(ListSessionsRequest value) => $_setField(30, value);
   @$pb.TagNumber(30)
-  $core.bool hasListSessionsRequest() => $_has(6);
+  $core.bool hasListSessionsRequest() => $_has(14);
   @$pb.TagNumber(30)
   void clearListSessionsRequest() => $_clearField(30);
   @$pb.TagNumber(30)
-  ListSessionsRequest ensureListSessionsRequest() => $_ensure(6);
+  ListSessionsRequest ensureListSessionsRequest() => $_ensure(14);
 
   @$pb.TagNumber(31)
-  ListSessionsResponse get listSessionsResponse => $_getN(7);
+  ListSessionsResponse get listSessionsResponse => $_getN(15);
   @$pb.TagNumber(31)
   set listSessionsResponse(ListSessionsResponse value) => $_setField(31, value);
   @$pb.TagNumber(31)
-  $core.bool hasListSessionsResponse() => $_has(7);
+  $core.bool hasListSessionsResponse() => $_has(15);
   @$pb.TagNumber(31)
   void clearListSessionsResponse() => $_clearField(31);
   @$pb.TagNumber(31)
-  ListSessionsResponse ensureListSessionsResponse() => $_ensure(7);
+  ListSessionsResponse ensureListSessionsResponse() => $_ensure(15);
 
   @$pb.TagNumber(32)
-  GetSessionRequest get getSessionRequest => $_getN(8);
+  GetSessionRequest get getSessionRequest => $_getN(16);
   @$pb.TagNumber(32)
   set getSessionRequest(GetSessionRequest value) => $_setField(32, value);
   @$pb.TagNumber(32)
-  $core.bool hasGetSessionRequest() => $_has(8);
+  $core.bool hasGetSessionRequest() => $_has(16);
   @$pb.TagNumber(32)
   void clearGetSessionRequest() => $_clearField(32);
   @$pb.TagNumber(32)
-  GetSessionRequest ensureGetSessionRequest() => $_ensure(8);
+  GetSessionRequest ensureGetSessionRequest() => $_ensure(16);
 
   @$pb.TagNumber(33)
-  GetSessionResponse get getSessionResponse => $_getN(9);
+  GetSessionResponse get getSessionResponse => $_getN(17);
   @$pb.TagNumber(33)
   set getSessionResponse(GetSessionResponse value) => $_setField(33, value);
   @$pb.TagNumber(33)
-  $core.bool hasGetSessionResponse() => $_has(9);
+  $core.bool hasGetSessionResponse() => $_has(17);
   @$pb.TagNumber(33)
   void clearGetSessionResponse() => $_clearField(33);
   @$pb.TagNumber(33)
-  GetSessionResponse ensureGetSessionResponse() => $_ensure(9);
+  GetSessionResponse ensureGetSessionResponse() => $_ensure(17);
 
   @$pb.TagNumber(34)
-  CreateSessionRequest get createSessionRequest => $_getN(10);
+  CreateSessionRequest get createSessionRequest => $_getN(18);
   @$pb.TagNumber(34)
   set createSessionRequest(CreateSessionRequest value) => $_setField(34, value);
   @$pb.TagNumber(34)
-  $core.bool hasCreateSessionRequest() => $_has(10);
+  $core.bool hasCreateSessionRequest() => $_has(18);
   @$pb.TagNumber(34)
   void clearCreateSessionRequest() => $_clearField(34);
   @$pb.TagNumber(34)
-  CreateSessionRequest ensureCreateSessionRequest() => $_ensure(10);
+  CreateSessionRequest ensureCreateSessionRequest() => $_ensure(18);
 
   @$pb.TagNumber(35)
-  CreateSessionResponse get createSessionResponse => $_getN(11);
+  CreateSessionResponse get createSessionResponse => $_getN(19);
   @$pb.TagNumber(35)
   set createSessionResponse(CreateSessionResponse value) =>
       $_setField(35, value);
   @$pb.TagNumber(35)
-  $core.bool hasCreateSessionResponse() => $_has(11);
+  $core.bool hasCreateSessionResponse() => $_has(19);
   @$pb.TagNumber(35)
   void clearCreateSessionResponse() => $_clearField(35);
   @$pb.TagNumber(35)
-  CreateSessionResponse ensureCreateSessionResponse() => $_ensure(11);
+  CreateSessionResponse ensureCreateSessionResponse() => $_ensure(19);
 
   @$pb.TagNumber(36)
-  PromptCommand get promptCommand => $_getN(12);
+  PromptCommand get promptCommand => $_getN(20);
   @$pb.TagNumber(36)
   set promptCommand(PromptCommand value) => $_setField(36, value);
   @$pb.TagNumber(36)
-  $core.bool hasPromptCommand() => $_has(12);
+  $core.bool hasPromptCommand() => $_has(20);
   @$pb.TagNumber(36)
   void clearPromptCommand() => $_clearField(36);
   @$pb.TagNumber(36)
-  PromptCommand ensurePromptCommand() => $_ensure(12);
+  PromptCommand ensurePromptCommand() => $_ensure(20);
 
   @$pb.TagNumber(37)
-  AbortCommand get abortCommand => $_getN(13);
+  AbortCommand get abortCommand => $_getN(21);
   @$pb.TagNumber(37)
   set abortCommand(AbortCommand value) => $_setField(37, value);
   @$pb.TagNumber(37)
-  $core.bool hasAbortCommand() => $_has(13);
+  $core.bool hasAbortCommand() => $_has(21);
   @$pb.TagNumber(37)
   void clearAbortCommand() => $_clearField(37);
   @$pb.TagNumber(37)
-  AbortCommand ensureAbortCommand() => $_ensure(13);
+  AbortCommand ensureAbortCommand() => $_ensure(21);
 
   @$pb.TagNumber(38)
-  RequestRejected get requestRejected => $_getN(14);
+  RequestRejected get requestRejected => $_getN(22);
   @$pb.TagNumber(38)
   set requestRejected(RequestRejected value) => $_setField(38, value);
   @$pb.TagNumber(38)
-  $core.bool hasRequestRejected() => $_has(14);
+  $core.bool hasRequestRejected() => $_has(22);
   @$pb.TagNumber(38)
   void clearRequestRejected() => $_clearField(38);
   @$pb.TagNumber(38)
-  RequestRejected ensureRequestRejected() => $_ensure(14);
+  RequestRejected ensureRequestRejected() => $_ensure(22);
 
   @$pb.TagNumber(39)
-  CommandAccepted get commandAccepted => $_getN(15);
+  CommandAccepted get commandAccepted => $_getN(23);
   @$pb.TagNumber(39)
   set commandAccepted(CommandAccepted value) => $_setField(39, value);
   @$pb.TagNumber(39)
-  $core.bool hasCommandAccepted() => $_has(15);
+  $core.bool hasCommandAccepted() => $_has(23);
   @$pb.TagNumber(39)
   void clearCommandAccepted() => $_clearField(39);
   @$pb.TagNumber(39)
-  CommandAccepted ensureCommandAccepted() => $_ensure(15);
+  CommandAccepted ensureCommandAccepted() => $_ensure(23);
 
   @$pb.TagNumber(40)
-  CommandRejected get commandRejected => $_getN(16);
+  CommandRejected get commandRejected => $_getN(24);
   @$pb.TagNumber(40)
   set commandRejected(CommandRejected value) => $_setField(40, value);
   @$pb.TagNumber(40)
-  $core.bool hasCommandRejected() => $_has(16);
+  $core.bool hasCommandRejected() => $_has(24);
   @$pb.TagNumber(40)
   void clearCommandRejected() => $_clearField(40);
   @$pb.TagNumber(40)
-  CommandRejected ensureCommandRejected() => $_ensure(16);
+  CommandRejected ensureCommandRejected() => $_ensure(24);
+
+  @$pb.TagNumber(41)
+  ApproveProjectTrustRequest get approveProjectTrustRequest => $_getN(25);
+  @$pb.TagNumber(41)
+  set approveProjectTrustRequest(ApproveProjectTrustRequest value) =>
+      $_setField(41, value);
+  @$pb.TagNumber(41)
+  $core.bool hasApproveProjectTrustRequest() => $_has(25);
+  @$pb.TagNumber(41)
+  void clearApproveProjectTrustRequest() => $_clearField(41);
+  @$pb.TagNumber(41)
+  ApproveProjectTrustRequest ensureApproveProjectTrustRequest() => $_ensure(25);
+
+  @$pb.TagNumber(42)
+  ApproveProjectTrustResponse get approveProjectTrustResponse => $_getN(26);
+  @$pb.TagNumber(42)
+  set approveProjectTrustResponse(ApproveProjectTrustResponse value) =>
+      $_setField(42, value);
+  @$pb.TagNumber(42)
+  $core.bool hasApproveProjectTrustResponse() => $_has(26);
+  @$pb.TagNumber(42)
+  void clearApproveProjectTrustResponse() => $_clearField(42);
+  @$pb.TagNumber(42)
+  ApproveProjectTrustResponse ensureApproveProjectTrustResponse() =>
+      $_ensure(26);
 
   @$pb.TagNumber(50)
-  SessionEventStreamEnvelope get sessionEventStream => $_getN(17);
+  SessionEventStreamEnvelope get sessionEventStream => $_getN(27);
   @$pb.TagNumber(50)
   set sessionEventStream(SessionEventStreamEnvelope value) =>
       $_setField(50, value);
   @$pb.TagNumber(50)
-  $core.bool hasSessionEventStream() => $_has(17);
+  $core.bool hasSessionEventStream() => $_has(27);
   @$pb.TagNumber(50)
   void clearSessionEventStream() => $_clearField(50);
   @$pb.TagNumber(50)
-  SessionEventStreamEnvelope ensureSessionEventStream() => $_ensure(17);
+  SessionEventStreamEnvelope ensureSessionEventStream() => $_ensure(27);
 
   @$pb.TagNumber(51)
-  EventStreamEnvelope get eventStream => $_getN(18);
+  EventStreamEnvelope get eventStream => $_getN(28);
   @$pb.TagNumber(51)
   set eventStream(EventStreamEnvelope value) => $_setField(51, value);
   @$pb.TagNumber(51)
-  $core.bool hasEventStream() => $_has(18);
+  $core.bool hasEventStream() => $_has(28);
   @$pb.TagNumber(51)
   void clearEventStream() => $_clearField(51);
   @$pb.TagNumber(51)
-  EventStreamEnvelope ensureEventStream() => $_ensure(18);
+  EventStreamEnvelope ensureEventStream() => $_ensure(28);
 
   @$pb.TagNumber(60)
-  Cancel get cancel => $_getN(19);
+  Cancel get cancel => $_getN(29);
   @$pb.TagNumber(60)
   set cancel(Cancel value) => $_setField(60, value);
   @$pb.TagNumber(60)
-  $core.bool hasCancel() => $_has(19);
+  $core.bool hasCancel() => $_has(29);
   @$pb.TagNumber(60)
   void clearCancel() => $_clearField(60);
   @$pb.TagNumber(60)
-  Cancel ensureCancel() => $_ensure(19);
+  Cancel ensureCancel() => $_ensure(29);
 
   @$pb.TagNumber(61)
-  WindowUpdate get windowUpdate => $_getN(20);
+  WindowUpdate get windowUpdate => $_getN(30);
   @$pb.TagNumber(61)
   set windowUpdate(WindowUpdate value) => $_setField(61, value);
   @$pb.TagNumber(61)
-  $core.bool hasWindowUpdate() => $_has(20);
+  $core.bool hasWindowUpdate() => $_has(30);
   @$pb.TagNumber(61)
   void clearWindowUpdate() => $_clearField(61);
   @$pb.TagNumber(61)
-  WindowUpdate ensureWindowUpdate() => $_ensure(20);
+  WindowUpdate ensureWindowUpdate() => $_ensure(30);
 
   @$pb.TagNumber(70)
-  TransferOpen get transferOpen => $_getN(21);
+  TransferOpen get transferOpen => $_getN(31);
   @$pb.TagNumber(70)
   set transferOpen(TransferOpen value) => $_setField(70, value);
   @$pb.TagNumber(70)
-  $core.bool hasTransferOpen() => $_has(21);
+  $core.bool hasTransferOpen() => $_has(31);
   @$pb.TagNumber(70)
   void clearTransferOpen() => $_clearField(70);
   @$pb.TagNumber(70)
-  TransferOpen ensureTransferOpen() => $_ensure(21);
+  TransferOpen ensureTransferOpen() => $_ensure(31);
 
   @$pb.TagNumber(71)
-  TransferChunk get transferChunk => $_getN(22);
+  TransferChunk get transferChunk => $_getN(32);
   @$pb.TagNumber(71)
   set transferChunk(TransferChunk value) => $_setField(71, value);
   @$pb.TagNumber(71)
-  $core.bool hasTransferChunk() => $_has(22);
+  $core.bool hasTransferChunk() => $_has(32);
   @$pb.TagNumber(71)
   void clearTransferChunk() => $_clearField(71);
   @$pb.TagNumber(71)
-  TransferChunk ensureTransferChunk() => $_ensure(22);
+  TransferChunk ensureTransferChunk() => $_ensure(32);
 
   @$pb.TagNumber(72)
-  TransferAck get transferAck => $_getN(23);
+  TransferAck get transferAck => $_getN(33);
   @$pb.TagNumber(72)
   set transferAck(TransferAck value) => $_setField(72, value);
   @$pb.TagNumber(72)
-  $core.bool hasTransferAck() => $_has(23);
+  $core.bool hasTransferAck() => $_has(33);
   @$pb.TagNumber(72)
   void clearTransferAck() => $_clearField(72);
   @$pb.TagNumber(72)
-  TransferAck ensureTransferAck() => $_ensure(23);
+  TransferAck ensureTransferAck() => $_ensure(33);
 
   @$pb.TagNumber(73)
-  TransferComplete get transferComplete => $_getN(24);
+  TransferComplete get transferComplete => $_getN(34);
   @$pb.TagNumber(73)
   set transferComplete(TransferComplete value) => $_setField(73, value);
   @$pb.TagNumber(73)
-  $core.bool hasTransferComplete() => $_has(24);
+  $core.bool hasTransferComplete() => $_has(34);
   @$pb.TagNumber(73)
   void clearTransferComplete() => $_clearField(73);
   @$pb.TagNumber(73)
-  TransferComplete ensureTransferComplete() => $_ensure(24);
+  TransferComplete ensureTransferComplete() => $_ensure(34);
 
   @$pb.TagNumber(74)
-  TransferAbort get transferAbort => $_getN(25);
+  TransferAbort get transferAbort => $_getN(35);
   @$pb.TagNumber(74)
   set transferAbort(TransferAbort value) => $_setField(74, value);
   @$pb.TagNumber(74)
-  $core.bool hasTransferAbort() => $_has(25);
+  $core.bool hasTransferAbort() => $_has(35);
   @$pb.TagNumber(74)
   void clearTransferAbort() => $_clearField(74);
   @$pb.TagNumber(74)
-  TransferAbort ensureTransferAbort() => $_ensure(25);
+  TransferAbort ensureTransferAbort() => $_ensure(35);
 
   @$pb.TagNumber(80)
-  ErrorEnvelope get error => $_getN(26);
+  ErrorEnvelope get error => $_getN(36);
   @$pb.TagNumber(80)
   set error(ErrorEnvelope value) => $_setField(80, value);
   @$pb.TagNumber(80)
-  $core.bool hasError() => $_has(26);
+  $core.bool hasError() => $_has(36);
   @$pb.TagNumber(80)
   void clearError() => $_clearField(80);
   @$pb.TagNumber(80)
-  ErrorEnvelope ensureError() => $_ensure(26);
+  ErrorEnvelope ensureError() => $_ensure(36);
 }
 
 /// ProtocolVersion is the numeric SemVer core used for exact wire negotiation.
@@ -1212,12 +1444,1324 @@ class HealthResponse extends $pb.GeneratedMessage {
   void clearUptimeMillis() => $_clearField(4);
 }
 
-class ListSessionsRequest extends $pb.GeneratedMessage {
-  factory ListSessionsRequest({
+class GetProjectBootstrapRequest extends $pb.GeneratedMessage {
+  factory GetProjectBootstrapRequest({
     $fixnum.Int64? requestId,
   }) {
     final result = create();
     if (requestId != null) result.requestId = requestId;
+    return result;
+  }
+
+  GetProjectBootstrapRequest._();
+
+  factory GetProjectBootstrapRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory GetProjectBootstrapRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetProjectBootstrapRequest',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetProjectBootstrapRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetProjectBootstrapRequest copyWith(
+          void Function(GetProjectBootstrapRequest) updates) =>
+      super.copyWith(
+              (message) => updates(message as GetProjectBootstrapRequest))
+          as GetProjectBootstrapRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GetProjectBootstrapRequest create() => GetProjectBootstrapRequest._();
+  @$core.override
+  GetProjectBootstrapRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static GetProjectBootstrapRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetProjectBootstrapRequest>(create);
+  static GetProjectBootstrapRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+}
+
+class GetProjectBootstrapResponse extends $pb.GeneratedMessage {
+  factory GetProjectBootstrapResponse({
+    $fixnum.Int64? requestId,
+    $core.String? homeDirectory,
+    ProjectSnapshot? defaultProject,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (homeDirectory != null) result.homeDirectory = homeDirectory;
+    if (defaultProject != null) result.defaultProject = defaultProject;
+    return result;
+  }
+
+  GetProjectBootstrapResponse._();
+
+  factory GetProjectBootstrapResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory GetProjectBootstrapResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetProjectBootstrapResponse',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(2, _omitFieldNames ? '' : 'homeDirectory')
+    ..aOM<ProjectSnapshot>(3, _omitFieldNames ? '' : 'defaultProject',
+        subBuilder: ProjectSnapshot.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetProjectBootstrapResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetProjectBootstrapResponse copyWith(
+          void Function(GetProjectBootstrapResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as GetProjectBootstrapResponse))
+          as GetProjectBootstrapResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GetProjectBootstrapResponse create() =>
+      GetProjectBootstrapResponse._();
+  @$core.override
+  GetProjectBootstrapResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static GetProjectBootstrapResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetProjectBootstrapResponse>(create);
+  static GetProjectBootstrapResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get homeDirectory => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set homeDirectory($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasHomeDirectory() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearHomeDirectory() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  ProjectSnapshot get defaultProject => $_getN(2);
+  @$pb.TagNumber(3)
+  set defaultProject(ProjectSnapshot value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasDefaultProject() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearDefaultProject() => $_clearField(3);
+  @$pb.TagNumber(3)
+  ProjectSnapshot ensureDefaultProject() => $_ensure(2);
+}
+
+class BrowseDirectoryRequest extends $pb.GeneratedMessage {
+  factory BrowseDirectoryRequest({
+    $fixnum.Int64? requestId,
+    $core.String? directory,
+    $core.int? maxChildren,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (directory != null) result.directory = directory;
+    if (maxChildren != null) result.maxChildren = maxChildren;
+    return result;
+  }
+
+  BrowseDirectoryRequest._();
+
+  factory BrowseDirectoryRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory BrowseDirectoryRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'BrowseDirectoryRequest',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(2, _omitFieldNames ? '' : 'directory')
+    ..aI(3, _omitFieldNames ? '' : 'maxChildren',
+        fieldType: $pb.PbFieldType.OU3)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  BrowseDirectoryRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  BrowseDirectoryRequest copyWith(
+          void Function(BrowseDirectoryRequest) updates) =>
+      super.copyWith((message) => updates(message as BrowseDirectoryRequest))
+          as BrowseDirectoryRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static BrowseDirectoryRequest create() => BrowseDirectoryRequest._();
+  @$core.override
+  BrowseDirectoryRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static BrowseDirectoryRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<BrowseDirectoryRequest>(create);
+  static BrowseDirectoryRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get directory => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set directory($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDirectory() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDirectory() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get maxChildren => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set maxChildren($core.int value) => $_setUnsignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasMaxChildren() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearMaxChildren() => $_clearField(3);
+}
+
+class BrowseDirectoryResponse extends $pb.GeneratedMessage {
+  factory BrowseDirectoryResponse({
+    $fixnum.Int64? requestId,
+    DirectoryListingSnapshot? directory,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (directory != null) result.directory = directory;
+    return result;
+  }
+
+  BrowseDirectoryResponse._();
+
+  factory BrowseDirectoryResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory BrowseDirectoryResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'BrowseDirectoryResponse',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOM<DirectoryListingSnapshot>(2, _omitFieldNames ? '' : 'directory',
+        subBuilder: DirectoryListingSnapshot.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  BrowseDirectoryResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  BrowseDirectoryResponse copyWith(
+          void Function(BrowseDirectoryResponse) updates) =>
+      super.copyWith((message) => updates(message as BrowseDirectoryResponse))
+          as BrowseDirectoryResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static BrowseDirectoryResponse create() => BrowseDirectoryResponse._();
+  @$core.override
+  BrowseDirectoryResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static BrowseDirectoryResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<BrowseDirectoryResponse>(create);
+  static BrowseDirectoryResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  DirectoryListingSnapshot get directory => $_getN(1);
+  @$pb.TagNumber(2)
+  set directory(DirectoryListingSnapshot value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDirectory() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDirectory() => $_clearField(2);
+  @$pb.TagNumber(2)
+  DirectoryListingSnapshot ensureDirectory() => $_ensure(1);
+}
+
+class ValidateProjectRequest extends $pb.GeneratedMessage {
+  factory ValidateProjectRequest({
+    $fixnum.Int64? requestId,
+    $core.String? candidateDirectory,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (candidateDirectory != null)
+      result.candidateDirectory = candidateDirectory;
+    return result;
+  }
+
+  ValidateProjectRequest._();
+
+  factory ValidateProjectRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ValidateProjectRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ValidateProjectRequest',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(2, _omitFieldNames ? '' : 'candidateDirectory')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ValidateProjectRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ValidateProjectRequest copyWith(
+          void Function(ValidateProjectRequest) updates) =>
+      super.copyWith((message) => updates(message as ValidateProjectRequest))
+          as ValidateProjectRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ValidateProjectRequest create() => ValidateProjectRequest._();
+  @$core.override
+  ValidateProjectRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ValidateProjectRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ValidateProjectRequest>(create);
+  static ValidateProjectRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get candidateDirectory => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set candidateDirectory($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasCandidateDirectory() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCandidateDirectory() => $_clearField(2);
+}
+
+class ValidateProjectResponse extends $pb.GeneratedMessage {
+  factory ValidateProjectResponse({
+    $fixnum.Int64? requestId,
+    ProjectSnapshot? project,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (project != null) result.project = project;
+    return result;
+  }
+
+  ValidateProjectResponse._();
+
+  factory ValidateProjectResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ValidateProjectResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ValidateProjectResponse',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOM<ProjectSnapshot>(2, _omitFieldNames ? '' : 'project',
+        subBuilder: ProjectSnapshot.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ValidateProjectResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ValidateProjectResponse copyWith(
+          void Function(ValidateProjectResponse) updates) =>
+      super.copyWith((message) => updates(message as ValidateProjectResponse))
+          as ValidateProjectResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ValidateProjectResponse create() => ValidateProjectResponse._();
+  @$core.override
+  ValidateProjectResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ValidateProjectResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ValidateProjectResponse>(create);
+  static ValidateProjectResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  ProjectSnapshot get project => $_getN(1);
+  @$pb.TagNumber(2)
+  set project(ProjectSnapshot value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasProject() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearProject() => $_clearField(2);
+  @$pb.TagNumber(2)
+  ProjectSnapshot ensureProject() => $_ensure(1);
+}
+
+class ListKnownProjectsRequest extends $pb.GeneratedMessage {
+  factory ListKnownProjectsRequest({
+    $fixnum.Int64? requestId,
+    $core.int? maxProjects,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (maxProjects != null) result.maxProjects = maxProjects;
+    return result;
+  }
+
+  ListKnownProjectsRequest._();
+
+  factory ListKnownProjectsRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ListKnownProjectsRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListKnownProjectsRequest',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aI(2, _omitFieldNames ? '' : 'maxProjects',
+        fieldType: $pb.PbFieldType.OU3)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListKnownProjectsRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListKnownProjectsRequest copyWith(
+          void Function(ListKnownProjectsRequest) updates) =>
+      super.copyWith((message) => updates(message as ListKnownProjectsRequest))
+          as ListKnownProjectsRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ListKnownProjectsRequest create() => ListKnownProjectsRequest._();
+  @$core.override
+  ListKnownProjectsRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ListKnownProjectsRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ListKnownProjectsRequest>(create);
+  static ListKnownProjectsRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get maxProjects => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set maxProjects($core.int value) => $_setUnsignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasMaxProjects() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMaxProjects() => $_clearField(2);
+}
+
+class ListKnownProjectsResponse extends $pb.GeneratedMessage {
+  factory ListKnownProjectsResponse({
+    $fixnum.Int64? requestId,
+    $core.Iterable<KnownProjectSnapshot>? projects,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (projects != null) result.projects.addAll(projects);
+    return result;
+  }
+
+  ListKnownProjectsResponse._();
+
+  factory ListKnownProjectsResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ListKnownProjectsResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListKnownProjectsResponse',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..pPM<KnownProjectSnapshot>(2, _omitFieldNames ? '' : 'projects',
+        subBuilder: KnownProjectSnapshot.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListKnownProjectsResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListKnownProjectsResponse copyWith(
+          void Function(ListKnownProjectsResponse) updates) =>
+      super.copyWith((message) => updates(message as ListKnownProjectsResponse))
+          as ListKnownProjectsResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ListKnownProjectsResponse create() => ListKnownProjectsResponse._();
+  @$core.override
+  ListKnownProjectsResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ListKnownProjectsResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ListKnownProjectsResponse>(create);
+  static ListKnownProjectsResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $pb.PbList<KnownProjectSnapshot> get projects => $_getList(1);
+}
+
+class ApproveProjectTrustRequest extends $pb.GeneratedMessage {
+  factory ApproveProjectTrustRequest({
+    $fixnum.Int64? requestId,
+    $core.String? projectId,
+    $core.String? trustRevision,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (projectId != null) result.projectId = projectId;
+    if (trustRevision != null) result.trustRevision = trustRevision;
+    return result;
+  }
+
+  ApproveProjectTrustRequest._();
+
+  factory ApproveProjectTrustRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ApproveProjectTrustRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ApproveProjectTrustRequest',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(2, _omitFieldNames ? '' : 'projectId')
+    ..aOS(3, _omitFieldNames ? '' : 'trustRevision')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ApproveProjectTrustRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ApproveProjectTrustRequest copyWith(
+          void Function(ApproveProjectTrustRequest) updates) =>
+      super.copyWith(
+              (message) => updates(message as ApproveProjectTrustRequest))
+          as ApproveProjectTrustRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ApproveProjectTrustRequest create() => ApproveProjectTrustRequest._();
+  @$core.override
+  ApproveProjectTrustRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ApproveProjectTrustRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ApproveProjectTrustRequest>(create);
+  static ApproveProjectTrustRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get projectId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set projectId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasProjectId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearProjectId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get trustRevision => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set trustRevision($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasTrustRevision() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTrustRevision() => $_clearField(3);
+}
+
+class ApproveProjectTrustResponse extends $pb.GeneratedMessage {
+  factory ApproveProjectTrustResponse({
+    $fixnum.Int64? requestId,
+    ProjectSnapshot? project,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (project != null) result.project = project;
+    return result;
+  }
+
+  ApproveProjectTrustResponse._();
+
+  factory ApproveProjectTrustResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ApproveProjectTrustResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ApproveProjectTrustResponse',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOM<ProjectSnapshot>(2, _omitFieldNames ? '' : 'project',
+        subBuilder: ProjectSnapshot.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ApproveProjectTrustResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ApproveProjectTrustResponse copyWith(
+          void Function(ApproveProjectTrustResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as ApproveProjectTrustResponse))
+          as ApproveProjectTrustResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ApproveProjectTrustResponse create() =>
+      ApproveProjectTrustResponse._();
+  @$core.override
+  ApproveProjectTrustResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ApproveProjectTrustResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ApproveProjectTrustResponse>(create);
+  static ApproveProjectTrustResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  ProjectSnapshot get project => $_getN(1);
+  @$pb.TagNumber(2)
+  set project(ProjectSnapshot value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasProject() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearProject() => $_clearField(2);
+  @$pb.TagNumber(2)
+  ProjectSnapshot ensureProject() => $_ensure(1);
+}
+
+class DirectoryListingSnapshot extends $pb.GeneratedMessage {
+  factory DirectoryListingSnapshot({
+    $core.String? canonicalDirectory,
+    $core.String? parentDirectory,
+    $core.Iterable<DirectoryEntrySnapshot>? children,
+    $core.bool? truncated,
+  }) {
+    final result = create();
+    if (canonicalDirectory != null)
+      result.canonicalDirectory = canonicalDirectory;
+    if (parentDirectory != null) result.parentDirectory = parentDirectory;
+    if (children != null) result.children.addAll(children);
+    if (truncated != null) result.truncated = truncated;
+    return result;
+  }
+
+  DirectoryListingSnapshot._();
+
+  factory DirectoryListingSnapshot.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DirectoryListingSnapshot.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DirectoryListingSnapshot',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'canonicalDirectory')
+    ..aOS(2, _omitFieldNames ? '' : 'parentDirectory')
+    ..pPM<DirectoryEntrySnapshot>(3, _omitFieldNames ? '' : 'children',
+        subBuilder: DirectoryEntrySnapshot.create)
+    ..aOB(4, _omitFieldNames ? '' : 'truncated')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DirectoryListingSnapshot clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DirectoryListingSnapshot copyWith(
+          void Function(DirectoryListingSnapshot) updates) =>
+      super.copyWith((message) => updates(message as DirectoryListingSnapshot))
+          as DirectoryListingSnapshot;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DirectoryListingSnapshot create() => DirectoryListingSnapshot._();
+  @$core.override
+  DirectoryListingSnapshot createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DirectoryListingSnapshot getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DirectoryListingSnapshot>(create);
+  static DirectoryListingSnapshot? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get canonicalDirectory => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set canonicalDirectory($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasCanonicalDirectory() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearCanonicalDirectory() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get parentDirectory => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set parentDirectory($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasParentDirectory() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearParentDirectory() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $pb.PbList<DirectoryEntrySnapshot> get children => $_getList(2);
+
+  @$pb.TagNumber(4)
+  $core.bool get truncated => $_getBF(3);
+  @$pb.TagNumber(4)
+  set truncated($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasTruncated() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearTruncated() => $_clearField(4);
+}
+
+class DirectoryEntrySnapshot extends $pb.GeneratedMessage {
+  factory DirectoryEntrySnapshot({
+    $core.String? name,
+    $core.String? canonicalPath,
+    $core.bool? isSymbolicLink,
+  }) {
+    final result = create();
+    if (name != null) result.name = name;
+    if (canonicalPath != null) result.canonicalPath = canonicalPath;
+    if (isSymbolicLink != null) result.isSymbolicLink = isSymbolicLink;
+    return result;
+  }
+
+  DirectoryEntrySnapshot._();
+
+  factory DirectoryEntrySnapshot.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DirectoryEntrySnapshot.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DirectoryEntrySnapshot',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..aOS(2, _omitFieldNames ? '' : 'canonicalPath')
+    ..aOB(3, _omitFieldNames ? '' : 'isSymbolicLink')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DirectoryEntrySnapshot clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DirectoryEntrySnapshot copyWith(
+          void Function(DirectoryEntrySnapshot) updates) =>
+      super.copyWith((message) => updates(message as DirectoryEntrySnapshot))
+          as DirectoryEntrySnapshot;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DirectoryEntrySnapshot create() => DirectoryEntrySnapshot._();
+  @$core.override
+  DirectoryEntrySnapshot createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DirectoryEntrySnapshot getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DirectoryEntrySnapshot>(create);
+  static DirectoryEntrySnapshot? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get canonicalPath => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set canonicalPath($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasCanonicalPath() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCanonicalPath() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.bool get isSymbolicLink => $_getBF(2);
+  @$pb.TagNumber(3)
+  set isSymbolicLink($core.bool value) => $_setBool(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasIsSymbolicLink() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearIsSymbolicLink() => $_clearField(3);
+}
+
+class ProjectTrustSnapshot extends $pb.GeneratedMessage {
+  factory ProjectTrustSnapshot({
+    ProjectTrustStatus? status,
+    $core.Iterable<ProjectTrustReason>? reasons,
+    $core.String? revision,
+  }) {
+    final result = create();
+    if (status != null) result.status = status;
+    if (reasons != null) result.reasons.addAll(reasons);
+    if (revision != null) result.revision = revision;
+    return result;
+  }
+
+  ProjectTrustSnapshot._();
+
+  factory ProjectTrustSnapshot.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ProjectTrustSnapshot.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ProjectTrustSnapshot',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aE<ProjectTrustStatus>(1, _omitFieldNames ? '' : 'status',
+        enumValues: ProjectTrustStatus.values)
+    ..pc<ProjectTrustReason>(
+        2, _omitFieldNames ? '' : 'reasons', $pb.PbFieldType.KE,
+        valueOf: ProjectTrustReason.valueOf,
+        enumValues: ProjectTrustReason.values,
+        defaultEnumValue: ProjectTrustReason.PROJECT_TRUST_REASON_UNSPECIFIED)
+    ..aOS(3, _omitFieldNames ? '' : 'revision')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ProjectTrustSnapshot clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ProjectTrustSnapshot copyWith(void Function(ProjectTrustSnapshot) updates) =>
+      super.copyWith((message) => updates(message as ProjectTrustSnapshot))
+          as ProjectTrustSnapshot;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ProjectTrustSnapshot create() => ProjectTrustSnapshot._();
+  @$core.override
+  ProjectTrustSnapshot createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ProjectTrustSnapshot getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ProjectTrustSnapshot>(create);
+  static ProjectTrustSnapshot? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  ProjectTrustStatus get status => $_getN(0);
+  @$pb.TagNumber(1)
+  set status(ProjectTrustStatus value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasStatus() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearStatus() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $pb.PbList<ProjectTrustReason> get reasons => $_getList(1);
+
+  @$pb.TagNumber(3)
+  $core.String get revision => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set revision($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasRevision() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearRevision() => $_clearField(3);
+}
+
+class ProjectIdentitySnapshot extends $pb.GeneratedMessage {
+  factory ProjectIdentitySnapshot({
+    $core.String? projectId,
+    $core.String? canonicalWorkingDirectory,
+    $core.bool? isGitRepository,
+    $core.String? gitRoot,
+    $core.String? mainWorktreeRoot,
+    $core.String? branch,
+    $core.bool? isLinkedWorktree,
+    $core.bool? isDetachedHead,
+    $core.String? worktreeId,
+    $core.String? mainProjectId,
+  }) {
+    final result = create();
+    if (projectId != null) result.projectId = projectId;
+    if (canonicalWorkingDirectory != null)
+      result.canonicalWorkingDirectory = canonicalWorkingDirectory;
+    if (isGitRepository != null) result.isGitRepository = isGitRepository;
+    if (gitRoot != null) result.gitRoot = gitRoot;
+    if (mainWorktreeRoot != null) result.mainWorktreeRoot = mainWorktreeRoot;
+    if (branch != null) result.branch = branch;
+    if (isLinkedWorktree != null) result.isLinkedWorktree = isLinkedWorktree;
+    if (isDetachedHead != null) result.isDetachedHead = isDetachedHead;
+    if (worktreeId != null) result.worktreeId = worktreeId;
+    if (mainProjectId != null) result.mainProjectId = mainProjectId;
+    return result;
+  }
+
+  ProjectIdentitySnapshot._();
+
+  factory ProjectIdentitySnapshot.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ProjectIdentitySnapshot.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ProjectIdentitySnapshot',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'projectId')
+    ..aOS(2, _omitFieldNames ? '' : 'canonicalWorkingDirectory')
+    ..aOB(3, _omitFieldNames ? '' : 'isGitRepository')
+    ..aOS(4, _omitFieldNames ? '' : 'gitRoot')
+    ..aOS(5, _omitFieldNames ? '' : 'mainWorktreeRoot')
+    ..aOS(6, _omitFieldNames ? '' : 'branch')
+    ..aOB(7, _omitFieldNames ? '' : 'isLinkedWorktree')
+    ..aOB(8, _omitFieldNames ? '' : 'isDetachedHead')
+    ..aOS(9, _omitFieldNames ? '' : 'worktreeId')
+    ..aOS(10, _omitFieldNames ? '' : 'mainProjectId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ProjectIdentitySnapshot clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ProjectIdentitySnapshot copyWith(
+          void Function(ProjectIdentitySnapshot) updates) =>
+      super.copyWith((message) => updates(message as ProjectIdentitySnapshot))
+          as ProjectIdentitySnapshot;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ProjectIdentitySnapshot create() => ProjectIdentitySnapshot._();
+  @$core.override
+  ProjectIdentitySnapshot createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ProjectIdentitySnapshot getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ProjectIdentitySnapshot>(create);
+  static ProjectIdentitySnapshot? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get projectId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set projectId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasProjectId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearProjectId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get canonicalWorkingDirectory => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set canonicalWorkingDirectory($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasCanonicalWorkingDirectory() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCanonicalWorkingDirectory() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.bool get isGitRepository => $_getBF(2);
+  @$pb.TagNumber(3)
+  set isGitRepository($core.bool value) => $_setBool(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasIsGitRepository() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearIsGitRepository() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get gitRoot => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set gitRoot($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasGitRoot() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearGitRoot() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get mainWorktreeRoot => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set mainWorktreeRoot($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasMainWorktreeRoot() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearMainWorktreeRoot() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get branch => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set branch($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasBranch() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearBranch() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.bool get isLinkedWorktree => $_getBF(6);
+  @$pb.TagNumber(7)
+  set isLinkedWorktree($core.bool value) => $_setBool(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasIsLinkedWorktree() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearIsLinkedWorktree() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.bool get isDetachedHead => $_getBF(7);
+  @$pb.TagNumber(8)
+  set isDetachedHead($core.bool value) => $_setBool(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasIsDetachedHead() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearIsDetachedHead() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.String get worktreeId => $_getSZ(8);
+  @$pb.TagNumber(9)
+  set worktreeId($core.String value) => $_setString(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasWorktreeId() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearWorktreeId() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.String get mainProjectId => $_getSZ(9);
+  @$pb.TagNumber(10)
+  set mainProjectId($core.String value) => $_setString(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasMainProjectId() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearMainProjectId() => $_clearField(10);
+}
+
+class ProjectSnapshot extends $pb.GeneratedMessage {
+  factory ProjectSnapshot({
+    ProjectIdentitySnapshot? identity,
+    ProjectTrustSnapshot? trust,
+  }) {
+    final result = create();
+    if (identity != null) result.identity = identity;
+    if (trust != null) result.trust = trust;
+    return result;
+  }
+
+  ProjectSnapshot._();
+
+  factory ProjectSnapshot.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ProjectSnapshot.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ProjectSnapshot',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOM<ProjectIdentitySnapshot>(1, _omitFieldNames ? '' : 'identity',
+        subBuilder: ProjectIdentitySnapshot.create)
+    ..aOM<ProjectTrustSnapshot>(2, _omitFieldNames ? '' : 'trust',
+        subBuilder: ProjectTrustSnapshot.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ProjectSnapshot clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ProjectSnapshot copyWith(void Function(ProjectSnapshot) updates) =>
+      super.copyWith((message) => updates(message as ProjectSnapshot))
+          as ProjectSnapshot;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ProjectSnapshot create() => ProjectSnapshot._();
+  @$core.override
+  ProjectSnapshot createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ProjectSnapshot getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ProjectSnapshot>(create);
+  static ProjectSnapshot? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  ProjectIdentitySnapshot get identity => $_getN(0);
+  @$pb.TagNumber(1)
+  set identity(ProjectIdentitySnapshot value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasIdentity() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearIdentity() => $_clearField(1);
+  @$pb.TagNumber(1)
+  ProjectIdentitySnapshot ensureIdentity() => $_ensure(0);
+
+  @$pb.TagNumber(2)
+  ProjectTrustSnapshot get trust => $_getN(1);
+  @$pb.TagNumber(2)
+  set trust(ProjectTrustSnapshot value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasTrust() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearTrust() => $_clearField(2);
+  @$pb.TagNumber(2)
+  ProjectTrustSnapshot ensureTrust() => $_ensure(1);
+}
+
+class KnownProjectSnapshot extends $pb.GeneratedMessage {
+  factory KnownProjectSnapshot({
+    ProjectSnapshot? project,
+    $fixnum.Int64? lastSessionAtUnixMillis,
+    $core.int? sessionCount,
+  }) {
+    final result = create();
+    if (project != null) result.project = project;
+    if (lastSessionAtUnixMillis != null)
+      result.lastSessionAtUnixMillis = lastSessionAtUnixMillis;
+    if (sessionCount != null) result.sessionCount = sessionCount;
+    return result;
+  }
+
+  KnownProjectSnapshot._();
+
+  factory KnownProjectSnapshot.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory KnownProjectSnapshot.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'KnownProjectSnapshot',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOM<ProjectSnapshot>(1, _omitFieldNames ? '' : 'project',
+        subBuilder: ProjectSnapshot.create)
+    ..a<$fixnum.Int64>(2, _omitFieldNames ? '' : 'lastSessionAtUnixMillis',
+        $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aI(3, _omitFieldNames ? '' : 'sessionCount',
+        fieldType: $pb.PbFieldType.OU3)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  KnownProjectSnapshot clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  KnownProjectSnapshot copyWith(void Function(KnownProjectSnapshot) updates) =>
+      super.copyWith((message) => updates(message as KnownProjectSnapshot))
+          as KnownProjectSnapshot;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static KnownProjectSnapshot create() => KnownProjectSnapshot._();
+  @$core.override
+  KnownProjectSnapshot createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static KnownProjectSnapshot getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<KnownProjectSnapshot>(create);
+  static KnownProjectSnapshot? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  ProjectSnapshot get project => $_getN(0);
+  @$pb.TagNumber(1)
+  set project(ProjectSnapshot value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasProject() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearProject() => $_clearField(1);
+  @$pb.TagNumber(1)
+  ProjectSnapshot ensureProject() => $_ensure(0);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get lastSessionAtUnixMillis => $_getI64(1);
+  @$pb.TagNumber(2)
+  set lastSessionAtUnixMillis($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasLastSessionAtUnixMillis() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearLastSessionAtUnixMillis() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get sessionCount => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set sessionCount($core.int value) => $_setUnsignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSessionCount() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSessionCount() => $_clearField(3);
+}
+
+class ListSessionsRequest extends $pb.GeneratedMessage {
+  factory ListSessionsRequest({
+    $fixnum.Int64? requestId,
+    $core.String? projectId,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (projectId != null) result.projectId = projectId;
     return result;
   }
 
@@ -1238,6 +2782,7 @@ class ListSessionsRequest extends $pb.GeneratedMessage {
     ..a<$fixnum.Int64>(
         1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
         defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(2, _omitFieldNames ? '' : 'projectId')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1267,6 +2812,15 @@ class ListSessionsRequest extends $pb.GeneratedMessage {
   $core.bool hasRequestId() => $_has(0);
   @$pb.TagNumber(1)
   void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get projectId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set projectId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasProjectId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearProjectId() => $_clearField(2);
 }
 
 class ListSessionsResponse extends $pb.GeneratedMessage {
@@ -1337,10 +2891,12 @@ class GetSessionRequest extends $pb.GeneratedMessage {
   factory GetSessionRequest({
     $fixnum.Int64? requestId,
     $core.String? sessionId,
+    $core.String? projectId,
   }) {
     final result = create();
     if (requestId != null) result.requestId = requestId;
     if (sessionId != null) result.sessionId = sessionId;
+    if (projectId != null) result.projectId = projectId;
     return result;
   }
 
@@ -1362,6 +2918,7 @@ class GetSessionRequest extends $pb.GeneratedMessage {
         1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
         defaultOrMaker: $fixnum.Int64.ZERO)
     ..aOS(2, _omitFieldNames ? '' : 'sessionId')
+    ..aOS(3, _omitFieldNames ? '' : 'projectId')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1400,6 +2957,15 @@ class GetSessionRequest extends $pb.GeneratedMessage {
   $core.bool hasSessionId() => $_has(1);
   @$pb.TagNumber(2)
   void clearSessionId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get projectId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set projectId($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasProjectId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearProjectId() => $_clearField(3);
 }
 
 class GetSessionResponse extends $pb.GeneratedMessage {
@@ -1477,11 +3043,11 @@ class GetSessionResponse extends $pb.GeneratedMessage {
 class CreateSessionRequest extends $pb.GeneratedMessage {
   factory CreateSessionRequest({
     $fixnum.Int64? requestId,
-    $core.String? workingDirectory,
+    $core.String? projectId,
   }) {
     final result = create();
     if (requestId != null) result.requestId = requestId;
-    if (workingDirectory != null) result.workingDirectory = workingDirectory;
+    if (projectId != null) result.projectId = projectId;
     return result;
   }
 
@@ -1502,7 +3068,7 @@ class CreateSessionRequest extends $pb.GeneratedMessage {
     ..a<$fixnum.Int64>(
         1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
         defaultOrMaker: $fixnum.Int64.ZERO)
-    ..aOS(2, _omitFieldNames ? '' : 'workingDirectory')
+    ..aOS(2, _omitFieldNames ? '' : 'projectId')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1534,13 +3100,13 @@ class CreateSessionRequest extends $pb.GeneratedMessage {
   void clearRequestId() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $core.String get workingDirectory => $_getSZ(1);
+  $core.String get projectId => $_getSZ(1);
   @$pb.TagNumber(2)
-  set workingDirectory($core.String value) => $_setString(1, value);
+  set projectId($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
-  $core.bool hasWorkingDirectory() => $_has(1);
+  $core.bool hasProjectId() => $_has(1);
   @$pb.TagNumber(2)
-  void clearWorkingDirectory() => $_clearField(2);
+  void clearProjectId() => $_clearField(2);
 }
 
 class CreateSessionResponse extends $pb.GeneratedMessage {

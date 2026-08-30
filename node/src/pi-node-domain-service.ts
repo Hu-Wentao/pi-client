@@ -8,6 +8,10 @@ import {
   type PiNodeDomainSessionBackend,
   type PiNodeDomainSessionBackendFactory,
   type PiNodeEventBase,
+  type PiNodeDirectoryListing,
+  type PiNodeKnownProjectSnapshot,
+  type PiNodeProjectBootstrap,
+  type PiNodeProjectSnapshot,
   type PiNodePromptAdmission,
   type PiNodeSessionBackendEvent,
   type PiNodeSessionEvent,
@@ -20,6 +24,7 @@ import {
   ProjectTrustError,
   type ProjectTrustAuthorization,
 } from "./project-trust.js";
+import { PiNodeProjectService } from "./project-service.js";
 
 export interface PiNodeSessionLease {
   release(): void;
@@ -90,6 +95,7 @@ interface RegistryEntry {
 
 export interface PiNodeDomainServiceOptions {
   readonly agentDir: string;
+  readonly defaultWorkingDirectory?: string;
   readonly trustCoordinator: ProjectTrustCoordinator;
   readonly sessionFactory: PiNodeDomainSessionBackendFactory;
   readonly maxOpenSessions?: number;
@@ -107,6 +113,7 @@ export class PiNodeDomainService {
   readonly #agentDir: string;
   readonly #trustCoordinator: ProjectTrustCoordinator;
   readonly #sessionFactory: PiNodeDomainSessionBackendFactory;
+  readonly #projectService: PiNodeProjectService;
   readonly #maxOpenSessions: number;
   readonly #ownershipRegistry: PiNodeSessionOwnershipRegistry;
   readonly #clock: () => number;
@@ -127,10 +134,59 @@ export class PiNodeDomainService {
     this.#agentDir = options.agentDir;
     this.#trustCoordinator = options.trustCoordinator;
     this.#sessionFactory = options.sessionFactory;
+    this.#projectService = new PiNodeProjectService({
+      agentDir: options.agentDir,
+      defaultWorkingDirectory: options.defaultWorkingDirectory ?? process.cwd(),
+      trustCoordinator: options.trustCoordinator,
+      closeProjectSessions: (canonicalCwd) => this.#closeProjectSessions(canonicalCwd),
+    });
     this.#maxOpenSessions = options.maxOpenSessions ?? 8;
     this.#ownershipRegistry = options.ownershipRegistry ?? processSessionOwnershipRegistry;
     this.#clock = options.clock ?? Date.now;
     this.#ownerId = options.ownerId ?? randomUUID();
+  }
+
+  getProjectBootstrap(): Promise<PiNodeProjectBootstrap> {
+    return this.#executor.run(async () => {
+      this.#assertAvailable();
+      return this.#projectService.getBootstrap();
+    });
+  }
+
+  browseProjectDirectory(input: {
+    readonly directory: string;
+    readonly maxChildren: number;
+  }): Promise<PiNodeDirectoryListing> {
+    return this.#executor.run(async () => {
+      this.#assertAvailable();
+      return this.#projectService.browseDirectory(input);
+    });
+  }
+
+  validateProject(input: { readonly candidateDirectory: string }): Promise<PiNodeProjectSnapshot> {
+    return this.#executor.run(async () => {
+      this.#assertAvailable();
+      return this.#projectService.validateProject(input.candidateDirectory);
+    });
+  }
+
+  listKnownProjects(input: {
+    readonly maxProjects: number;
+  }): Promise<readonly PiNodeKnownProjectSnapshot[]> {
+    return this.#executor.run(async () => {
+      this.#assertAvailable();
+      return this.#projectService.listKnownProjects(input);
+    });
+  }
+
+  approveProjectTrust(input: {
+    readonly canonicalCwd: string;
+    readonly trustRevision: string;
+  }): Promise<PiNodeProjectSnapshot> {
+    return this.#executor.run(async () => {
+      this.#assertAvailable();
+      return this.#projectService.approveTrust(input);
+    });
   }
 
   listPersistentSessions(input: {
@@ -138,7 +194,7 @@ export class PiNodeDomainService {
   }): Promise<readonly PiNodeSessionSummary[]> {
     return this.#executor.run(async () => {
       this.#assertAvailable();
-      const authorization = await this.#authorize(input.cwd);
+      const authorization = await this.#authorizeMetadata(input.cwd);
 
       try {
         const summaries = await this.#sessionFactory.listPersistentSessions({
@@ -425,6 +481,28 @@ export class PiNodeDomainService {
     return this.#disposePromise;
   }
 
+  async #authorizeMetadata(cwd: string): Promise<ProjectTrustAuthorization> {
+    try {
+      return await this.#trustCoordinator.authorizeMetadata({
+        cwd,
+        agentDir: this.#agentDir,
+      });
+    } catch (error) {
+      if (error instanceof ProjectTrustError) {
+        const code =
+          error.code === "project-path-invalid"
+            ? "invalid-project-path"
+            : "project-trust-resolution-failed";
+        throw new PiNodeDomainError(code, safeTrustMessage(code), { cause: error });
+      }
+      throw new PiNodeDomainError(
+        "project-trust-resolution-failed",
+        "Project trust could not be resolved.",
+        { cause: error },
+      );
+    }
+  }
+
   async #authorize(cwd: string): Promise<ProjectTrustAuthorization> {
     try {
       return await this.#trustCoordinator.authorize({ cwd, agentDir: this.#agentDir });
@@ -437,7 +515,9 @@ export class PiNodeDomainService {
                 error.code === "project-trust-unresolved" ||
                 error.code === "project-trust-resolution-failed"
               ? error.code
-              : "project-trust-resolution-failed";
+              : error.code === "project-trust-persist-failed"
+                ? "project-trust-persist-failed"
+                : "project-trust-resolution-failed";
         throw new PiNodeDomainError(code, safeTrustMessage(code), { cause: error });
       }
       throw new PiNodeDomainError(
@@ -610,6 +690,15 @@ export class PiNodeDomainService {
       } catch {
         // A transport listener cannot interrupt domain state progression.
       }
+    }
+  }
+
+  async #closeProjectSessions(canonicalCwd: string): Promise<void> {
+    const entries = [...this.#sessions.values()]
+      .filter((entry) => entry.backend.cwd === canonicalCwd)
+      .sort((left, right) => left.backend.sessionId.localeCompare(right.backend.sessionId));
+    for (const entry of entries) {
+      await this.#disposeEntry(entry);
     }
   }
 

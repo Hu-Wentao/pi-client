@@ -35,6 +35,10 @@ class Capability extends $pb.ProtobufEnum {
       Capability._(8, _omitEnumNames ? '' : 'CAPABILITY_FLOW_CONTROL');
   static const Capability CAPABILITY_TRANSFER =
       Capability._(9, _omitEnumNames ? '' : 'CAPABILITY_TRANSFER');
+  static const Capability CAPABILITY_PROJECT_DISCOVERY =
+      Capability._(10, _omitEnumNames ? '' : 'CAPABILITY_PROJECT_DISCOVERY');
+  static const Capability CAPABILITY_PROJECT_TRUST =
+      Capability._(11, _omitEnumNames ? '' : 'CAPABILITY_PROJECT_TRUST');
 
   static const $core.List<Capability> values = <Capability>[
     CAPABILITY_UNSPECIFIED,
@@ -47,10 +51,12 @@ class Capability extends $pb.ProtobufEnum {
     CAPABILITY_CANCELLATION,
     CAPABILITY_FLOW_CONTROL,
     CAPABILITY_TRANSFER,
+    CAPABILITY_PROJECT_DISCOVERY,
+    CAPABILITY_PROJECT_TRUST,
   ];
 
   static final $core.List<Capability?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 9);
+      $pb.ProtobufEnum.$_initByValueList(values, 11);
   static Capability? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 
@@ -83,6 +89,92 @@ class HealthStatus extends $pb.ProtobufEnum {
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 
   const HealthStatus._(super.value, super.name);
+}
+
+class ProjectTrustStatus extends $pb.ProtobufEnum {
+  static const ProjectTrustStatus PROJECT_TRUST_STATUS_UNSPECIFIED =
+      ProjectTrustStatus._(
+          0, _omitEnumNames ? '' : 'PROJECT_TRUST_STATUS_UNSPECIFIED');
+  static const ProjectTrustStatus PROJECT_TRUST_STATUS_NOT_REQUIRED =
+      ProjectTrustStatus._(
+          1, _omitEnumNames ? '' : 'PROJECT_TRUST_STATUS_NOT_REQUIRED');
+  static const ProjectTrustStatus PROJECT_TRUST_STATUS_TRUSTED =
+      ProjectTrustStatus._(
+          2, _omitEnumNames ? '' : 'PROJECT_TRUST_STATUS_TRUSTED');
+  static const ProjectTrustStatus PROJECT_TRUST_STATUS_APPROVAL_REQUIRED =
+      ProjectTrustStatus._(
+          3, _omitEnumNames ? '' : 'PROJECT_TRUST_STATUS_APPROVAL_REQUIRED');
+  static const ProjectTrustStatus PROJECT_TRUST_STATUS_DENIED =
+      ProjectTrustStatus._(
+          4, _omitEnumNames ? '' : 'PROJECT_TRUST_STATUS_DENIED');
+
+  static const $core.List<ProjectTrustStatus> values = <ProjectTrustStatus>[
+    PROJECT_TRUST_STATUS_UNSPECIFIED,
+    PROJECT_TRUST_STATUS_NOT_REQUIRED,
+    PROJECT_TRUST_STATUS_TRUSTED,
+    PROJECT_TRUST_STATUS_APPROVAL_REQUIRED,
+    PROJECT_TRUST_STATUS_DENIED,
+  ];
+
+  static final $core.List<ProjectTrustStatus?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 4);
+  static ProjectTrustStatus? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const ProjectTrustStatus._(super.value, super.name);
+}
+
+class ProjectTrustReason extends $pb.ProtobufEnum {
+  static const ProjectTrustReason PROJECT_TRUST_REASON_UNSPECIFIED =
+      ProjectTrustReason._(
+          0, _omitEnumNames ? '' : 'PROJECT_TRUST_REASON_UNSPECIFIED');
+  static const ProjectTrustReason PROJECT_TRUST_REASON_PI_SETTINGS =
+      ProjectTrustReason._(
+          1, _omitEnumNames ? '' : 'PROJECT_TRUST_REASON_PI_SETTINGS');
+  static const ProjectTrustReason PROJECT_TRUST_REASON_PI_EXTENSIONS =
+      ProjectTrustReason._(
+          2, _omitEnumNames ? '' : 'PROJECT_TRUST_REASON_PI_EXTENSIONS');
+  static const ProjectTrustReason PROJECT_TRUST_REASON_PI_SKILLS =
+      ProjectTrustReason._(
+          3, _omitEnumNames ? '' : 'PROJECT_TRUST_REASON_PI_SKILLS');
+  static const ProjectTrustReason PROJECT_TRUST_REASON_PI_PROMPTS =
+      ProjectTrustReason._(
+          4, _omitEnumNames ? '' : 'PROJECT_TRUST_REASON_PI_PROMPTS');
+  static const ProjectTrustReason PROJECT_TRUST_REASON_PI_THEMES =
+      ProjectTrustReason._(
+          5, _omitEnumNames ? '' : 'PROJECT_TRUST_REASON_PI_THEMES');
+  static const ProjectTrustReason PROJECT_TRUST_REASON_PI_SYSTEM_PROMPT =
+      ProjectTrustReason._(
+          6, _omitEnumNames ? '' : 'PROJECT_TRUST_REASON_PI_SYSTEM_PROMPT');
+  static const ProjectTrustReason PROJECT_TRUST_REASON_AGENT_SKILLS =
+      ProjectTrustReason._(
+          7, _omitEnumNames ? '' : 'PROJECT_TRUST_REASON_AGENT_SKILLS');
+  static const ProjectTrustReason PROJECT_TRUST_REASON_SAVED_APPROVAL =
+      ProjectTrustReason._(
+          8, _omitEnumNames ? '' : 'PROJECT_TRUST_REASON_SAVED_APPROVAL');
+  static const ProjectTrustReason PROJECT_TRUST_REASON_SAVED_DENIAL =
+      ProjectTrustReason._(
+          9, _omitEnumNames ? '' : 'PROJECT_TRUST_REASON_SAVED_DENIAL');
+
+  static const $core.List<ProjectTrustReason> values = <ProjectTrustReason>[
+    PROJECT_TRUST_REASON_UNSPECIFIED,
+    PROJECT_TRUST_REASON_PI_SETTINGS,
+    PROJECT_TRUST_REASON_PI_EXTENSIONS,
+    PROJECT_TRUST_REASON_PI_SKILLS,
+    PROJECT_TRUST_REASON_PI_PROMPTS,
+    PROJECT_TRUST_REASON_PI_THEMES,
+    PROJECT_TRUST_REASON_PI_SYSTEM_PROMPT,
+    PROJECT_TRUST_REASON_AGENT_SKILLS,
+    PROJECT_TRUST_REASON_SAVED_APPROVAL,
+    PROJECT_TRUST_REASON_SAVED_DENIAL,
+  ];
+
+  static final $core.List<ProjectTrustReason?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 9);
+  static ProjectTrustReason? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const ProjectTrustReason._(super.value, super.name);
 }
 
 class MessageRole extends $pb.ProtobufEnum {
