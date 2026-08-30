@@ -245,9 +245,12 @@ void main() {
 
   group('workspace access grant', () {
     final issuedAt = DateTime.utc(2026, 1, 1, 12);
+    final protocolOffer = PiProtocolOffer(<PiProtocolVersion>[
+      PiProtocolVersion(0, 0, 1),
+    ]);
     final request = WorkspaceAccessGrantRequest(
       clientKeyThumbprint: 'client_thumbprint_123',
-      protocolVersion: PiProtocolVersion(0, 0, 1),
+      protocolOffer: protocolOffer,
     );
     final workspace = WorkspaceProjection(
       workspaceId: 'workspace_123',
@@ -288,7 +291,7 @@ void main() {
       expect(accessGrant.workspaceId, workspace.workspaceId);
       expect(accessGrant.workspaceOrigin, workspace.origin);
       expect(accessGrant.clientKeyThumbprint, request.clientKeyThumbprint);
-      expect(accessGrant.protocolVersion, request.protocolVersion);
+      expect(accessGrant.protocolOffer, protocolOffer);
       expect(accessGrant.toString(), isNot(contains('workspace_123')));
       expect(accessGrant.toString(), isNot(contains('1, 2, 3')));
     });
@@ -415,7 +418,9 @@ void main() {
       final gateway = _FakeCentralAccessGateway();
       final request = WorkspaceAccessGrantRequest(
         clientKeyThumbprint: 'client_thumbprint_123',
-        protocolVersion: PiProtocolVersion(0, 0, 1),
+        protocolOffer: PiProtocolOffer(<PiProtocolVersion>[
+          PiProtocolVersion(0, 0, 1),
+        ]),
       );
 
       expect(gateway, isA<CentralAccessGateway>());

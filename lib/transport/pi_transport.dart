@@ -1,41 +1,11 @@
 import 'dart:typed_data';
 
-final class PiProtocolVersion {
-  factory PiProtocolVersion(int major, int minor, int patch) {
-    if (major < 0) {
-      throw ArgumentError.value(major, 'major', 'Must not be negative.');
-    }
-    if (minor < 0) {
-      throw ArgumentError.value(minor, 'minor', 'Must not be negative.');
-    }
-    if (patch < 0) {
-      throw ArgumentError.value(patch, 'patch', 'Must not be negative.');
-    }
-    return PiProtocolVersion._(major, minor, patch);
-  }
-
-  const PiProtocolVersion._(this.major, this.minor, this.patch);
-
-  final int major;
-  final int minor;
-  final int patch;
-
-  @override
-  bool operator ==(Object other) =>
-      other is PiProtocolVersion &&
-      major == other.major &&
-      minor == other.minor &&
-      patch == other.patch;
-
-  @override
-  int get hashCode => Object.hash(major, minor, patch);
-
-  @override
-  String toString() => '$major.$minor.$patch';
-}
-
+/// A defensively copied binary protocol frame.
+///
+/// Frame contents are never included in diagnostics because they may contain
+/// prompts, messages, paths, credentials, or tool output.
 final class PiTransportFrame {
-  PiTransportFrame(Uint8List bytes) : _bytes = Uint8List.fromList(bytes);
+  PiTransportFrame(Uint8List bytes) : _bytes = _validatedBytes(bytes);
 
   final Uint8List _bytes;
 
@@ -47,18 +17,35 @@ final class PiTransportFrame {
   String toString() => 'PiTransportFrame(length: $length, data: <redacted>)';
 }
 
-abstract interface class PiTransport {
-  Future<PiTransportConnection> connect({
-    required PiProtocolVersion protocolVersion,
-  });
+enum PiTransportErrorCode { invalidFrame, closed }
+
+final class PiTransportException implements Exception {
+  const PiTransportException(this.code);
+
+  final PiTransportErrorCode code;
+
+  @override
+  String toString() => 'PiTransportException(code: ${code.name}, <redacted>)';
 }
 
-abstract interface class PiTransportConnection {
-  PiProtocolVersion get negotiatedVersion;
+/// One already-established ordered, duplex, binary connection.
+///
+/// Implementations must preserve frame order, complete [done] only after
+/// [incoming] has ended, reject sends after termination, and make [close]
+/// idempotent. Protocol negotiation belongs above this raw boundary.
+abstract interface class PiTransport {
+  Stream<PiTransportFrame> get incoming;
 
-  Stream<PiTransportFrame> get incomingFrames;
+  Future<void> get done;
 
   Future<void> send(PiTransportFrame frame);
 
   Future<void> close();
+}
+
+Uint8List _validatedBytes(Uint8List value) {
+  if (value.isEmpty) {
+    throw const PiTransportException(PiTransportErrorCode.invalidFrame);
+  }
+  return Uint8List.fromList(value);
 }
