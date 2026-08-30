@@ -603,10 +603,7 @@ final class _CapsuleManifest {
       final arguments = _asList(entry['arguments'], 'runtime arguments')
           .map((value) => _stringValue(value, 'runtime argument'))
           .toList(growable: false);
-      final expectedArguments =
-          target['platform'] == 'darwin' && architecture == 'x64'
-          ? const <String>['--jitless']
-          : const <String>[];
+      const expectedArguments = <String>[];
       if (architecture != targetArchitectures[index] ||
           !_listEquals(arguments, expectedArguments)) {
         throw const FormatException('Invalid runtime architecture arguments.');

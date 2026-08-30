@@ -15,13 +15,15 @@ test("Release app and Pi Node entitlements remain least-privilege", async () => 
     readFile(resolve(repositoryRoot, "macos/Runner/PiNodeAdHoc.entitlements"), "utf8"),
   ]);
   assert.deepEqual(entitlementKeys(app), []);
-  assert.deepEqual(entitlementKeys(node), ["com.apple.security.cs.allow-jit"]);
+  assert.deepEqual(entitlementKeys(node), [
+    "com.apple.security.cs.allow-jit",
+    "com.apple.security.cs.allow-unsigned-executable-memory",
+  ]);
   assert.deepEqual(entitlementKeys(adHocNode), [
     "com.apple.security.cs.allow-jit",
+    "com.apple.security.cs.allow-unsigned-executable-memory",
     "com.apple.security.cs.disable-library-validation",
   ]);
-  assert.doesNotMatch(node, /allow-unsigned-executable-memory/u);
-  assert.doesNotMatch(adHocNode, /allow-unsigned-executable-memory/u);
 });
 
 test("signing tools and workflow never rely on codesign deep traversal", async () => {

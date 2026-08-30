@@ -335,9 +335,7 @@ final class _CapsuleFixture {
           for (final architecture in targetArchitectures)
             <String, Object>{
               'architecture': architecture,
-              'arguments': architecture == 'x64'
-                  ? const <String>['--jitless']
-                  : const <String>[],
+              'arguments': const <String>[],
             },
         ],
         'executable': 'runtime/bin/node',
@@ -406,11 +404,7 @@ final class _CapsuleFixture {
   Future<void> dispose() => root.delete(recursive: true);
 }
 
-List<String> _runtimeArgumentsForCurrentArchitecture() =>
-    switch (Abi.current()) {
-      Abi.macosX64 => const <String>['--jitless'],
-      _ => const <String>[],
-    };
+List<String> _runtimeArgumentsForCurrentArchitecture() => const <String>[];
 
 String _currentTargetId() => switch (Abi.current()) {
   Abi.macosArm64 => 'darwin-arm64',

@@ -36,7 +36,8 @@ export const DEFAULT_AD_HOC_NODE_ENTITLEMENTS = resolve(
   repositoryRoot,
   "macos/Runner/PiNodeAdHoc.entitlements",
 );
-export const FORBIDDEN_MACOS_ENTITLEMENT = "com.apple.security.cs.allow-unsigned-executable-memory";
+export const NODE_EXECUTABLE_MEMORY_ENTITLEMENT =
+  "com.apple.security.cs.allow-unsigned-executable-memory";
 
 const codeBundleExtensions = new Set([".app", ".appex", ".bundle", ".framework", ".xpc"]);
 
@@ -196,12 +197,14 @@ export async function verifyMacosAppCodeSigning(options) {
   if (stableStringify(appEntitlements) !== stableStringify(signingManifest.app.entitlements)) {
     throw new Error("Signed app entitlements do not match the signing manifest.");
   }
-  const everyEntitlement = new Set([
-    ...appEntitlements,
-    ...signingManifest.insideOutSigningOrder.flatMap((entry) => entry.entitlements),
-  ]);
-  if (everyEntitlement.has(FORBIDDEN_MACOS_ENTITLEMENT)) {
-    throw new Error(`${FORBIDDEN_MACOS_ENTITLEMENT} is forbidden.`);
+  const executableMemoryUsers = signingManifest.insideOutSigningOrder.filter((entry) =>
+    entry.entitlements.includes(NODE_EXECUTABLE_MEMORY_ENTITLEMENT),
+  );
+  if (
+    executableMemoryUsers.length !== 1 ||
+    !executableMemoryUsers[0].path.endsWith("/runtime/bin/node")
+  ) {
+    throw new Error("Unsigned executable-memory permission escaped the Node helper boundary.");
   }
   const disableLibraryValidationUsers = signingManifest.insideOutSigningOrder.filter((entry) =>
     entry.entitlements.includes("com.apple.security.cs.disable-library-validation"),
@@ -219,9 +222,7 @@ export async function verifyMacosAppCodeSigning(options) {
     (disableLibraryValidationUsers.length !== 1 ||
       !disableLibraryValidationUsers[0].entitlements.includes("com.apple.security.cs.allow-jit"))
   ) {
-    throw new Error(
-      "Ad-hoc Node requires only allow-jit plus the proven library-validation exception.",
-    );
+    throw new Error("Ad-hoc Node is missing its proven JIT/native-addon entitlement boundary.");
   }
 
   const gatekeeper = assessGatekeeper(appBundle);
@@ -390,15 +391,13 @@ function assertMinimumEntitlements(identityKind, nodeEntitlements, appEntitlemen
   if (appEntitlements.length !== 0) {
     throw new Error("The unsandboxed desktop app requires no Release entitlements.");
   }
-  const expectedNode =
-    identityKind === "ad-hoc"
-      ? ["com.apple.security.cs.allow-jit", "com.apple.security.cs.disable-library-validation"]
-      : ["com.apple.security.cs.allow-jit"];
+  const expectedNode = [
+    "com.apple.security.cs.allow-jit",
+    NODE_EXECUTABLE_MEMORY_ENTITLEMENT,
+    ...(identityKind === "ad-hoc" ? ["com.apple.security.cs.disable-library-validation"] : []),
+  ];
   if (stableStringify(nodeEntitlements) !== stableStringify(expectedNode.sort(compareText))) {
     throw new Error("Pi Node entitlements exceed the minimum signing policy.");
-  }
-  if (nodeEntitlements.includes(FORBIDDEN_MACOS_ENTITLEMENT)) {
-    throw new Error(`${FORBIDDEN_MACOS_ENTITLEMENT} is forbidden.`);
   }
 }
 

@@ -100,7 +100,7 @@ function targetFromDistributions(id, distributionIds) {
     distributions,
     architectureArguments: architectures.map((architecture) => ({
       architecture,
-      arguments: platform === "darwin" && architecture === "x64" ? ["--jitless"] : [],
+      arguments: [],
     })),
     executable: platform === "win32" ? "runtime/node.exe" : "runtime/bin/node",
     npmCli:

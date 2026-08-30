@@ -280,10 +280,7 @@
         },
         "arguments": {
           "type": "array",
-          "maxItems": 1,
-          "items": {
-            "enum": ["--jitless"]
-          }
+          "maxItems": 0
         }
       }
     },
