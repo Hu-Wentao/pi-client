@@ -29,6 +29,8 @@ for (const page of pages) {
     ['/pi-client/assets/workspace-preview.png', 'base-aware screenshot'],
     ['hreflang=\"en\"', 'English hreflang'],
     ['hreflang=\"zh-CN\"', 'Chinese hreflang'],
+    ['<!--email_off-->', 'Cloudflare email-obfuscation exclusion'],
+    ['npx @agegr/pi-web@0.8.11 --no-open', 'copyable pi-web command'],
   ];
   for (const [needle, label] of assertions) {
     if (!html.includes(needle)) {
