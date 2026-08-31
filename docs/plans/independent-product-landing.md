@@ -36,7 +36,7 @@ mdq:
 
 ## PLAN-PI-005 - 独立产品 Landing Page
 
-- Status: Partially implemented
+- Status: Completed
 - Review level: L9（产品身份与公开能力）/ L6（静态站点实现）
 - Target: 在 `https://pi.wyattcoder.top/` 和 `/zh-cn/` 提供不依赖或宣传遗留适配器、归档 Preview 和未交付运行时的独立跨平台产品页。
 
@@ -68,10 +68,12 @@ mdq:
 
 ### 外部部署
 
-- 用户已授权将验证后的精确提交合并并非强制推送到 `main`，由现有 Pages workflow 部署。
-- 完成证据需要包含精确 `main` commit、成功 Pages run、GitHub Pages 自定义域名与 HTTPS readback，以及生产英文/中文 HTML 的正向和负向内容检查。
-- 本计划不创建 Release Tag、不修改 Release 资产、不发布新版本、不改变 DNS，也不合并 Pi Node 开发分支。
+- 验证后的源提交 `a5b153503798d24590b764f96c81e8a0d15391bc` 已由受治理 worktree 流程合并为 `main` 提交 `e2110c0c03c03d9b4de8c7bfc62c303de00a375b` 并非强制推送到 `origin/main`。
+- Pages run `33365568081` 绑定精确 `headSha=e2110c0c03c03d9b4de8c7bfc62c303de00a375b`，source、build、Release 资产准入和 deploy Jobs 全部成功。
+- GitHub Pages readback 保持 `cname=pi.wyattcoder.top`、已验证域名、已批准证书和 `https_enforced=true`。
+- 生产检查确认 HTTP `301` 到 HTTPS；英文 `/`、中文 `/zh-cn/`、产品标识和 social card 返回 `200`；退役的 `workspace-preview.webp` 返回 `404`。双语 HTML 包含六平台、独立产品身份、平台角色和开发状态，不包含遗留运行时、归档版本、历史下载、旧截图或 `/pi-client/` 资源路径。
+- 本计划未创建 Release Tag、修改 Release 资产、发布新版本、改变 DNS 或合并 Pi Node 开发分支。
 
 ### 完成条件
 
-本计划只有在 `VER-PI-016` 取得本地源码 PASS，并由相同提交或包含该提交的精确 `main` Pages run 成功部署后才能改为 Completed。生产页面必须返回 `200`、使用 `pi.wyattcoder.top` canonical、包含六平台独立产品定位，并排除遗留运行时、归档下载和旧截图。
+`VER-PI-016` 已取得本地源码 PASS；Pages run `33365568081` 已部署精确 `main` 提交并通过生产正向与负向内容检查。生产页面返回 `200`、使用 `pi.wyattcoder.top` canonical、包含六平台独立产品定位，并排除遗留运行时、归档下载和旧截图，因此本计划已完成。
