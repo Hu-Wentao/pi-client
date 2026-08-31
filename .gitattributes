@@ -1,0 +1,6 @@
+/.fvmrc text eol=lf
+/pubspec.yaml text eol=lf
+/release/*.json text eol=lf
+/site/package.json text eol=lf
+/site/src/content/*.ts text eol=lf
+/.github/release-notes/*.md text eol=lf

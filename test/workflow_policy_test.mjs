@@ -360,6 +360,20 @@ test('Pages tag binding policy rejects main dispatch and unpeeled remote commit 
   );
 });
 
+test('strict release contract inputs keep LF line endings on every runner', async () => {
+  const source = await readFile(resolve(repositoryRoot, '.gitattributes'), 'utf8');
+  for (const rule of [
+    '/.fvmrc text eol=lf',
+    '/pubspec.yaml text eol=lf',
+    '/release/*.json text eol=lf',
+    '/site/package.json text eol=lf',
+    '/site/src/content/*.ts text eol=lf',
+    '/.github/release-notes/*.md text eol=lf',
+  ]) {
+    assert.ok(source.includes(`${rule}\n`), `.gitattributes must contain ${rule}`);
+  }
+});
+
 test('site validation derives and rejects the active Preview and Homebrew install flow', async () => {
   const source = await readFile(
     resolve(repositoryRoot, 'site/scripts/validate-built-site.mjs'),
