@@ -224,19 +224,19 @@ void main() {
         () =>
             viewModel.state.selectedSessionId == PiSessionId('s16') &&
             !viewModel.state.conversationLoading &&
-            viewModel.state.messages.isNotEmpty,
+            viewModel.state.conversationEntries.isNotEmpty,
       ),
     );
     await tester.pumpAndSettle();
     expect(viewModel.state.messages.single.text, 'Existing answer');
     expect(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is SelectableText && widget.data == 'Existing answer',
+      find.byKey(
+        const ValueKey<String>('conversation-entry-answer-s16'),
         skipOffstage: false,
       ),
       findsOneWidget,
     );
+    expect(find.text('Existing answer', skipOffstage: false), findsWidgets);
 
     expect(viewModel.state.connection.status, PiNodeConnectionStatus.connected);
     expect(
@@ -275,6 +275,12 @@ void main() {
     expect(api.lastPrompt?.prompt, 'Run the focused tests');
     expect(viewModel.state.messages.last.role, PiMessageRole.user);
     expect(viewModel.state.messages.last.text, 'Run the focused tests');
+    final optimisticEntry = viewModel.state.conversationEntries.last;
+    expect(optimisticEntry, isA<PiUserConversationEntry>());
+    expect(
+      (optimisticEntry.parts.single as PiTextConversationPart).text,
+      'Run the focused tests',
+    );
     expect(find.byKey(const Key('promptComposerStopButton')), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());

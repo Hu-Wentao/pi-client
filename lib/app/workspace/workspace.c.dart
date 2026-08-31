@@ -10,7 +10,7 @@
 /// - [WorkspaceView] — typed Page primary View.
 /// Widget Tree: [WorkspaceView] > [NodeConnectionView],
 ///   [ProjectBrowserView], [SessionBrowserView],
-///   [BranchNavigatorView], [ConversationView] > [PiMessageBubble] × N,
+///   [BranchNavigatorView], [ConversationView] > semantic entry cards and desktop activity minimap,
 ///   [PromptComposerView],
 ///   [ProjectTrustDialog] (conditional)
 /// Theme: material
@@ -31,9 +31,10 @@
 /// Notes: The typed root route remains at `/`. [WorkspaceService] delegates
 ///   only to the app-owned [PiNodeApi], while [WorkspaceViewModel] owns typed
 ///   [PiSessionSummary], [PiConversationEntry], and [PiSessionEvent] as
-///   authoritative feature state, derives [PiMessage] only for the compatibility
-///   View, and owns event
-///   subscriptions. Startup connects, resolves the Node-owned default project,
+///   authoritative feature state. The production [ConversationView] consumes
+///   semantic entries directly; the compatibility [PiMessage] projection remains
+///   non-authoritative for legacy API and test surfaces. [WorkspaceViewModel]
+///   owns the single revision-aware event reducer and event subscriptions. Startup connects, resolves the Node-owned default project,
 ///   loads session-derived known projects, and lists the selected project's
 ///   sessions; directory browsing, manual-path validation, project selection,
 ///   explicit trust approval, refresh, session selection, creation, rename,
