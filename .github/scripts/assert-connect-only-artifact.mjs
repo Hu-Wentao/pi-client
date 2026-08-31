@@ -57,6 +57,8 @@ const forbiddenArtifactPaths = [
   { label: "Pi Node sidecar", pattern: /(^|\/)pi[-_]?node(?:\.exe)?(\/|$)/i },
   { label: "generic sidecar directory", pattern: /(^|\/)sidecars?(\/|$)/i },
   { label: "Pi Node package", pattern: /@pi-client\/node/i },
+  { label: "Shell host", pattern: /(^|\/)pi[-_]?client[-_]?(?:shell|pty)[-_]?host(?:\.|\/|$)/i },
+  { label: "remote command executor", pattern: /(^|\/)pi[-_]?client[-_]?remote[-_]?(?:shell|command)(?:\.|\/|$)/i },
 ];
 const forbiddenPackagingReferences = [
   { label: "Node package reference", pattern: /@pi-client[\\/]node/i },
@@ -94,6 +96,10 @@ const forbiddenWebRuntimeReferences = [
   {
     label: "desktop Pi Node capsule",
     pattern: /capsule-manifest\.json|PI_CLIENT_NODE_(?:EXECUTABLE|ENTRYPOINT)/i,
+  },
+  {
+    label: "desktop external-terminal process implementation",
+    pattern: /\/usr\/bin\/open|\bwt\.exe\b|\bcmd\.exe\b|gnome-terminal|xfce4-terminal|mate-terminal|ProcessStartMode\.detached/i,
   },
 ];
 
@@ -134,6 +140,7 @@ for (const repositoryPath of packagingFiles[platformFamily]) {
   checkValue(`source:${repositoryPath}`, content, forbiddenPackagingReferences);
 }
 
+assertExternalTerminalBoundary();
 if (platformFamily === "web") {
   assertWebStorageBoundary();
   scanWebExecutables();
@@ -153,6 +160,91 @@ console.log(
     ? "Bounded guarantee: no declared Node/Pi Node sidecar, registered secure-storage Web plugin, fr_storage runtime, or known native-host signature is present in the Web executable boundary."
     : "Bounded guarantee: no declared or path-visible Node/Pi Node sidecar is packaged; renamed or binary-embedded runtimes require a stronger future artifact manifest.",
 );
+
+function assertExternalTerminalBoundary() {
+  const launcherPath = resolve(
+    repositoryRoot,
+    "lib/platform/external_terminal/external_terminal_launcher.dart",
+  );
+  const stubPath = resolve(
+    repositoryRoot,
+    "lib/platform/external_terminal/external_terminal_launcher_stub.dart",
+  );
+  const typesPath = resolve(
+    repositoryRoot,
+    "lib/platform/external_terminal/external_terminal_launcher_types.dart",
+  );
+  const ioPath = resolve(
+    repositoryRoot,
+    "lib/platform/external_terminal/external_terminal_launcher_io.dart",
+  );
+  for (const path of [launcherPath, stubPath, typesPath]) {
+    if (!existsSync(path)) {
+      throw new Error(`External-terminal boundary source is missing: ${path}`);
+    }
+    checkValue(
+      `source:${relative(repositoryRoot, path).replaceAll("\\", "/")}`,
+      readFileSync(path, "utf8"),
+      [
+        { label: "native IO import", pattern: /dart:io/i },
+        { label: "process execution API", pattern: /Process\.(?:start|run)/i },
+        { label: "shell interpolation", pattern: /(?:sh|bash)\s+-c|\/bin\/(?:sh|bash)/i },
+      ],
+    );
+  }
+  const launcherSource = readFileSync(launcherPath, "utf8");
+  if (
+    !launcherSource.includes("if (dart.library.io)") ||
+    !launcherSource.includes("external_terminal_launcher_io.dart") ||
+    !launcherSource.includes("external_terminal_launcher_stub.dart")
+  ) {
+    violations.push(
+      "source:lib/platform/external_terminal/external_terminal_launcher.dart: missing explicit IO/stub conditional boundary",
+    );
+  }
+  const stubSource = readFileSync(stubPath, "utf8");
+  if (!stubSource.includes("UnsupportedExternalTerminalLauncher")) {
+    violations.push(
+      "source:lib/platform/external_terminal/external_terminal_launcher_stub.dart: missing unsupported connect-only implementation",
+    );
+  }
+  const typesSource = readFileSync(typesPath, "utf8");
+  if (
+    !typesSource.includes("PiProjectIdentity projectIdentity") ||
+    /String\s+(?:command|arguments?|environment)/.test(typesSource)
+  ) {
+    violations.push(
+      "source:lib/platform/external_terminal/external_terminal_launcher_types.dart: launcher API must accept only PiProjectIdentity",
+    );
+  }
+
+  if (!existsSync(ioPath)) {
+    throw new Error(`Desktop external-terminal source is missing: ${ioPath}`);
+  }
+  const ioSource = readFileSync(ioPath, "utf8");
+  checkValue(
+    "source:lib/platform/external_terminal/external_terminal_launcher_io.dart",
+    ioSource,
+    [
+      { label: "shell interpolation", pattern: /(?:sh|bash)\s+-c|\/bin\/(?:sh|bash)/i },
+      { label: "synchronous process API", pattern: /Process\.run/i },
+    ],
+  );
+  for (const required of [
+    "Process.start(",
+    "runInShell: false",
+    "ProcessStartMode.detached",
+    "executable: '/usr/bin/open'",
+    "executable: 'wt.exe'",
+    "executable: 'cmd.exe'",
+  ]) {
+    if (!ioSource.includes(required)) {
+      violations.push(
+        `source:lib/platform/external_terminal/external_terminal_launcher_io.dart: missing bounded desktop launch signature ${required}`,
+      );
+    }
+  }
+}
 
 function assertWebStorageBoundary() {
   const pluginDependenciesPath = resolve(

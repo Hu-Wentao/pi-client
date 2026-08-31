@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:flowr/flowr_mvvm.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pi_client/api/pi_node/pi_node.dart';
 import 'package:pi_client/app/workspace/workspace.dart';
 import 'package:pi_client/app/workspace/workspace.srv.dart';
+import 'package:pi_client/platform/external_terminal/external_terminal_launcher.dart';
 
 import 'support/fake_pi_node_api.dart';
 
@@ -157,6 +159,221 @@ void main() {
     unawaited(api.close());
   });
 
+  testWidgets(
+    'opens the trusted canonical project from an accessible keyboard action',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final project = fakeProject(r'/Projects/Space & [safe]; $(ignored)');
+      final api = FakePiNodeApi(defaultProject: project);
+      final launcher = _FakeExternalTerminalLauncher(
+        handler: (identity) async =>
+            const ExternalTerminalLaunchResult.success(),
+      );
+      final viewModel = WorkspaceViewModel(service: WorkspaceService(api));
+      final semantics = tester.ensureSemantics();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: const TextScaler.linear(2)),
+            child: child!,
+          ),
+          home: FrProvider<WorkspaceViewModel>.value(
+            value: viewModel,
+            child: WorkspaceView(externalTerminalLauncher: launcher),
+          ),
+        ),
+      );
+      viewModel.add(const WorkspaceStarted());
+      await tester.pumpAndSettle();
+
+      final button = find.byKey(
+        const Key('projectBrowserOpenExternalTerminal'),
+      );
+      expect(button, findsOneWidget);
+      expect(
+        find.bySemanticsLabel('Open selected project in an external terminal'),
+        findsOneWidget,
+      );
+      Focus.of(tester.element(find.text('Open in terminal'))).requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      expect(launcher.identities, <PiProjectIdentity>[project.identity]);
+      expect(
+        find.text('Project opened in an external terminal.'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+      semantics.dispose();
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      unawaited(viewModel.close());
+      unawaited(api.close());
+    },
+  );
+
+  testWidgets('does not offer external terminal for an untrusted project', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final project = fakeProject(
+      '/Projects/restricted',
+      trustStatus: PiProjectTrustStatus.approvalRequired,
+    );
+    final api = FakePiNodeApi(defaultProject: project);
+    final launcher = _FakeExternalTerminalLauncher();
+    final viewModel = WorkspaceViewModel(service: WorkspaceService(api));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FrProvider<WorkspaceViewModel>.value(
+          value: viewModel,
+          child: WorkspaceView(externalTerminalLauncher: launcher),
+        ),
+      ),
+    );
+    viewModel.add(const WorkspaceStarted());
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('projectBrowserOpenExternalTerminal')),
+      findsNothing,
+    );
+    expect(launcher.identities, isEmpty);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    unawaited(viewModel.close());
+    unawaited(api.close());
+  });
+
+  for (final testCase
+      in <({ExternalTerminalLaunchResult result, String message})>[
+        (
+          result: const ExternalTerminalLaunchResult.failure(),
+          message: 'The external terminal could not be opened.',
+        ),
+        (
+          result: const ExternalTerminalLaunchResult.terminalUnavailable(),
+          message: 'No supported external terminal is available.',
+        ),
+      ]) {
+    testWidgets(
+      'shows redacted ${testCase.result.status.name} external-terminal feedback',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(1200, 800));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final project = fakeProject('/Projects/private-visible-identity');
+        final api = FakePiNodeApi(defaultProject: project);
+        final launcher = _FakeExternalTerminalLauncher(
+          handler: (identity) async => testCase.result,
+        );
+        final viewModel = WorkspaceViewModel(service: WorkspaceService(api));
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: FrProvider<WorkspaceViewModel>.value(
+              value: viewModel,
+              child: WorkspaceView(externalTerminalLauncher: launcher),
+            ),
+          ),
+        );
+        viewModel.add(const WorkspaceStarted());
+        await tester.pumpAndSettle();
+
+        final button = find.byKey(
+          const Key('projectBrowserOpenExternalTerminal'),
+        );
+        await tester.ensureVisible(button);
+        await tester.pump();
+        await tester.tap(button);
+        await tester.pumpAndSettle();
+
+        expect(find.text(testCase.message), findsOneWidget);
+        final feedback = tester.widget<Text>(find.text(testCase.message)).data!;
+        expect(
+          feedback,
+          isNot(contains(project.identity.canonicalWorkingDirectory)),
+        );
+
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+        unawaited(viewModel.close());
+        unawaited(api.close());
+      },
+    );
+  }
+
+  testWidgets('suppresses an external-terminal result after project switch', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final firstProject = fakeProject('/Projects/first');
+    final secondProject = fakeProject('/Projects/second');
+    final completion = Completer<ExternalTerminalLaunchResult>();
+    final api = FakePiNodeApi(defaultProject: firstProject);
+    final launcher = _FakeExternalTerminalLauncher(
+      handler: (identity) => completion.future,
+    );
+    final viewModel = WorkspaceViewModel(service: WorkspaceService(api));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FrProvider<WorkspaceViewModel>.value(
+          value: viewModel,
+          child: WorkspaceView(externalTerminalLauncher: launcher),
+        ),
+      ),
+    );
+    viewModel.add(const WorkspaceStarted());
+    await tester.pumpAndSettle();
+
+    final externalTerminalButton = find.byKey(
+      const Key('projectBrowserOpenExternalTerminal'),
+    );
+    await tester.ensureVisible(externalTerminalButton);
+    await tester.pump();
+    await tester.tap(externalTerminalButton);
+    await tester.pump();
+    expect(launcher.identities.single, firstProject.identity);
+
+    viewModel.add(WorkspaceProjectSelected(secondProject));
+    await tester.runAsync(
+      () => _waitUntil(
+        () =>
+            viewModel.state.selectedProject?.identity.projectId ==
+            secondProject.identity.projectId,
+      ),
+    );
+    await tester.pump();
+    viewModel.add(WorkspaceProjectSelected(firstProject));
+    await tester.runAsync(
+      () => _waitUntil(
+        () =>
+            viewModel.state.selectedProject?.identity.projectId ==
+            firstProject.identity.projectId,
+      ),
+    );
+    await tester.pump();
+    completion.complete(const ExternalTerminalLaunchResult.success());
+    await tester.pumpAndSettle();
+
+    expect(find.text('Project opened in an external terminal.'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    unawaited(viewModel.close());
+    unawaited(api.close());
+  });
+
   testWidgets('scrolls typed sessions, selects one, and submits a prompt', (
     tester,
   ) async {
@@ -288,6 +505,29 @@ void main() {
     unawaited(viewModel.close());
     unawaited(api.close());
   });
+}
+
+final class _FakeExternalTerminalLauncher implements ExternalTerminalLauncher {
+  _FakeExternalTerminalLauncher({this.handler});
+
+  @override
+  bool get isPlatformSupported => true;
+  final Future<ExternalTerminalLaunchResult> Function(
+    PiProjectIdentity identity,
+  )?
+  handler;
+  final List<PiProjectIdentity> identities = <PiProjectIdentity>[];
+
+  @override
+  Future<ExternalTerminalLaunchResult> openTrustedProject(
+    PiProjectIdentity projectIdentity,
+  ) {
+    identities.add(projectIdentity);
+    return handler?.call(projectIdentity) ??
+        Future<ExternalTerminalLaunchResult>.value(
+          const ExternalTerminalLaunchResult.success(),
+        );
+  }
 }
 
 Future<void> _waitUntil(bool Function() predicate) async {

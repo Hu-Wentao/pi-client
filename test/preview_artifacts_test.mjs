@@ -86,6 +86,13 @@ test('connect-only package scan rejects first-party runtime paths and escaping s
     /forbidden/i,
   );
 
+  const withShellHost = await mkdtemp(resolve(tmpdir(), 'pi-connect-only-shell-'));
+  await writeFile(resolve(withShellHost, 'pi-client-shell-host'), 'forbidden\n');
+  await assert.rejects(
+    () => scanPackageContents(withShellHost, { hostRuntimeIncluded: false }),
+    /forbidden/i,
+  );
+
   const outside = await mkdtemp(resolve(tmpdir(), 'pi-connect-only-outside-'));
   await writeFile(resolve(outside, 'file'), 'outside\n');
   await symlink(resolve(outside, 'file'), resolve(safe, 'escape'));
