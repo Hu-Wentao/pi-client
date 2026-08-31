@@ -36,7 +36,7 @@ mdq:
 
 ## PLAN-PI-004 - 六平台 CI 与可审计 Preview Release
 
-- Status: Partially implemented
+- Status: Completed
 - Review level: L9（平台与角色边界）/ L6（发布实现路径）
 - Target: 建立 Android、iOS、macOS、Windows、Linux 和 Web 的原生 runner CI，以及从同一 commit 聚合、校验并按需发布 Preview 产物的可审计流程。
 

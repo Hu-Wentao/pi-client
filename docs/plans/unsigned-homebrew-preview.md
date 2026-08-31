@@ -36,7 +36,7 @@ mdq:
 
 ## PLAN-PI-006 - 未签名 macOS Preview 的 Homebrew 一行安装
 
-- Status: In progress
+- Status: Completed
 - Review level: L9
 - Target: 通过 `brew install --cask hu-wentao/tap/pi-client` 安装不可变 GitHub Prerelease 中的 Universal `Pi Client.app`，同时保留 quarantine、Gatekeeper 用户确认和全部 unsigned Preview 披露。
 

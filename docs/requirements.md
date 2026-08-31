@@ -120,7 +120,7 @@ Default review level: L6. Requirements derived directly from the user-provided M
 
 ## REQ-PI-010 - Build one client for all supported platforms
 
-- Status: Planned
+- Status: Active
 - Priority: Must
 - Review level: L9
 - Actor and goal: A contributor can build the same Pi Client product for Android, iOS, macOS, Windows, Linux, and Web.
@@ -150,7 +150,7 @@ Default review level: L6. Requirements derived directly from the user-provided M
 
 ## REQ-PI-013 - Qualify and publish an auditable cross-platform Preview
 
-- Status: Planned
+- Status: Active
 - Priority: Must
 - Review level: L6
 - Actor and goal: A contributor can qualify one Pi Client commit across Android, iOS, macOS, Windows, Linux, and Web and, with separate publication authority, expose the exact resulting Preview artifacts through one auditable GitHub Prerelease.
@@ -170,7 +170,7 @@ Default review level: L6. Requirements derived directly from the user-provided M
 
 ## REQ-PI-015 - Install the unsigned macOS Preview with one Homebrew command
 
-- Status: Planned
+- Status: Active
 - Priority: Must
 - Review level: L9
 - Actor and goal: A macOS user with Homebrew can install the current Universal Pi Client Preview into `/Applications` with `brew install --cask hu-wentao/tap/pi-client`.
