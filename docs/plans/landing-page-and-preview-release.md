@@ -70,13 +70,15 @@ mdq:
 2. annotated `v0.0.2` 固定到 `ac2b492cf595a715fc5e86f7e850ae5bcaf4c942`。
 3. GitHub prerelease 已公开 20,344,765 字节 Universal ZIP 与 102 字节 SHA-256；重新下载后的 checksum、Bundle metadata 和 `arm64 + x86_64` 已复核。
 4. 历史 Pages run `33309764563` 曾把同一站点产物部署到 `https://wyattcoder.top/pi-client/`；该运行只保留为旧路径证据，不满足当前规范域名验收。
-5. 旧路径上的 Chrome production Lighthouse 为 Performance 94、Accessibility 100、Best Practices 100、SEO 100；迁移后仍需在规范域名重新验收。
+5. Pages run `33356691081` 已从 `da201f2ae74970651bf4feab582e9a9f0965982c` 构建并部署根路径站点；GitHub Pages 已固定 `cname=pi.wyattcoder.top`、workflow build、已批准 TLS 证书和 `https_enforced=true`。
+6. Host Governance transaction `pi-pages-dns-20260831T042531Z-7bd4164b` 创建并验证 DNS-only、TTL automatic 的 `pi.wyattcoder.top -> hu-wentao.github.io` CNAME；Cloudflare API 与公共 DNS readback 一致。
+7. 生产验收确认 HTTP `301` 到 HTTPS，英文 `/`、中文 `/zh-cn/`、SVG/WebP/social-card/CSS 均返回 `200`；HTML canonical 使用 `https://pi.wyattcoder.top/`、不含退役的根相对 `/pi-client/` 资源路径，并保留可下载的精确 `v0.0.2` 资产。
+8. 旧路径上的 Chrome production Lighthouse 为 Performance 94、Accessibility 100、Best Practices 100、SEO 100；规范域名仍需重新执行浏览器视觉与 Lighthouse 验收。
 
 仍未完成：
 
-1. `pi.wyattcoder.top` 的 GitHub Pages 自定义域名、Cloudflare DNS、TLS 与规范域名生产部署仍需完成并验收。
-2. Safari WebDriver 因宿主未启用 **Allow Remote Automation** 而无法执行；尚无 Safari 渲染验收证据。
-3. VoiceOver 与浏览器 200% 缩放仍需人工验收。
+1. Safari WebDriver 因宿主未启用 **Allow Remote Automation** 而无法执行；尚无 Safari 渲染验收证据。
+2. 规范域名的 Chrome 视觉/Lighthouse、VoiceOver 与浏览器 200% 缩放仍需人工验收。
 
 ### v0.0.2 历史发布准入
 
