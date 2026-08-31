@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Pi Client
+Comment=Cross-platform client for the pi coding agent
+Exec=pi-client
+Icon=io.github.huwentao.pi_client
+Terminal=false
+Categories=Development;Utility;
+StartupNotify=true
+StartupWMClass=io.github.huwentao.pi_client

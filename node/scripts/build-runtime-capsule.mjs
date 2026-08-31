@@ -27,13 +27,16 @@ import {
   makeTreeReadOnly,
   normalizeCapsuleFileModes,
   parseOfficialShasums,
+  pruneNativeAddonsForTarget,
   readBunLock,
   readJson,
   removeTreeEvenIfReadOnly,
   scanForbiddenArtifacts,
   sha256File,
+  verifyPackageLicenseInventories,
   verifyPackageMetadata,
   writeDeterministicJson,
+  writePackageLicenseInventories,
 } from "./runtime-capsule-lib.mjs";
 import {
   NODE_RUNTIME_VERSION,
@@ -124,11 +127,13 @@ await cp(resolve(stageRoot, "node"), resolve(capsuleRoot, "app"), {
   preserveTimestamps: false,
   verbatimSymlinks: true,
 });
+const nativeAddonSelection = await pruneNativeAddonsForTarget(resolve(capsuleRoot, "app"), target);
 await Promise.all([
   copyFileWithParents(resolve(nodeRoot, "bun.lock"), resolve(capsuleRoot, NODE_LOCK_PATH)),
   copyFileWithParents(resolve(protocolRoot, "bun.lock"), resolve(capsuleRoot, PROTOCOL_LOCK_PATH)),
   copyFileWithParents(schemaSource, resolve(capsuleRoot, CAPSULE_SCHEMA_PATH)),
 ]);
+await writePackageLicenseInventories(capsuleRoot);
 await normalizeCapsuleFileModes(capsuleRoot, target.executable);
 
 await verifyPackageMetadata(capsuleRoot, {
@@ -141,6 +146,7 @@ await verifyPackageMetadata(capsuleRoot, {
     protocol: source.protocolPackage.version,
   },
 });
+await verifyPackageLicenseInventories(capsuleRoot);
 await scanForbiddenArtifacts(capsuleRoot, {
   absoluteBuildPaths: [repositoryRoot, stageRoot, extractRoot],
 });
@@ -192,6 +198,7 @@ process.stdout.write(
         checksumsUrl: NODE_SHASUMS_URL,
       },
       nativeCode: manifest.nativeCode,
+      nativeAddonSelection,
       npmVersion: npmPackage.version,
       piNodeVersion: source.nodePackage.version,
       protocolVersion: source.protocolPackage.version,
@@ -466,6 +473,8 @@ async function stageProductionApplication(stageRoot, source) {
       "--frozen-lockfile",
       "--production",
       "--ignore-scripts",
+      `--os=${target.packageManagerOs}`,
+      `--cpu=${target.architecture}`,
       "--backend=copyfile",
     ],
     {

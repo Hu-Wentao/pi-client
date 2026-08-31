@@ -116,7 +116,7 @@ final class PlatformPiNodeRuntimeLocator implements PiNodeRuntimeLocator {
   }
 
   Future<PiNodeDesktopProcessConfiguration> _locateBundledCapsule() async {
-    if (!Platform.isMacOS) {
+    if (!Platform.isMacOS && !Platform.isWindows && !Platform.isLinux) {
       throw const PiNodeRuntimeLocationException(
         PiNodeRuntimeLocationErrorCode.unsupportedPlatform,
       );
@@ -205,7 +205,8 @@ final class PlatformPiNodeRuntimeLocator implements PiNodeRuntimeLocator {
     if (!executable.existsSync() ||
         !entrypoint.existsSync() ||
         !workingDirectory.existsSync() ||
-        (executable.statSync().mode & _fileExecutableMask) == 0) {
+        (!Platform.isWindows &&
+            (executable.statSync().mode & _fileExecutableMask) == 0)) {
       throw const PiNodeRuntimeLocationException(
         PiNodeRuntimeLocationErrorCode.developmentFallbackUnavailable,
       );
@@ -246,11 +247,12 @@ final class PlatformPiNodeRuntimeLocator implements PiNodeRuntimeLocator {
     final expectedArchitecture = _targetArchitecture(expectedTargetId);
     final targetMatches =
         manifest.targetId == expectedTargetId ||
-        (manifest.targetId == 'darwin-universal' &&
+        (Platform.isMacOS &&
+            manifest.targetId == 'darwin-universal' &&
             expectedArchitecture.isNotEmpty &&
             manifest.targetArchitectures.contains(expectedArchitecture));
     if (!targetMatches ||
-        manifest.targetPlatform != 'darwin' ||
+        manifest.targetPlatform != _currentManifestPlatform() ||
         !manifest.targetArchitectures.contains(expectedArchitecture) ||
         (manifest.targetArchitecture != expectedArchitecture &&
             manifest.targetArchitecture != 'universal')) {
@@ -344,7 +346,9 @@ Future<void> _verifyPayloadIntegrity(
           path: relativePath,
           size: metadata.size,
           sha256: (await sha256.bind(file.openRead()).first).toString(),
-          executable: (metadata.mode & _fileExecutableMask) != 0,
+          executable: Platform.isWindows
+              ? relativePath == manifest.runtimeExecutable
+              : (metadata.mode & _fileExecutableMask) != 0,
         );
         continue;
       }
@@ -685,15 +689,27 @@ final class _CapsuleManifest {
       nativeObjects[object.path] = object;
       previousNativePath = object.path;
     }
+    final expectedNativeObjectFormat = switch (target['platform']) {
+      'darwin' => 'mach-o',
+      'linux' => 'elf',
+      'win32' => 'pe-coff',
+      _ => '',
+    };
     final runtimeObject = nativeObjects[runtimeExecutable];
     if (runtimeObject == null ||
-        (target['platform'] == 'darwin' &&
-            (runtimeObject.format != 'mach-o' ||
-                !_listEquals(
-                  runtimeObject.architectures,
-                  targetArchitectures,
-                )))) {
+        runtimeObject.format != expectedNativeObjectFormat ||
+        !_listEquals(runtimeObject.architectures, targetArchitectures)) {
       throw const FormatException('Invalid runtime native-code inventory.');
+    }
+    if (nativeObjects.values.any(
+      (object) =>
+          object.format != expectedNativeObjectFormat ||
+          object.architectures.isEmpty ||
+          object.architectures.any(
+            (architecture) => !targetArchitectures.contains(architecture),
+          ),
+    )) {
+      throw const FormatException('Native-code object does not match target.');
     }
     for (final entry in entries.values) {
       if (entry.path.endsWith('.node') &&
@@ -838,12 +854,19 @@ final class _NativeCodeObject {
           'dynamic-library',
           'executable',
         }.contains(kind) ||
-        !const <String>{'mach-o', 'pe-coff', 'unknown'}.contains(format) ||
+        !const <String>{
+          'elf',
+          'mach-o',
+          'pe-coff',
+          'unknown',
+        }.contains(format) ||
         architectures.toSet().length != architectures.length ||
         architectures.any(
           (architecture) => architecture != 'arm64' && architecture != 'x64',
         ) ||
-        (format == 'mach-o') != architectures.isNotEmpty) {
+        (format == 'unknown'
+            ? architectures.isNotEmpty
+            : architectures.isEmpty)) {
       throw const FormatException('Invalid native-code object.');
     }
     return _NativeCodeObject(
@@ -985,23 +1008,45 @@ final class _CapsuleEntry {
 }
 
 Directory _defaultBundledCapsuleDirectory() {
-  if (!Platform.isMacOS) return Directory('');
   final executable = File(Platform.resolvedExecutable);
-  final contents = executable.parent.parent;
-  return Directory(
-    '${contents.path}${Platform.pathSeparator}Resources${Platform.pathSeparator}PiNode',
-  );
+  if (Platform.isMacOS) {
+    final contents = executable.parent.parent;
+    return Directory(
+      '${contents.path}${Platform.pathSeparator}Resources${Platform.pathSeparator}PiNode',
+    );
+  }
+  if (Platform.isWindows) {
+    return Directory(
+      '${executable.parent.path}${Platform.pathSeparator}PiNode',
+    );
+  }
+  if (Platform.isLinux) {
+    return Directory(
+      '${executable.parent.path}${Platform.pathSeparator}lib${Platform.pathSeparator}pi-client${Platform.pathSeparator}PiNode',
+    );
+  }
+  return Directory('');
 }
 
 String _currentCapsuleTargetId() => switch (Abi.current()) {
   Abi.macosArm64 => 'darwin-arm64',
   Abi.macosX64 => 'darwin-x64',
+  Abi.windowsX64 => 'win32-x64',
+  Abi.linuxArm64 => 'linux-arm64',
+  Abi.linuxX64 => 'linux-x64',
   _ => '',
 };
 
+String _currentManifestPlatform() {
+  if (Platform.isMacOS) return 'darwin';
+  if (Platform.isWindows) return 'win32';
+  if (Platform.isLinux) return 'linux';
+  return '';
+}
+
 String _targetArchitecture(String targetId) => switch (targetId) {
-  'darwin-arm64' => 'arm64',
-  'darwin-x64' => 'x64',
+  'darwin-arm64' || 'linux-arm64' => 'arm64',
+  'darwin-x64' || 'linux-x64' || 'win32-x64' => 'x64',
   'darwin-universal' => switch (Abi.current()) {
     Abi.macosArm64 => 'arm64',
     Abi.macosX64 => 'x64',

@@ -33,7 +33,14 @@
       "required": ["id", "platform", "architecture", "architectures"],
       "properties": {
         "id": {
-          "enum": ["darwin-arm64", "darwin-x64", "darwin-universal", "linux-x64", "win32-x64"]
+          "enum": [
+            "darwin-arm64",
+            "darwin-x64",
+            "darwin-universal",
+            "linux-arm64",
+            "linux-x64",
+            "win32-x64"
+          ]
         },
         "platform": {
           "enum": ["darwin", "linux", "win32"]
@@ -296,7 +303,7 @@
           "enum": ["runtime-executable", "native-addon", "dynamic-library", "executable"]
         },
         "format": {
-          "enum": ["mach-o", "pe-coff", "unknown"]
+          "enum": ["elf", "mach-o", "pe-coff", "unknown"]
         },
         "architectures": {
           "type": "array",
