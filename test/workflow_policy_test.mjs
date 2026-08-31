@@ -272,6 +272,7 @@ test('preview release remains profile-gated, aggregated, and publish-last', asyn
     'apksigner',
     'Expected a no-codesign iOS archive',
     'Expected Gatekeeper to reject',
+    "ProductVersion -ne '$VERSION+$BUILD_NUMBER'",
     'NotSigned',
     'ELF 64-bit',
     'main.dart.js',
