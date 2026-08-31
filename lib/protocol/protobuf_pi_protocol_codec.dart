@@ -157,6 +157,90 @@ final class ProtobufPiProtocolCodec implements PiProtocolCodec {
             sessionId: sessionId,
           ),
         ),
+      PiProtocolGetSessionHistoryRequest(
+        :final requestId,
+        :final projectId,
+        :final sessionId,
+        :final cursor,
+        :final limit,
+        :final expectedActiveBranchRevision,
+        :final expectedTreeRevision,
+      ) =>
+        wire.PiTransportFrame(
+          frameSequence: _wirePositiveInt(frameSequence),
+          getSessionHistoryRequest: wire.GetSessionHistoryRequest(
+            requestId: _wirePositiveInt(requestId),
+            projectId: projectId,
+            sessionId: sessionId,
+            cursor: cursor ?? '',
+            limit: limit,
+            expectedActiveBranchRevision: expectedActiveBranchRevision ?? '',
+            expectedTreeRevision: expectedTreeRevision ?? '',
+          ),
+        ),
+      PiProtocolGetSessionStatsRequest(
+        :final requestId,
+        :final projectId,
+        :final sessionId,
+      ) =>
+        wire.PiTransportFrame(
+          frameSequence: _wirePositiveInt(frameSequence),
+          getSessionStatsRequest: wire.GetSessionStatsRequest(
+            requestId: _wirePositiveInt(requestId),
+            projectId: projectId,
+            sessionId: sessionId,
+          ),
+        ),
+      PiProtocolExportSessionRequest(
+        :final requestId,
+        :final projectId,
+        :final sessionId,
+        :final format,
+        :final expectedActiveBranchRevision,
+        :final expectedTreeRevision,
+      ) =>
+        wire.PiTransportFrame(
+          frameSequence: _wirePositiveInt(frameSequence),
+          exportSessionRequest: wire.ExportSessionRequest(
+            requestId: _wirePositiveInt(requestId),
+            projectId: projectId,
+            sessionId: sessionId,
+            format: switch (format) {
+              PiProtocolSessionExportFormat.html =>
+                wire.SessionExportFormat.SESSION_EXPORT_FORMAT_HTML,
+              PiProtocolSessionExportFormat.jsonl =>
+                wire.SessionExportFormat.SESSION_EXPORT_FORMAT_JSONL,
+            },
+            expectedActiveBranchRevision: expectedActiveBranchRevision ?? '',
+            expectedTreeRevision: expectedTreeRevision ?? '',
+          ),
+        ),
+      PiProtocolTransferWindowUpdate(:final transferId, :final creditBytes) =>
+        wire.PiTransportFrame(
+          frameSequence: _wirePositiveInt(frameSequence),
+          windowUpdate: wire.WindowUpdate(
+            transferId: transferId,
+            creditBytes: _wirePositiveInt(creditBytes),
+          ),
+        ),
+      PiProtocolTransferAckMessage(
+        :final transferId,
+        :final acknowledgedSequence,
+        :final committedBytes,
+      ) =>
+        wire.PiTransportFrame(
+          frameSequence: _wirePositiveInt(frameSequence),
+          transferAck: wire.TransferAck(
+            transferId: transferId,
+            acknowledgedSequence: _wirePositiveInt(acknowledgedSequence),
+            committedBytes: _wirePositiveInt(committedBytes),
+          ),
+        ),
+      PiProtocolCancelTransferMessage(:final transferId) =>
+        wire.PiTransportFrame(
+          frameSequence: _wirePositiveInt(frameSequence),
+          cancel: wire.Cancel(transferId: transferId, reason: 'client_cancel'),
+        ),
       PiProtocolNavigateSessionTreeCommandRequest(
         :final requestId,
         :final commandId,
@@ -384,6 +468,22 @@ final class ProtobufPiProtocolCodec implements PiProtocolCodec {
       _decodeSessionCreatedResponse(frame.createSessionResponse),
     wire.PiTransportFrame_Operation.getSessionTreeResponse =>
       _decodeSessionTreeResponse(frame.getSessionTreeResponse),
+    wire.PiTransportFrame_Operation.getSessionHistoryResponse =>
+      _decodeSessionHistoryResponse(frame.getSessionHistoryResponse),
+    wire.PiTransportFrame_Operation.getSessionStatsResponse =>
+      _decodeSessionStatsResponse(frame.getSessionStatsResponse),
+    wire.PiTransportFrame_Operation.transferOpen => _decodeTransferOpen(
+      frame.transferOpen,
+    ),
+    wire.PiTransportFrame_Operation.transferChunk => _decodeTransferChunk(
+      frame.transferChunk,
+    ),
+    wire.PiTransportFrame_Operation.transferComplete => _decodeTransferComplete(
+      frame.transferComplete,
+    ),
+    wire.PiTransportFrame_Operation.transferAbort => _decodeTransferAbort(
+      frame.transferAbort,
+    ),
     wire.PiTransportFrame_Operation.sessionAdminCommandOutcome =>
       _decodeSessionAdminOutcome(frame.sessionAdminCommandOutcome),
     wire.PiTransportFrame_Operation.sessionTreeMutationOutcome =>
@@ -512,6 +612,108 @@ final class ProtobufPiProtocolCodec implements PiProtocolCodec {
     );
   }
 
+  PiProtocolSessionHistoryResponse _decodeSessionHistoryResponse(
+    wire.GetSessionHistoryResponse response,
+  ) {
+    final requestId = _semanticPositiveInt(response.requestId);
+    _requestCorrelations.remove(requestId);
+    return PiProtocolSessionHistoryResponse(
+      requestId: requestId,
+      summary: _semanticSessionSummary(response.summary),
+      messages: response.messages.map(_semanticMessage),
+      nextCursor: response.nextCursor.isEmpty ? null : response.nextCursor,
+      hasMore: response.hasMore,
+      activeBranchRevision: response.activeBranchRevision,
+      treeRevision: response.treeRevision,
+    );
+  }
+
+  PiProtocolSessionStatsResponse _decodeSessionStatsResponse(
+    wire.GetSessionStatsResponse response,
+  ) {
+    final requestId = _semanticPositiveInt(response.requestId);
+    _requestCorrelations.remove(requestId);
+    final stats = response.stats;
+    final projection = stats.projection;
+    return PiProtocolSessionStatsResponse(
+      requestId: requestId,
+      stats: PiProtocolSessionStatsSnapshot(
+        projection: PiProtocolSessionSafeProjection(
+          sessionFileName: projection.sessionFileName,
+          sessionId: projection.sessionId,
+          projectId: projection.projectId,
+          canonicalProjectDirectory: projection.canonicalProjectDirectory,
+          worktreeId: projection.worktreeId,
+          mainProjectId: projection.mainProjectId,
+          branch: projection.branch.isEmpty ? null : projection.branch,
+          isLinkedWorktree: projection.isLinkedWorktree,
+          isDetachedHead: projection.isDetachedHead,
+        ),
+        userMessages: _semanticNonNegativeInt(stats.userMessages),
+        assistantMessages: _semanticNonNegativeInt(stats.assistantMessages),
+        toolCalls: _semanticNonNegativeInt(stats.toolCalls),
+        toolResults: _semanticNonNegativeInt(stats.toolResults),
+        totalMessages: _semanticNonNegativeInt(stats.totalMessages),
+        inputTokens: _semanticNonNegativeInt(stats.inputTokens),
+        outputTokens: _semanticNonNegativeInt(stats.outputTokens),
+        cacheReadTokens: _semanticNonNegativeInt(stats.cacheReadTokens),
+        cacheWriteTokens: _semanticNonNegativeInt(stats.cacheWriteTokens),
+        totalTokens: _semanticNonNegativeInt(stats.totalTokens),
+        cost: stats.cost,
+        contextTokens: stats.hasContextUsage && stats.contextTokensKnown
+            ? _semanticNonNegativeInt(stats.contextTokens)
+            : null,
+        contextWindow: stats.hasContextUsage
+            ? _semanticPositiveInt(stats.contextWindow)
+            : null,
+        contextPercent: stats.hasContextUsage && stats.contextTokensKnown
+            ? stats.contextPercent
+            : null,
+        activeTimeMillis: _semanticNonNegativeInt(stats.activeTimeMillis),
+      ),
+    );
+  }
+
+  PiProtocolTransferOpenMessage _decodeTransferOpen(
+    wire.TransferOpen transfer,
+  ) {
+    final requestId = _semanticPositiveInt(transfer.requestId);
+    _requestCorrelations.remove(requestId);
+    return PiProtocolTransferOpenMessage(
+      requestId: requestId,
+      transferId: transfer.transferId,
+      contentType: transfer.contentType,
+      fileName: transfer.fileName,
+      totalBytes: _semanticPositiveInt(transfer.totalBytes),
+      chunkBytes: transfer.chunkBytes,
+      sha256: transfer.sha256,
+    );
+  }
+
+  PiProtocolTransferChunkMessage _decodeTransferChunk(
+    wire.TransferChunk chunk,
+  ) => PiProtocolTransferChunkMessage(
+    transferId: chunk.transferId,
+    sequence: _semanticPositiveInt(chunk.chunkSequence),
+    offset: _semanticNonNegativeInt(chunk.offset),
+    data: chunk.data,
+  );
+
+  PiProtocolTransferCompleteMessage _decodeTransferComplete(
+    wire.TransferComplete complete,
+  ) => PiProtocolTransferCompleteMessage(
+    transferId: complete.transferId,
+    totalBytes: _semanticPositiveInt(complete.totalBytes),
+    sha256: complete.sha256,
+  );
+
+  PiProtocolTransferAbortMessage _decodeTransferAbort(
+    wire.TransferAbort abort,
+  ) => PiProtocolTransferAbortMessage(
+    transferId: abort.transferId,
+    failure: _semanticFailure(abort.error),
+  );
+
   PiProtocolSessionAdminOutcomeMessage _decodeSessionAdminOutcome(
     wire.SessionAdminCommandOutcome response,
   ) {
@@ -606,6 +808,13 @@ final class ProtobufPiProtocolCodec implements PiProtocolCodec {
   }
 
   PiServerProtocolMessage _decodeErrorEnvelope(wire.ErrorEnvelope envelope) {
+    if (envelope.whichCorrelation() ==
+        wire.ErrorEnvelope_Correlation.transferId) {
+      return PiProtocolTransferAbortMessage(
+        transferId: envelope.transferId,
+        failure: _semanticFailure(envelope.error),
+      );
+    }
     if (envelope.whichCorrelation() !=
         wire.ErrorEnvelope_Correlation.requestId) {
       throw const PiProtocolCodecException(
@@ -779,14 +988,20 @@ final class ProtobufPiProtocolCodec implements PiProtocolCodec {
       PiProtocolListSessionsRequest() ||
       PiProtocolGetSessionRequest() ||
       PiProtocolCreateSessionRequest() ||
-      PiProtocolGetSessionTreeRequest() => const _RegularRequestCorrelation(),
+      PiProtocolGetSessionTreeRequest() ||
+      PiProtocolGetSessionHistoryRequest() ||
+      PiProtocolGetSessionStatsRequest() ||
+      PiProtocolExportSessionRequest() => const _RegularRequestCorrelation(),
       PiProtocolPromptCommandRequest(:final commandId) ||
       PiProtocolAbortCommandRequest(:final commandId) ||
       PiProtocolSessionAdminCommandRequest(:final commandId) ||
       PiProtocolSessionTreeMutationCommandRequest(
         :final commandId,
       ) => _CommandCorrelation(commandId),
-      PiProtocolHandshakeOfferMessage() => null,
+      PiProtocolHandshakeOfferMessage() ||
+      PiProtocolTransferWindowUpdate() ||
+      PiProtocolTransferAckMessage() ||
+      PiProtocolCancelTransferMessage() => null,
     };
     if (correlation == null) return;
 
@@ -841,10 +1056,16 @@ final _clientCapabilities = <wire.Capability>[
   wire.Capability.CAPABILITY_PROMPT_COMMAND,
   wire.Capability.CAPABILITY_ABORT_COMMAND,
   wire.Capability.CAPABILITY_SESSION_EVENTS,
+  wire.Capability.CAPABILITY_CANCELLATION,
+  wire.Capability.CAPABILITY_FLOW_CONTROL,
+  wire.Capability.CAPABILITY_TRANSFER,
   wire.Capability.CAPABILITY_PROJECT_DISCOVERY,
   wire.Capability.CAPABILITY_PROJECT_TRUST,
   wire.Capability.CAPABILITY_SESSION_ADMIN,
   wire.Capability.CAPABILITY_SESSION_TREE,
+  wire.Capability.CAPABILITY_SESSION_HISTORY,
+  wire.Capability.CAPABILITY_SESSION_STATS,
+  wire.Capability.CAPABILITY_SESSION_EXPORT,
 ];
 
 wire.ProtocolVersion _wireVersion(PiProtocolVersion version) {
@@ -872,6 +1093,15 @@ Int64 _wirePositiveInt(int value) {
     );
   }
   return Int64(value);
+}
+
+int _semanticNonNegativeInt(Int64 value) {
+  if (value.isNegative || value.compareTo(_maximumExactDartInt64) > 0) {
+    throw const PiProtocolCodecException(
+      PiProtocolCodecErrorCode.integerOutOfRange,
+    );
+  }
+  return value.toInt();
 }
 
 int _semanticPositiveUint32(int value) {
@@ -921,6 +1151,15 @@ PiProtocolCapability _semanticCapability(wire.Capability capability) {
   if (capability == wire.Capability.CAPABILITY_SESSION_EVENTS) {
     return PiProtocolCapability.sessionEvents;
   }
+  if (capability == wire.Capability.CAPABILITY_CANCELLATION) {
+    return PiProtocolCapability.cancellation;
+  }
+  if (capability == wire.Capability.CAPABILITY_FLOW_CONTROL) {
+    return PiProtocolCapability.flowControl;
+  }
+  if (capability == wire.Capability.CAPABILITY_TRANSFER) {
+    return PiProtocolCapability.transfer;
+  }
   if (capability == wire.Capability.CAPABILITY_PROJECT_DISCOVERY) {
     return PiProtocolCapability.projectDiscovery;
   }
@@ -932,6 +1171,15 @@ PiProtocolCapability _semanticCapability(wire.Capability capability) {
   }
   if (capability == wire.Capability.CAPABILITY_SESSION_TREE) {
     return PiProtocolCapability.sessionTree;
+  }
+  if (capability == wire.Capability.CAPABILITY_SESSION_HISTORY) {
+    return PiProtocolCapability.sessionHistory;
+  }
+  if (capability == wire.Capability.CAPABILITY_SESSION_STATS) {
+    return PiProtocolCapability.sessionStats;
+  }
+  if (capability == wire.Capability.CAPABILITY_SESSION_EXPORT) {
+    return PiProtocolCapability.sessionExport;
   }
   throw const PiProtocolCodecException(
     PiProtocolCodecErrorCode.unsupportedOperation,

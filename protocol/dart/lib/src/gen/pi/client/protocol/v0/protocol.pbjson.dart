@@ -33,6 +33,9 @@ const Capability$json = {
     {'1': 'CAPABILITY_PROJECT_TRUST', '2': 11},
     {'1': 'CAPABILITY_SESSION_ADMIN', '2': 12},
     {'1': 'CAPABILITY_SESSION_TREE', '2': 13},
+    {'1': 'CAPABILITY_SESSION_HISTORY', '2': 14},
+    {'1': 'CAPABILITY_SESSION_STATS', '2': 15},
+    {'1': 'CAPABILITY_SESSION_EXPORT', '2': 16},
   ],
 };
 
@@ -45,7 +48,9 @@ final $typed_data.Uint8List capabilityDescriptor = $convert.base64Decode(
     'QUJJTElUWV9DQU5DRUxMQVRJT04QBxIbChdDQVBBQklMSVRZX0ZMT1dfQ09OVFJPTBAIEhcKE0'
     'NBUEFCSUxJVFlfVFJBTlNGRVIQCRIgChxDQVBBQklMSVRZX1BST0pFQ1RfRElTQ09WRVJZEAoS'
     'HAoYQ0FQQUJJTElUWV9QUk9KRUNUX1RSVVNUEAsSHAoYQ0FQQUJJTElUWV9TRVNTSU9OX0FETU'
-    'lOEAwSGwoXQ0FQQUJJTElUWV9TRVNTSU9OX1RSRUUQDQ==');
+    'lOEAwSGwoXQ0FQQUJJTElUWV9TRVNTSU9OX1RSRUUQDRIeChpDQVBBQklMSVRZX1NFU1NJT05f'
+    'SElTVE9SWRAOEhwKGENBUEFCSUxJVFlfU0VTU0lPTl9TVEFUUxAPEh0KGUNBUEFCSUxJVFlfU0'
+    'VTU0lPTl9FWFBPUlQQEA==');
 
 @$core.Deprecated('Use healthStatusDescriptor instead')
 const HealthStatus$json = {
@@ -198,6 +203,22 @@ final $typed_data.Uint8List sessionTreeEntryKindDescriptor = $convert.base64Deco
     'lORF9CUkFOQ0hfU1VNTUFSWRAIEiIKHlNFU1NJT05fVFJFRV9FTlRSWV9LSU5EX0NVU1RPTRAJ'
     'EiEKHVNFU1NJT05fVFJFRV9FTlRSWV9LSU5EX0xBQkVMEAoSKAokU0VTU0lPTl9UUkVFX0VOVF'
     'JZX0tJTkRfU0VTU0lPTl9JTkZPEAs=');
+
+@$core.Deprecated('Use sessionExportFormatDescriptor instead')
+const SessionExportFormat$json = {
+  '1': 'SessionExportFormat',
+  '2': [
+    {'1': 'SESSION_EXPORT_FORMAT_UNSPECIFIED', '2': 0},
+    {'1': 'SESSION_EXPORT_FORMAT_HTML', '2': 1},
+    {'1': 'SESSION_EXPORT_FORMAT_JSONL', '2': 2},
+  ],
+};
+
+/// Descriptor for `SessionExportFormat`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List sessionExportFormatDescriptor = $convert.base64Decode(
+    'ChNTZXNzaW9uRXhwb3J0Rm9ybWF0EiUKIVNFU1NJT05fRVhQT1JUX0ZPUk1BVF9VTlNQRUNJRk'
+    'lFRBAAEh4KGlNFU1NJT05fRVhQT1JUX0ZPUk1BVF9IVE1MEAESHwobU0VTU0lPTl9FWFBPUlRf'
+    'Rk9STUFUX0pTT05MEAI=');
 
 @$core.Deprecated('Use transferDirectionDescriptor instead')
 const TransferDirection$json = {
@@ -626,6 +647,42 @@ const PiTransportFrame$json = {
       '10': 'sessionTreeMutationOutcome'
     },
     {
+      '1': 'get_session_history_request',
+      '3': 56,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.GetSessionHistoryRequest',
+      '9': 0,
+      '10': 'getSessionHistoryRequest'
+    },
+    {
+      '1': 'get_session_history_response',
+      '3': 57,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.GetSessionHistoryResponse',
+      '9': 0,
+      '10': 'getSessionHistoryResponse'
+    },
+    {
+      '1': 'get_session_stats_request',
+      '3': 58,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.GetSessionStatsRequest',
+      '9': 0,
+      '10': 'getSessionStatsRequest'
+    },
+    {
+      '1': 'get_session_stats_response',
+      '3': 59,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.GetSessionStatsResponse',
+      '9': 0,
+      '10': 'getSessionStatsResponse'
+    },
+    {
       '1': 'cancel',
       '3': 60,
       '4': 1,
@@ -642,6 +699,15 @@ const PiTransportFrame$json = {
       '6': '.pi.client.protocol.v0.WindowUpdate',
       '9': 0,
       '10': 'windowUpdate'
+    },
+    {
+      '1': 'export_session_request',
+      '3': 62,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.ExportSessionRequest',
+      '9': 0,
+      '10': 'exportSessionRequest'
     },
     {
       '1': 'transfer_open',
@@ -704,8 +770,7 @@ const PiTransportFrame$json = {
   '9': [
     {'1': 2, '2': 10},
     {'1': 13, '2': 20},
-    {'1': 56, '2': 60},
-    {'1': 62, '2': 70},
+    {'1': 63, '2': 70},
     {'1': 75, '2': 80},
     {'1': 81, '2': 100},
   ],
@@ -786,18 +851,28 @@ final $typed_data.Uint8List piTransportFrameDescriptor = $convert.base64Decode(
     'cHJvdG9jb2wudjAuQ2xvbmVTZXNzaW9uQ29tbWFuZEgAUhNjbG9uZVNlc3Npb25Db21tYW5kEn'
     'YKHXNlc3Npb25fdHJlZV9tdXRhdGlvbl9vdXRjb21lGDcgASgLMjEucGkuY2xpZW50LnByb3Rv'
     'Y29sLnYwLlNlc3Npb25UcmVlTXV0YXRpb25PdXRjb21lSABSGnNlc3Npb25UcmVlTXV0YXRpb2'
-    '5PdXRjb21lEjcKBmNhbmNlbBg8IAEoCzIdLnBpLmNsaWVudC5wcm90b2NvbC52MC5DYW5jZWxI'
-    'AFIGY2FuY2VsEkoKDXdpbmRvd191cGRhdGUYPSABKAsyIy5waS5jbGllbnQucHJvdG9jb2wudj'
-    'AuV2luZG93VXBkYXRlSABSDHdpbmRvd1VwZGF0ZRJKCg10cmFuc2Zlcl9vcGVuGEYgASgLMiMu'
-    'cGkuY2xpZW50LnByb3RvY29sLnYwLlRyYW5zZmVyT3BlbkgAUgx0cmFuc2Zlck9wZW4STQoOdH'
-    'JhbnNmZXJfY2h1bmsYRyABKAsyJC5waS5jbGllbnQucHJvdG9jb2wudjAuVHJhbnNmZXJDaHVu'
-    'a0gAUg10cmFuc2ZlckNodW5rEkcKDHRyYW5zZmVyX2FjaxhIIAEoCzIiLnBpLmNsaWVudC5wcm'
-    '90b2NvbC52MC5UcmFuc2ZlckFja0gAUgt0cmFuc2ZlckFjaxJWChF0cmFuc2Zlcl9jb21wbGV0'
-    'ZRhJIAEoCzInLnBpLmNsaWVudC5wcm90b2NvbC52MC5UcmFuc2ZlckNvbXBsZXRlSABSEHRyYW'
-    '5zZmVyQ29tcGxldGUSTQoOdHJhbnNmZXJfYWJvcnQYSiABKAsyJC5waS5jbGllbnQucHJvdG9j'
-    'b2wudjAuVHJhbnNmZXJBYm9ydEgAUg10cmFuc2ZlckFib3J0EjwKBWVycm9yGFAgASgLMiQucG'
-    'kuY2xpZW50LnByb3RvY29sLnYwLkVycm9yRW52ZWxvcGVIAFIFZXJyb3JCCwoJb3BlcmF0aW9u'
-    'SgQIAhAKSgQIDRAUSgQIOBA8SgQIPhBGSgQISxBQSgQIURBk');
+    '5PdXRjb21lEnAKG2dldF9zZXNzaW9uX2hpc3RvcnlfcmVxdWVzdBg4IAEoCzIvLnBpLmNsaWVu'
+    'dC5wcm90b2NvbC52MC5HZXRTZXNzaW9uSGlzdG9yeVJlcXVlc3RIAFIYZ2V0U2Vzc2lvbkhpc3'
+    'RvcnlSZXF1ZXN0EnMKHGdldF9zZXNzaW9uX2hpc3RvcnlfcmVzcG9uc2UYOSABKAsyMC5waS5j'
+    'bGllbnQucHJvdG9jb2wudjAuR2V0U2Vzc2lvbkhpc3RvcnlSZXNwb25zZUgAUhlnZXRTZXNzaW'
+    '9uSGlzdG9yeVJlc3BvbnNlEmoKGWdldF9zZXNzaW9uX3N0YXRzX3JlcXVlc3QYOiABKAsyLS5w'
+    'aS5jbGllbnQucHJvdG9jb2wudjAuR2V0U2Vzc2lvblN0YXRzUmVxdWVzdEgAUhZnZXRTZXNzaW'
+    '9uU3RhdHNSZXF1ZXN0Em0KGmdldF9zZXNzaW9uX3N0YXRzX3Jlc3BvbnNlGDsgASgLMi4ucGku'
+    'Y2xpZW50LnByb3RvY29sLnYwLkdldFNlc3Npb25TdGF0c1Jlc3BvbnNlSABSF2dldFNlc3Npb2'
+    '5TdGF0c1Jlc3BvbnNlEjcKBmNhbmNlbBg8IAEoCzIdLnBpLmNsaWVudC5wcm90b2NvbC52MC5D'
+    'YW5jZWxIAFIGY2FuY2VsEkoKDXdpbmRvd191cGRhdGUYPSABKAsyIy5waS5jbGllbnQucHJvdG'
+    '9jb2wudjAuV2luZG93VXBkYXRlSABSDHdpbmRvd1VwZGF0ZRJjChZleHBvcnRfc2Vzc2lvbl9y'
+    'ZXF1ZXN0GD4gASgLMisucGkuY2xpZW50LnByb3RvY29sLnYwLkV4cG9ydFNlc3Npb25SZXF1ZX'
+    'N0SABSFGV4cG9ydFNlc3Npb25SZXF1ZXN0EkoKDXRyYW5zZmVyX29wZW4YRiABKAsyIy5waS5j'
+    'bGllbnQucHJvdG9jb2wudjAuVHJhbnNmZXJPcGVuSABSDHRyYW5zZmVyT3BlbhJNCg50cmFuc2'
+    'Zlcl9jaHVuaxhHIAEoCzIkLnBpLmNsaWVudC5wcm90b2NvbC52MC5UcmFuc2ZlckNodW5rSABS'
+    'DXRyYW5zZmVyQ2h1bmsSRwoMdHJhbnNmZXJfYWNrGEggASgLMiIucGkuY2xpZW50LnByb3RvY2'
+    '9sLnYwLlRyYW5zZmVyQWNrSABSC3RyYW5zZmVyQWNrElYKEXRyYW5zZmVyX2NvbXBsZXRlGEkg'
+    'ASgLMicucGkuY2xpZW50LnByb3RvY29sLnYwLlRyYW5zZmVyQ29tcGxldGVIAFIQdHJhbnNmZX'
+    'JDb21wbGV0ZRJNCg50cmFuc2Zlcl9hYm9ydBhKIAEoCzIkLnBpLmNsaWVudC5wcm90b2NvbC52'
+    'MC5UcmFuc2ZlckFib3J0SABSDXRyYW5zZmVyQWJvcnQSPAoFZXJyb3IYUCABKAsyJC5waS5jbG'
+    'llbnQucHJvdG9jb2wudjAuRXJyb3JFbnZlbG9wZUgAUgVlcnJvckILCglvcGVyYXRpb25KBAgC'
+    'EApKBAgNEBRKBAg/EEZKBAhLEFBKBAhREGQ=');
 
 @$core.Deprecated('Use protocolVersionDescriptor instead')
 const ProtocolVersion$json = {
@@ -2183,6 +2258,281 @@ final $typed_data.Uint8List sessionTreeSnapshotDescriptor = $convert.base64Decod
     'EjUKF2Nhbl9jbG9uZV9hY3RpdmVfYnJhbmNoGAUgASgIUhRjYW5DbG9uZUFjdGl2ZUJyYW5jaB'
     'IlCg5hZG1pbl9yZXZpc2lvbhgGIAEoCVINYWRtaW5SZXZpc2lvbg==');
 
+@$core.Deprecated('Use getSessionHistoryRequestDescriptor instead')
+const GetSessionHistoryRequest$json = {
+  '1': 'GetSessionHistoryRequest',
+  '2': [
+    {'1': 'request_id', '3': 1, '4': 1, '5': 4, '10': 'requestId'},
+    {'1': 'project_id', '3': 2, '4': 1, '5': 9, '10': 'projectId'},
+    {'1': 'session_id', '3': 3, '4': 1, '5': 9, '10': 'sessionId'},
+    {'1': 'cursor', '3': 4, '4': 1, '5': 9, '10': 'cursor'},
+    {'1': 'limit', '3': 5, '4': 1, '5': 13, '10': 'limit'},
+    {
+      '1': 'expected_active_branch_revision',
+      '3': 6,
+      '4': 1,
+      '5': 9,
+      '10': 'expectedActiveBranchRevision'
+    },
+    {
+      '1': 'expected_tree_revision',
+      '3': 7,
+      '4': 1,
+      '5': 9,
+      '10': 'expectedTreeRevision'
+    },
+  ],
+};
+
+/// Descriptor for `GetSessionHistoryRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getSessionHistoryRequestDescriptor = $convert.base64Decode(
+    'ChhHZXRTZXNzaW9uSGlzdG9yeVJlcXVlc3QSHQoKcmVxdWVzdF9pZBgBIAEoBFIJcmVxdWVzdE'
+    'lkEh0KCnByb2plY3RfaWQYAiABKAlSCXByb2plY3RJZBIdCgpzZXNzaW9uX2lkGAMgASgJUglz'
+    'ZXNzaW9uSWQSFgoGY3Vyc29yGAQgASgJUgZjdXJzb3ISFAoFbGltaXQYBSABKA1SBWxpbWl0Ek'
+    'UKH2V4cGVjdGVkX2FjdGl2ZV9icmFuY2hfcmV2aXNpb24YBiABKAlSHGV4cGVjdGVkQWN0aXZl'
+    'QnJhbmNoUmV2aXNpb24SNAoWZXhwZWN0ZWRfdHJlZV9yZXZpc2lvbhgHIAEoCVIUZXhwZWN0ZW'
+    'RUcmVlUmV2aXNpb24=');
+
+@$core.Deprecated('Use getSessionHistoryResponseDescriptor instead')
+const GetSessionHistoryResponse$json = {
+  '1': 'GetSessionHistoryResponse',
+  '2': [
+    {'1': 'request_id', '3': 1, '4': 1, '5': 4, '10': 'requestId'},
+    {
+      '1': 'summary',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.SessionSummarySnapshot',
+      '10': 'summary'
+    },
+    {
+      '1': 'messages',
+      '3': 3,
+      '4': 3,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.MessageSnapshot',
+      '10': 'messages'
+    },
+    {'1': 'next_cursor', '3': 4, '4': 1, '5': 9, '10': 'nextCursor'},
+    {'1': 'has_more', '3': 5, '4': 1, '5': 8, '10': 'hasMore'},
+    {
+      '1': 'active_branch_revision',
+      '3': 6,
+      '4': 1,
+      '5': 9,
+      '10': 'activeBranchRevision'
+    },
+    {'1': 'tree_revision', '3': 7, '4': 1, '5': 9, '10': 'treeRevision'},
+  ],
+};
+
+/// Descriptor for `GetSessionHistoryResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getSessionHistoryResponseDescriptor = $convert.base64Decode(
+    'ChlHZXRTZXNzaW9uSGlzdG9yeVJlc3BvbnNlEh0KCnJlcXVlc3RfaWQYASABKARSCXJlcXVlc3'
+    'RJZBJHCgdzdW1tYXJ5GAIgASgLMi0ucGkuY2xpZW50LnByb3RvY29sLnYwLlNlc3Npb25TdW1t'
+    'YXJ5U25hcHNob3RSB3N1bW1hcnkSQgoIbWVzc2FnZXMYAyADKAsyJi5waS5jbGllbnQucHJvdG'
+    '9jb2wudjAuTWVzc2FnZVNuYXBzaG90UghtZXNzYWdlcxIfCgtuZXh0X2N1cnNvchgEIAEoCVIK'
+    'bmV4dEN1cnNvchIZCghoYXNfbW9yZRgFIAEoCFIHaGFzTW9yZRI0ChZhY3RpdmVfYnJhbmNoX3'
+    'JldmlzaW9uGAYgASgJUhRhY3RpdmVCcmFuY2hSZXZpc2lvbhIjCg10cmVlX3JldmlzaW9uGAcg'
+    'ASgJUgx0cmVlUmV2aXNpb24=');
+
+@$core.Deprecated('Use getSessionStatsRequestDescriptor instead')
+const GetSessionStatsRequest$json = {
+  '1': 'GetSessionStatsRequest',
+  '2': [
+    {'1': 'request_id', '3': 1, '4': 1, '5': 4, '10': 'requestId'},
+    {'1': 'project_id', '3': 2, '4': 1, '5': 9, '10': 'projectId'},
+    {'1': 'session_id', '3': 3, '4': 1, '5': 9, '10': 'sessionId'},
+  ],
+};
+
+/// Descriptor for `GetSessionStatsRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getSessionStatsRequestDescriptor = $convert.base64Decode(
+    'ChZHZXRTZXNzaW9uU3RhdHNSZXF1ZXN0Eh0KCnJlcXVlc3RfaWQYASABKARSCXJlcXVlc3RJZB'
+    'IdCgpwcm9qZWN0X2lkGAIgASgJUglwcm9qZWN0SWQSHQoKc2Vzc2lvbl9pZBgDIAEoCVIJc2Vz'
+    'c2lvbklk');
+
+@$core.Deprecated('Use sessionSafeProjectionSnapshotDescriptor instead')
+const SessionSafeProjectionSnapshot$json = {
+  '1': 'SessionSafeProjectionSnapshot',
+  '2': [
+    {'1': 'session_file_name', '3': 1, '4': 1, '5': 9, '10': 'sessionFileName'},
+    {'1': 'session_id', '3': 2, '4': 1, '5': 9, '10': 'sessionId'},
+    {'1': 'project_id', '3': 3, '4': 1, '5': 9, '10': 'projectId'},
+    {
+      '1': 'canonical_project_directory',
+      '3': 4,
+      '4': 1,
+      '5': 9,
+      '10': 'canonicalProjectDirectory'
+    },
+    {'1': 'worktree_id', '3': 5, '4': 1, '5': 9, '10': 'worktreeId'},
+    {'1': 'main_project_id', '3': 6, '4': 1, '5': 9, '10': 'mainProjectId'},
+    {'1': 'branch', '3': 7, '4': 1, '5': 9, '10': 'branch'},
+    {
+      '1': 'is_linked_worktree',
+      '3': 8,
+      '4': 1,
+      '5': 8,
+      '10': 'isLinkedWorktree'
+    },
+    {'1': 'is_detached_head', '3': 9, '4': 1, '5': 8, '10': 'isDetachedHead'},
+  ],
+};
+
+/// Descriptor for `SessionSafeProjectionSnapshot`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List sessionSafeProjectionSnapshotDescriptor = $convert.base64Decode(
+    'Ch1TZXNzaW9uU2FmZVByb2plY3Rpb25TbmFwc2hvdBIqChFzZXNzaW9uX2ZpbGVfbmFtZRgBIA'
+    'EoCVIPc2Vzc2lvbkZpbGVOYW1lEh0KCnNlc3Npb25faWQYAiABKAlSCXNlc3Npb25JZBIdCgpw'
+    'cm9qZWN0X2lkGAMgASgJUglwcm9qZWN0SWQSPgobY2Fub25pY2FsX3Byb2plY3RfZGlyZWN0b3'
+    'J5GAQgASgJUhljYW5vbmljYWxQcm9qZWN0RGlyZWN0b3J5Eh8KC3dvcmt0cmVlX2lkGAUgASgJ'
+    'Ugp3b3JrdHJlZUlkEiYKD21haW5fcHJvamVjdF9pZBgGIAEoCVINbWFpblByb2plY3RJZBIWCg'
+    'ZicmFuY2gYByABKAlSBmJyYW5jaBIsChJpc19saW5rZWRfd29ya3RyZWUYCCABKAhSEGlzTGlu'
+    'a2VkV29ya3RyZWUSKAoQaXNfZGV0YWNoZWRfaGVhZBgJIAEoCFIOaXNEZXRhY2hlZEhlYWQ=');
+
+@$core.Deprecated('Use sessionStatsSnapshotDescriptor instead')
+const SessionStatsSnapshot$json = {
+  '1': 'SessionStatsSnapshot',
+  '2': [
+    {
+      '1': 'projection',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.SessionSafeProjectionSnapshot',
+      '10': 'projection'
+    },
+    {'1': 'user_messages', '3': 2, '4': 1, '5': 4, '10': 'userMessages'},
+    {
+      '1': 'assistant_messages',
+      '3': 3,
+      '4': 1,
+      '5': 4,
+      '10': 'assistantMessages'
+    },
+    {'1': 'tool_calls', '3': 4, '4': 1, '5': 4, '10': 'toolCalls'},
+    {'1': 'tool_results', '3': 5, '4': 1, '5': 4, '10': 'toolResults'},
+    {'1': 'total_messages', '3': 6, '4': 1, '5': 4, '10': 'totalMessages'},
+    {'1': 'input_tokens', '3': 7, '4': 1, '5': 4, '10': 'inputTokens'},
+    {'1': 'output_tokens', '3': 8, '4': 1, '5': 4, '10': 'outputTokens'},
+    {'1': 'cache_read_tokens', '3': 9, '4': 1, '5': 4, '10': 'cacheReadTokens'},
+    {
+      '1': 'cache_write_tokens',
+      '3': 10,
+      '4': 1,
+      '5': 4,
+      '10': 'cacheWriteTokens'
+    },
+    {'1': 'total_tokens', '3': 11, '4': 1, '5': 4, '10': 'totalTokens'},
+    {'1': 'cost', '3': 12, '4': 1, '5': 1, '10': 'cost'},
+    {
+      '1': 'has_context_usage',
+      '3': 13,
+      '4': 1,
+      '5': 8,
+      '10': 'hasContextUsage'
+    },
+    {'1': 'context_tokens', '3': 14, '4': 1, '5': 4, '10': 'contextTokens'},
+    {'1': 'context_window', '3': 15, '4': 1, '5': 4, '10': 'contextWindow'},
+    {'1': 'context_percent', '3': 16, '4': 1, '5': 1, '10': 'contextPercent'},
+    {
+      '1': 'active_time_millis',
+      '3': 17,
+      '4': 1,
+      '5': 4,
+      '10': 'activeTimeMillis'
+    },
+    {
+      '1': 'context_tokens_known',
+      '3': 18,
+      '4': 1,
+      '5': 8,
+      '10': 'contextTokensKnown'
+    },
+  ],
+};
+
+/// Descriptor for `SessionStatsSnapshot`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List sessionStatsSnapshotDescriptor = $convert.base64Decode(
+    'ChRTZXNzaW9uU3RhdHNTbmFwc2hvdBJUCgpwcm9qZWN0aW9uGAEgASgLMjQucGkuY2xpZW50Ln'
+    'Byb3RvY29sLnYwLlNlc3Npb25TYWZlUHJvamVjdGlvblNuYXBzaG90Ugpwcm9qZWN0aW9uEiMK'
+    'DXVzZXJfbWVzc2FnZXMYAiABKARSDHVzZXJNZXNzYWdlcxItChJhc3Npc3RhbnRfbWVzc2FnZX'
+    'MYAyABKARSEWFzc2lzdGFudE1lc3NhZ2VzEh0KCnRvb2xfY2FsbHMYBCABKARSCXRvb2xDYWxs'
+    'cxIhCgx0b29sX3Jlc3VsdHMYBSABKARSC3Rvb2xSZXN1bHRzEiUKDnRvdGFsX21lc3NhZ2VzGA'
+    'YgASgEUg10b3RhbE1lc3NhZ2VzEiEKDGlucHV0X3Rva2VucxgHIAEoBFILaW5wdXRUb2tlbnMS'
+    'IwoNb3V0cHV0X3Rva2VucxgIIAEoBFIMb3V0cHV0VG9rZW5zEioKEWNhY2hlX3JlYWRfdG9rZW'
+    '5zGAkgASgEUg9jYWNoZVJlYWRUb2tlbnMSLAoSY2FjaGVfd3JpdGVfdG9rZW5zGAogASgEUhBj'
+    'YWNoZVdyaXRlVG9rZW5zEiEKDHRvdGFsX3Rva2VucxgLIAEoBFILdG90YWxUb2tlbnMSEgoEY2'
+    '9zdBgMIAEoAVIEY29zdBIqChFoYXNfY29udGV4dF91c2FnZRgNIAEoCFIPaGFzQ29udGV4dFVz'
+    'YWdlEiUKDmNvbnRleHRfdG9rZW5zGA4gASgEUg1jb250ZXh0VG9rZW5zEiUKDmNvbnRleHRfd2'
+    'luZG93GA8gASgEUg1jb250ZXh0V2luZG93EicKD2NvbnRleHRfcGVyY2VudBgQIAEoAVIOY29u'
+    'dGV4dFBlcmNlbnQSLAoSYWN0aXZlX3RpbWVfbWlsbGlzGBEgASgEUhBhY3RpdmVUaW1lTWlsbG'
+    'lzEjAKFGNvbnRleHRfdG9rZW5zX2tub3duGBIgASgIUhJjb250ZXh0VG9rZW5zS25vd24=');
+
+@$core.Deprecated('Use getSessionStatsResponseDescriptor instead')
+const GetSessionStatsResponse$json = {
+  '1': 'GetSessionStatsResponse',
+  '2': [
+    {'1': 'request_id', '3': 1, '4': 1, '5': 4, '10': 'requestId'},
+    {
+      '1': 'stats',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.pi.client.protocol.v0.SessionStatsSnapshot',
+      '10': 'stats'
+    },
+  ],
+};
+
+/// Descriptor for `GetSessionStatsResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getSessionStatsResponseDescriptor = $convert.base64Decode(
+    'ChdHZXRTZXNzaW9uU3RhdHNSZXNwb25zZRIdCgpyZXF1ZXN0X2lkGAEgASgEUglyZXF1ZXN0SW'
+    'QSQQoFc3RhdHMYAiABKAsyKy5waS5jbGllbnQucHJvdG9jb2wudjAuU2Vzc2lvblN0YXRzU25h'
+    'cHNob3RSBXN0YXRz');
+
+@$core.Deprecated('Use exportSessionRequestDescriptor instead')
+const ExportSessionRequest$json = {
+  '1': 'ExportSessionRequest',
+  '2': [
+    {'1': 'request_id', '3': 1, '4': 1, '5': 4, '10': 'requestId'},
+    {'1': 'project_id', '3': 2, '4': 1, '5': 9, '10': 'projectId'},
+    {'1': 'session_id', '3': 3, '4': 1, '5': 9, '10': 'sessionId'},
+    {
+      '1': 'format',
+      '3': 4,
+      '4': 1,
+      '5': 14,
+      '6': '.pi.client.protocol.v0.SessionExportFormat',
+      '10': 'format'
+    },
+    {
+      '1': 'expected_active_branch_revision',
+      '3': 5,
+      '4': 1,
+      '5': 9,
+      '10': 'expectedActiveBranchRevision'
+    },
+    {
+      '1': 'expected_tree_revision',
+      '3': 6,
+      '4': 1,
+      '5': 9,
+      '10': 'expectedTreeRevision'
+    },
+  ],
+};
+
+/// Descriptor for `ExportSessionRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List exportSessionRequestDescriptor = $convert.base64Decode(
+    'ChRFeHBvcnRTZXNzaW9uUmVxdWVzdBIdCgpyZXF1ZXN0X2lkGAEgASgEUglyZXF1ZXN0SWQSHQ'
+    'oKcHJvamVjdF9pZBgCIAEoCVIJcHJvamVjdElkEh0KCnNlc3Npb25faWQYAyABKAlSCXNlc3Np'
+    'b25JZBJCCgZmb3JtYXQYBCABKA4yKi5waS5jbGllbnQucHJvdG9jb2wudjAuU2Vzc2lvbkV4cG'
+    '9ydEZvcm1hdFIGZm9ybWF0EkUKH2V4cGVjdGVkX2FjdGl2ZV9icmFuY2hfcmV2aXNpb24YBSAB'
+    'KAlSHGV4cGVjdGVkQWN0aXZlQnJhbmNoUmV2aXNpb24SNAoWZXhwZWN0ZWRfdHJlZV9yZXZpc2'
+    'lvbhgGIAEoCVIUZXhwZWN0ZWRUcmVlUmV2aXNpb24=');
+
 @$core.Deprecated('Use sessionEventStreamEnvelopeDescriptor instead')
 const SessionEventStreamEnvelope$json = {
   '1': 'SessionEventStreamEnvelope',
@@ -2510,6 +2860,7 @@ const TransferOpen$json = {
     {'1': 'total_bytes', '3': 6, '4': 1, '5': 4, '10': 'totalBytes'},
     {'1': 'chunk_bytes', '3': 7, '4': 1, '5': 13, '10': 'chunkBytes'},
     {'1': 'sha256', '3': 8, '4': 1, '5': 12, '10': 'sha256'},
+    {'1': 'request_id', '3': 9, '4': 1, '5': 4, '10': 'requestId'},
   ],
 };
 
@@ -2521,7 +2872,7 @@ final $typed_data.Uint8List transferOpenDescriptor = $convert.base64Decode(
     'ZlclB1cnBvc2VSB3B1cnBvc2USIQoMY29udGVudF90eXBlGAQgASgJUgtjb250ZW50VHlwZRIb'
     'CglmaWxlX25hbWUYBSABKAlSCGZpbGVOYW1lEh8KC3RvdGFsX2J5dGVzGAYgASgEUgp0b3RhbE'
     'J5dGVzEh8KC2NodW5rX2J5dGVzGAcgASgNUgpjaHVua0J5dGVzEhYKBnNoYTI1NhgIIAEoDFIG'
-    'c2hhMjU2');
+    'c2hhMjU2Eh0KCnJlcXVlc3RfaWQYCSABKARSCXJlcXVlc3RJZA==');
 
 @$core.Deprecated('Use transferChunkDescriptor instead')
 const TransferChunk$json = {

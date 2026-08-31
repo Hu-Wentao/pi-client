@@ -1,4 +1,8 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { createReadStream } from "node:fs";
+import { chmod, mkdtemp, open, realpath, rm, stat, type FileHandle } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { isAbsolute, join, relative } from "node:path";
 
 import { create, type MessageInitShape } from "@bufbuild/protobuf";
 import {
@@ -8,8 +12,11 @@ import {
   MAX_TRANSFER_CHUNK_BYTES,
   PiTransportFrameSchema,
   SessionAdminOperation,
+  SessionExportFormat,
   SessionEventStreamEnvelopeSchema,
   SessionTreeMutationOperation,
+  TransferDirection,
+  TransferPurpose,
   decodeTransportFrame,
   encodeTransportFrame,
   type PiTransportFrame,
@@ -21,6 +28,7 @@ import {
   PiNodeDomainError,
   type PiNodeProjectSnapshot,
   type PiNodeSessionEvent,
+  type PiNodeSessionHistoryPage,
   type PiNodeSessionSnapshot,
 } from "../pi-node-domain.js";
 import {
@@ -33,12 +41,18 @@ import {
   toProtocolMessageSnapshot,
   toProtocolProjectSnapshot,
   toProtocolSessionDetail,
+  toProtocolSessionStats,
   toProtocolSessionSummary,
   toProtocolSessionTree,
 } from "./protobuf-domain-adapter.js";
 import type { PiNodeProtocolDomain } from "./pi-node-protocol-domain-port.js";
 
 const MAX_TRACKED_IDENTIFIERS = 65_536;
+const DEFAULT_HISTORY_PAGE_MESSAGES = 50;
+const MAX_HISTORY_PAGE_MESSAGES = 200;
+const EXPORT_TRANSFER_CHUNK_BYTES = 64 * 1024;
+const MAX_TRANSFER_CREDIT_BYTES = 8 * 1024 * 1024;
+const MAX_OUTSTANDING_TRANSFER_CHUNKS = 16;
 
 export const PI_NODE_PROTOCOL_IMPLEMENTATION_NAME = "Pi Client Node";
 export const SUPPORTED_UNPUBLISHED_PROTOCOL_VERSIONS = Object.freeze([
@@ -54,6 +68,12 @@ export const SUPPORTED_PROTOCOL_CAPABILITIES = Object.freeze([
   Capability.PROJECT_TRUST,
   Capability.SESSION_ADMIN,
   Capability.SESSION_TREE,
+  Capability.SESSION_HISTORY,
+  Capability.SESSION_STATS,
+  Capability.SESSION_EXPORT,
+  Capability.CANCELLATION,
+  Capability.FLOW_CONTROL,
+  Capability.TRANSFER,
 ] as const);
 
 export interface PiNodeProtocolLogger {
@@ -100,6 +120,27 @@ interface PendingAdmission {
   readonly events: PiNodeSessionEvent[];
 }
 
+interface OutboundTransfer {
+  readonly requestId: bigint;
+  readonly transferId: string;
+  readonly tempDirectory: string;
+  readonly filePath: string;
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly totalBytes: bigint;
+  readonly chunkBytes: number;
+  readonly sha256: Uint8Array;
+  readonly sentEndOffsets: Map<bigint, bigint>;
+  handle: FileHandle | undefined;
+  nextSequence: bigint;
+  nextOffset: bigint;
+  acknowledgedSequence: bigint;
+  committedBytes: bigint;
+  creditBytes: bigint;
+  pumpTail: Promise<void>;
+  closed: boolean;
+}
+
 class OutboundFrameLimitError extends Error {
   constructor() {
     super("The outbound frame exceeds the negotiated frame limit.");
@@ -122,6 +163,7 @@ export class PiNodeProtobufConnection {
   readonly #pendingAdmissions = new Map<string, PendingAdmission>();
   readonly #projectWorkingDirectories = new Map<string, string>();
   readonly #adminAbortControllers = new Map<bigint, AbortController>();
+  readonly #outboundTransfers = new Map<string, OutboundTransfer>();
 
   #handshake: "awaiting" | "accepted" | "rejected" = "awaiting";
   #lastClientFrameSequence = 0n;
@@ -169,6 +211,7 @@ export class PiNodeProtobufConnection {
     }
     this.#adminAbortControllers.clear();
     await this.#releaseObservations();
+    await this.#releaseTransfers();
     await this.#writeTail.catch(() => undefined);
   }
 
@@ -328,6 +371,24 @@ export class PiNodeProtobufConnection {
           frame.operation.value.sessionId,
         );
         return;
+      case "getSessionHistoryRequest":
+        await this.#handleGetSessionHistory(
+          frame.operation.value.requestId,
+          frame.operation.value.projectId,
+          frame.operation.value.sessionId,
+          frame.operation.value.cursor,
+          frame.operation.value.limit,
+          frame.operation.value.expectedActiveBranchRevision,
+          frame.operation.value.expectedTreeRevision,
+        );
+        return;
+      case "getSessionStatsRequest":
+        await this.#handleGetSessionStats(
+          frame.operation.value.requestId,
+          frame.operation.value.projectId,
+          frame.operation.value.sessionId,
+        );
+        return;
       case "navigateSessionTreeCommand":
         await this.#handleNavigateSessionTree(
           frame.operation.value.requestId,
@@ -407,6 +468,25 @@ export class PiNodeProtobufConnection {
           frame.operation.value.confirmation,
         );
         return;
+      case "exportSessionRequest":
+        await this.#handleExportSession(
+          frame.operation.value.requestId,
+          frame.operation.value.projectId,
+          frame.operation.value.sessionId,
+          frame.operation.value.format,
+          frame.operation.value.expectedActiveBranchRevision,
+          frame.operation.value.expectedTreeRevision,
+        );
+        return;
+      case "cancel":
+        await this.#handleCancel(frame.operation.value);
+        return;
+      case "windowUpdate":
+        await this.#handleWindowUpdate(frame.operation.value);
+        return;
+      case "transferAck":
+        await this.#handleTransferAck(frame.operation.value);
+        return;
       case "healthRequest":
         await this.#handleUnsupportedRequest(frame.operation.value.requestId);
         return;
@@ -422,6 +502,8 @@ export class PiNodeProtobufConnection {
       case "getSessionResponse":
       case "createSessionResponse":
       case "getSessionTreeResponse":
+      case "getSessionHistoryResponse":
+      case "getSessionStatsResponse":
       case "sessionAdminCommandOutcome":
       case "sessionTreeMutationOutcome":
       case "requestRejected":
@@ -429,17 +511,12 @@ export class PiNodeProtobufConnection {
       case "commandRejected":
       case "sessionEventStream":
       case "eventStream":
-      case "error":
-        await this.#failProtocol("The client sent a server-only operation.");
-        return;
-      case "cancel":
-      case "windowUpdate":
       case "transferOpen":
       case "transferChunk":
-      case "transferAck":
       case "transferComplete":
       case "transferAbort":
-        await this.#failProtocol("The client sent an operation that was not negotiated.");
+      case "error":
+        await this.#failProtocol("The client sent a server-only operation.");
         return;
       case "clientProtocolOffer":
       case undefined:
@@ -636,6 +713,88 @@ export class PiNodeProtobufConnection {
       await this.#sendRequestRejected(requestId, mapDomainError(error));
     } finally {
       await this.#flushAdmission(sessionId, observationPending);
+    }
+  }
+
+  async #handleGetSessionHistory(
+    requestId: bigint,
+    projectId: string,
+    sessionId: string,
+    cursor: string,
+    limit: number,
+    expectedActiveBranchRevision: string,
+    expectedTreeRevision: string,
+  ): Promise<void> {
+    if (!(await this.#claimRequest(requestId, false))) return;
+    if (!(await this.#requireCapability(requestId, Capability.SESSION_HISTORY, false))) return;
+    const pageLimit = limit === 0 ? DEFAULT_HISTORY_PAGE_MESSAGES : limit;
+    if (pageLimit < 1 || pageLimit > MAX_HISTORY_PAGE_MESSAGES) {
+      await this.#sendRequestRejected(
+        requestId,
+        stableError(ErrorCode.INVALID_REQUEST, "The session history limit is invalid."),
+      );
+      return;
+    }
+
+    let observationPending: PendingAdmission | undefined;
+    try {
+      const page = await this.#domain.getSessionHistory({
+        cwd: this.#requireRegisteredProject(projectId),
+        sessionId,
+        ...(cursor.length === 0 ? {} : { cursor }),
+        limit: pageLimit,
+        ...(expectedActiveBranchRevision.length === 0 ? {} : { expectedActiveBranchRevision }),
+        ...(expectedTreeRevision.length === 0 ? {} : { expectedTreeRevision }),
+      });
+      const observed = this.#negotiatedCapabilities.has(Capability.SESSION_EVENTS)
+        ? this.#ensureObservation(sessionHistoryPageToSnapshot(page))
+        : undefined;
+      observationPending = observed?.pending;
+      await this.#sendRequestOperation(
+        requestId,
+        {
+          case: "getSessionHistoryResponse",
+          value: {
+            requestId,
+            summary: toProtocolSessionSummary(page.summary),
+            messages: page.messages.map((message) => toProtocolMessageSnapshot(message, false)),
+            nextCursor: page.nextCursor ?? "",
+            hasMore: page.hasMore,
+            activeBranchRevision: page.activeBranchRevision,
+            treeRevision: page.treeRevision,
+          },
+        },
+        false,
+      );
+    } catch (error) {
+      await this.#sendRequestRejected(requestId, mapDomainError(error));
+    } finally {
+      await this.#flushAdmission(sessionId, observationPending);
+    }
+  }
+
+  async #handleGetSessionStats(
+    requestId: bigint,
+    projectId: string,
+    sessionId: string,
+  ): Promise<void> {
+    if (!(await this.#claimRequest(requestId, false))) return;
+    if (!(await this.#requireCapability(requestId, Capability.SESSION_STATS, false))) return;
+    try {
+      const stats = await this.#domain.getSessionStats({
+        cwd: this.#requireRegisteredProject(projectId),
+        sessionId,
+      });
+      await this.#sendRequestOperation(
+        requestId,
+        {
+          case: "getSessionStatsResponse",
+          value: { requestId, stats: toProtocolSessionStats(stats) },
+        },
+        false,
+      );
+    } catch (error) {
+      await this.#sendRequestRejected(requestId, mapDomainError(error));
     }
   }
 
@@ -1066,6 +1225,334 @@ export class PiNodeProtobufConnection {
     }
   }
 
+  async #handleExportSession(
+    requestId: bigint,
+    projectId: string,
+    sessionId: string,
+    format: SessionExportFormat,
+    expectedActiveBranchRevision: string,
+    expectedTreeRevision: string,
+  ): Promise<void> {
+    if (!(await this.#claimRequest(requestId, false))) return;
+    for (const capability of [
+      Capability.SESSION_EXPORT,
+      Capability.TRANSFER,
+      Capability.FLOW_CONTROL,
+      Capability.CANCELLATION,
+    ]) {
+      if (!(await this.#requireCapability(requestId, capability, false))) return;
+    }
+    if (this.#outboundTransfers.size >= 8) {
+      await this.#sendRequestRejected(
+        requestId,
+        stableError(ErrorCode.RESOURCE_EXHAUSTED, "Too many exports are active."),
+      );
+      return;
+    }
+
+    const exportFormat =
+      format === SessionExportFormat.HTML
+        ? "html"
+        : format === SessionExportFormat.JSONL
+          ? "jsonl"
+          : undefined;
+    if (exportFormat === undefined) {
+      await this.#sendRequestRejected(
+        requestId,
+        stableError(ErrorCode.INVALID_REQUEST, "The export format is invalid."),
+      );
+      return;
+    }
+
+    let tempDirectory: string | undefined;
+    try {
+      const cwd = this.#requireRegisteredProject(projectId);
+      tempDirectory = await mkdtemp(join(tmpdir(), "pi-client-export-"));
+      await chmod(tempDirectory, 0o700);
+      tempDirectory = await realpath(tempDirectory);
+      const fileName =
+        exportFormat === "html" ? "Pi-Client-session.html" : "Pi-Client-session.jsonl";
+      const filePath = join(tempDirectory, fileName);
+      assertContainedExportPath(tempDirectory, filePath);
+      await this.#domain.exportSession({
+        cwd,
+        sessionId,
+        format: exportFormat,
+        outputPath: filePath,
+        ...(expectedActiveBranchRevision.length === 0 ? {} : { expectedActiveBranchRevision }),
+        ...(expectedTreeRevision.length === 0 ? {} : { expectedTreeRevision }),
+      });
+      const canonicalFile = await realpath(filePath);
+      assertContainedExportPath(tempDirectory, canonicalFile);
+      const metadata = await stat(canonicalFile, { bigint: true });
+      if (
+        !metadata.isFile() ||
+        metadata.size <= 0n ||
+        metadata.size > BigInt(Number.MAX_SAFE_INTEGER)
+      ) {
+        throw new PiNodeDomainError("session-export-failed", "The generated export is invalid.");
+      }
+      await chmod(canonicalFile, 0o600);
+      const transferId = `export-${randomUUID()}`;
+      const chunkBytes = Math.min(EXPORT_TRANSFER_CHUNK_BYTES, this.#maxTransferChunkBytes);
+      const sha256 = await sha256File(canonicalFile);
+      const transfer: OutboundTransfer = {
+        requestId,
+        transferId,
+        tempDirectory,
+        filePath: canonicalFile,
+        fileName,
+        contentType: exportFormat === "html" ? "text/html; charset=utf-8" : "application/x-ndjson",
+        totalBytes: metadata.size,
+        chunkBytes,
+        sha256,
+        sentEndOffsets: new Map(),
+        handle: undefined,
+        nextSequence: 1n,
+        nextOffset: 0n,
+        acknowledgedSequence: 0n,
+        committedBytes: 0n,
+        creditBytes: 0n,
+        pumpTail: Promise.resolve(),
+        closed: false,
+      };
+      this.#outboundTransfers.set(transferId, transfer);
+      tempDirectory = undefined;
+      await this.#sendOperation({
+        case: "transferOpen",
+        value: {
+          requestId,
+          transferId,
+          direction: TransferDirection.DOWNLOAD,
+          purpose: TransferPurpose.EXPORT,
+          contentType: transfer.contentType,
+          fileName,
+          totalBytes: transfer.totalBytes,
+          chunkBytes,
+          sha256,
+        },
+      });
+    } catch (error) {
+      if (tempDirectory !== undefined) await removePrivateTempDirectory(tempDirectory);
+      await this.#sendRequestRejected(requestId, mapDomainError(error));
+    }
+  }
+
+  async #handleCancel(cancel: {
+    readonly target:
+      | { readonly case: "requestId"; readonly value: bigint }
+      | { readonly case: "streamId"; readonly value: string }
+      | { readonly case: "transferId"; readonly value: string }
+      | { readonly case: undefined; readonly value?: undefined };
+  }): Promise<void> {
+    if (!this.#negotiatedCapabilities.has(Capability.CANCELLATION)) {
+      await this.#failProtocol("Cancellation was not negotiated.");
+      return;
+    }
+    switch (cancel.target.case) {
+      case "requestId":
+        this.#adminAbortControllers.get(cancel.target.value)?.abort();
+        return;
+      case "transferId": {
+        const transfer = this.#outboundTransfers.get(cancel.target.value);
+        if (transfer !== undefined) {
+          await this.#abortTransfer(
+            transfer,
+            stableError(ErrorCode.CANCELLED, "The export was cancelled."),
+            true,
+          );
+        }
+        return;
+      }
+      case "streamId": {
+        const observed = [...this.#observations.values()].find(
+          (entry) => entry.streamId === cancel.target.value,
+        );
+        if (observed !== undefined) this.#dropObservation(observed.sessionId);
+        return;
+      }
+      case undefined:
+        await this.#failProtocol("Cancellation target is missing.");
+    }
+  }
+
+  async #handleWindowUpdate(update: {
+    readonly target:
+      | { readonly case: "streamId"; readonly value: string }
+      | { readonly case: "transferId"; readonly value: string }
+      | { readonly case: undefined; readonly value?: undefined };
+    readonly creditMessages: number;
+    readonly creditBytes: bigint;
+  }): Promise<void> {
+    if (!this.#negotiatedCapabilities.has(Capability.FLOW_CONTROL)) {
+      await this.#failProtocol("Flow control was not negotiated.");
+      return;
+    }
+    if (update.target.case !== "transferId" || update.creditMessages !== 0) {
+      await this.#failProtocol("Only byte credit for an export transfer is supported.");
+      return;
+    }
+    const transfer = this.#outboundTransfers.get(update.target.value);
+    if (transfer === undefined || transfer.closed) return;
+    if (update.creditBytes <= 0n) {
+      await this.#abortTransfer(
+        transfer,
+        stableError(ErrorCode.PROTOCOL_VIOLATION, "Export byte credit is invalid."),
+        true,
+      );
+      return;
+    }
+    const nextCredit = transfer.creditBytes + update.creditBytes;
+    if (nextCredit > BigInt(MAX_TRANSFER_CREDIT_BYTES)) {
+      await this.#abortTransfer(
+        transfer,
+        stableError(ErrorCode.RESOURCE_EXHAUSTED, "Export byte credit is too large."),
+        true,
+      );
+      return;
+    }
+    transfer.creditBytes = nextCredit;
+    await this.#scheduleTransferPump(transfer);
+  }
+
+  async #handleTransferAck(ack: {
+    readonly transferId: string;
+    readonly acknowledgedSequence: bigint;
+    readonly committedBytes: bigint;
+  }): Promise<void> {
+    if (!this.#negotiatedCapabilities.has(Capability.TRANSFER)) {
+      await this.#failProtocol("Transfers were not negotiated.");
+      return;
+    }
+    const transfer = this.#outboundTransfers.get(ack.transferId);
+    if (transfer === undefined || transfer.closed) return;
+    const expectedCommitted = transfer.sentEndOffsets.get(ack.acknowledgedSequence);
+    if (
+      expectedCommitted === undefined ||
+      ack.acknowledgedSequence <= transfer.acknowledgedSequence ||
+      ack.committedBytes !== expectedCommitted ||
+      ack.committedBytes <= transfer.committedBytes
+    ) {
+      await this.#abortTransfer(
+        transfer,
+        stableError(ErrorCode.PROTOCOL_VIOLATION, "Export acknowledgement is invalid."),
+        true,
+      );
+      return;
+    }
+    transfer.acknowledgedSequence = ack.acknowledgedSequence;
+    transfer.committedBytes = ack.committedBytes;
+    for (const sequence of [...transfer.sentEndOffsets.keys()]) {
+      if (sequence <= ack.acknowledgedSequence) transfer.sentEndOffsets.delete(sequence);
+    }
+    if (
+      transfer.committedBytes === transfer.totalBytes &&
+      transfer.nextOffset === transfer.totalBytes &&
+      transfer.sentEndOffsets.size === 0
+    ) {
+      await this.#completeTransfer(transfer);
+      return;
+    }
+    await this.#scheduleTransferPump(transfer);
+  }
+
+  async #scheduleTransferPump(transfer: OutboundTransfer): Promise<void> {
+    transfer.pumpTail = transfer.pumpTail.then(() => this.#pumpTransfer(transfer));
+    try {
+      await transfer.pumpTail;
+    } catch (error) {
+      await this.#abortTransfer(transfer, mapDomainError(error), true);
+    }
+  }
+
+  async #pumpTransfer(transfer: OutboundTransfer): Promise<void> {
+    if (transfer.closed || this.#terminal) return;
+    transfer.handle ??= await open(transfer.filePath, "r");
+    while (
+      !transfer.closed &&
+      transfer.creditBytes > 0n &&
+      transfer.nextOffset < transfer.totalBytes &&
+      transfer.sentEndOffsets.size < MAX_OUTSTANDING_TRANSFER_CHUNKS
+    ) {
+      const remaining = transfer.totalBytes - transfer.nextOffset;
+      const requested = Number(
+        [BigInt(transfer.chunkBytes), transfer.creditBytes, remaining].reduce((left, right) =>
+          left < right ? left : right,
+        ),
+      );
+      const buffer = Buffer.allocUnsafe(requested);
+      const result = await transfer.handle.read(buffer, 0, requested, Number(transfer.nextOffset));
+      if (result.bytesRead <= 0) {
+        throw new PiNodeDomainError("session-export-failed", "The export ended unexpectedly.");
+      }
+      const data = buffer.subarray(0, result.bytesRead);
+      const sequence = transfer.nextSequence;
+      const offset = transfer.nextOffset;
+      const endOffset = offset + BigInt(result.bytesRead);
+      await this.#sendOperation({
+        case: "transferChunk",
+        value: { transferId: transfer.transferId, chunkSequence: sequence, offset, data },
+      });
+      transfer.sentEndOffsets.set(sequence, endOffset);
+      transfer.nextSequence += 1n;
+      transfer.nextOffset = endOffset;
+      transfer.creditBytes -= BigInt(result.bytesRead);
+    }
+  }
+
+  async #completeTransfer(transfer: OutboundTransfer): Promise<void> {
+    if (transfer.closed) return;
+    transfer.closed = true;
+    await transfer.handle?.close();
+    transfer.handle = undefined;
+    try {
+      await this.#sendOperation({
+        case: "transferComplete",
+        value: {
+          transferId: transfer.transferId,
+          totalBytes: transfer.totalBytes,
+          sha256: transfer.sha256,
+        },
+      });
+    } finally {
+      this.#outboundTransfers.delete(transfer.transferId);
+      await removePrivateTempDirectory(transfer.tempDirectory);
+    }
+  }
+
+  async #abortTransfer(
+    transfer: OutboundTransfer,
+    error: StableError,
+    notifyPeer: boolean,
+  ): Promise<void> {
+    if (transfer.closed) return;
+    transfer.closed = true;
+    this.#outboundTransfers.delete(transfer.transferId);
+    await transfer.handle?.close().catch(() => undefined);
+    transfer.handle = undefined;
+    try {
+      if (notifyPeer && !this.#terminal) {
+        await this.#sendOperation({
+          case: "transferAbort",
+          value: { transferId: transfer.transferId, error },
+        });
+      }
+    } finally {
+      await removePrivateTempDirectory(transfer.tempDirectory);
+    }
+  }
+
+  async #releaseTransfers(): Promise<void> {
+    const transfers = [...this.#outboundTransfers.values()];
+    for (const transfer of transfers) {
+      await this.#abortTransfer(
+        transfer,
+        stableError(ErrorCode.CANCELLED, "The connection closed."),
+        false,
+      );
+    }
+  }
+
   async #claimAdminCommand(requestId: bigint, commandId: string): Promise<boolean> {
     if (!(await this.#claimRequest(requestId, true, commandId))) return false;
     if (!(await this.#claimCommand(requestId, commandId))) return false;
@@ -1479,6 +1966,7 @@ export class PiNodeProtobufConnection {
     }
     this.#terminal = true;
     await this.#releaseObservations();
+    await this.#releaseTransfers();
     return { close: true, reason: "protocol-error" };
   }
 
@@ -1493,6 +1981,48 @@ export class PiNodeProtobufConnection {
       entry.unsubscribe();
     }
     await Promise.all(entries.map((entry) => entry.eventTail.catch(() => undefined)));
+  }
+}
+
+function sessionHistoryPageToSnapshot(page: PiNodeSessionHistoryPage): PiNodeSessionSnapshot {
+  return Object.freeze({
+    ...page.summary,
+    persistence: "persistent",
+    messages: page.messages,
+    lastEventSequence: page.lastEventSequence,
+  });
+}
+
+async function sha256File(path: string): Promise<Uint8Array> {
+  const hash = createHash("sha256");
+  for await (const chunk of createReadStream(path, {
+    highWaterMark: EXPORT_TRANSFER_CHUNK_BYTES,
+  })) {
+    hash.update(chunk as Buffer);
+  }
+  return new Uint8Array(hash.digest());
+}
+
+function assertContainedExportPath(root: string, candidate: string): void {
+  const child = relative(root, candidate);
+  if (
+    child.length === 0 ||
+    child.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`) ||
+    child === ".." ||
+    isAbsolute(child)
+  ) {
+    throw new PiNodeDomainError(
+      "session-export-failed",
+      "The private export path escaped its temporary root.",
+    );
+  }
+}
+
+async function removePrivateTempDirectory(path: string): Promise<void> {
+  try {
+    await rm(path, { recursive: true, force: true, maxRetries: 2 });
+  } catch {
+    // The caller already closed every owned file handle; cleanup is best-effort on shutdown.
   }
 }
 

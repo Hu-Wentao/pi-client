@@ -54,9 +54,14 @@ message PiTransportFrame {
     ForkSessionCommand fork_session_command = 53;
     CloneSessionCommand clone_session_command = 54;
     SessionTreeMutationOutcome session_tree_mutation_outcome = 55;
+    GetSessionHistoryRequest get_session_history_request = 56;
+    GetSessionHistoryResponse get_session_history_response = 57;
+    GetSessionStatsRequest get_session_stats_request = 58;
+    GetSessionStatsResponse get_session_stats_response = 59;
 
     Cancel cancel = 60;
     WindowUpdate window_update = 61;
+    ExportSessionRequest export_session_request = 62;
 
     TransferOpen transfer_open = 70;
     TransferChunk transfer_chunk = 71;
@@ -69,8 +74,7 @@ message PiTransportFrame {
 
   reserved 2 to 9;
   reserved 13 to 19;
-  reserved 56 to 59;
-  reserved 62 to 69;
+  reserved 63 to 69;
   reserved 75 to 79;
   reserved 81 to 99;
 }
@@ -99,6 +103,9 @@ enum Capability {
   CAPABILITY_PROJECT_TRUST = 11;
   CAPABILITY_SESSION_ADMIN = 12;
   CAPABILITY_SESSION_TREE = 13;
+  CAPABILITY_SESSION_HISTORY = 14;
+  CAPABILITY_SESSION_STATS = 15;
+  CAPABILITY_SESSION_EXPORT = 16;
 }
 
 // protocol_versions is ordered by client preference. The server selects one
@@ -524,6 +531,85 @@ message SessionTreeSnapshot {
   string admin_revision = 6;
 }
 
+message GetSessionHistoryRequest {
+  uint64 request_id = 1;
+  string project_id = 2;
+  string session_id = 3;
+  string cursor = 4;
+  uint32 limit = 5;
+  string expected_active_branch_revision = 6;
+  string expected_tree_revision = 7;
+}
+
+message GetSessionHistoryResponse {
+  uint64 request_id = 1;
+  SessionSummarySnapshot summary = 2;
+  repeated MessageSnapshot messages = 3;
+  string next_cursor = 4;
+  bool has_more = 5;
+  string active_branch_revision = 6;
+  string tree_revision = 7;
+}
+
+message GetSessionStatsRequest {
+  uint64 request_id = 1;
+  string project_id = 2;
+  string session_id = 3;
+}
+
+message SessionSafeProjectionSnapshot {
+  string session_file_name = 1;
+  string session_id = 2;
+  string project_id = 3;
+  string canonical_project_directory = 4;
+  string worktree_id = 5;
+  string main_project_id = 6;
+  string branch = 7;
+  bool is_linked_worktree = 8;
+  bool is_detached_head = 9;
+}
+
+message SessionStatsSnapshot {
+  SessionSafeProjectionSnapshot projection = 1;
+  uint64 user_messages = 2;
+  uint64 assistant_messages = 3;
+  uint64 tool_calls = 4;
+  uint64 tool_results = 5;
+  uint64 total_messages = 6;
+  uint64 input_tokens = 7;
+  uint64 output_tokens = 8;
+  uint64 cache_read_tokens = 9;
+  uint64 cache_write_tokens = 10;
+  uint64 total_tokens = 11;
+  double cost = 12;
+  bool has_context_usage = 13;
+  uint64 context_tokens = 14;
+  uint64 context_window = 15;
+  double context_percent = 16;
+  uint64 active_time_millis = 17;
+  bool context_tokens_known = 18;
+}
+
+message GetSessionStatsResponse {
+  uint64 request_id = 1;
+  SessionStatsSnapshot stats = 2;
+}
+
+enum SessionExportFormat {
+  SESSION_EXPORT_FORMAT_UNSPECIFIED = 0;
+  SESSION_EXPORT_FORMAT_HTML = 1;
+  SESSION_EXPORT_FORMAT_JSONL = 2;
+}
+
+message ExportSessionRequest {
+  uint64 request_id = 1;
+  string project_id = 2;
+  string session_id = 3;
+  SessionExportFormat format = 4;
+  string expected_active_branch_revision = 5;
+  string expected_tree_revision = 6;
+}
+
 // Each stream is bound to one session. event_sequence is strictly increasing
 // within stream_id and is independent of PiTransportFrame.frame_sequence.
 message SessionEventStreamEnvelope {
@@ -632,6 +718,7 @@ message TransferOpen {
   uint64 total_bytes = 6;
   uint32 chunk_bytes = 7;
   bytes sha256 = 8;
+  uint64 request_id = 9;
 }
 
 message TransferChunk {

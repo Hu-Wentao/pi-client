@@ -8,6 +8,7 @@ import {
   ProjectTrustReason,
   ProjectTrustStatus,
   SessionAdminOperation,
+  SessionExportFormat,
   SessionTreeEntryKind,
   SessionTreeMutationOperation,
   TransferDirection,
@@ -33,10 +34,12 @@ import {
   MAX_KNOWN_PROJECTS,
   MAX_MESSAGES_PER_SESSION_SNAPSHOT,
   MAX_PATH_BYTES,
+  MAX_SESSION_HISTORY_PAGE_MESSAGES,
   MAX_PROTOCOL_VERSIONS,
   MAX_SESSIONS_PER_RESPONSE,
   MAX_SHORT_TEXT_BYTES,
   MAX_TRANSFER_CHUNK_BYTES,
+  MAX_TRANSFER_CREDIT_BYTES,
   SHA256_BYTES,
 } from "./limits.ts";
 
@@ -59,6 +62,9 @@ const knownCapabilities = new Set<Capability>([
   Capability.PROJECT_TRUST,
   Capability.SESSION_ADMIN,
   Capability.SESSION_TREE,
+  Capability.SESSION_HISTORY,
+  Capability.SESSION_STATS,
+  Capability.SESSION_EXPORT,
 ]);
 const knownHealthStatuses = new Set<HealthStatus>([
   HealthStatus.STARTING,
@@ -108,6 +114,10 @@ const knownSessionTreeMutationOperations =
     SessionTreeMutationOperation.FORK,
     SessionTreeMutationOperation.CLONE,
   ]);
+const knownSessionExportFormats = new Set<SessionExportFormat>([
+  SessionExportFormat.HTML,
+  SessionExportFormat.JSONL,
+]);
 const knownTransferDirections = new Set<TransferDirection>([
   TransferDirection.UPLOAD,
   TransferDirection.DOWNLOAD,
@@ -396,6 +406,116 @@ export function validateTransportFrame(frame: PiTransportFrame): void {
           fail("session tree mutation outcome must contain a typed result");
       }
     }
+    case "getSessionHistoryRequest": {
+      const request = operation.value;
+      validateRequestId(request.requestId);
+      validateIdentifier("project_id", request.projectId);
+      validateIdentifier("session_id", request.sessionId);
+      validateShortText("history cursor", request.cursor, false);
+      validateBoundedUint32(
+        "history limit",
+        request.limit,
+        MAX_SESSION_HISTORY_PAGE_MESSAGES,
+        true,
+      );
+      validateOptionalIdentifier(
+        "expected_active_branch_revision",
+        request.expectedActiveBranchRevision,
+      );
+      validateOptionalIdentifier(
+        "expected_tree_revision",
+        request.expectedTreeRevision,
+      );
+      return;
+    }
+    case "getSessionHistoryResponse": {
+      const response = operation.value;
+      validateRequestId(response.requestId);
+      if (response.summary === undefined) {
+        fail("session history response must contain a summary");
+      }
+      validateSessionSummary(response.summary);
+      if (response.messages.length > MAX_SESSION_HISTORY_PAGE_MESSAGES) {
+        fail("session history page exceeds the local hard limit");
+      }
+      const messageIds = new Set<string>();
+      for (const message of response.messages) {
+        validateMessageSnapshot(message);
+        if (messageIds.has(message.messageId)) {
+          fail("session history page contains a duplicate message_id");
+        }
+        messageIds.add(message.messageId);
+      }
+      validateShortText("next_cursor", response.nextCursor, false);
+      if (response.hasMore !== response.nextCursor.length > 0) {
+        fail("session history cursor and has_more must agree");
+      }
+      validateIdentifier(
+        "active_branch_revision",
+        response.activeBranchRevision,
+      );
+      validateIdentifier("tree_revision", response.treeRevision);
+      return;
+    }
+    case "getSessionStatsRequest":
+      validateRequestId(operation.value.requestId);
+      validateIdentifier("project_id", operation.value.projectId);
+      validateIdentifier("session_id", operation.value.sessionId);
+      return;
+    case "getSessionStatsResponse": {
+      const response = operation.value;
+      validateRequestId(response.requestId);
+      const stats = response.stats;
+      if (stats === undefined || stats.projection === undefined) {
+        fail("session stats response must contain stats and a safe projection");
+      }
+      const projection = stats.projection;
+      validateRequiredShortText(
+        "session_file_name",
+        projection.sessionFileName,
+      );
+      validateIdentifier("session_id", projection.sessionId);
+      validateIdentifier("project_id", projection.projectId);
+      validatePath(
+        "canonical_project_directory",
+        projection.canonicalProjectDirectory,
+      );
+      validateIdentifier("worktree_id", projection.worktreeId);
+      validateIdentifier("main_project_id", projection.mainProjectId);
+      validateShortText("branch", projection.branch, false);
+      if (projection.isDetachedHead && projection.branch.length > 0) {
+        fail("a detached stats projection must not contain a branch");
+      }
+      validateNonNegativeUint64("user_messages", stats.userMessages);
+      validateNonNegativeUint64("assistant_messages", stats.assistantMessages);
+      validateNonNegativeUint64("tool_calls", stats.toolCalls);
+      validateNonNegativeUint64("tool_results", stats.toolResults);
+      validateNonNegativeUint64("total_messages", stats.totalMessages);
+      validateNonNegativeUint64("input_tokens", stats.inputTokens);
+      validateNonNegativeUint64("output_tokens", stats.outputTokens);
+      validateNonNegativeUint64("cache_read_tokens", stats.cacheReadTokens);
+      validateNonNegativeUint64("cache_write_tokens", stats.cacheWriteTokens);
+      validateNonNegativeUint64("total_tokens", stats.totalTokens);
+      validateNonNegativeNumber("cost", stats.cost);
+      validateNonNegativeUint64("active_time_millis", stats.activeTimeMillis);
+      if (stats.hasContextUsage) {
+        validatePositiveUint64("context_window", stats.contextWindow);
+        if (stats.contextTokensKnown) {
+          validateNonNegativeUint64("context_tokens", stats.contextTokens);
+          validateNonNegativeNumber("context_percent", stats.contextPercent);
+        } else if (stats.contextTokens !== 0n || stats.contextPercent !== 0) {
+          fail("unknown context tokens must not contain usage values");
+        }
+      } else if (
+        stats.contextTokensKnown ||
+        stats.contextTokens !== 0n ||
+        stats.contextWindow !== 0n ||
+        stats.contextPercent !== 0
+      ) {
+        fail("unknown context usage must not contain context values");
+      }
+      return;
+    }
     case "promptCommand":
       validateRequestId(operation.value.requestId);
       validateIdentifier("command_id", operation.value.commandId);
@@ -584,6 +704,29 @@ export function validateTransportFrame(frame: PiTransportFrame): void {
       ) {
         fail("window update must grant message or byte credit");
       }
+      if (operation.value.creditBytes > BigInt(MAX_TRANSFER_CREDIT_BYTES)) {
+        fail("window update byte credit exceeds the local hard limit");
+      }
+      return;
+    }
+    case "exportSessionRequest": {
+      const request = operation.value;
+      validateRequestId(request.requestId);
+      validateIdentifier("project_id", request.projectId);
+      validateIdentifier("session_id", request.sessionId);
+      validateKnownEnum(
+        "session export format",
+        request.format,
+        knownSessionExportFormats,
+      );
+      validateOptionalIdentifier(
+        "expected_active_branch_revision",
+        request.expectedActiveBranchRevision,
+      );
+      validateOptionalIdentifier(
+        "expected_tree_revision",
+        request.expectedTreeRevision,
+      );
       return;
     }
     case "transferOpen": {
@@ -599,20 +742,23 @@ export function validateTransportFrame(frame: PiTransportFrame): void {
         transfer.purpose,
         knownTransferPurposes,
       );
-      validateShortText("content_type", transfer.contentType, false);
-      validateShortText("file_name", transfer.fileName, false);
+      validateRequestId(transfer.requestId);
+      validateRequiredShortText("content_type", transfer.contentType);
+      validateRequiredShortText("file_name", transfer.fileName);
+      validatePositiveUint64("total_bytes", transfer.totalBytes);
       if (
         transfer.chunkBytes <= 0 ||
         transfer.chunkBytes > MAX_TRANSFER_CHUNK_BYTES
       ) {
         fail("transfer chunk_bytes is outside the local hard limit");
       }
-      validateDigest(transfer.sha256);
+      validateRequiredDigest(transfer.sha256);
       return;
     }
     case "transferChunk":
       validateIdentifier("transfer_id", operation.value.transferId);
       validatePositiveUint64("chunk_sequence", operation.value.chunkSequence);
+      validateNonNegativeUint64("offset", operation.value.offset);
       if (
         operation.value.data.length === 0 ||
         operation.value.data.length > MAX_TRANSFER_CHUNK_BYTES
@@ -626,10 +772,12 @@ export function validateTransportFrame(frame: PiTransportFrame): void {
         "acknowledged_sequence",
         operation.value.acknowledgedSequence,
       );
+      validatePositiveUint64("committed_bytes", operation.value.committedBytes);
       return;
     case "transferComplete":
       validateIdentifier("transfer_id", operation.value.transferId);
-      validateDigest(operation.value.sha256);
+      validatePositiveUint64("total_bytes", operation.value.totalBytes);
+      validateRequiredDigest(operation.value.sha256);
       return;
     case "transferAbort":
       validateIdentifier("transfer_id", operation.value.transferId);
@@ -1033,6 +1181,13 @@ function validateDigest(digest: Uint8Array): void {
   }
 }
 
+function validateRequiredDigest(digest: Uint8Array): void {
+  validateDigest(digest);
+  if (digest.length !== SHA256_BYTES) {
+    fail("sha256 must contain exactly 32 bytes");
+  }
+}
+
 function validateBoundedUint32(
   label: string,
   value: number,
@@ -1052,10 +1207,20 @@ function validateRequestId(value: bigint): void {
   validatePositiveUint64("request_id", value);
 }
 
+function validateNonNegativeUint64(label: string, value: bigint): void {
+  if (value < 0n) {
+    fail(`${label} must be a non-negative uint64`);
+  }
+}
+
 function validatePositiveUint64(label: string, value: bigint): void {
   if (value <= 0n) {
     fail(`${label} must be a positive uint64`);
   }
+}
+
+function validateOptionalIdentifier(label: string, value: string): void {
+  if (value.length > 0) validateIdentifier(label, value);
 }
 
 function validateIdentifier(label: string, value: string): void {
@@ -1115,6 +1280,12 @@ function validateTextBytes(
     value.includes("\u0000")
   ) {
     fail(`${label} is outside the local text limit`);
+  }
+}
+
+function validateNonNegativeNumber(label: string, value: number): void {
+  if (!Number.isFinite(value) || value < 0) {
+    fail(`${label} must be a finite non-negative number`);
   }
 }
 

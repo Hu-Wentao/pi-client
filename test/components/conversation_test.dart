@@ -117,6 +117,53 @@ void main() {
   });
 
   testWidgets(
+    'preserves the visible scroll anchor when older history prepends',
+    (tester) async {
+      final scrollController = ScrollController();
+      addTearDown(scrollController.dispose);
+      final harnessKey = GlobalKey<_PagedConversationHarnessState>();
+
+      await tester.pumpWidget(
+        componentTestApp(
+          SizedBox(
+            height: 520,
+            child: _PagedConversationHarness(
+              key: harnessKey,
+              scrollController: scrollController,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      scrollController.jumpTo(scrollController.position.maxScrollExtent / 2);
+      await tester.pump();
+      final timeline = find.byKey(const Key('conversationTimeline'));
+      final viewportTop = tester.getTopLeft(timeline).dy;
+      late String anchorText;
+      late double previousViewportOffset;
+      for (var index = 0; index < 40; index += 1) {
+        final text =
+            'Recent history message $index with enough content for scrolling.';
+        final visible = find.text(text).hitTestable();
+        if (visible.evaluate().isEmpty) continue;
+        anchorText = text;
+        previousViewportOffset =
+            tester.getTopLeft(visible.first).dy - viewportTop;
+        break;
+      }
+
+      await tester.tap(find.byKey(const Key('conversationLoadOlderButton')));
+      await tester.pumpAndSettle();
+
+      final restoredOffset =
+          tester.getTopLeft(find.text(anchorText).first).dy -
+          tester.getTopLeft(timeline).dy;
+      expect(restoredOffset, closeTo(previousViewportOffset, 1));
+      expect(harnessKey.currentState!.messages.length, 50);
+    },
+  );
+
+  testWidgets(
     'offers accessible edit-from-here and fork actions only for eligible user entries',
     (tester) async {
       final user = testMessage(
@@ -165,6 +212,50 @@ void main() {
         findsNothing,
       );
     },
+  );
+}
+
+class _PagedConversationHarness extends StatefulWidget {
+  const _PagedConversationHarness({required this.scrollController, super.key});
+
+  final ScrollController scrollController;
+
+  @override
+  State<_PagedConversationHarness> createState() =>
+      _PagedConversationHarnessState();
+}
+
+class _PagedConversationHarnessState extends State<_PagedConversationHarness> {
+  List<PiMessage> messages = List<PiMessage>.generate(
+    40,
+    (index) => testMessage(
+      'recent-$index',
+      text: 'Recent history message $index with enough content for scrolling.',
+    ),
+  );
+
+  void prependOlder() {
+    setState(() {
+      messages = <PiMessage>[
+        ...List<PiMessage>.generate(
+          10,
+          (index) => testMessage(
+            'older-$index',
+            text: 'Older history message $index with enough content.',
+          ),
+        ),
+        ...messages,
+      ];
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => ConversationView(
+    session: testSession('paged'),
+    messages: messages,
+    canLoadOlder: messages.length == 40,
+    onLoadOlder: prependOlder,
+    scrollController: widget.scrollController,
   );
 }
 

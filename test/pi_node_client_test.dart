@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pi_client/api/pi_node/pi_node.dart';
 import 'package:pi_client/protocol/pi_protocol.dart';
@@ -623,6 +624,244 @@ void main() {
     });
 
     test(
+      'streams exports with consumer-driven credit and verified digest',
+      () async {
+        final fixture = await _connectedFixture(
+          capabilities: _exportCapabilities,
+        );
+        addTearDown(fixture.client.close);
+        final payload = Uint8List.fromList('abcdef'.codeUnits);
+        final digest = crypto.sha256.convert(payload).bytes;
+        final exportFuture = fixture.client.exportSession(
+          PiSessionExportRequest(
+            projectId: PiProjectId('project-1'),
+            sessionId: PiSessionId('session-1'),
+            format: PiSessionExportFormat.jsonl,
+            expectedActiveBranchRevision: PiSessionBranchRevision('a1'),
+            expectedTreeRevision: PiSessionTreeRevision('t1'),
+          ),
+        );
+        final request = await _waitTake<PiProtocolExportSessionRequest>(
+          fixture,
+        );
+        expect(request.expectedActiveBranchRevision, 'a1');
+        expect(request.expectedTreeRevision, 't1');
+        await fixture.send(
+          PiProtocolTransferOpenMessage(
+            requestId: request.requestId,
+            transferId: 'transfer-1',
+            contentType: 'application/x-ndjson',
+            fileName: 'session.jsonl',
+            totalBytes: payload.length,
+            chunkBytes: 3,
+            sha256: digest,
+          ),
+        );
+        final handle = await exportFuture;
+        final received = <int>[];
+        final firstChunk = Completer<void>();
+        late final StreamSubscription<Uint8List> subscription;
+        subscription = handle.bytes.listen((chunk) {
+          received.addAll(chunk);
+          if (!firstChunk.isCompleted) {
+            subscription.pause();
+            firstChunk.complete();
+          }
+        });
+        final streamDone = subscription.asFuture<void>();
+
+        final firstCredit = await _waitTake<PiProtocolTransferWindowUpdate>(
+          fixture,
+        );
+        expect(firstCredit.creditBytes, 3);
+        await fixture.send(
+          PiProtocolTransferChunkMessage(
+            transferId: 'transfer-1',
+            sequence: 1,
+            offset: 0,
+            data: payload.sublist(0, 3),
+          ),
+        );
+        await firstChunk.future;
+        expect(
+          fixture.has<PiProtocolTransferAckMessage>(),
+          isFalse,
+          reason: 'paused consumers must not ACK buffered chunks',
+        );
+
+        subscription.resume();
+        final firstAck = await _waitTake<PiProtocolTransferAckMessage>(fixture);
+        expect(firstAck.acknowledgedSequence, 1);
+        expect(firstAck.committedBytes, 3);
+        final secondCredit = await _waitTake<PiProtocolTransferWindowUpdate>(
+          fixture,
+        );
+        expect(secondCredit.creditBytes, 3);
+        await fixture.send(
+          PiProtocolTransferChunkMessage(
+            transferId: 'transfer-1',
+            sequence: 2,
+            offset: 3,
+            data: payload.sublist(3),
+          ),
+        );
+        await _waitTake<PiProtocolTransferAckMessage>(fixture);
+        await fixture.send(
+          PiProtocolTransferCompleteMessage(
+            transferId: 'transfer-1',
+            totalBytes: payload.length,
+            sha256: digest,
+          ),
+        );
+        await streamDone;
+        await handle.done;
+
+        expect(received, payload);
+        expect(handle.sha256, digest);
+      },
+    );
+
+    test('rejects corrupted export bytes and cancels the transfer', () async {
+      final fixture = await _connectedFixture(
+        capabilities: _exportCapabilities,
+      );
+      addTearDown(fixture.client.close);
+      final expected = Uint8List.fromList('expected'.codeUnits);
+      final corrupted = Uint8List.fromList('corrupt!'.codeUnits);
+      final digest = crypto.sha256.convert(expected).bytes;
+      final exportFuture = fixture.client.exportSession(
+        PiSessionExportRequest(
+          projectId: PiProjectId('project-1'),
+          sessionId: PiSessionId('session-1'),
+          format: PiSessionExportFormat.html,
+        ),
+      );
+      final request = await _waitTake<PiProtocolExportSessionRequest>(fixture);
+      await fixture.send(
+        PiProtocolTransferOpenMessage(
+          requestId: request.requestId,
+          transferId: 'transfer-corrupt',
+          contentType: 'text/html; charset=utf-8',
+          fileName: 'session.html',
+          totalBytes: corrupted.length,
+          chunkBytes: corrupted.length,
+          sha256: digest,
+        ),
+      );
+      final handle = await exportFuture;
+      final doneFailure = expectLater(
+        handle.done,
+        throwsA(
+          isA<PiNodeException>().having(
+            (error) => error.code,
+            'code',
+            PiNodeErrorCode.dataLoss,
+          ),
+        ),
+      );
+      final streamFailure = expectLater(
+        handle.bytes.drain<void>(),
+        throwsA(
+          isA<PiNodeException>().having(
+            (error) => error.code,
+            'code',
+            PiNodeErrorCode.dataLoss,
+          ),
+        ),
+      );
+      await _waitTake<PiProtocolTransferWindowUpdate>(fixture);
+      await fixture.send(
+        PiProtocolTransferChunkMessage(
+          transferId: 'transfer-corrupt',
+          sequence: 1,
+          offset: 0,
+          data: corrupted,
+        ),
+      );
+      await _waitTake<PiProtocolTransferAckMessage>(fixture);
+      await fixture.send(
+        PiProtocolTransferCompleteMessage(
+          transferId: 'transfer-corrupt',
+          totalBytes: corrupted.length,
+          sha256: digest,
+        ),
+      );
+
+      await streamFailure;
+      await doneFailure;
+      expect(
+        (await _waitTake<PiProtocolCancelTransferMessage>(fixture)).transferId,
+        'transfer-corrupt',
+      );
+    });
+
+    test(
+      'rejects invalid export sequence and offset before yielding bytes',
+      () async {
+        final fixture = await _connectedFixture(
+          capabilities: _exportCapabilities,
+        );
+        addTearDown(fixture.client.close);
+        final payload = Uint8List.fromList('chunk'.codeUnits);
+        final digest = crypto.sha256.convert(payload).bytes;
+        final exportFuture = fixture.client.exportSession(
+          PiSessionExportRequest(
+            projectId: PiProjectId('project-1'),
+            sessionId: PiSessionId('session-1'),
+            format: PiSessionExportFormat.jsonl,
+          ),
+        );
+        final request = await _waitTake<PiProtocolExportSessionRequest>(
+          fixture,
+        );
+        await fixture.send(
+          PiProtocolTransferOpenMessage(
+            requestId: request.requestId,
+            transferId: 'transfer-sequence',
+            contentType: 'application/x-ndjson',
+            fileName: 'session.jsonl',
+            totalBytes: payload.length,
+            chunkBytes: payload.length,
+            sha256: digest,
+          ),
+        );
+        final handle = await exportFuture;
+        final doneFailure = expectLater(
+          handle.done,
+          throwsA(
+            isA<PiNodeException>().having(
+              (error) => error.code,
+              'code',
+              PiNodeErrorCode.dataLoss,
+            ),
+          ),
+        );
+        final streamFailure = expectLater(
+          handle.bytes.drain<void>(),
+          throwsA(isA<PiNodeException>()),
+        );
+        await _waitTake<PiProtocolTransferWindowUpdate>(fixture);
+        await fixture.send(
+          PiProtocolTransferChunkMessage(
+            transferId: 'transfer-sequence',
+            sequence: 2,
+            offset: 1,
+            data: payload,
+          ),
+        );
+
+        await streamFailure;
+        await doneFailure;
+        expect(
+          (await _waitTake<PiProtocolCancelTransferMessage>(
+            fixture,
+          )).transferId,
+          'transfer-sequence',
+        );
+      },
+    );
+
+    test(
       'fails pending requests with a redacted malformed-frame error',
       () async {
         final fixture = await _connectedFixture();
@@ -658,14 +897,26 @@ void main() {
   });
 }
 
-Future<_Fixture> _connectedFixture() async {
-  final fixture = _Fixture();
+const _exportCapabilities = <PiProtocolCapability>{
+  PiProtocolCapability.sessionExport,
+  PiProtocolCapability.transfer,
+  PiProtocolCapability.flowControl,
+  PiProtocolCapability.cancellation,
+};
+
+Future<_Fixture> _connectedFixture({
+  Set<PiProtocolCapability> capabilities = const <PiProtocolCapability>{},
+}) async {
+  final fixture = _Fixture(acceptedCapabilities: capabilities);
   await fixture.client.connect();
   return fixture;
 }
 
 final class _Fixture {
-  _Fixture({this.autoAcceptHandshake = true}) {
+  _Fixture({
+    this.autoAcceptHandshake = true,
+    this.acceptedCapabilities = const <PiProtocolCapability>{},
+  }) {
     final pair = InMemoryPiTransportPair();
     clientTransport = pair.first;
     server = pair.second;
@@ -679,7 +930,12 @@ final class _Fixture {
       if (message is PiProtocolHandshakeOfferMessage && autoAcceptHandshake) {
         offered = message.offer;
         unawaited(
-          send(PiProtocolHandshakeAcceptedMessage(negotiatedVersion: version)),
+          send(
+            PiProtocolHandshakeAcceptedMessage(
+              negotiatedVersion: version,
+              capabilities: acceptedCapabilities,
+            ),
+          ),
         );
       } else {
         _received.add(message);
@@ -689,6 +945,7 @@ final class _Fixture {
   }
 
   final bool autoAcceptHandshake;
+  final Set<PiProtocolCapability> acceptedCapabilities;
   final _MemoryProtocolCodec codec = _MemoryProtocolCodec();
   final PiProtocolVersion version = PiProtocolVersion(1, 0, 0);
   late final PiTransport clientTransport;
@@ -697,6 +954,9 @@ final class _Fixture {
   late final StreamSubscription<PiTransportFrame> _serverSubscription;
   final List<PiClientProtocolMessage> _received = <PiClientProtocolMessage>[];
   PiProtocolOffer? offered;
+
+  bool has<T extends PiClientProtocolMessage>() =>
+      _received.any((message) => message is T);
 
   T take<T extends PiClientProtocolMessage>() {
     final index = _received.indexWhere((message) => message is T);
@@ -708,6 +968,17 @@ final class _Fixture {
 
   Future<void> send(PiServerProtocolMessage message) =>
       server.send(codec.encodeServer(message));
+}
+
+Future<T> _waitTake<T extends PiClientProtocolMessage>(_Fixture fixture) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 3));
+  while (!fixture.has<T>()) {
+    if (DateTime.now().isAfter(deadline)) {
+      throw TimeoutException('Protocol message was not received.');
+    }
+    await Future<void>.delayed(Duration.zero);
+  }
+  return fixture.take<T>();
 }
 
 final class _MemoryProtocolCodec implements PiProtocolCodec {

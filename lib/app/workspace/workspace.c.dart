@@ -22,6 +22,8 @@
 ///   [WorkspaceSessionCustomNameCleared], [WorkspaceSessionAutoNamed],
 ///   [WorkspaceSessionDeleted], [WorkspaceSessionTreeNavigated],
 ///   [WorkspaceSessionForked], [WorkspaceSessionCloned],
+///   [WorkspaceOlderHistoryRequested], [WorkspaceSessionStatsRefreshed],
+///   [WorkspaceSessionExportRequested], [WorkspaceSessionExportCancelled],
 ///   [WorkspacePromptSubmitted], [WorkspaceAgentStopped]
 /// Startup Event: [WorkspaceStarted]
 /// ViewModels: [WorkspaceViewModel]
@@ -37,7 +39,9 @@
 ///   prompt admission, ordered events, sequence-gap recovery, abort, and clean
 ///   close remain observable. Flat session-tree loading, same-session branch
 ///   navigation, recoverable edit-from-here text, independent fork, active-branch
-///   clone, runtime replacement, and authoritative history/tree refresh are
+///   clone, runtime replacement, opaque-cursor history pagination with a
+///   50-message initial tail, full-session statistics, streamed HTML/JSONL
+///   export progress/cancellation, and authoritative history/tree refresh are
 ///   generation-guarded. Local-host, remote-node-required, unsupported,
 ///   empty, rejected, uncertain, disconnected, retry, and stale-result-safe
 ///   states never invent runtime data. Optimistic prompts are removed only for
@@ -78,6 +82,14 @@ abstract class WorkspaceModel with _$WorkspaceModel {
     @JsonKey(includeToJson: false)
     @Default(<PiMessage>[])
     List<PiMessage> messages,
+    @JsonKey(includeToJson: false) PiSessionHistoryCursor? historyCursor,
+    @JsonKey(includeToJson: false)
+    PiSessionBranchRevision? activeBranchRevision,
+    @JsonKey(includeToJson: false) PiSessionTreeRevision? treeRevision,
+    @Default(false) bool historyHasMore,
+    @Default(false) bool historyLoading,
+    @JsonKey(includeToJson: false) PiSessionStats? sessionStats,
+    @Default(false) bool sessionStatsLoading,
     @JsonKey(includeToJson: false) PiSessionTree? sessionTree,
     @JsonKey(includeToJson: false)
     PiSessionTreeMutationOperation? sessionTreeMutationOperation,
@@ -93,6 +105,11 @@ abstract class WorkspaceModel with _$WorkspaceModel {
     @Default(false) bool conversationLoading,
     @Default(false) bool creatingSession,
     @Default(false) bool sessionAdminLoading,
+    @Default(false) bool sessionExportLoading,
+    @JsonKey(includeToJson: false) PiSessionExportFormat? sessionExportFormat,
+    @Default(0) int sessionExportSavedBytes,
+    @Default(0) int sessionExportTotalBytes,
+    String? lastExportFileName,
     @Default(false) bool sending,
     @Default(false) bool stopping,
     String? nodeError,
@@ -101,6 +118,8 @@ abstract class WorkspaceModel with _$WorkspaceModel {
     String? sessionAdminError,
     String? sessionTreeError,
     String? conversationError,
+    String? sessionStatsError,
+    String? sessionExportError,
     String? promptError,
     String? statusMessage,
   }) = _WorkspaceModel;
@@ -199,6 +218,24 @@ final class WorkspaceSessionForked extends WorkspaceEvent {
 
 final class WorkspaceSessionCloned extends WorkspaceEvent {
   const WorkspaceSessionCloned();
+}
+
+final class WorkspaceOlderHistoryRequested extends WorkspaceEvent {
+  const WorkspaceOlderHistoryRequested();
+}
+
+final class WorkspaceSessionStatsRefreshed extends WorkspaceEvent {
+  const WorkspaceSessionStatsRefreshed();
+}
+
+final class WorkspaceSessionExportRequested extends WorkspaceEvent {
+  const WorkspaceSessionExportRequested(this.format);
+
+  final PiSessionExportFormat format;
+}
+
+final class WorkspaceSessionExportCancelled extends WorkspaceEvent {
+  const WorkspaceSessionExportCancelled();
 }
 
 final class WorkspacePromptSubmitted extends WorkspaceEvent {

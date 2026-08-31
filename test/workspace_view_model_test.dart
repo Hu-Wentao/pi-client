@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pi_client/api/pi_node/pi_node.dart';
 import 'package:pi_client/app/workspace/workspace.dart';
 import 'package:pi_client/app/workspace/workspace.srv.dart';
+import 'package:pi_client/platform/session_export/session_export_saver.dart';
 
 import 'support/fake_pi_node_api.dart';
 
@@ -713,6 +715,154 @@ void main() {
     },
   );
 
+  test(
+    'loads an initial tail of 50 and prepends opaque-cursor pages',
+    () async {
+      final session = fakeSession(
+        id: 'paged-session',
+        title: 'Paged session',
+        workingDirectory: '/Projects/paged',
+      );
+      final messages = List<PiMessage>.generate(
+        120,
+        (index) => fakeMessage(
+          id: 'message-$index',
+          role: index.isEven ? PiMessageRole.user : PiMessageRole.assistant,
+          text: 'Message $index',
+        ),
+      );
+      final api = FakePiNodeApi(
+        sessions: <PiSessionSummary>[session],
+        details: <PiSessionId, PiSessionDetail>{
+          session.id: fakeDetail(session, messages: messages),
+        },
+      );
+      final viewModel = WorkspaceViewModel(service: WorkspaceService(api));
+
+      viewModel.add(const WorkspaceStarted());
+      await _waitFor(
+        viewModel,
+        (state) => state.connection.status == PiNodeConnectionStatus.connected,
+      );
+      viewModel.add(WorkspaceSessionSelected(session.id));
+      await _waitFor(
+        viewModel,
+        (state) => !state.conversationLoading && state.messages.length == 50,
+      );
+
+      expect(viewModel.state.messages.first.id.value, 'message-70');
+      expect(viewModel.state.messages.last.id.value, 'message-119');
+      expect(viewModel.state.historyHasMore, isTrue);
+      expect(viewModel.state.sessionStats?.totalMessages, 120);
+
+      viewModel.add(const WorkspaceOlderHistoryRequested());
+      await _waitFor(viewModel, (state) => state.messages.length == 100);
+      expect(viewModel.state.messages.first.id.value, 'message-20');
+      expect(viewModel.state.messages.last.id.value, 'message-119');
+
+      viewModel.add(const WorkspaceOlderHistoryRequested());
+      await _waitFor(viewModel, (state) => state.messages.length == 120);
+      expect(viewModel.state.messages.first.id.value, 'message-0');
+      expect(viewModel.state.historyHasMore, isFalse);
+      expect(viewModel.state.historyCursor, isNull);
+
+      await viewModel.close();
+      await api.close();
+    },
+  );
+
+  test('streams export progress without retaining destination paths', () async {
+    final session = fakeSession(
+      id: 'export-session',
+      title: 'Export session',
+      workingDirectory: '/Projects/export',
+    );
+    final api = FakePiNodeApi(
+      sessions: <PiSessionSummary>[session],
+      details: <PiSessionId, PiSessionDetail>{session.id: fakeDetail(session)},
+    );
+    final saver = _RecordingExportSaver();
+    final viewModel = WorkspaceViewModel(
+      service: WorkspaceService(api),
+      exportSaver: saver,
+    );
+
+    viewModel.add(const WorkspaceStarted());
+    await _waitFor(
+      viewModel,
+      (state) => state.connection.status == PiNodeConnectionStatus.connected,
+    );
+    viewModel.add(WorkspaceSessionSelected(session.id));
+    await _waitFor(
+      viewModel,
+      (state) =>
+          state.selectedSessionId == session.id && !state.conversationLoading,
+    );
+    viewModel.add(
+      const WorkspaceSessionExportRequested(PiSessionExportFormat.jsonl),
+    );
+    await _waitFor(
+      viewModel,
+      (state) =>
+          !state.sessionExportLoading && state.lastExportFileName != null,
+    );
+
+    expect(api.exportCalls, 1);
+    expect(saver.listenCount, 1);
+    expect(saver.savedBytes, greaterThan(0));
+    expect(viewModel.state.lastExportFileName, 'session.jsonl');
+    expect(viewModel.state.toString(), isNot(contains('/private/export')));
+
+    await viewModel.close();
+    await api.close();
+  });
+
+  test('cancels an export requested while preparation is pending', () async {
+    final session = fakeSession(
+      id: 'cancel-export-session',
+      title: 'Cancel export',
+      workingDirectory: '/Projects/export',
+    );
+    final exportCompleter = Completer<PiSessionExportHandle>();
+    final api = FakePiNodeApi(
+      sessions: <PiSessionSummary>[session],
+      details: <PiSessionId, PiSessionDetail>{session.id: fakeDetail(session)},
+    )..exportSessionHandler = (_) => exportCompleter.future;
+    final saver = _RecordingExportSaver();
+    final handle = _CancellableExportHandle();
+    final viewModel = WorkspaceViewModel(
+      service: WorkspaceService(api),
+      exportSaver: saver,
+    );
+
+    viewModel.add(const WorkspaceStarted());
+    await _waitFor(
+      viewModel,
+      (state) => state.connection.status == PiNodeConnectionStatus.connected,
+    );
+    viewModel.add(WorkspaceSessionSelected(session.id));
+    await _waitFor(
+      viewModel,
+      (state) =>
+          state.selectedSessionId == session.id && !state.conversationLoading,
+    );
+    viewModel.add(
+      const WorkspaceSessionExportRequested(PiSessionExportFormat.html),
+    );
+    await _waitFor(viewModel, (state) => state.sessionExportLoading);
+    viewModel.add(const WorkspaceSessionExportCancelled());
+    await _waitFor(viewModel, (state) => !state.sessionExportLoading);
+    exportCompleter.complete(handle);
+    await _waitUntil(() => handle.cancelled);
+
+    expect(saver.listenCount, 0);
+    expect(viewModel.state.sessionExportError, isNull);
+    expect(viewModel.state.lastExportFileName, isNull);
+
+    await viewModel.close();
+    await api.close();
+  });
+
   test('ignores a stale selected-session load that completes last', () async {
     final first = fakeSession(
       id: 'first-session',
@@ -781,6 +931,52 @@ void main() {
     await viewModel.close();
     await api.close();
   });
+}
+
+final class _RecordingExportSaver implements PiSessionExportSaver {
+  int listenCount = 0;
+  int savedBytes = 0;
+
+  @override
+  Future<PiSessionExportSaveResult> save(
+    PiSessionExportHandle handle, {
+    required void Function(int savedBytes, int totalBytes) onProgress,
+  }) async {
+    listenCount += 1;
+    await for (final chunk in handle.bytes) {
+      savedBytes += chunk.length;
+      onProgress(savedBytes, handle.totalBytes);
+    }
+    await handle.done;
+    return PiSessionExportSaveResult.saved(handle.fileName);
+  }
+}
+
+final class _CancellableExportHandle implements PiSessionExportHandle {
+  bool cancelled = false;
+
+  @override
+  Stream<Uint8List> get bytes => const Stream.empty();
+
+  @override
+  Future<void> cancel() async {
+    cancelled = true;
+  }
+
+  @override
+  String get contentType => 'text/html; charset=utf-8';
+
+  @override
+  Future<void> get done => Future<void>.value();
+
+  @override
+  String get fileName => 'session.html';
+
+  @override
+  List<int> get sha256 => List<int>.filled(32, 0);
+
+  @override
+  int get totalBytes => 1;
 }
 
 PiSessionSummary? _selectedSummary(WorkspaceModel model) {

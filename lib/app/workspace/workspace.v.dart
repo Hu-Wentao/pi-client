@@ -187,6 +187,13 @@ class _WorkspaceViewBodyState extends State<_WorkspaceViewBody> {
                     messages: model.messages,
                     isLoading: model.conversationLoading,
                     errorMessage: model.conversationError,
+                    canLoadOlder: model.historyHasMore,
+                    isLoadingOlder: model.historyLoading,
+                    onLoadOlder: model.historyHasMore
+                        ? () => viewModel.add(
+                            const WorkspaceOlderHistoryRequested(),
+                          )
+                        : null,
                     onRetry: model.selectedSessionId == null
                         ? null
                         : () => viewModel.add(
@@ -209,6 +216,32 @@ class _WorkspaceViewBodyState extends State<_WorkspaceViewBody> {
                 ),
               ],
             ),
+          ),
+          _SessionDataPanel(
+            session: selectedSession,
+            stats: model.sessionStats,
+            statsLoading: model.sessionStatsLoading,
+            statsError: model.sessionStatsError,
+            exportLoading: model.sessionExportLoading,
+            exportSavedBytes: model.sessionExportSavedBytes,
+            exportTotalBytes: model.sessionExportTotalBytes,
+            exportError: model.sessionExportError,
+            lastExportFileName: model.lastExportFileName,
+            canExport:
+                connected &&
+                selectedSession != null &&
+                !running &&
+                !model.conversationLoading &&
+                !model.sessionAdminLoading &&
+                !model.sessionTreeMutationLoading &&
+                !model.sessionExportLoading,
+            onRefreshStats: model.sessionStatsLoading
+                ? null
+                : () => viewModel.add(const WorkspaceSessionStatsRefreshed()),
+            onExport: (format) =>
+                viewModel.add(WorkspaceSessionExportRequested(format)),
+            onCancelExport: () =>
+                viewModel.add(const WorkspaceSessionExportCancelled()),
           ),
           _WorkspaceStatusLine(model: model),
           PromptComposerView(
@@ -392,6 +425,187 @@ class _WorkspaceSidebar extends StatelessWidget {
           ),
         ),
         Expanded(flex: 4, child: sessionBrowser),
+      ],
+    ),
+  );
+}
+
+class _SessionDataPanel extends StatelessWidget {
+  const _SessionDataPanel({
+    required this.session,
+    required this.stats,
+    required this.statsLoading,
+    required this.statsError,
+    required this.exportLoading,
+    required this.exportSavedBytes,
+    required this.exportTotalBytes,
+    required this.exportError,
+    required this.lastExportFileName,
+    required this.canExport,
+    required this.onRefreshStats,
+    required this.onExport,
+    required this.onCancelExport,
+  });
+
+  final PiSessionSummary? session;
+  final PiSessionStats? stats;
+  final bool statsLoading;
+  final String? statsError;
+  final bool exportLoading;
+  final int exportSavedBytes;
+  final int exportTotalBytes;
+  final String? exportError;
+  final String? lastExportFileName;
+  final bool canExport;
+  final VoidCallback? onRefreshStats;
+  final ValueChanged<PiSessionExportFormat> onExport;
+  final VoidCallback onCancelExport;
+
+  @override
+  Widget build(BuildContext context) {
+    if (session == null) return const SizedBox.shrink();
+    final colorScheme = Theme.of(context).colorScheme;
+    final progress = exportTotalBytes > 0
+        ? (exportSavedBytes / exportTotalBytes).clamp(0.0, 1.0)
+        : null;
+    return Material(
+      color: colorScheme.surfaceContainerLow,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      if (stats != null) ...[
+                        _StatLabel(
+                          icon: Icons.chat_bubble_outline_rounded,
+                          label:
+                              '${stats!.userMessages + stats!.assistantMessages} messages',
+                        ),
+                        _StatLabel(
+                          icon: Icons.data_usage_rounded,
+                          label: stats!.totalTokens == 0
+                              ? 'No recorded usage'
+                              : '${stats!.totalTokens} tokens',
+                        ),
+                        _StatLabel(
+                          icon: Icons.timer_outlined,
+                          label: _formatDuration(stats!.activeTime),
+                        ),
+                      ] else
+                        Text(
+                          statsLoading
+                              ? 'Loading full-session statistics…'
+                              : 'Full-session statistics unavailable',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  key: const Key('sessionStatsRefreshButton'),
+                  tooltip: 'Refresh full-session statistics',
+                  onPressed: onRefreshStats,
+                  icon: statsLoading
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh_rounded),
+                ),
+                if (exportLoading)
+                  TextButton.icon(
+                    key: const Key('sessionExportCancelButton'),
+                    onPressed: onCancelExport,
+                    icon: const Icon(Icons.close_rounded),
+                    label: const Text('Cancel export'),
+                  )
+                else
+                  PopupMenuButton<PiSessionExportFormat>(
+                    key: const Key('sessionExportMenuButton'),
+                    enabled: canExport,
+                    tooltip: session!.isRunning
+                        ? 'Stop the running session before exporting'
+                        : 'Export complete session history',
+                    onSelected: onExport,
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(
+                        value: PiSessionExportFormat.html,
+                        child: Text('Export HTML'),
+                      ),
+                      PopupMenuItem(
+                        value: PiSessionExportFormat.jsonl,
+                        child: Text('Export JSONL'),
+                      ),
+                    ],
+                    icon: const Icon(Icons.download_rounded),
+                  ),
+              ],
+            ),
+            if (exportLoading) ...[
+              const SizedBox(height: 4),
+              Semantics(
+                label: exportTotalBytes > 0
+                    ? 'Exported $exportSavedBytes of $exportTotalBytes bytes'
+                    : 'Preparing session export',
+                child: LinearProgressIndicator(value: progress),
+              ),
+            ],
+            if (statsError != null || exportError != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                statsError ?? exportError!,
+                key: const Key('sessionDataErrorText'),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: colorScheme.error),
+              ),
+            ] else if (lastExportFileName != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                '$lastExportFileName saved and verified.',
+                key: const Key('sessionExportSuccessText'),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDuration(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    final seconds = duration.inSeconds.remainder(60);
+    if (hours > 0) return '${hours}h ${minutes}m active';
+    if (minutes > 0) return '${minutes}m ${seconds}s active';
+    return '${seconds}s active';
+  }
+}
+
+class _StatLabel extends StatelessWidget {
+  const _StatLabel({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: label,
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16),
+        const SizedBox(width: 4),
+        Text(label, style: Theme.of(context).textTheme.bodySmall),
       ],
     ),
   );

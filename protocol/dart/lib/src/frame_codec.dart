@@ -26,6 +26,9 @@ final _knownCapabilities = <Capability>{
   Capability.CAPABILITY_PROJECT_TRUST,
   Capability.CAPABILITY_SESSION_ADMIN,
   Capability.CAPABILITY_SESSION_TREE,
+  Capability.CAPABILITY_SESSION_HISTORY,
+  Capability.CAPABILITY_SESSION_STATS,
+  Capability.CAPABILITY_SESSION_EXPORT,
 };
 final _knownHealthStatuses = <HealthStatus>{
   HealthStatus.HEALTH_STATUS_STARTING,
@@ -55,6 +58,10 @@ final _knownMessageRoles = <MessageRole>{
   MessageRole.MESSAGE_ROLE_ASSISTANT,
   MessageRole.MESSAGE_ROLE_TOOL,
   MessageRole.MESSAGE_ROLE_SYSTEM,
+};
+final _knownSessionExportFormats = <SessionExportFormat>{
+  SessionExportFormat.SESSION_EXPORT_FORMAT_HTML,
+  SessionExportFormat.SESSION_EXPORT_FORMAT_JSONL,
 };
 final _knownTransferDirections = <TransferDirection>{
   TransferDirection.TRANSFER_DIRECTION_UPLOAD,
@@ -405,6 +412,113 @@ void validateTransportFrame(PiTransportFrame frame) {
         case SessionTreeMutationOutcome_Outcome.notSet:
           _fail('session tree mutation outcome must contain a typed result');
       }
+    case PiTransportFrame_Operation.getSessionHistoryRequest:
+      final request = frame.getSessionHistoryRequest;
+      _validateRequestId(request.requestId);
+      _validateIdentifier('project_id', request.projectId);
+      _validateIdentifier('session_id', request.sessionId);
+      _validateShortText('history cursor', request.cursor, required: false);
+      _validateBoundedUint32(
+        'history limit',
+        request.limit,
+        maxSessionHistoryPageMessages,
+        allowZero: true,
+      );
+      _validateOptionalIdentifier(
+        'expected_active_branch_revision',
+        request.expectedActiveBranchRevision,
+      );
+      _validateOptionalIdentifier(
+        'expected_tree_revision',
+        request.expectedTreeRevision,
+      );
+      return;
+    case PiTransportFrame_Operation.getSessionHistoryResponse:
+      final response = frame.getSessionHistoryResponse;
+      _validateRequestId(response.requestId);
+      if (!response.hasSummary()) {
+        _fail('session history response must contain a summary');
+      }
+      _validateSessionSummary(response.summary);
+      if (response.messages.length > maxSessionHistoryPageMessages) {
+        _fail('session history page exceeds the local hard limit');
+      }
+      final messageIds = <String>{};
+      for (final message in response.messages) {
+        _validateMessageSnapshot(message);
+        if (!messageIds.add(message.messageId)) {
+          _fail('session history page contains a duplicate message_id');
+        }
+      }
+      _validateShortText('next_cursor', response.nextCursor, required: false);
+      if (response.hasMore != response.nextCursor.isNotEmpty) {
+        _fail('session history cursor and has_more must agree');
+      }
+      _validateIdentifier(
+        'active_branch_revision',
+        response.activeBranchRevision,
+      );
+      _validateIdentifier('tree_revision', response.treeRevision);
+      return;
+    case PiTransportFrame_Operation.getSessionStatsRequest:
+      final request = frame.getSessionStatsRequest;
+      _validateRequestId(request.requestId);
+      _validateIdentifier('project_id', request.projectId);
+      _validateIdentifier('session_id', request.sessionId);
+      return;
+    case PiTransportFrame_Operation.getSessionStatsResponse:
+      final response = frame.getSessionStatsResponse;
+      _validateRequestId(response.requestId);
+      if (!response.hasStats() || !response.stats.hasProjection()) {
+        _fail(
+          'session stats response must contain stats and a safe projection',
+        );
+      }
+      final stats = response.stats;
+      final projection = stats.projection;
+      _validateRequiredShortText(
+        'session_file_name',
+        projection.sessionFileName,
+      );
+      _validateIdentifier('session_id', projection.sessionId);
+      _validateIdentifier('project_id', projection.projectId);
+      _validatePath(
+        'canonical_project_directory',
+        projection.canonicalProjectDirectory,
+      );
+      _validateIdentifier('worktree_id', projection.worktreeId);
+      _validateIdentifier('main_project_id', projection.mainProjectId);
+      _validateShortText('branch', projection.branch, required: false);
+      if (projection.isDetachedHead && projection.branch.isNotEmpty) {
+        _fail('a detached stats projection must not contain a branch');
+      }
+      _validateNonNegativeUint64('user_messages', stats.userMessages);
+      _validateNonNegativeUint64('assistant_messages', stats.assistantMessages);
+      _validateNonNegativeUint64('tool_calls', stats.toolCalls);
+      _validateNonNegativeUint64('tool_results', stats.toolResults);
+      _validateNonNegativeUint64('total_messages', stats.totalMessages);
+      _validateNonNegativeUint64('input_tokens', stats.inputTokens);
+      _validateNonNegativeUint64('output_tokens', stats.outputTokens);
+      _validateNonNegativeUint64('cache_read_tokens', stats.cacheReadTokens);
+      _validateNonNegativeUint64('cache_write_tokens', stats.cacheWriteTokens);
+      _validateNonNegativeUint64('total_tokens', stats.totalTokens);
+      _validateNonNegativeNumber('cost', stats.cost);
+      _validateNonNegativeUint64('active_time_millis', stats.activeTimeMillis);
+      if (stats.hasContextUsage) {
+        _validatePositiveUint64('context_window', stats.contextWindow);
+        if (stats.contextTokensKnown) {
+          _validateNonNegativeUint64('context_tokens', stats.contextTokens);
+          _validateNonNegativeNumber('context_percent', stats.contextPercent);
+        } else if (!stats.contextTokens.isZero || stats.contextPercent != 0) {
+          _fail('unknown context tokens must not contain usage values');
+        }
+      } else if (stats.contextTokensKnown ||
+          !stats.contextTokens.isZero ||
+          !stats.contextWindow.isZero ||
+          stats.contextPercent != 0) {
+        _fail('unknown context usage must not contain context values');
+      }
+      return;
     case PiTransportFrame_Operation.promptCommand:
       final command = frame.promptCommand;
       _validateRequestId(command.requestId);
@@ -618,10 +732,34 @@ void validateTransportFrame(PiTransportFrame frame) {
       if (update.creditMessages == 0 && update.creditBytes.isZero) {
         _fail('window update must grant message or byte credit');
       }
+      if (_compareUnsigned(update.creditBytes, Int64(maxTransferCreditBytes)) >
+          0) {
+        _fail('window update byte credit exceeds the local hard limit');
+      }
+      return;
+    case PiTransportFrame_Operation.exportSessionRequest:
+      final request = frame.exportSessionRequest;
+      _validateRequestId(request.requestId);
+      _validateIdentifier('project_id', request.projectId);
+      _validateIdentifier('session_id', request.sessionId);
+      _validateKnownEnum(
+        'session export format',
+        request.format,
+        _knownSessionExportFormats,
+      );
+      _validateOptionalIdentifier(
+        'expected_active_branch_revision',
+        request.expectedActiveBranchRevision,
+      );
+      _validateOptionalIdentifier(
+        'expected_tree_revision',
+        request.expectedTreeRevision,
+      );
       return;
     case PiTransportFrame_Operation.transferOpen:
       final transfer = frame.transferOpen;
       _validateIdentifier('transfer_id', transfer.transferId);
+      _validateRequestId(transfer.requestId);
       _validateKnownEnum(
         'transfer direction',
         transfer.direction,
@@ -632,18 +770,20 @@ void validateTransportFrame(PiTransportFrame frame) {
         transfer.purpose,
         _knownTransferPurposes,
       );
-      _validateShortText('content_type', transfer.contentType, required: false);
-      _validateShortText('file_name', transfer.fileName, required: false);
+      _validateRequiredShortText('content_type', transfer.contentType);
+      _validateRequiredShortText('file_name', transfer.fileName);
+      _validatePositiveUint64('total_bytes', transfer.totalBytes);
       if (transfer.chunkBytes <= 0 ||
           transfer.chunkBytes > maxTransferChunkBytes) {
         _fail('transfer chunk_bytes is outside the local hard limit');
       }
-      _validateDigest(transfer.sha256);
+      _validateRequiredDigest(transfer.sha256);
       return;
     case PiTransportFrame_Operation.transferChunk:
       final chunk = frame.transferChunk;
       _validateIdentifier('transfer_id', chunk.transferId);
       _validatePositiveUint64('chunk_sequence', chunk.chunkSequence);
+      _validateNonNegativeUint64('offset', chunk.offset);
       if (chunk.data.isEmpty || chunk.data.length > maxTransferChunkBytes) {
         _fail('transfer chunk data is outside the local hard limit');
       }
@@ -655,11 +795,13 @@ void validateTransportFrame(PiTransportFrame frame) {
         'acknowledged_sequence',
         ack.acknowledgedSequence,
       );
+      _validatePositiveUint64('committed_bytes', ack.committedBytes);
       return;
     case PiTransportFrame_Operation.transferComplete:
       final complete = frame.transferComplete;
       _validateIdentifier('transfer_id', complete.transferId);
-      _validateDigest(complete.sha256);
+      _validatePositiveUint64('total_bytes', complete.totalBytes);
+      _validateRequiredDigest(complete.sha256);
       return;
     case PiTransportFrame_Operation.transferAbort:
       final abort = frame.transferAbort;
@@ -1057,6 +1199,13 @@ void _validateDigest(List<int> digest) {
   }
 }
 
+void _validateRequiredDigest(List<int> digest) {
+  _validateDigest(digest);
+  if (digest.length != sha256Bytes) {
+    _fail('sha256 must contain exactly 32 bytes');
+  }
+}
+
 void _validateBoundedUint32(
   String label,
   int value,
@@ -1072,6 +1221,12 @@ void _validateRequestId(Int64 value) {
   _validatePositiveUint64('request_id', value);
 }
 
+void _validateNonNegativeUint64(String label, Int64 value) {
+  if (value.isNegative) {
+    _fail('$label must be a non-negative uint64');
+  }
+}
+
 void _validatePositiveUint64(String label, Int64 value) {
   if (value.isZero) {
     _fail('$label must be a non-zero uint64');
@@ -1083,6 +1238,10 @@ int _compareUnsigned(Int64 left, Int64 right) {
     return left.isNegative ? 1 : -1;
   }
   return left.compareTo(right);
+}
+
+void _validateOptionalIdentifier(String label, String value) {
+  if (value.isNotEmpty) _validateIdentifier(label, value);
 }
 
 void _validateIdentifier(String label, String value) {
@@ -1132,6 +1291,12 @@ void _validateTextBytes(
       length > maximum ||
       value.contains('\u0000')) {
     _fail('$label is outside the local text limit');
+  }
+}
+
+void _validateNonNegativeNumber(String label, double value) {
+  if (!value.isFinite || value < 0) {
+    _fail('$label must be a finite non-negative number');
   }
 }
 

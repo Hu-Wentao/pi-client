@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:pi_client/api/pi_node/pi_node.dart';
 import 'package:pi_client/protocol/pi_protocol.dart';
@@ -45,6 +46,12 @@ final class FakePiNodeApi implements PiNodeApi {
   createSessionHandler;
   Future<PiSessionTree> Function(PiProjectId projectId, PiSessionId sessionId)?
   getSessionTreeHandler;
+  Future<PiSessionHistoryPage> Function(PiSessionHistoryRequest request)?
+  getSessionHistoryHandler;
+  Future<PiSessionStats> Function(PiProjectId projectId, PiSessionId sessionId)?
+  getSessionStatsHandler;
+  Future<PiSessionExportHandle> Function(PiSessionExportRequest request)?
+  exportSessionHandler;
   Future<PiSessionTreeMutationResult> Function(
     PiNavigateSessionTreeCommand command,
   )?
@@ -76,6 +83,9 @@ final class FakePiNodeApi implements PiNodeApi {
   int getCalls = 0;
   int createCalls = 0;
   int treeCalls = 0;
+  int historyCalls = 0;
+  int statsCalls = 0;
+  int exportCalls = 0;
   int navigateTreeCalls = 0;
   int forkCalls = 0;
   int cloneCalls = 0;
@@ -253,10 +263,114 @@ final class FakePiNodeApi implements PiNodeApi {
     final handler = getSessionTreeHandler;
     if (handler != null) return handler(projectId, sessionId);
     final tree = trees[sessionId];
-    if (tree == null) {
+    if (tree != null) return tree;
+    final summary = sessions.where((item) => item.id == sessionId).firstOrNull;
+    if (summary == null) {
       throw const PiNodeException(PiNodeErrorCode.notFound, retryable: false);
     }
-    return tree;
+    return fakeTree(PiSessionDetail(summary: summary, messages: const []));
+  }
+
+  @override
+  Future<PiSessionHistoryPage> getSessionHistory(
+    PiSessionHistoryRequest request,
+  ) async {
+    historyCalls += 1;
+    final handler = getSessionHistoryHandler;
+    if (handler != null) return handler(request);
+    final detail = await getSession(request.projectId, request.sessionId);
+    final end = request.cursor == null
+        ? detail.messages.length
+        : int.parse(request.cursor!.value);
+    final start = (end - request.limit).clamp(0, end);
+    final hasMore = start > 0;
+    return PiSessionHistoryPage(
+      summary: detail.summary,
+      messages: detail.messages.sublist(start, end),
+      nextCursor: hasMore ? PiSessionHistoryCursor('$start') : null,
+      hasMore: hasMore,
+      activeBranchRevision: PiSessionBranchRevision(
+        'active-${detail.summary.adminRevision.value}',
+      ),
+      treeRevision: PiSessionTreeRevision(
+        'tree-${detail.summary.adminRevision.value}',
+      ),
+    );
+  }
+
+  @override
+  Future<PiSessionStats> getSessionStats(
+    PiProjectId projectId,
+    PiSessionId sessionId,
+  ) async {
+    statsCalls += 1;
+    final handler = getSessionStatsHandler;
+    if (handler != null) return handler(projectId, sessionId);
+    final detail = details[sessionId];
+    final summary =
+        detail?.summary ??
+        sessions.where((item) => item.id == sessionId).firstOrNull;
+    if (summary == null) {
+      throw const PiNodeException(PiNodeErrorCode.notFound, retryable: false);
+    }
+    final messages = detail?.messages ?? const <PiMessage>[];
+    final project = <PiProject>[
+      defaultProject,
+      ...knownProjects.map((item) => item.project),
+    ].firstWhere((item) => item.identity.projectId == projectId);
+    return PiSessionStats(
+      projection: PiSessionSafeProjection(
+        sessionFileName: '${sessionId.value}.jsonl',
+        sessionId: sessionId,
+        projectId: projectId,
+        canonicalProjectDirectory: project.identity.canonicalWorkingDirectory,
+        worktreeId: project.identity.worktreeId,
+        mainProjectId: project.identity.mainProjectId,
+        branch: project.identity.branch,
+        isLinkedWorktree: project.identity.isLinkedWorktree,
+        isDetachedHead: project.identity.isDetachedHead,
+      ),
+      userMessages: messages
+          .where((message) => message.role == PiMessageRole.user)
+          .length,
+      assistantMessages: messages
+          .where((message) => message.role == PiMessageRole.assistant)
+          .length,
+      toolCalls: 0,
+      toolResults: messages
+          .where((message) => message.role == PiMessageRole.tool)
+          .length,
+      totalMessages: messages.length,
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      totalTokens: 0,
+      cost: 0,
+      activeTime: Duration.zero,
+    );
+  }
+
+  @override
+  Future<PiSessionExportHandle> exportSession(
+    PiSessionExportRequest request,
+  ) async {
+    exportCalls += 1;
+    final handler = exportSessionHandler;
+    if (handler != null) return handler(request);
+    final bytes = Uint8List.fromList(
+      (request.format == PiSessionExportFormat.html ? '<html></html>' : '{}\n')
+          .codeUnits,
+    );
+    return FakePiSessionExportHandle(
+      fileName: request.format == PiSessionExportFormat.html
+          ? 'session.html'
+          : 'session.jsonl',
+      contentType: request.format == PiSessionExportFormat.html
+          ? 'text/html; charset=utf-8'
+          : 'application/x-ndjson',
+      chunks: <Uint8List>[bytes],
+    );
   }
 
   @override
@@ -542,6 +656,59 @@ final class FakePiNodeApi implements PiNodeApi {
   void _setConnection(PiNodeConnectionSnapshot snapshot) {
     _connection = snapshot;
     if (!_connectionStates.isClosed) _connectionStates.add(snapshot);
+  }
+}
+
+final class FakePiSessionExportHandle implements PiSessionExportHandle {
+  FakePiSessionExportHandle({
+    required this.fileName,
+    required this.contentType,
+    required Iterable<Uint8List> chunks,
+  }) : _chunks = List<Uint8List>.unmodifiable(chunks),
+       totalBytes = chunks.fold<int>(0, (sum, chunk) => sum + chunk.length),
+       sha256 = List<int>.filled(32, 0, growable: false);
+
+  final List<Uint8List> _chunks;
+  final Completer<void> _done = Completer<void>();
+  bool cancelled = false;
+
+  @override
+  final String fileName;
+
+  @override
+  final String contentType;
+
+  @override
+  final int totalBytes;
+
+  @override
+  final List<int> sha256;
+
+  @override
+  Stream<Uint8List> get bytes async* {
+    try {
+      for (final chunk in _chunks) {
+        if (cancelled) return;
+        yield Uint8List.fromList(chunk);
+      }
+      if (!_done.isCompleted) _done.complete();
+    } catch (error, stackTrace) {
+      if (!_done.isCompleted) _done.completeError(error, stackTrace);
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> get done => _done.future;
+
+  @override
+  Future<void> cancel() async {
+    cancelled = true;
+    if (!_done.isCompleted) {
+      _done.completeError(
+        const PiNodeException(PiNodeErrorCode.cancelled, retryable: false),
+      );
+    }
   }
 }
 

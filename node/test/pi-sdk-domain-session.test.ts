@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readdir, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -181,6 +181,100 @@ test("the real public SDK adapter lists and loads persistent sessions fully offl
       admission.failure?.code === "provider-auth-required",
   );
   assert.equal(fetchCalls, 0);
+
+  const latestHistory = await service.getLoadedSessionHistory({
+    cwd: canonicalCwd,
+    sessionId: "offline-session",
+    limit: 2,
+  });
+  assert.equal(latestHistory.messages.length, 2);
+  assert.equal(latestHistory.hasMore, true);
+  assert.ok(latestHistory.nextCursor);
+  assert.notEqual(latestHistory.nextCursor, "1");
+  const olderHistory = await service.getLoadedSessionHistory({
+    cwd: canonicalCwd,
+    sessionId: "offline-session",
+    cursor: latestHistory.nextCursor,
+    limit: 2,
+    expectedActiveBranchRevision: latestHistory.activeBranchRevision,
+    expectedTreeRevision: latestHistory.treeRevision,
+  });
+  assert.deepEqual(
+    olderHistory.messages.map((item) => item.parts[0]),
+    [{ type: "text", text: "offline question" }],
+  );
+  assert.equal(olderHistory.hasMore, false);
+  await assert.rejects(
+    service.getLoadedSessionHistory({
+      cwd: canonicalCwd,
+      sessionId: "offline-session",
+      cursor: `${latestHistory.nextCursor}tampered`,
+      limit: 2,
+      expectedActiveBranchRevision: latestHistory.activeBranchRevision,
+      expectedTreeRevision: latestHistory.treeRevision,
+    }),
+    (error) =>
+      error instanceof PiNodeDomainError && error.code === "session-history-cursor-invalid",
+  );
+  await assert.rejects(
+    service.getLoadedSessionHistory({
+      cwd: canonicalCwd,
+      sessionId: "offline-session",
+      cursor: latestHistory.nextCursor,
+      limit: 2,
+      expectedActiveBranchRevision: "stale-active-revision",
+      expectedTreeRevision: latestHistory.treeRevision,
+    }),
+    (error) => error instanceof PiNodeDomainError && error.code === "session-history-conflict",
+  );
+
+  const stats = await service.getLoadedSessionStats({
+    cwd: canonicalCwd,
+    sessionId: "offline-session",
+  });
+  assert.equal(stats.userMessages, 2);
+  assert.equal(stats.assistantMessages, 1);
+  assert.equal(stats.totalMessages, 3);
+  assert.equal(stats.totalTokens, 2);
+  assert.equal(stats.projection.sessionId, "offline-session");
+  assert.equal(stats.projection.canonicalProjectDirectory, canonicalCwd);
+  assert.ok(stats.activeTimeMillis >= 0);
+
+  const htmlExportPath = join(root, "offline-session.html");
+  const jsonlExportPath = join(root, "offline-session-export.jsonl");
+  await service.exportLoadedSession({
+    cwd: canonicalCwd,
+    sessionId: "offline-session",
+    format: "html",
+    outputPath: htmlExportPath,
+    expectedActiveBranchRevision: latestHistory.activeBranchRevision,
+    expectedTreeRevision: latestHistory.treeRevision,
+  });
+  await service.exportLoadedSession({
+    cwd: canonicalCwd,
+    sessionId: "offline-session",
+    format: "jsonl",
+    outputPath: jsonlExportPath,
+    expectedActiveBranchRevision: latestHistory.activeBranchRevision,
+    expectedTreeRevision: latestHistory.treeRevision,
+  });
+  const htmlExport = await readFile(htmlExportPath, "utf8");
+  const jsonlExport = await readFile(jsonlExportPath, "utf8");
+  assert.match(htmlExport, /Session Export/);
+  assert.ok(htmlExport.length > 10_000);
+  assert.match(jsonlExport, /offline-session/);
+  assert.match(jsonlExport, /offline answer/);
+  await assert.rejects(
+    service.exportLoadedSession({
+      cwd: canonicalCwd,
+      sessionId: "offline-session",
+      format: "jsonl",
+      outputPath: join(root, "stale-export.jsonl"),
+      expectedActiveBranchRevision: "stale-active-revision",
+      expectedTreeRevision: latestHistory.treeRevision,
+    }),
+    (error) => error instanceof PiNodeDomainError && error.code === "session-history-conflict",
+  );
 
   const initialTree = await service.getLoadedSessionTree({
     cwd: canonicalCwd,

@@ -16,6 +16,8 @@ import {
   ProjectTrustSnapshotSchema,
   ProjectTrustStatus,
   SessionDetailSnapshotSchema,
+  SessionSafeProjectionSnapshotSchema,
+  SessionStatsSnapshotSchema,
   SessionSummarySnapshotSchema,
   SessionTreeEntryKind,
   SessionTreeNodeSnapshotSchema,
@@ -26,6 +28,7 @@ import {
   type MessageSnapshot,
   type ProjectSnapshot,
   type SessionDetailSnapshot,
+  type SessionStatsSnapshot,
   type SessionSummarySnapshot,
   type SessionTreeSnapshot,
   type StableError,
@@ -40,6 +43,7 @@ import {
   type PiNodeProjectSnapshot,
   type PiNodeProjectTrustReason,
   type PiNodeSessionSnapshot,
+  type PiNodeSessionStats,
   type PiNodeSessionSummary,
   type PiNodeSessionTreeEntryKind,
   type PiNodeSessionTreeSnapshot,
@@ -143,6 +147,48 @@ export function toProtocolSessionDetail(snapshot: PiNodeSessionSnapshot): Sessio
   return create(SessionDetailSnapshotSchema, {
     summary: toProtocolSessionSummary(snapshot),
     messages: snapshot.messages.map((message) => toProtocolMessageSnapshot(message, false)),
+  });
+}
+
+export function toProtocolSessionStats(stats: PiNodeSessionStats): SessionStatsSnapshot {
+  const contextUsageAvailable = stats.contextWindow !== undefined;
+  const contextTokensKnown = stats.contextTokens !== undefined;
+  return create(SessionStatsSnapshotSchema, {
+    projection: create(SessionSafeProjectionSnapshotSchema, {
+      sessionFileName: fitShortText(stats.projection.sessionFileName),
+      sessionId: requireIdentifier(stats.projection.sessionId, "session identifier"),
+      projectId: requireIdentifier(stats.projection.projectId, "project identifier"),
+      canonicalProjectDirectory: requirePath(stats.projection.canonicalProjectDirectory),
+      worktreeId: requireIdentifier(stats.projection.worktreeId, "worktree identifier"),
+      mainProjectId: requireIdentifier(stats.projection.mainProjectId, "main project identifier"),
+      branch: stats.projection.branch === undefined ? "" : fitShortText(stats.projection.branch),
+      isLinkedWorktree: stats.projection.isLinkedWorktree,
+      isDetachedHead: stats.projection.isDetachedHead,
+    }),
+    userMessages: nonNegativeUint64(stats.userMessages, "user message count"),
+    assistantMessages: nonNegativeUint64(stats.assistantMessages, "assistant message count"),
+    toolCalls: nonNegativeUint64(stats.toolCalls, "tool call count"),
+    toolResults: nonNegativeUint64(stats.toolResults, "tool result count"),
+    totalMessages: nonNegativeUint64(stats.totalMessages, "total message count"),
+    inputTokens: nonNegativeUint64(stats.inputTokens, "input token count"),
+    outputTokens: nonNegativeUint64(stats.outputTokens, "output token count"),
+    cacheReadTokens: nonNegativeUint64(stats.cacheReadTokens, "cache-read token count"),
+    cacheWriteTokens: nonNegativeUint64(stats.cacheWriteTokens, "cache-write token count"),
+    totalTokens: nonNegativeUint64(stats.totalTokens, "total token count"),
+    cost: finiteNonNegative(stats.cost, "session cost"),
+    hasContextUsage: contextUsageAvailable,
+    contextTokens: contextTokensKnown
+      ? nonNegativeUint64(stats.contextTokens!, "context token count")
+      : 0n,
+    contextWindow: contextUsageAvailable
+      ? positiveUint64(stats.contextWindow!, "context window")
+      : 0n,
+    contextPercent:
+      stats.contextPercent === undefined
+        ? 0
+        : finiteNonNegative(stats.contextPercent, "context percentage"),
+    activeTimeMillis: nonNegativeUint64(stats.activeTimeMillis, "active time"),
+    contextTokensKnown,
   });
 }
 
@@ -261,6 +307,13 @@ export function mapDomainError(error: unknown): StableError {
       return stableError(ErrorCode.CONFLICT, "The session is already in use.");
     case "session-capacity-exceeded":
       return stableError(ErrorCode.NODE_BUSY, "The Pi Node session capacity is exhausted.", true);
+    case "session-history-cursor-invalid":
+      return stableError(ErrorCode.INVALID_REQUEST, "The session history cursor is invalid.");
+    case "session-history-conflict":
+      return stableError(
+        ErrorCode.CONFLICT,
+        "The active session branch changed. Refresh and try again.",
+      );
     case "session-admin-invalid-name":
       return stableError(ErrorCode.INVALID_REQUEST, "The session name is invalid.");
     case "session-admin-confirmation-required":
@@ -311,6 +364,7 @@ export function mapDomainError(error: unknown): StableError {
     case "session-admin-failed":
     case "session-auto-name-failed":
     case "session-mutation-failed":
+    case "session-export-failed":
     case "abort-failed":
       return stableError(ErrorCode.INTERNAL, "The Pi Node operation failed.");
   }
@@ -487,6 +541,36 @@ function fitText(value: string, maxBytes: number, fallback: string): string {
     result += character;
   }
   return result || fallback;
+}
+
+function nonNegativeUint64(value: number, label: string): bigint {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new PiNodeProtocolAdapterError(
+      "invalid-domain-data",
+      `The ${label} is outside the protocol uint64 bounds.`,
+    );
+  }
+  return BigInt(value);
+}
+
+function positiveUint64(value: number, label: string): bigint {
+  if (!Number.isSafeInteger(value) || value < 1) {
+    throw new PiNodeProtocolAdapterError(
+      "invalid-domain-data",
+      `The ${label} is outside the protocol uint64 bounds.`,
+    );
+  }
+  return BigInt(value);
+}
+
+function finiteNonNegative(value: number, label: string): number {
+  if (!Number.isFinite(value) || value < 0) {
+    throw new PiNodeProtocolAdapterError(
+      "invalid-domain-data",
+      `The ${label} is outside the protocol numeric bounds.`,
+    );
+  }
+  return value;
 }
 
 function positiveMillis(value: number): bigint {

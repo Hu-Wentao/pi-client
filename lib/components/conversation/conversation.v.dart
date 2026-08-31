@@ -7,6 +7,9 @@ class ConversationView extends StatefulWidget {
     this.isLoading = false,
     this.errorMessage,
     this.onRetry,
+    this.canLoadOlder = false,
+    this.isLoadingOlder = false,
+    this.onLoadOlder,
     this.editableMessageIds = const <PiMessageId>{},
     this.forkableMessageIds = const <PiMessageId>{},
     this.onEditFromHere,
@@ -22,6 +25,9 @@ class ConversationView extends StatefulWidget {
   final bool isLoading;
   final String? errorMessage;
   final VoidCallback? onRetry;
+  final bool canLoadOlder;
+  final bool isLoadingOlder;
+  final VoidCallback? onLoadOlder;
   final Set<PiMessageId> editableMessageIds;
   final Set<PiMessageId> forkableMessageIds;
   final ValueChanged<PiMessage>? onEditFromHere;
@@ -36,6 +42,11 @@ class ConversationView extends StatefulWidget {
 
 class _ConversationViewState extends State<ConversationView> {
   final ScrollController _ownedScrollController = ScrollController();
+  final GlobalKey _timelineViewportKey = GlobalKey(
+    debugLabel: 'conversation timeline viewport',
+  );
+  final Map<String, GlobalKey> _messageKeys = <String, GlobalKey>{};
+  _OlderHistoryAnchor? _olderHistoryAnchor;
 
   ScrollController get _scrollController =>
       widget.scrollController ?? _ownedScrollController;
@@ -43,6 +54,21 @@ class _ConversationViewState extends State<ConversationView> {
   @override
   void didUpdateWidget(ConversationView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final olderAnchor = _olderHistoryAnchor;
+    if (olderAnchor != null &&
+        widget.messages.length > olderAnchor.messageCount) {
+      _olderHistoryAnchor = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _restoreOlderHistoryAnchor(olderAnchor);
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _restoreOlderHistoryAnchor(olderAnchor),
+        );
+      });
+      return;
+    }
+    if (!widget.isLoadingOlder && oldWidget.isLoadingOlder) {
+      _olderHistoryAnchor = null;
+    }
     if (!widget.followLatest ||
         !_tailChanged(oldWidget.messages, widget.messages)) {
       return;
@@ -73,6 +99,79 @@ class _ConversationViewState extends State<ConversationView> {
   bool _isNearTail() {
     if (!_scrollController.hasClients) return true;
     return _scrollController.position.extentAfter <= 96;
+  }
+
+  void _requestOlderHistory() {
+    if (_scrollController.hasClients) {
+      final visibleAnchor = _firstVisibleMessageAnchor();
+      _olderHistoryAnchor = _OlderHistoryAnchor(
+        messageCount: widget.messages.length,
+        pixels: _scrollController.position.pixels,
+        maxExtent: _scrollController.position.maxScrollExtent,
+        messageId: visibleAnchor?.messageId,
+        viewportOffset: visibleAnchor?.viewportOffset,
+      );
+    }
+    widget.onLoadOlder?.call();
+  }
+
+  _VisibleMessageAnchor? _firstVisibleMessageAnchor() {
+    final viewportBox =
+        _timelineViewportKey.currentContext?.findRenderObject() as RenderBox?;
+    if (viewportBox == null || !viewportBox.attached) return null;
+    final viewportTop = viewportBox.localToGlobal(Offset.zero).dy;
+    final viewportBottom = viewportTop + viewportBox.size.height;
+    for (final message in widget.messages) {
+      final messageBox =
+          _messageKeys[message.id.value]?.currentContext?.findRenderObject()
+              as RenderBox?;
+      if (messageBox == null || !messageBox.attached) continue;
+      final messageTop = messageBox.localToGlobal(Offset.zero).dy;
+      final messageBottom = messageTop + messageBox.size.height;
+      if (messageBottom >= viewportTop && messageTop <= viewportBottom) {
+        return _VisibleMessageAnchor(
+          messageId: message.id.value,
+          viewportOffset: messageTop - viewportTop,
+        );
+      }
+    }
+    return null;
+  }
+
+  void _restoreOlderHistoryAnchor(_OlderHistoryAnchor anchor) {
+    if (!mounted || !_scrollController.hasClients) return;
+    final target = _restoredAnchorOffset(anchor);
+    final fallbackAddedExtent =
+        _scrollController.position.maxScrollExtent - anchor.maxExtent;
+    _scrollController.jumpTo(
+      (target ?? anchor.pixels + fallbackAddedExtent).clamp(
+        _scrollController.position.minScrollExtent,
+        _scrollController.position.maxScrollExtent,
+      ),
+    );
+  }
+
+  double? _restoredAnchorOffset(_OlderHistoryAnchor anchor) {
+    final messageId = anchor.messageId;
+    final previousViewportOffset = anchor.viewportOffset;
+    if (messageId == null || previousViewportOffset == null) return null;
+    final viewportBox =
+        _timelineViewportKey.currentContext?.findRenderObject() as RenderBox?;
+    final messageBox =
+        _messageKeys[messageId]?.currentContext?.findRenderObject()
+            as RenderBox?;
+    if (viewportBox == null ||
+        messageBox == null ||
+        !viewportBox.attached ||
+        !messageBox.attached) {
+      return null;
+    }
+    final viewportTop = viewportBox.localToGlobal(Offset.zero).dy;
+    final messageTop = messageBox.localToGlobal(Offset.zero).dy;
+    final currentViewportOffset = messageTop - viewportTop;
+    return _scrollController.position.pixels +
+        currentViewportOffset -
+        previousViewportOffset;
   }
 
   bool _tailChanged(List<PiMessage> oldMessages, List<PiMessage> newMessages) {
@@ -160,54 +259,124 @@ class _ConversationViewState extends State<ConversationView> {
       );
     }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final horizontalPadding = constraints.maxWidth < 520 ? 12.0 : 20.0;
-        final bubbleWidth = constraints.maxWidth < 800
-            ? constraints.maxWidth - horizontalPadding * 2
-            : 760.0;
-        return Semantics(
-          label: 'Message timeline, ${widget.messages.length} messages',
-          explicitChildNodes: true,
-          child: ListView.separated(
-            key: const Key('conversationTimeline'),
-            controller: _scrollController,
-            padding: EdgeInsets.fromLTRB(
-              horizontalPadding,
-              20,
-              horizontalPadding,
-              16,
+    return Column(
+      children: [
+        if (widget.canLoadOlder || widget.isLoadingOlder)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: Center(
+              child: OutlinedButton.icon(
+                key: const Key('conversationLoadOlderButton'),
+                onPressed: widget.isLoadingOlder ? null : _requestOlderHistory,
+                icon: widget.isLoadingOlder
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.history_rounded, size: 18),
+                label: Text(
+                  widget.isLoadingOlder ? 'Loading older…' : 'Load older',
+                ),
+              ),
             ),
-            itemCount: widget.messages.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final message = widget.messages[index];
-              final editable = widget.editableMessageIds.contains(message.id);
-              final forkable = widget.forkableMessageIds.contains(message.id);
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  PiMessageBubble(message: message, maxWidth: bubbleWidth),
-                  if (message.role == PiMessageRole.user &&
-                      (editable || forkable))
-                    _MessageBranchActions(
-                      message: message,
-                      enabled: widget.branchActionsEnabled,
-                      onEditFromHere: editable && widget.onEditFromHere != null
-                          ? () => widget.onEditFromHere!(message)
-                          : null,
-                      onForkFromHere: forkable && widget.onForkFromHere != null
-                          ? () => widget.onForkFromHere!(message)
-                          : null,
-                    ),
-                ],
+          ),
+        Expanded(
+          child: LayoutBuilder(
+            key: _timelineViewportKey,
+            builder: (context, constraints) {
+              final horizontalPadding = constraints.maxWidth < 520
+                  ? 12.0
+                  : 20.0;
+              final bubbleWidth = constraints.maxWidth < 800
+                  ? constraints.maxWidth - horizontalPadding * 2
+                  : 760.0;
+              return Semantics(
+                label: 'Message timeline, ${widget.messages.length} messages',
+                explicitChildNodes: true,
+                child: ListView.separated(
+                  key: const Key('conversationTimeline'),
+                  controller: _scrollController,
+                  padding: EdgeInsets.fromLTRB(
+                    horizontalPadding,
+                    20,
+                    horizontalPadding,
+                    16,
+                  ),
+                  itemCount: widget.messages.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final message = widget.messages[index];
+                    final editable = widget.editableMessageIds.contains(
+                      message.id,
+                    );
+                    final forkable = widget.forkableMessageIds.contains(
+                      message.id,
+                    );
+                    return Column(
+                      key: _messageKeys.putIfAbsent(
+                        message.id.value,
+                        () => GlobalKey(
+                          debugLabel: 'message ${message.id.value}',
+                        ),
+                      ),
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        PiMessageBubble(
+                          message: message,
+                          maxWidth: bubbleWidth,
+                        ),
+                        if (message.role == PiMessageRole.user &&
+                            (editable || forkable))
+                          _MessageBranchActions(
+                            message: message,
+                            enabled: widget.branchActionsEnabled,
+                            onEditFromHere:
+                                editable && widget.onEditFromHere != null
+                                ? () => widget.onEditFromHere!(message)
+                                : null,
+                            onForkFromHere:
+                                forkable && widget.onForkFromHere != null
+                                ? () => widget.onForkFromHere!(message)
+                                : null,
+                          ),
+                      ],
+                    );
+                  },
+                ),
               );
             },
           ),
-        );
-      },
+        ),
+      ],
     );
   }
+}
+
+final class _OlderHistoryAnchor {
+  const _OlderHistoryAnchor({
+    required this.messageCount,
+    required this.pixels,
+    required this.maxExtent,
+    required this.messageId,
+    required this.viewportOffset,
+  });
+
+  final int messageCount;
+  final double pixels;
+  final double maxExtent;
+  final String? messageId;
+  final double? viewportOffset;
+}
+
+final class _VisibleMessageAnchor {
+  const _VisibleMessageAnchor({
+    required this.messageId,
+    required this.viewportOffset,
+  });
+
+  final String messageId;
+  final double viewportOffset;
 }
 
 class _MessageBranchActions extends StatelessWidget {

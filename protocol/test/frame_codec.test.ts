@@ -356,6 +356,7 @@ describe("bounded Protobuf frame codec", () => {
       {
         case: "transferOpen",
         value: {
+          requestId: 3n,
           transferId: "transfer-1",
           direction: TransferDirection.DOWNLOAD,
           purpose: TransferPurpose.EXPORT,

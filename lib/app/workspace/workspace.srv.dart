@@ -55,6 +55,45 @@ final class WorkspaceService {
     PiSessionId sessionId,
   ) => _api.getSession(projectId, sessionId);
 
+  Future<PiSessionHistoryPage> loadSessionHistory({
+    required PiProjectId projectId,
+    required PiSessionId sessionId,
+    PiSessionHistoryCursor? cursor,
+    int limit = 50,
+    PiSessionBranchRevision? expectedActiveBranchRevision,
+    PiSessionTreeRevision? expectedTreeRevision,
+  }) => _api.getSessionHistory(
+    PiSessionHistoryRequest(
+      projectId: projectId,
+      sessionId: sessionId,
+      cursor: cursor,
+      limit: limit,
+      expectedActiveBranchRevision: expectedActiveBranchRevision,
+      expectedTreeRevision: expectedTreeRevision,
+    ),
+  );
+
+  Future<PiSessionStats> loadSessionStats(
+    PiProjectId projectId,
+    PiSessionId sessionId,
+  ) => _api.getSessionStats(projectId, sessionId);
+
+  Future<PiSessionExportHandle> exportSession({
+    required PiProjectId projectId,
+    required PiSessionId sessionId,
+    required PiSessionExportFormat format,
+    PiSessionBranchRevision? expectedActiveBranchRevision,
+    PiSessionTreeRevision? expectedTreeRevision,
+  }) => _api.exportSession(
+    PiSessionExportRequest(
+      projectId: projectId,
+      sessionId: sessionId,
+      format: format,
+      expectedActiveBranchRevision: expectedActiveBranchRevision,
+      expectedTreeRevision: expectedTreeRevision,
+    ),
+  );
+
   Future<PiSessionDetail> createSession(PiProjectId projectId) =>
       _api.createSession(PiCreateSessionRequest(projectId: projectId));
 
@@ -214,6 +253,14 @@ final class WorkspaceService {
         'Pi Node does not support protocol 0.1.0.',
       PiNodeErrorCode.malformedFrame || PiNodeErrorCode.unexpectedResponse =>
         'Pi Node returned an invalid protocol response.',
+      PiNodeErrorCode.dataLoss =>
+        'The Pi Node export failed integrity verification.',
+      PiNodeErrorCode.resourceExhausted =>
+        'Pi Node has reached a bounded resource limit.',
+      PiNodeErrorCode.protocolViolation =>
+        'The Pi Node transfer violated the negotiated protocol.',
+      PiNodeErrorCode.unavailable || PiNodeErrorCode.internal =>
+        'The Pi Node operation is temporarily unavailable.',
       PiNodeErrorCode.disconnected =>
         'The Pi Node disconnected. Retry the connection.',
       PiNodeErrorCode.closed => 'The Pi Node connection has been closed.',

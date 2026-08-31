@@ -2,14 +2,17 @@ part of 'workspace.dart';
 
 class WorkspaceViewModel
     extends FrBlocViewModel<WorkspaceEvent, WorkspaceModel> {
-  WorkspaceViewModel({required WorkspaceService service})
-    : _service = service,
-      super(
-        WorkspaceModel(
-          connection: service.connection,
-          nodeAvailability: service.availability,
-        ),
-      ) {
+  WorkspaceViewModel({
+    required WorkspaceService service,
+    PiSessionExportSaver? exportSaver,
+  }) : _service = service,
+       _exportSaver = exportSaver ?? createPlatformSessionExportSaver(),
+       super(
+         WorkspaceModel(
+           connection: service.connection,
+           nodeAvailability: service.availability,
+         ),
+       ) {
     on<WorkspaceStarted>(_onStarted);
     on<WorkspaceConnectionRetried>(_onConnectionRetried);
     on<WorkspaceProjectDirectoryBrowsed>(_onProjectDirectoryBrowsed);
@@ -26,6 +29,10 @@ class WorkspaceViewModel
     on<WorkspaceSessionTreeNavigated>(_onSessionTreeNavigated);
     on<WorkspaceSessionForked>(_onSessionForked);
     on<WorkspaceSessionCloned>(_onSessionCloned);
+    on<WorkspaceOlderHistoryRequested>(_onOlderHistoryRequested);
+    on<WorkspaceSessionStatsRefreshed>(_onSessionStatsRefreshed);
+    on<WorkspaceSessionExportRequested>(_onSessionExportRequested);
+    on<WorkspaceSessionExportCancelled>(_onSessionExportCancelled);
     on<WorkspacePromptSubmitted>(_onPromptSubmitted);
     on<WorkspaceAgentStopped>(_onAgentStopped);
     on<_WorkspaceConnectionSnapshotReceived>(_onConnectionSnapshotReceived);
@@ -39,6 +46,7 @@ class WorkspaceViewModel
   }
 
   final WorkspaceService _service;
+  final PiSessionExportSaver _exportSaver;
   late final StreamSubscription<PiNodeConnectionSnapshot>
   _connectionSubscription;
   StreamSubscription<PiSessionEvent>? _sessionEventSubscription;
@@ -51,6 +59,10 @@ class WorkspaceViewModel
   bool _creatingSession = false;
   bool _sessionAdminInFlight = false;
   bool _sessionTreeMutationInFlight = false;
+  bool _historyInFlight = false;
+  bool _statsInFlight = false;
+  bool _exportInFlight = false;
+  bool _exportCancellationRequested = false;
   bool _promptInFlight = false;
   bool _abortInFlight = false;
   bool _closing = false;
@@ -60,10 +72,12 @@ class WorkspaceViewModel
   int _sessionLoadGeneration = 0;
   int _sessionAdminGeneration = 0;
   int _sessionTreeMutationGeneration = 0;
+  int _exportGeneration = 0;
   int _eventGeneration = 0;
   int _promptGeneration = 0;
   int _commandOrdinal = 0;
   PiCommandId? _activePromptCommandId;
+  PiSessionExportHandle? _activeExportHandle;
   Future<void>? _closeFuture;
 
   Future<void> _onStarted(
@@ -89,6 +103,7 @@ class WorkspaceViewModel
     _sessionTreeMutationInFlight = false;
     _promptGeneration += 1;
     _activePromptCommandId = null;
+    await _cancelActiveExportForContextChange();
 
     emit(
       state.copyWith(
@@ -117,12 +132,26 @@ class WorkspaceViewModel
         sessionTreeMutationLoading: false,
         sessions: const <PiSessionSummary>[],
         messages: const <PiMessage>[],
+        historyCursor: null,
+        activeBranchRevision: null,
+        treeRevision: null,
+        historyHasMore: false,
+        historyLoading: false,
+        sessionStats: null,
+        sessionStatsLoading: false,
+        sessionExportLoading: false,
+        sessionExportFormat: null,
+        sessionExportSavedBytes: 0,
+        sessionExportTotalBytes: 0,
+        lastExportFileName: null,
         nodeError: null,
         projectError: null,
         sessionError: null,
         sessionAdminError: null,
         sessionTreeError: null,
         conversationError: null,
+        sessionStatsError: null,
+        sessionExportError: null,
         promptError: null,
         statusMessage: 'Connecting to the first-party Pi Node…',
       ),
@@ -311,6 +340,7 @@ class WorkspaceViewModel
     _sessionTreeMutationInFlight = false;
     _promptGeneration += 1;
     _activePromptCommandId = null;
+    await _cancelActiveExportForContextChange();
     await _stopSessionEvents();
     if (_closing || isClosed || generation != _projectSelectionGeneration) {
       return;
@@ -330,6 +360,18 @@ class WorkspaceViewModel
         sessionTreeMutationLoading: false,
         sessions: const <PiSessionSummary>[],
         messages: const <PiMessage>[],
+        historyCursor: null,
+        activeBranchRevision: null,
+        treeRevision: null,
+        historyHasMore: false,
+        historyLoading: false,
+        sessionStats: null,
+        sessionStatsLoading: false,
+        sessionExportLoading: false,
+        sessionExportFormat: null,
+        sessionExportSavedBytes: 0,
+        sessionExportTotalBytes: 0,
+        lastExportFileName: null,
         conversationLoading: false,
         eventStatus: WorkspaceEventStatus.idle,
         promptAdmissionStatus: WorkspacePromptAdmissionStatus.idle,
@@ -340,6 +382,8 @@ class WorkspaceViewModel
         sessionAdminError: null,
         sessionTreeError: null,
         conversationError: null,
+        sessionStatsError: null,
+        sessionExportError: null,
         promptError: null,
         statusMessage: 'Loading the selected project…',
       ),
@@ -546,6 +590,7 @@ class WorkspaceViewModel
     final generation = ++_sessionLoadGeneration;
     _promptGeneration += 1;
     _activePromptCommandId = null;
+    await _cancelActiveExportForContextChange();
     await _stopSessionEvents();
     if (_closing || isClosed || generation != _sessionLoadGeneration) return;
 
@@ -555,6 +600,18 @@ class WorkspaceViewModel
         conversationLoading: true,
         sessionTreeLoading: true,
         messages: const <PiMessage>[],
+        historyCursor: null,
+        activeBranchRevision: null,
+        treeRevision: null,
+        historyHasMore: false,
+        historyLoading: false,
+        sessionStats: null,
+        sessionStatsLoading: true,
+        sessionExportLoading: false,
+        sessionExportFormat: null,
+        sessionExportSavedBytes: 0,
+        sessionExportTotalBytes: 0,
+        lastExportFileName: null,
         sessionTree: null,
         eventStatus: WorkspaceEventStatus.idle,
         promptAdmissionStatus: WorkspacePromptAdmissionStatus.idle,
@@ -564,32 +621,48 @@ class WorkspaceViewModel
         stopping: false,
         conversationError: null,
         sessionTreeError: null,
+        sessionStatsError: null,
+        sessionExportError: null,
         promptError: null,
-        statusMessage: 'Loading the Pi conversation and branch tree…',
+        statusMessage:
+            'Loading the latest 50 messages, statistics, and branch tree…',
       ),
     );
 
     try {
-      final detail = await _service.loadSession(
-        project.identity.projectId,
-        sessionId,
-      );
+      final results = await Future.wait<Object>(<Future<Object>>[
+        _service.loadSessionHistory(
+          projectId: project.identity.projectId,
+          sessionId: sessionId,
+          limit: 50,
+        ),
+        _service.loadSessionTree(project.identity.projectId, sessionId),
+        _service.loadSessionStats(project.identity.projectId, sessionId),
+      ]);
       if (!_isCurrentSessionLoad(generation, sessionId)) return;
-      final tree = await _service.loadSessionTree(
-        project.identity.projectId,
-        sessionId,
-      );
-      if (!_isCurrentSessionLoad(generation, sessionId)) return;
+      final history = results[0] as PiSessionHistoryPage;
+      final tree = results[1] as PiSessionTree;
+      final stats = results[2] as PiSessionStats;
       emit(
         state.copyWith(
           conversationLoading: false,
           sessionTreeLoading: false,
-          sessions: _replaceSession(state.sessions, detail.summary),
-          messages: detail.messages,
+          sessionStatsLoading: false,
+          sessions: _replaceSession(state.sessions, history.summary),
+          messages: history.messages,
+          historyCursor: history.nextCursor,
+          activeBranchRevision: history.activeBranchRevision,
+          treeRevision: history.treeRevision,
+          historyHasMore: history.hasMore,
+          historyLoading: false,
+          sessionStats: stats,
           sessionTree: tree,
           conversationError: null,
           sessionTreeError: null,
-          statusMessage: 'Conversation and branch tree loaded from Pi Node.',
+          sessionStatsError: null,
+          statusMessage: history.hasMore
+              ? 'Latest 50 messages loaded. Older history is available.'
+              : 'Complete conversation, statistics, and branch tree loaded.',
         ),
       );
       await _startSessionEvents(sessionId, emit);
@@ -604,9 +677,11 @@ class WorkspaceViewModel
         state.copyWith(
           conversationLoading: false,
           sessionTreeLoading: false,
+          sessionStatsLoading: false,
           eventStatus: WorkspaceEventStatus.error,
           conversationError: _service.describeError(error),
           sessionTreeError: _service.describeError(error),
+          sessionStatsError: _service.describeError(error),
           statusMessage: 'Conversation load failed.',
         ),
       );
@@ -917,41 +992,63 @@ class WorkspaceViewModel
           targetExists;
       final restoreTarget =
           canRestoreDeletedSelection || canRestoreUpdatedSelection;
-      PiSessionDetail? detail;
+      PiSessionHistoryPage? history;
       PiSessionTree? tree;
+      PiSessionStats? stats;
       if (restoreTarget && !project.trust.requiresApproval) {
-        detail = await _service.loadSession(projectId, sessionId);
+        final restored = await Future.wait<Object>(<Future<Object>>[
+          _service.loadSessionHistory(
+            projectId: projectId,
+            sessionId: sessionId,
+            limit: 50,
+          ),
+          _service.loadSessionTree(projectId, sessionId),
+          _service.loadSessionStats(projectId, sessionId),
+        ]);
         if (!_isCurrentSessionAdmin(generation, projectId)) return;
-        tree = await _service.loadSessionTree(projectId, sessionId);
-        if (!_isCurrentSessionAdmin(generation, projectId)) return;
+        history = restored[0] as PiSessionHistoryPage;
+        tree = restored[1] as PiSessionTree;
+        stats = restored[2] as PiSessionStats;
       }
       final selectedOtherSession =
           state.selectedSessionId != null &&
           state.selectedSessionId != sessionId;
       emit(
         state.copyWith(
-          sessions: detail == null
+          sessions: history == null
               ? sessions
-              : _replaceSession(sessions, detail.summary),
-          selectedSessionId: detail != null
+              : _replaceSession(sessions, history.summary),
+          selectedSessionId: history != null
               ? sessionId
               : selectedOtherSession
               ? state.selectedSessionId
               : null,
-          messages: detail != null
-              ? detail.messages
+          messages: history != null
+              ? history.messages
               : selectedOtherSession
               ? state.messages
               : const <PiMessage>[],
+          historyCursor: history?.nextCursor,
+          activeBranchRevision: history?.activeBranchRevision,
+          treeRevision: history?.treeRevision,
+          historyHasMore: history?.hasMore ?? false,
+          historyLoading: false,
+          sessionStats: history != null
+              ? stats
+              : selectedOtherSession
+              ? state.sessionStats
+              : null,
+          sessionStatsLoading: false,
+          sessionStatsError: history != null ? null : state.sessionStatsError,
           conversationLoading: false,
           sessionTreeLoading: false,
-          sessionTree: detail != null
+          sessionTree: history != null
               ? tree
               : selectedOtherSession
               ? state.sessionTree
               : null,
-          sessionTreeError: detail != null ? null : state.sessionTreeError,
-          eventStatus: detail != null
+          sessionTreeError: history != null ? null : state.sessionTreeError,
+          eventStatus: history != null
               ? WorkspaceEventStatus.idle
               : selectedOtherSession
               ? state.eventStatus
@@ -961,7 +1058,7 @@ class WorkspaceViewModel
           sessionAdminLoading: false,
           sessionAdminError: outcomeError,
           sessionError: null,
-          conversationError: detail != null ? null : state.conversationError,
+          conversationError: history != null ? null : state.conversationError,
           statusMessage: outcomeError != null
               ? 'Session action finished with an error; sessions were refreshed.'
               : deleteSucceeded
@@ -971,7 +1068,7 @@ class WorkspaceViewModel
               : 'Pi session updated and refreshed.',
         ),
       );
-      if (detail != null) await _startSessionEvents(sessionId, emit);
+      if (history != null) await _startSessionEvents(sessionId, emit);
     } catch (error, stackTrace) {
       if (!_isCurrentSessionAdmin(generation, projectId)) return;
       logE(
@@ -1204,23 +1301,37 @@ class WorkspaceViewModel
     }
 
     try {
-      final detail = await _service.loadSession(projectId, targetSessionId);
+      final results = await Future.wait<Object>(<Future<Object>>[
+        _service.loadSessionHistory(
+          projectId: projectId,
+          sessionId: targetSessionId,
+          limit: 50,
+        ),
+        _service.loadSessionTree(projectId, targetSessionId),
+        _service.loadSessions(projectId),
+        _service.loadSessionStats(projectId, targetSessionId),
+      ]);
       if (!_isCurrentSessionTreeMutation(generation, projectId)) return;
-      final refreshedTree = await _service.loadSessionTree(
-        projectId,
-        targetSessionId,
-      );
-      if (!_isCurrentSessionTreeMutation(generation, projectId)) return;
-      final sessions = await _service.loadSessions(projectId);
-      if (!_isCurrentSessionTreeMutation(generation, projectId)) return;
+      final history = results[0] as PiSessionHistoryPage;
+      final refreshedTree = results[1] as PiSessionTree;
+      final sessions = results[2] as List<PiSessionSummary>;
+      final stats = results[3] as PiSessionStats;
       final appliedDraft = result is PiSessionTreeMutationUpdated
           ? (editorText ?? '')
           : null;
       emit(
         state.copyWith(
-          sessions: _replaceSession(sessions, detail.summary),
+          sessions: _replaceSession(sessions, history.summary),
           selectedSessionId: targetSessionId,
-          messages: detail.messages,
+          messages: history.messages,
+          historyCursor: history.nextCursor,
+          activeBranchRevision: history.activeBranchRevision,
+          treeRevision: history.treeRevision,
+          historyHasMore: history.hasMore,
+          historyLoading: false,
+          sessionStats: stats,
+          sessionStatsLoading: false,
+          sessionStatsError: null,
           sessionTree: refreshedTree,
           conversationLoading: false,
           sessionTreeLoading: false,
@@ -1273,6 +1384,282 @@ class WorkspaceViewModel
       }
     }
   }
+
+  Future<void> _onOlderHistoryRequested(
+    WorkspaceOlderHistoryRequested event,
+    Emitter<WorkspaceModel> emit,
+  ) async {
+    final project = state.selectedProject;
+    final sessionId = state.selectedSessionId;
+    final cursor = state.historyCursor;
+    final activeRevision = state.activeBranchRevision;
+    final treeRevision = state.treeRevision;
+    if (_historyInFlight ||
+        _closing ||
+        project == null ||
+        sessionId == null ||
+        cursor == null ||
+        !state.historyHasMore ||
+        activeRevision == null ||
+        treeRevision == null) {
+      return;
+    }
+
+    _historyInFlight = true;
+    final generation = _sessionLoadGeneration;
+    emit(
+      state.copyWith(
+        historyLoading: true,
+        conversationError: null,
+        statusMessage: 'Loading older session history…',
+      ),
+    );
+    try {
+      final page = await _service.loadSessionHistory(
+        projectId: project.identity.projectId,
+        sessionId: sessionId,
+        cursor: cursor,
+        limit: 50,
+        expectedActiveBranchRevision: activeRevision,
+        expectedTreeRevision: treeRevision,
+      );
+      if (!_isCurrentSessionLoad(generation, sessionId)) return;
+      final existingIds = state.messages.map((message) => message.id).toSet();
+      final older = page.messages
+          .where((message) => !existingIds.contains(message.id))
+          .toList(growable: false);
+      emit(
+        state.copyWith(
+          sessions: _replaceSession(state.sessions, page.summary),
+          messages: <PiMessage>[...older, ...state.messages],
+          historyCursor: page.nextCursor,
+          activeBranchRevision: page.activeBranchRevision,
+          treeRevision: page.treeRevision,
+          historyHasMore: page.hasMore,
+          historyLoading: false,
+          conversationError: null,
+          statusMessage: page.hasMore
+              ? '${older.length} older messages loaded.'
+              : 'The complete active-branch history is loaded.',
+        ),
+      );
+    } catch (error, stackTrace) {
+      if (!_isCurrentSessionLoad(generation, sessionId)) return;
+      logE(
+        'Loading older Pi Node session history failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      emit(
+        state.copyWith(
+          historyLoading: false,
+          conversationError: _service.describeError(error),
+          statusMessage: 'Older history could not be loaded.',
+        ),
+      );
+    } finally {
+      _historyInFlight = false;
+    }
+  }
+
+  Future<void> _onSessionStatsRefreshed(
+    WorkspaceSessionStatsRefreshed event,
+    Emitter<WorkspaceModel> emit,
+  ) async {
+    final project = state.selectedProject;
+    final sessionId = state.selectedSessionId;
+    if (_statsInFlight || _closing || project == null || sessionId == null) {
+      return;
+    }
+    _statsInFlight = true;
+    final generation = _sessionLoadGeneration;
+    emit(
+      state.copyWith(
+        sessionStatsLoading: true,
+        sessionStatsError: null,
+        statusMessage: 'Refreshing full-session statistics…',
+      ),
+    );
+    try {
+      final stats = await _service.loadSessionStats(
+        project.identity.projectId,
+        sessionId,
+      );
+      if (!_isCurrentSessionLoad(generation, sessionId)) return;
+      emit(
+        state.copyWith(
+          sessionStats: stats,
+          sessionStatsLoading: false,
+          sessionStatsError: null,
+          statusMessage: 'Full-session statistics refreshed.',
+        ),
+      );
+    } catch (error, stackTrace) {
+      if (!_isCurrentSessionLoad(generation, sessionId)) return;
+      logE(
+        'Refreshing Pi Node session statistics failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      emit(
+        state.copyWith(
+          sessionStatsLoading: false,
+          sessionStatsError: _service.describeError(error),
+          statusMessage: 'Session statistics refresh failed.',
+        ),
+      );
+    } finally {
+      _statsInFlight = false;
+    }
+  }
+
+  Future<void> _onSessionExportRequested(
+    WorkspaceSessionExportRequested event,
+    Emitter<WorkspaceModel> emit,
+  ) async {
+    final project = state.selectedProject;
+    final sessionId = state.selectedSessionId;
+    if (_exportInFlight ||
+        _closing ||
+        project == null ||
+        sessionId == null ||
+        _selectedSession(state)?.isRunning == true) {
+      return;
+    }
+    _exportInFlight = true;
+    _exportCancellationRequested = false;
+    final generation = ++_exportGeneration;
+    emit(
+      state.copyWith(
+        sessionExportLoading: true,
+        sessionExportFormat: event.format,
+        sessionExportSavedBytes: 0,
+        sessionExportTotalBytes: 0,
+        lastExportFileName: null,
+        sessionExportError: null,
+        statusMessage:
+            'Preparing a streamed ${event.format.name.toUpperCase()} export…',
+      ),
+    );
+    try {
+      final handle = await _service.exportSession(
+        projectId: project.identity.projectId,
+        sessionId: sessionId,
+        format: event.format,
+        expectedActiveBranchRevision: state.activeBranchRevision,
+        expectedTreeRevision: state.treeRevision,
+      );
+      if (!_isCurrentExport(generation, sessionId) ||
+          _exportCancellationRequested) {
+        await handle.cancel();
+        if (_isCurrentExport(generation, sessionId)) {
+          throw const PiNodeException(
+            PiNodeErrorCode.cancelled,
+            retryable: false,
+          );
+        }
+        return;
+      }
+      _activeExportHandle = handle;
+      emit(
+        state.copyWith(
+          sessionExportTotalBytes: handle.totalBytes,
+          statusMessage: 'Choose where to save ${handle.fileName}.',
+        ),
+      );
+      final result = await _exportSaver.save(
+        handle,
+        onProgress: (savedBytes, totalBytes) {
+          if (!_isCurrentExport(generation, sessionId)) return;
+          emit(
+            state.copyWith(
+              sessionExportSavedBytes: savedBytes,
+              sessionExportTotalBytes: totalBytes,
+              statusMessage: 'Exporting $savedBytes of $totalBytes bytes…',
+            ),
+          );
+        },
+      );
+      if (!_isCurrentExport(generation, sessionId)) return;
+      emit(
+        state.copyWith(
+          sessionExportLoading: false,
+          sessionExportFormat: null,
+          sessionExportSavedBytes: result.saved ? handle.totalBytes : 0,
+          sessionExportTotalBytes: result.saved ? handle.totalBytes : 0,
+          lastExportFileName: result.saved ? result.fileName : null,
+          sessionExportError: null,
+          statusMessage: result.saved
+              ? '${result.fileName} exported with SHA-256 verification.'
+              : 'Session export cancelled.',
+        ),
+      );
+    } catch (error, stackTrace) {
+      if (!_isCurrentExport(generation, sessionId)) return;
+      final cancelled =
+          error is PiNodeException && error.code == PiNodeErrorCode.cancelled;
+      if (!cancelled) {
+        logE(
+          'Saving a Pi Node session export failed',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
+      emit(
+        state.copyWith(
+          sessionExportLoading: false,
+          sessionExportFormat: null,
+          sessionExportSavedBytes: 0,
+          sessionExportTotalBytes: 0,
+          sessionExportError: cancelled
+              ? null
+              : _describeExportSaveError(error),
+          statusMessage: cancelled
+              ? 'Session export cancelled.'
+              : 'Session export failed.',
+        ),
+      );
+    } finally {
+      if (generation == _exportGeneration) {
+        _activeExportHandle = null;
+        _exportInFlight = false;
+        _exportCancellationRequested = false;
+      }
+    }
+  }
+
+  Future<void> _onSessionExportCancelled(
+    WorkspaceSessionExportCancelled event,
+    Emitter<WorkspaceModel> emit,
+  ) async {
+    if (!_exportInFlight) return;
+    _exportCancellationRequested = true;
+    final handle = _activeExportHandle;
+    await handle?.cancel();
+    if (_closing || isClosed) return;
+    emit(
+      state.copyWith(
+        sessionExportLoading: false,
+        sessionExportFormat: null,
+        sessionExportSavedBytes: 0,
+        sessionExportTotalBytes: 0,
+        sessionExportError: null,
+        statusMessage: 'Session export cancellation requested.',
+      ),
+    );
+  }
+
+  String _describeExportSaveError(Object error) => switch (error) {
+    PiSessionExportSaveException(:final code) => switch (code) {
+      PiSessionExportSaveErrorCode.unsupported =>
+        'This platform does not provide a streaming export destination.',
+      PiSessionExportSaveErrorCode.writeFailed =>
+        'The selected export destination could not be written.',
+      PiSessionExportSaveErrorCode.integrityFailed =>
+        'The exported byte count or digest did not match.',
+    },
+    _ => _service.describeError(error),
+  };
 
   Future<void> _onPromptSubmitted(
     WorkspacePromptSubmitted event,
@@ -1467,6 +1854,7 @@ class WorkspaceViewModel
       _sessionTreeMutationInFlight = false;
       _promptGeneration += 1;
       _activePromptCommandId = null;
+      await _cancelActiveExportForContextChange();
       await _stopSessionEvents();
       emit(
         state.copyWith(
@@ -1477,6 +1865,10 @@ class WorkspaceViewModel
           sessionAdminLoading: false,
           sessionTreeMutationOperation: null,
           sessionTreeMutationLoading: false,
+          sessionExportLoading: false,
+          sessionExportFormat: null,
+          sessionExportSavedBytes: 0,
+          sessionExportTotalBytes: 0,
           sending: false,
           stopping: false,
           nodeError: 'The Pi Node disconnected. Retry the connection.',
@@ -1631,32 +2023,45 @@ class WorkspaceViewModel
     final project = state.selectedProject;
     if (project == null) return;
     try {
-      final detail = await _service.loadSession(
-        project.identity.projectId,
-        sessionId,
-      );
-      final tree = await _service.loadSessionTree(
-        project.identity.projectId,
-        sessionId,
-      );
-      final sessions = await _service.loadSessions(project.identity.projectId);
+      final results = await Future.wait<Object>(<Future<Object>>[
+        _service.loadSessionHistory(
+          projectId: project.identity.projectId,
+          sessionId: sessionId,
+          limit: 50,
+        ),
+        _service.loadSessionTree(project.identity.projectId, sessionId),
+        _service.loadSessions(project.identity.projectId),
+        _service.loadSessionStats(project.identity.projectId, sessionId),
+      ]);
       if (!_isCurrentEvent(eventGeneration, sessionId) ||
           sessionListGeneration != _sessionListGeneration) {
         return;
       }
+      final history = results[0] as PiSessionHistoryPage;
+      final tree = results[1] as PiSessionTree;
+      final sessions = results[2] as List<PiSessionSummary>;
+      final stats = results[3] as PiSessionStats;
       emit(
         state.copyWith(
           conversationLoading: false,
           sessionsLoading: false,
-          sessions: _replaceSession(sessions, detail.summary),
-          messages: detail.messages,
+          sessions: _replaceSession(sessions, history.summary),
+          messages: history.messages,
+          historyCursor: history.nextCursor,
+          activeBranchRevision: history.activeBranchRevision,
+          treeRevision: history.treeRevision,
+          historyHasMore: history.hasMore,
+          historyLoading: false,
+          sessionStats: stats,
+          sessionStatsLoading: false,
           sessionTree: tree,
           sessionTreeLoading: false,
           eventStatus: WorkspaceEventStatus.listening,
           sessionError: null,
           sessionTreeError: null,
           conversationError: null,
-          statusMessage: 'Conversation reconciled with Pi Node.',
+          sessionStatsError: null,
+          statusMessage: 'Conversation and statistics reconciled with Pi Node.',
         ),
       );
     } catch (error, stackTrace) {
@@ -1674,6 +2079,7 @@ class WorkspaceViewModel
           conversationLoading: false,
           sessionsLoading: false,
           sessionTreeLoading: false,
+          sessionStatsLoading: false,
           eventStatus: WorkspaceEventStatus.error,
           sessionTreeError: _service.describeError(error),
           conversationError: _service.describeError(error),
@@ -1731,6 +2137,16 @@ class WorkspaceViewModel
     await subscription?.cancel();
   }
 
+  Future<void> _cancelActiveExportForContextChange() async {
+    _exportGeneration += 1;
+    _exportInFlight = false;
+    _exportCancellationRequested = true;
+    final handle = _activeExportHandle;
+    _activeExportHandle = null;
+    await handle?.cancel();
+    _exportCancellationRequested = false;
+  }
+
   void _addIfOpen(WorkspaceEvent event) {
     if (!_closing && !isClosed) add(event);
   }
@@ -1763,6 +2179,12 @@ class WorkspaceViewModel
       generation == _sessionTreeMutationGeneration &&
       state.selectedProject?.identity.projectId == projectId;
 
+  bool _isCurrentExport(int generation, PiSessionId sessionId) =>
+      !_closing &&
+      !isClosed &&
+      generation == _exportGeneration &&
+      state.selectedSessionId == sessionId;
+
   bool _isCurrentPrompt(int generation, PiSessionId sessionId) =>
       !_closing &&
       !isClosed &&
@@ -1788,9 +2210,14 @@ class WorkspaceViewModel
     _sessionTreeMutationGeneration += 1;
     _promptGeneration += 1;
     _eventGeneration += 1;
+    _exportGeneration += 1;
+    final exportHandle = _activeExportHandle;
+    _activeExportHandle = null;
+    _exportInFlight = false;
     final future = Future.wait<void>(<Future<void>>[
       if (_sessionEventSubscription case final subscription?)
         subscription.cancel(),
+      if (exportHandle != null) exportHandle.cancel(),
       _connectionSubscription.cancel(),
     ]).then<void>((_) => super.close());
     _closeFuture = future;
