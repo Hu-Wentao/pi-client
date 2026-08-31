@@ -10,7 +10,7 @@ import 'package:pi_client/platform/agent_host/pi_node_runtime_locator_types.dart
 void main() {
   group('PlatformPiNodeRuntimeLocator', () {
     test('resolves and verifies the bundled immutable capsule', () async {
-      if (!Platform.isMacOS) return;
+      if (!_isDesktopHost) return;
       final fixture = await _CapsuleFixture.create();
       addTearDown(fixture.dispose);
 
@@ -24,10 +24,13 @@ void main() {
       ).locate();
       final process = configuration.transportConfiguration;
 
-      expect(process.executable, '${fixture.capsule.path}/runtime/bin/node');
+      expect(
+        process.executable,
+        '${fixture.capsule.path}${Platform.pathSeparator}${fixture.runtimeExecutable.replaceAll('/', Platform.pathSeparator)}',
+      );
       expect(process.arguments, <String>[
         ..._runtimeArgumentsForCurrentArchitecture(),
-        '${fixture.capsule.path}/app/dist/stdio-main.js',
+        '${fixture.capsule.path}${Platform.pathSeparator}app${Platform.pathSeparator}dist${Platform.pathSeparator}stdio-main.js',
         '--cwd',
         fixture.home.path,
         '--agent-dir',
@@ -36,7 +39,7 @@ void main() {
       expect(process.workingDirectory, fixture.home.path);
       expect(
         process.environment['PATH'],
-        '${fixture.capsule.path}/runtime/bin:/system/bin',
+        '${File(process.executable).parent.path}${Platform.isWindows ? ';' : ':'}/system/bin',
       );
       expect(process.includeParentEnvironment, isTrue);
       expect(configuration.toString(), isNot(contains(fixture.capsule.path)));
@@ -65,7 +68,7 @@ void main() {
     );
 
     test('fails closed when the bundled capsule is missing', () async {
-      if (!Platform.isMacOS) return;
+      if (!_isDesktopHost) return;
       final root = await Directory.systemTemp.createTemp(
         'pi-node-runtime-missing-',
       );
@@ -88,7 +91,7 @@ void main() {
     });
 
     test('rejects payload tampering before returning process inputs', () async {
-      if (!Platform.isMacOS) return;
+      if (!_isDesktopHost) return;
       final fixture = await _CapsuleFixture.create();
       addTearDown(fixture.dispose);
       await File(
@@ -108,7 +111,7 @@ void main() {
     });
 
     test('rejects a capsule built from another source commit', () async {
-      if (!Platform.isMacOS) return;
+      if (!_isDesktopHost) return;
       final fixture = await _CapsuleFixture.create();
       addTearDown(fixture.dispose);
 
@@ -127,13 +130,15 @@ void main() {
     test(
       'uses only a complete explicitly opted-in development fallback',
       () async {
-        if (!Platform.isMacOS) return;
+        if (!_isDesktopHost) return;
         final root = await Directory.systemTemp.createTemp(
           'pi-node-runtime-development-',
         );
         addTearDown(() => root.delete(recursive: true));
         final node = File('${root.path}/node')..writeAsStringSync('node\n');
-        await Process.run('chmod', <String>['755', node.path]);
+        if (!Platform.isWindows) {
+          await Process.run('chmod', <String>['755', node.path]);
+        }
         final entrypoint = File('${root.path}/stdio-main.js')
           ..writeAsStringSync('entrypoint\n');
         final workingDirectory = Directory('${root.path}/project')
@@ -167,12 +172,14 @@ void main() {
     test(
       'never masks an installed capsule integrity failure with fallback',
       () async {
-        if (!Platform.isMacOS) return;
+        if (!_isDesktopHost) return;
         final fixture = await _CapsuleFixture.create();
         addTearDown(fixture.dispose);
         final node = File('${fixture.root.path}/development-node')
           ..writeAsStringSync('node\n');
-        await Process.run('chmod', <String>['755', node.path]);
+        if (!Platform.isWindows) {
+          await Process.run('chmod', <String>['755', node.path]);
+        }
         await File(
           '${fixture.capsule.path}/app/dist/stdio-main.js',
         ).writeAsString('tampered\n');
@@ -211,6 +218,7 @@ final class _CapsuleFixture {
     required this.agent,
     required this.sourceCommit,
     required this.targetId,
+    required this.runtimeExecutable,
   });
 
   static Future<_CapsuleFixture> create({bool universal = false}) async {
@@ -220,7 +228,7 @@ final class _CapsuleFixture {
     final agent = Directory('${root.path}/agent')..createSync();
     final sourceCommit = 'a' * 40;
     final currentTargetId = _currentTargetId();
-    final currentArchitecture = currentTargetId == 'darwin-arm64'
+    final currentArchitecture = currentTargetId.endsWith('arm64')
         ? 'arm64'
         : 'x64';
     final targetId = universal ? 'darwin-universal' : currentTargetId;
@@ -228,6 +236,25 @@ final class _CapsuleFixture {
     final targetArchitectures = universal
         ? const <String>['arm64', 'x64']
         : <String>[currentArchitecture];
+    final targetPlatform = Platform.isMacOS
+        ? 'darwin'
+        : Platform.isWindows
+        ? 'win32'
+        : 'linux';
+    final runtimeExecutable = Platform.isWindows
+        ? 'runtime/node.exe'
+        : 'runtime/bin/node';
+    final npmCli = Platform.isWindows
+        ? 'runtime/node_modules/npm/bin/npm-cli.js'
+        : 'runtime/lib/node_modules/npm/bin/npm-cli.js';
+    final npmLicense = Platform.isWindows
+        ? 'runtime/node_modules/npm/LICENSE'
+        : 'runtime/lib/node_modules/npm/LICENSE';
+    final nativeObjectFormat = Platform.isMacOS
+        ? 'mach-o'
+        : Platform.isWindows
+        ? 'pe-coff'
+        : 'elf';
     final files = <String, String>{
       'app/dist/stdio-main.js': 'export const server = true;\n',
       'app/package.json': jsonEncode(<String, Object>{
@@ -249,19 +276,21 @@ final class _CapsuleFixture {
       'metadata/locks/protocol.bun.lock': 'protocol-lock\n',
       'metadata/schemas/capsule-manifest.schema.json': '{}\n',
       'runtime/LICENSE': 'Node license\n',
-      'runtime/bin/node': 'embedded node\n',
-      'runtime/lib/node_modules/npm/LICENSE': 'npm license\n',
-      'runtime/lib/node_modules/npm/bin/npm-cli.js': 'npm\n',
+      runtimeExecutable: 'embedded node\n',
+      npmLicense: 'npm license\n',
+      npmCli: 'npm\n',
     };
     for (final entry in files.entries) {
       final file = File('${capsule.path}/${entry.key}');
       file.parent.createSync(recursive: true);
       file.writeAsStringSync(entry.value);
     }
-    await Process.run('chmod', <String>[
-      '755',
-      '${capsule.path}/runtime/bin/node',
-    ]);
+    if (!Platform.isWindows) {
+      await Process.run('chmod', <String>[
+        '755',
+        '${capsule.path}/$runtimeExecutable',
+      ]);
+    }
 
     final entries = <Map<String, Object>>[];
     for (final path in files.keys.toList()..sort()) {
@@ -272,7 +301,9 @@ final class _CapsuleFixture {
         'type': 'file',
         'size': metadata.size,
         'sha256': (await sha256.bind(file.openRead()).first).toString(),
-        'executable': (metadata.mode & 0x49) != 0,
+        'executable': Platform.isWindows
+            ? path == runtimeExecutable
+            : (metadata.mode & 0x49) != 0,
       });
     }
     final entryByPath = <String, Map<String, Object>>{
@@ -288,7 +319,7 @@ final class _CapsuleFixture {
       'sourceCommit': sourceCommit,
       'target': <String, Object>{
         'id': targetId,
-        'platform': 'darwin',
+        'platform': targetPlatform,
         'architecture': targetArchitecture,
         'architectures': targetArchitectures,
       },
@@ -323,9 +354,10 @@ final class _CapsuleFixture {
           for (final architecture in targetArchitectures)
             <String, String>{
               'architecture': architecture,
-              'archiveName': 'node-v22.19.0-darwin-$architecture.tar.gz',
+              'archiveName':
+                  'node-v22.19.0-$targetPlatform-$architecture.fixture',
               'archiveUrl':
-                  'https://nodejs.org/dist/v22.19.0/node-$architecture.tar.gz',
+                  'https://nodejs.org/dist/v22.19.0/node-$targetPlatform-$architecture.fixture',
               'checksumsUrl': 'https://nodejs.org/dist/v22.19.0/SHASUMS256.txt',
               'archiveSha256': 'b' * 64,
               'checksumsSha256': 'c' * 64,
@@ -338,30 +370,29 @@ final class _CapsuleFixture {
               'arguments': const <String>[],
             },
         ],
-        'executable': 'runtime/bin/node',
-        'npmCli': 'runtime/lib/node_modules/npm/bin/npm-cli.js',
-        'licenses': <String>[
-          'runtime/LICENSE',
-          'runtime/lib/node_modules/npm/LICENSE',
-        ],
+        'executable': runtimeExecutable,
+        'npmCli': npmCli,
+        'licenses': <String>['runtime/LICENSE', npmLicense],
       },
       'application': <String, Object>{
         'packagePath': 'app/package.json',
         'entrypoint': 'app/dist/stdio-main.js',
         'protocolPackagePath': 'app/node_modules/@pi-client/protocol',
-        'launch': <String>['runtime/bin/node', 'app/dist/stdio-main.js'],
+        'launch': <String>[runtimeExecutable, 'app/dist/stdio-main.js'],
       },
       'nativeCode': <String, Object>{
-        'format': 'mach-o',
+        'format': Platform.isMacOS ? 'mach-o' : 'platform-native',
         'objects': <Map<String, Object>>[
           <String, Object>{
-            'path': 'runtime/bin/node',
+            'path': runtimeExecutable,
             'kind': 'runtime-executable',
-            'format': 'mach-o',
+            'format': nativeObjectFormat,
             'architectures': targetArchitectures,
           },
         ],
-        'signingOrder': <String>['runtime/bin/node'],
+        'signingOrder': Platform.isMacOS
+            ? <String>[runtimeExecutable]
+            : const <String>[],
       },
       'integrity': <String, Object>{
         'algorithm': 'sha256',
@@ -381,6 +412,7 @@ final class _CapsuleFixture {
       agent: agent,
       sourceCommit: sourceCommit,
       targetId: targetId,
+      runtimeExecutable: runtimeExecutable,
     );
   }
 
@@ -390,6 +422,7 @@ final class _CapsuleFixture {
   final Directory agent;
   final String sourceCommit;
   final String targetId;
+  final String runtimeExecutable;
 
   PlatformPiNodeRuntimeLocator locator({String? expectedSourceCommit}) =>
       PlatformPiNodeRuntimeLocator(
@@ -406,8 +439,14 @@ final class _CapsuleFixture {
 
 List<String> _runtimeArgumentsForCurrentArchitecture() => const <String>[];
 
+bool get _isDesktopHost =>
+    Platform.isMacOS || Platform.isWindows || Platform.isLinux;
+
 String _currentTargetId() => switch (Abi.current()) {
   Abi.macosArm64 => 'darwin-arm64',
   Abi.macosX64 => 'darwin-x64',
-  _ => throw UnsupportedError('macOS-only fixture'),
+  Abi.windowsX64 => 'win32-x64',
+  Abi.linuxArm64 => 'linux-arm64',
+  Abi.linuxX64 => 'linux-x64',
+  _ => throw UnsupportedError('Unsupported desktop fixture architecture'),
 };

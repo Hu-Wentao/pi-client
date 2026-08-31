@@ -121,6 +121,18 @@ install(CODE "
 install(DIRECTORY "${PROJECT_BUILD_DIR}/${FLUTTER_ASSET_DIR_NAME}"
   DESTINATION "${INSTALL_BUNDLE_DATA_DIR}" COMPONENT Runtime)
 
+# Release automation may provide a pre-verified, target-native Pi Node Capsule.
+# The production Dart locator resolves only this fixed bundle-relative path.
+if(DEFINED ENV{PI_CLIENT_RUNTIME_CAPSULE_PATH} AND NOT "$ENV{PI_CLIENT_RUNTIME_CAPSULE_PATH}" STREQUAL "")
+  file(TO_CMAKE_PATH "$ENV{PI_CLIENT_RUNTIME_CAPSULE_PATH}" PI_CLIENT_RUNTIME_CAPSULE_PATH)
+  if(NOT IS_DIRECTORY "${PI_CLIENT_RUNTIME_CAPSULE_PATH}")
+    message(FATAL_ERROR "PI_CLIENT_RUNTIME_CAPSULE_PATH is not a directory")
+  endif()
+  install(DIRECTORY "${PI_CLIENT_RUNTIME_CAPSULE_PATH}/"
+    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}/pi-client/PiNode"
+    COMPONENT Runtime)
+endif()
+
 # Install the AOT library on non-Debug builds only.
 if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
   install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"

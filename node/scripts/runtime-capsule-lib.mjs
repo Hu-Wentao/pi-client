@@ -6,6 +6,7 @@ import {
   cp,
   lstat,
   mkdir,
+  open,
   readFile,
   readdir,
   readlink,
@@ -34,6 +35,8 @@ export const PROTOCOL_LOCK_PATH = "metadata/locks/protocol.bun.lock";
 export const APPLICATION_ENTRYPOINT = "app/dist/stdio-main.js";
 export const APPLICATION_PACKAGE_PATH = "app/package.json";
 export const PROTOCOL_PACKAGE_PATH = "app/node_modules/@pi-client/protocol";
+export const PACKAGE_INVENTORY_PATH = "metadata/packages.json";
+export const LICENSE_INVENTORY_PATH = "metadata/licenses.json";
 
 export async function readJson(path) {
   return JSON.parse(await readFile(path, "utf8"));
@@ -201,7 +204,10 @@ async function collectDirectory(root, relativeDirectory, output) {
       type: "file",
       size: metadata.size,
       sha256: await sha256File(absolutePath),
-      executable: (metadata.mode & 0o111) !== 0,
+      executable:
+        process.platform === "win32"
+          ? relativePath === "runtime/node.exe"
+          : (metadata.mode & 0o111) !== 0,
     });
   }
 }
@@ -253,22 +259,20 @@ export async function collectNativeCodeInventory(capsuleRoot, target) {
     const relativePath = relative(capsuleRoot, path).split(sep).join("/");
     const nativeAddon = relativePath.endsWith(".node");
     const runtimeExecutable = relativePath === target.executable;
-    const description = runFileDescription(path);
-    const machO = description.includes("Mach-O");
-    if (!nativeAddon && !runtimeExecutable && !machO) return;
-    const architectures = machO ? readMachOArchitectures(path) : [];
+    const nativeBinary = await inspectNativeBinary(path);
+    if (!nativeAddon && !runtimeExecutable && nativeBinary.format === "unknown") return;
+    const dynamicLibrary = /\.(?:dll|dylib|so(?:\.[0-9]+)*)$/iu.test(relativePath);
     objects.push({
       path: relativePath,
-      kind:
-        relativePath === target.executable
-          ? "runtime-executable"
-          : nativeAddon
-            ? "native-addon"
-            : description.includes("dynamically linked shared library")
-              ? "dynamic-library"
-              : "executable",
-      format: machO ? "mach-o" : description.includes("PE32") ? "pe-coff" : "unknown",
-      architectures,
+      kind: runtimeExecutable
+        ? "runtime-executable"
+        : nativeAddon
+          ? "native-addon"
+          : dynamicLibrary
+            ? "dynamic-library"
+            : "executable",
+      format: nativeBinary.format,
+      architectures: nativeBinary.architectures,
     });
   });
   objects.sort((left, right) => compareText(left.path, right.path));
@@ -277,6 +281,71 @@ export async function collectNativeCodeInventory(capsuleRoot, target) {
     objects,
     signingOrder: expectedNativeSigningOrder(objects),
   };
+}
+
+export async function pruneNativeAddonsForTarget(appRoot, target) {
+  const removed = [];
+  const retained = [];
+  await visitTree(appRoot, async (path, metadata) => {
+    if (!metadata.isFile() || metadata.isSymbolicLink() || !path.endsWith(".node")) return;
+    const nativeBinary = await inspectNativeBinary(path);
+    const matchesPlatform = nativeBinary.format === expectedBinaryFormat(target.platform);
+    const matchesArchitecture = nativeBinary.architectures.some((architecture) =>
+      target.architectures.includes(architecture),
+    );
+    const relativePath = relative(appRoot, path).split(sep).join("/");
+    if (!matchesPlatform || !matchesArchitecture) {
+      await rm(path, { force: true });
+      removed.push(relativePath);
+    } else {
+      retained.push(relativePath);
+    }
+  });
+  removed.sort(compareText);
+  retained.sort(compareText);
+  return { removed, retained };
+}
+
+export async function inspectNativeBinary(path) {
+  if (process.platform === "darwin") {
+    const description = runFileDescription(path);
+    if (description.includes("Mach-O")) {
+      return { format: "mach-o", architectures: readMachOArchitectures(path) };
+    }
+  }
+  const handle = await open(path, "r");
+  try {
+    const header = Buffer.alloc(4096);
+    const { bytesRead } = await handle.read(header, 0, header.length, 0);
+    return inspectNativeBinaryBytes(header.subarray(0, bytesRead));
+  } finally {
+    await handle.close();
+  }
+}
+
+export function inspectNativeBinaryBytes(bytes) {
+  if (bytes.length >= 20 && bytes.subarray(0, 4).equals(Buffer.from([0x7f, 0x45, 0x4c, 0x46]))) {
+    const littleEndian = bytes[5] === 1;
+    const machine = littleEndian ? bytes.readUInt16LE(18) : bytes.readUInt16BE(18);
+    const architecture = machine === 0x3e ? "x64" : machine === 0xb7 ? "arm64" : undefined;
+    return { format: "elf", architectures: architecture ? [architecture] : [] };
+  }
+  if (bytes.length >= 0x40 && bytes[0] === 0x4d && bytes[1] === 0x5a) {
+    const peOffset = bytes.readUInt32LE(0x3c);
+    if (
+      peOffset + 6 <= bytes.length &&
+      bytes.subarray(peOffset, peOffset + 4).equals(Buffer.from("PE\0\0", "binary"))
+    ) {
+      const machine = bytes.readUInt16LE(peOffset + 4);
+      const architecture = machine === 0x8664 ? "x64" : machine === 0xaa64 ? "arm64" : undefined;
+      return { format: "pe-coff", architectures: architecture ? [architecture] : [] };
+    }
+  }
+  return { format: "unknown", architectures: [] };
+}
+
+function expectedBinaryFormat(platform) {
+  return platform === "darwin" ? "mach-o" : platform === "linux" ? "elf" : "pe-coff";
 }
 
 function expectedNativeSigningOrder(objects) {
@@ -738,8 +807,8 @@ export function validateManifestDocument(manifest) {
 function validateNativeCodeDocument(nativeCode, target) {
   requireRecord(nativeCode, "manifest.nativeCode");
   requireExactKeys(nativeCode, ["format", "objects", "signingOrder"], "manifest.nativeCode");
-  const expectedFormat = target.platform === "darwin" ? "mach-o" : "platform-native";
-  requireExactString(nativeCode.format, expectedFormat, "nativeCode format");
+  const expectedInventoryFormat = target.platform === "darwin" ? "mach-o" : "platform-native";
+  requireExactString(nativeCode.format, expectedInventoryFormat, "nativeCode format");
   if (!Array.isArray(nativeCode.objects) || !Array.isArray(nativeCode.signingOrder)) {
     throw new Error("Capsule native-code inventory must contain arrays.");
   }
@@ -757,7 +826,7 @@ function validateNativeCodeDocument(nativeCode, target) {
       !["runtime-executable", "native-addon", "dynamic-library", "executable"].includes(
         entry.kind,
       ) ||
-      !["mach-o", "pe-coff", "unknown"].includes(entry.format) ||
+      !["elf", "mach-o", "pe-coff", "unknown"].includes(entry.format) ||
       !Array.isArray(entry.architectures) ||
       entry.architectures.some(
         (architecture, index) =>
@@ -767,11 +836,11 @@ function validateNativeCodeDocument(nativeCode, target) {
     ) {
       throw new Error(`Capsule native-code metadata is invalid at ${path}.`);
     }
-    if (entry.format === "mach-o" && entry.architectures.length === 0) {
-      throw new Error(`Mach-O object ${path} has no architecture inventory.`);
+    if (entry.format === "unknown" && entry.architectures.length !== 0) {
+      throw new Error(`Unknown native object ${path} declares an architecture.`);
     }
-    if (entry.format !== "mach-o" && entry.architectures.length !== 0) {
-      throw new Error(`Non-Mach-O object ${path} declares Mach-O architectures.`);
+    if (entry.format !== "unknown" && entry.architectures.length === 0) {
+      throw new Error(`Native object ${path} has no architecture inventory.`);
     }
     if ((entry.kind === "native-addon") !== path.endsWith(".node")) {
       throw new Error(`Capsule native-addon classification is invalid at ${path}.`);
@@ -786,14 +855,31 @@ function validateNativeCodeDocument(nativeCode, target) {
       architectures: [...entry.architectures],
     });
   }
+  const expectedFormat = expectedBinaryFormat(target.platform);
   const runtimeObject = objects.find((entry) => entry.kind === "runtime-executable");
   if (
     !runtimeObject ||
-    runtimeObject.format !== (target.platform === "darwin" ? "mach-o" : runtimeObject.format) ||
-    (target.platform === "darwin" &&
-      stableStringify(runtimeObject.architectures) !== stableStringify(target.architectures))
+    runtimeObject.format !== expectedFormat ||
+    stableStringify(runtimeObject.architectures) !== stableStringify(target.architectures)
   ) {
     throw new Error("Capsule runtime executable architecture inventory is incomplete.");
+  }
+  for (const nativeObject of objects) {
+    const architecturesMatch =
+      target.platform === "darwin"
+        ? target.architectures.length === 1
+          ? nativeObject.architectures.includes(target.architectures[0])
+          : nativeObject.architectures.every((architecture) =>
+              target.architectures.includes(architecture),
+            )
+        : stableStringify(nativeObject.architectures) === stableStringify(target.architectures);
+    if (
+      nativeObject.format !== expectedFormat ||
+      nativeObject.architectures.length === 0 ||
+      !architecturesMatch
+    ) {
+      throw new Error(`Capsule native object ${nativeObject.path} does not match ${target.id}.`);
+    }
   }
   const expectedOrder = expectedNativeSigningOrder(objects);
   if (stableStringify(nativeCode.signingOrder) !== stableStringify(expectedOrder)) {
@@ -1034,11 +1120,117 @@ async function collectPackage(packageRoot, output, visitedRealPaths) {
     path: packageRoot,
     name: packageJson.name,
     version: packageJson.version,
+    license: normalizeDeclaredLicense(packageJson.license),
     requiredDependencies: Object.keys(packageJson.dependencies ?? {}).sort(),
     optionalDependencies: Object.keys(packageJson.optionalDependencies ?? {}).sort(),
     peerDependencies: Object.keys(packageJson.peerDependencies ?? {}).sort(),
   });
   await collectNodeModules(resolve(packageRoot, "node_modules"), output, visitedRealPaths);
+}
+
+export async function writePackageLicenseInventories(capsuleRoot) {
+  const inventories = await createPackageLicenseInventories(capsuleRoot);
+  await Promise.all([
+    writeDeterministicJson(
+      resolveCapsulePath(capsuleRoot, PACKAGE_INVENTORY_PATH),
+      inventories.packages,
+    ),
+    writeDeterministicJson(
+      resolveCapsulePath(capsuleRoot, LICENSE_INVENTORY_PATH),
+      inventories.licenses,
+    ),
+  ]);
+  return inventories;
+}
+
+export async function verifyPackageLicenseInventories(capsuleRoot) {
+  const expected = await createPackageLicenseInventories(capsuleRoot);
+  const [packages, licenses] = await Promise.all([
+    readJson(resolveCapsulePath(capsuleRoot, PACKAGE_INVENTORY_PATH)),
+    readJson(resolveCapsulePath(capsuleRoot, LICENSE_INVENTORY_PATH)),
+  ]);
+  if (stableStringify(packages) !== stableStringify(expected.packages)) {
+    throw new Error("Capsule package inventory does not match installed production packages.");
+  }
+  if (stableStringify(licenses) !== stableStringify(expected.licenses)) {
+    throw new Error("Capsule license inventory does not match installed package license evidence.");
+  }
+  return expected;
+}
+
+async function createPackageLicenseInventories(capsuleRoot) {
+  const installed = await collectInstalledPackages(resolve(capsuleRoot, "app/node_modules"));
+  const packages = [];
+  const packageLicenses = [];
+  for (const entry of installed) {
+    const packagePath = relative(capsuleRoot, entry.path).split(sep).join("/");
+    const licenseFiles = [];
+    for (const name of (await readdir(entry.path)).sort(compareText)) {
+      if (!/^(?:licen[cs]e|copying|notice)(?:[._-].*)?$/iu.test(name)) continue;
+      const path = resolve(entry.path, name);
+      const metadata = await lstat(path);
+      if (!metadata.isFile() || metadata.isSymbolicLink()) continue;
+      licenseFiles.push({
+        path: `${packagePath}/${name}`,
+        sha256: await sha256File(path),
+        size: metadata.size,
+      });
+    }
+    packages.push({
+      name: entry.name,
+      version: entry.version,
+      path: packagePath,
+      declaredLicense: entry.license,
+    });
+    packageLicenses.push({
+      name: entry.name,
+      version: entry.version,
+      path: packagePath,
+      declaredLicense: entry.license,
+      files: licenseFiles,
+    });
+  }
+  packages.sort((left, right) => compareText(left.path, right.path));
+  packageLicenses.sort((left, right) => compareText(left.path, right.path));
+  const runtimeLicenses = [];
+  for (const path of [
+    "runtime/LICENSE",
+    "runtime/lib/node_modules/npm/LICENSE",
+    "runtime/node_modules/npm/LICENSE",
+  ]) {
+    const absolute = resolve(capsuleRoot, ...path.split("/"));
+    let metadata;
+    try {
+      metadata = await lstat(absolute);
+    } catch (error) {
+      if (error?.code === "ENOENT") continue;
+      throw error;
+    }
+    if (metadata.isFile() && !metadata.isSymbolicLink()) {
+      runtimeLicenses.push({ path, sha256: await sha256File(absolute), size: metadata.size });
+    }
+  }
+  return {
+    packages: {
+      schemaVersion: 1,
+      packageCount: packages.length,
+      packages,
+    },
+    licenses: {
+      schemaVersion: 1,
+      packageCount: packageLicenses.length,
+      packages: packageLicenses,
+      runtimes: runtimeLicenses,
+    },
+  };
+}
+
+function normalizeDeclaredLicense(value) {
+  if (typeof value === "string" && value.trim()) return value.trim();
+  if (value && typeof value === "object" && typeof value.type === "string" && value.type.trim()) {
+    return value.type.trim();
+  }
+  return null;
 }
 
 export async function verifyProductionDependencyTree(appRoot) {
@@ -1244,6 +1436,12 @@ export function isolatedRuntimeEnvironment(runtimeBin, baseEnvironment = process
   }
   if (baseEnvironment.WINDIR) {
     environment.WINDIR = baseEnvironment.WINDIR;
+  }
+  if (baseEnvironment.COMSPEC) {
+    environment.COMSPEC = baseEnvironment.COMSPEC;
+  }
+  if (baseEnvironment.PATHEXT) {
+    environment.PATHEXT = baseEnvironment.PATHEXT;
   }
   return environment;
 }

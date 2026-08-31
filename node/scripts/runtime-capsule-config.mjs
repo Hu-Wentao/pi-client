@@ -25,6 +25,15 @@ const distributionDefinitions = {
     archiveRoot: `node-v${NODE_RUNTIME_VERSION}-darwin-x64`,
     archiveSha256: "3cfed4795cd97277559763c5f56e711852d2cc2420bda1cea30c8aa9ac77ce0c",
   },
+  "linux-arm64": {
+    id: "linux-arm64",
+    platform: "linux",
+    architecture: "arm64",
+    archiveKind: "tar.xz",
+    archiveName: `node-v${NODE_RUNTIME_VERSION}-linux-arm64.tar.xz`,
+    archiveRoot: `node-v${NODE_RUNTIME_VERSION}-linux-arm64`,
+    archiveSha256: "0b2d9f564b6594222a62c82e1df2efe119dd4a4aff29644f4dd325bf360b6bcc",
+  },
   "linux-x64": {
     id: "linux-x64",
     platform: "linux",
@@ -49,6 +58,7 @@ const targetDefinitions = {
   "darwin-arm64": targetFromDistributions("darwin-arm64", ["darwin-arm64"]),
   "darwin-x64": targetFromDistributions("darwin-x64", ["darwin-x64"]),
   "darwin-universal": targetFromDistributions("darwin-universal", ["darwin-arm64", "darwin-x64"]),
+  "linux-arm64": targetFromDistributions("linux-arm64", ["linux-arm64"]),
   "linux-x64": targetFromDistributions("linux-x64", ["linux-x64"]),
   "win32-x64": targetFromDistributions("win32-x64", ["win32-x64"]),
 };
@@ -112,6 +122,7 @@ function targetFromDistributions(id, distributionIds) {
       platform === "win32"
         ? "runtime/node_modules/npm/LICENSE"
         : "runtime/lib/node_modules/npm/LICENSE",
+    packageManagerOs: platform,
   };
 }
 

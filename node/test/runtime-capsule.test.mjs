@@ -7,6 +7,7 @@ import test from "node:test";
 import {
   assertCapsuleFileModes,
   createCapsuleManifest,
+  inspectNativeBinaryBytes,
   makeTreeReadOnly,
   normalizeCapsuleFileModes,
   removeTreeEvenIfReadOnly,
@@ -34,6 +35,11 @@ const targetExpectations = {
     architecture: "x64",
     archive: `node-v${NODE_RUNTIME_VERSION}-darwin-x64.tar.gz`,
     sha256: "3cfed4795cd97277559763c5f56e711852d2cc2420bda1cea30c8aa9ac77ce0c",
+  },
+  "linux-arm64": {
+    architecture: "arm64",
+    archive: `node-v${NODE_RUNTIME_VERSION}-linux-arm64.tar.xz`,
+    sha256: "0b2d9f564b6594222a62c82e1df2efe119dd4a4aff29644f4dd325bf360b6bcc",
   },
   "linux-x64": {
     architecture: "x64",
@@ -74,9 +80,30 @@ test("Universal macOS target preserves both official architecture archives", () 
 
 test("archive mapping rejects unsupported targets", () => {
   assert.throws(
-    () => resolveNodeDistribution("linux-arm64"),
+    () => resolveNodeDistribution("linux-riscv64"),
     /Unsupported Pi Node capsule target/u,
   );
+});
+
+test("portable native binary inspection recognizes ELF and PE architectures", () => {
+  const elfX64 = Buffer.alloc(64);
+  Buffer.from([0x7f, 0x45, 0x4c, 0x46]).copy(elfX64);
+  elfX64[5] = 1;
+  elfX64.writeUInt16LE(0x3e, 18);
+  assert.deepEqual(inspectNativeBinaryBytes(elfX64), {
+    format: "elf",
+    architectures: ["x64"],
+  });
+
+  const peArm64 = Buffer.alloc(256);
+  peArm64.write("MZ", 0, "binary");
+  peArm64.writeUInt32LE(128, 0x3c);
+  peArm64.write("PE\0\0", 128, "binary");
+  peArm64.writeUInt16LE(0xaa64, 132);
+  assert.deepEqual(inspectNativeBinaryBytes(peArm64), {
+    format: "pe-coff",
+    architectures: ["arm64"],
+  });
 });
 
 test("Bun lock parsing removes only trailing commas outside strings", () => {

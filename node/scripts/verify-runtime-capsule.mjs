@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import { mkdir, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, resolve } from "node:path";
+import { delimiter, dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
@@ -20,6 +20,7 @@ import {
   scanForbiddenArtifacts,
   validateManifestDocument,
   verifyLockCopies,
+  verifyPackageLicenseInventories,
   verifyPackageMetadata,
   verifyPayloadIntegrity,
   verifyRuntimeMetadata,
@@ -57,6 +58,7 @@ async function main() {
   await verifyPayloadIntegrity(capsuleRoot, manifest);
   await verifyLockCopies(capsuleRoot, manifest);
   const packages = await verifyPackageMetadata(capsuleRoot, manifest);
+  const inventories = await verifyPackageLicenseInventories(capsuleRoot);
   await scanForbiddenArtifacts(capsuleRoot);
   for (const licensePath of manifest.runtime.licenses) {
     const metadata = await stat(resolveCapsulePath(capsuleRoot, licensePath, "runtime license"));
@@ -77,6 +79,8 @@ async function main() {
         payloadFileCount: manifest.integrity.payloadFileCount,
         payloadSize: manifest.integrity.payloadSize,
         installedPackageCount: packages.length,
+        packageInventoryCount: inventories.packages.packageCount,
+        licenseInventoryCount: inventories.licenses.packageCount,
         nodeVersion: manifest.versions.node,
         npmVersion: manifest.versions.npm,
         piSdkVersion: manifest.versions.piSdk,
@@ -112,7 +116,9 @@ function assertHostCanExecuteTarget(target) {
 }
 
 async function runArchitectureFixtures(capsule, manifest, runtime) {
-  if (manifest.target.platform !== "darwin") return [];
+  if (manifest.target.platform !== "darwin") {
+    return [await runPortableNativeAddonFixture(capsule, manifest, runtime)];
+  }
   const fixtures = [];
   const piTuiAddons = manifest.nativeCode.objects.filter(
     (entry) =>
@@ -232,6 +238,61 @@ async function runArchitectureFixtures(capsule, manifest, runtime) {
   return fixtures;
 }
 
+async function runPortableNativeAddonFixture(capsule, manifest, runtime) {
+  const architecture = manifest.target.architectures[0];
+  const clipboardAddon = manifest.nativeCode.objects.find(
+    (entry) =>
+      entry.kind === "native-addon" &&
+      entry.path.includes("@mariozechner/clipboard-") &&
+      entry.architectures.length === 1 &&
+      entry.architectures[0] === architecture,
+  );
+  if (!clipboardAddon) {
+    throw new Error(`Capsule is missing the ${manifest.target.id} clipboard native addon.`);
+  }
+  const piTuiAddon = manifest.nativeCode.objects.find(
+    (entry) =>
+      entry.kind === "native-addon" &&
+      entry.path.includes("@earendil-works/pi-tui/native/win32/prebuilds/win32-x64/") &&
+      entry.architectures.length === 1 &&
+      entry.architectures[0] === architecture,
+  );
+  if (manifest.target.platform === "win32" && !piTuiAddon) {
+    throw new Error("Windows Capsule is missing the x64 Pi TUI console-mode addon.");
+  }
+  const clipboardPackage = resolve(capsule, "app/node_modules/@mariozechner/clipboard/index.js");
+  const fixtureScript = [
+    'import { createRequire } from "node:module";',
+    "const require = createRequire(import.meta.url);",
+    `const clipboard = require(${JSON.stringify(clipboardPackage)});`,
+    'if (typeof clipboard.getText !== "function") throw new Error("clipboard addon API missing");',
+    ...(piTuiAddon
+      ? [
+          `const consoleMode = require(${JSON.stringify(resolveCapsulePath(capsule, piTuiAddon.path, "Pi TUI native addon"))});`,
+          'if (typeof consoleMode.enableVirtualTerminalInput !== "function") throw new Error("Pi TUI addon API missing");',
+        ]
+      : []),
+    "process.stdout.write(JSON.stringify({architecture: process.arch, clipboardNativeAddon: true, piTuiNativeAddon: " +
+      `${Boolean(piTuiAddon)}}));`,
+  ].join("\n");
+  const result = await runCaptured(
+    runtime.executable,
+    [...runtime.runtimeArguments, "--input-type=module", "--eval", fixtureScript],
+    { cwd: capsule, env: runtime.isolatedEnvironment },
+  );
+  const loaded = JSON.parse(result.stdout);
+  if (loaded.architecture !== architecture) {
+    throw new Error(
+      `Native addon fixture expected ${architecture}; Node reported ${loaded.architecture}.`,
+    );
+  }
+  return {
+    ...loaded,
+    clipboardAddon: clipboardAddon.path,
+    piTuiAddon: piTuiAddon?.path ?? null,
+  };
+}
+
 function runCapturedForArchitecture(executable, arguments_, architecture, options) {
   if (process.platform !== "darwin") return runCaptured(executable, arguments_, options);
   const archName = architecture === "x64" ? "x86_64" : architecture;
@@ -246,7 +307,7 @@ function spawnArchitectureSync(executable, arguments_, architecture) {
 }
 
 async function runRuntimeProtocolE2e(capsule, capsuleManifest, runtime) {
-  const verificationRoot = resolve("/tmp", `pi-e2e-${process.pid}-${randomUUID().slice(0, 8)}`);
+  const verificationRoot = resolve(tmpdir(), `pi-e2e-${process.pid}-${randomUUID().slice(0, 8)}`);
   const cwd = resolve(verificationRoot, "project");
   const agentDir = resolve(verificationRoot, "agent");
   const sessionDir = resolve(verificationRoot, "sessions");
@@ -258,8 +319,13 @@ async function runRuntimeProtocolE2e(capsule, capsuleManifest, runtime) {
       mkdir(path, { recursive: true }),
     ),
   );
-  if (process.platform === "darwin") {
+  let gitDirectory = toolBin;
+  if (process.platform === "darwin" || process.platform === "linux") {
     await symlink("/usr/bin/git", resolve(toolBin, "git"));
+  } else if (process.platform === "win32") {
+    const locatedGit = spawnSync("where.exe", ["git.exe"], { encoding: "utf8" });
+    if (locatedGit.status !== 0) throw new Error("Windows runtime E2E requires Git for Windows.");
+    gitDirectory = dirname(locatedGit.stdout.split(/\r?\n/u).find(Boolean));
   }
   await writeFile(
     resolve(agentDir, "settings.json"),
@@ -282,9 +348,9 @@ async function runRuntimeProtocolE2e(capsule, capsuleManifest, runtime) {
     HOME: home,
     TMPDIR: temporary,
     PI_CODING_AGENT_DIR: agentDir,
-    PATH: `${runtime.runtimeBin}:${toolBin}`,
+    PATH: `${runtime.runtimeBin}${delimiter}${gitDirectory}`,
   };
-  assert.equal(environment.PATH, `${runtime.runtimeBin}:${toolBin}`);
+  assert.equal(environment.PATH, `${runtime.runtimeBin}${delimiter}${gitDirectory}`);
   const piSdkUrl = pathToFileURL(
     resolve(capsule, "app/node_modules/@earendil-works/pi-coding-agent/dist/index.js"),
   ).href;
