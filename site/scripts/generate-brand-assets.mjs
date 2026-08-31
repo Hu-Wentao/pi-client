@@ -9,7 +9,6 @@ const repositoryRoot = resolve(scriptDirectory, '../..');
 const markSource = resolve(repositoryRoot, 'assets/brand/pi-client-mark.svg');
 const socialCardSource = resolve(repositoryRoot, 'assets/brand/social-card.svg');
 const publicAssets = resolve(repositoryRoot, 'site/public/assets');
-const screenshotSource = resolve(publicAssets, 'workspace-preview.png');
 const appIconDirectory = resolve(
   repositoryRoot,
   'macos/Runner/Assets.xcassets/AppIcon.appiconset',
@@ -34,10 +33,4 @@ await sharp(await readFile(socialCardSource), { density: 192 })
   .png({ compressionLevel: 9, palette: false })
   .toFile(resolve(publicAssets, 'social-card.png'));
 
-await sharp(screenshotSource)
-  .webp({ quality: 84, effort: 6 })
-  .toFile(resolve(publicAssets, 'workspace-preview.webp'));
-
-console.log(
-  'Generated Pi Client favicon, macOS app icons, social card, and screenshot WebP.',
-);
+console.log('Generated Pi Client favicon, macOS app icons, and social card.');

@@ -47,7 +47,8 @@ mdq:
 - `v0.0.1` 是不可变历史 annotated tag，不能移动到当前代码，也没有 Release 资产。
 - 当前没有 Developer ID、Notarization 或 DMG 发布证据。
 - WebAssembly Client 依赖尚未冻结的第一方 Pi SDK/transport、Friday Workspace 和浏览器安全边界，本计划不实现它。
-- `PLAN-PI-004` 在不改写当前 `v0.0.2` 的前提下建立未来六平台 CI 和 Preview Artifact Profile；本计划继续只拥有现有 macOS 下载与 Landing Page 事实。
+- `PLAN-PI-004` 在不改写当前 `v0.0.2` 的前提下建立未来六平台 CI 和 Preview Artifact Profile；本计划继续拥有不可变 macOS Release 与历史 Landing Page 事实。
+- `DEC-017` 与 `PLAN-PI-005` 已取代当前产品页的内容和 CTA；以下下载、截图和旧页面验收内容只记录历史，不再约束当前产品展示。
 - 用户已确认 `https://wyattcoder.top/pi-client/` 是错误部署目标；Landing Page 的规范域名为 `https://pi.wyattcoder.top/`，旧路径的历史部署证据不能替代该域名的生产验收。
 
 ### 已实现源码范围
@@ -100,7 +101,7 @@ mdq:
 - 未签名 Preview 偏好不迁移到未来签名版；用户可删除独立 Preview 数据而不影响标准目录。
 - 签名、公证和 DMG 是后续独立目标，需要 Apple 开发者身份与发布授权。
 - WebAssembly Client 继续由 `PLAN-PI-002` 及未来正式 Pi SDK/transport 决策约束，不进入本计划。
-- 下一版本的跨平台 Preview 资格与聚合发布由 `PLAN-PI-004` 约束；在其公开产物存在前，Landing Page 继续只声明当前 macOS 下载。
+- 下一版本的跨平台 Preview 资格与聚合发布由 `PLAN-PI-004` 约束；当前产品页不再声明或渲染历史 macOS 下载，未来下载入口必须由新的已验证发布事实单独恢复。
 
 ### 完成条件
 

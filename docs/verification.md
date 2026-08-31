@@ -116,9 +116,9 @@ mdq:
 
 - Status: PASS
 - Requirements: REQ-PI-004, REQ-PI-012
-- Owner: `test/app_storage_test.dart`, `test/marketing_screenshot_test.dart`, `site/scripts/validate-built-site.mjs`, Astro checks, Flutter checks, and local macOS build inspection
+- Owner: historical `test/marketing_screenshot_test.dart@4b699c42f7fbe34386f8bb91688e27955c9ee947`, `test/app_storage_test.dart`, the historical built-site validator, Astro checks, Flutter checks, and local macOS build inspection
 - Evidence: Distribution-channel tests prove standard/Preview directory and key selection without changing Windows/Linux debug storage; the committed 1280 × 800 screenshot renders synthetic data with real Flutter fonts and icons, with cross-host raster variance bounded to 0.02%; brand generation is source-controlled; English and Chinese static routes build with exact metadata, base-aware assets, exact `v0.0.2` CTA, and no client JavaScript; Flutter analysis/tests and macOS build gates qualify the source.
-- Scope limit: This PASS proves committed source and locally executable workflow logic only. It does not prove a pushed tag, public GitHub Release asset, GitHub-hosted workflow run, Pages deployment, notarization, Gatekeeper trust, or production-browser acceptance.
+- Scope limit: This PASS is historical evidence for the superseded download-oriented page. It does not approve the current independent-product content defined by `REQ-PI-014`, nor prove a pushed tag, public GitHub Release asset, GitHub-hosted workflow run, Pages deployment, notarization, Gatekeeper trust, or production-browser acceptance.
 
 ## VER-PI-013 - Public Release and GitHub Pages acceptance
 
@@ -143,3 +143,11 @@ mdq:
 - Owner: `.github/workflows/ci.yml`, `.github/workflows/release-preview.yml`, GitHub Actions artifacts, GitHub Release readback, and Pages admission
 - Planned evidence: One full commit passes the six-platform native runner matrix; `qualify` emits the exact `six-platform-preview-v1` bundle and matching stage evidence/manifest/checksums; an independently authorized `publish` creates the annotated Tag or resumes it with the original qualification run ID and exact retained bundle, verifies every existing, repaired starter, or newly uploaded Draft asset by service metadata and downloaded SHA-256, publishes the Prerelease, and dispatches Pages from that annotated Tag only after the complete asset set is public.
 - Gap: The current release contract intentionally remains `macos-preview-v1` for immutable `v0.0.2`, and no next-version `qualify` or `publish` run is authorized or available yet. Formal platform signing and store delivery remain outside this Preview verification.
+
+## VER-PI-016 - Independent product Landing Page
+
+- Status: PASS
+- Requirements: REQ-PI-014
+- Owner: Astro checks, `site/scripts/validate-built-site.mjs`, brand generation, Node release/workflow policy tests, mdq contract checks, GitHub Pages run evidence, and production HTTP/content verification
+- Evidence: `bun run brand`, Astro check/build, and built-site validation pass for English and Simplified Chinese routes with canonical `pi.wyattcoder.top` metadata, root-relative brand assets, six platform names, verified platform-role wording, GitHub/contribution CTAs, active-development disclosure, and no client JavaScript. Validation derives the historical download URL from the immutable Release contract and rejects it together with legacy runtime text, archived version text, retired screenshots, and `/pi-client/` paths. All 52 focused Release contract, Preview artifact, and workflow policy Node tests pass, preserving historical release automation while preventing the current page from rendering its metadata.
+- Scope limit: This PASS proves local source and deterministic build behavior only. The exact integrated `main` commit, successful Pages run, and production HTTP/content readback remain required before `PLAN-PI-005` can be Completed.
