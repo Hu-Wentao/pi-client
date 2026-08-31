@@ -1,110 +1,130 @@
 # Pi Client
 
-Pi Client is a Flutter client for the [pi coding agent](https://github.com/earendil-works/pi). One codebase targets Android, iOS, macOS, Windows, Linux, and Web.
+Pi Client is an independent, cross-platform Flutter client for the [pi coding agent](https://github.com/earendil-works/pi). One codebase targets Android, iOS, macOS, Windows, Linux, and Web.
 
-Visit the [Pi Client product page](https://wyattcoder.top/pi-client/) for the bilingual overview, sanitized product screenshot, and current release download.
+Pi Client owns its application architecture, Pi Node service, protocol, transports, product requirements, and release process. Early planning consulted the information structure of a separate Web client. That consultation does not define any current requirement, protocol, implementation, compatibility target, runtime dependency, build dependency, or product relationship.
 
-Pi Client `0.0.2` is an early macOS Preview. Its current workspace connects through [pi-web](https://github.com/agegr/pi-web) `0.8.11` as a transitional compatibility bridge while the project works toward its own versioned, Pi SDK-based transport.
+## Architecture
 
-The platform roles are intentionally different:
+```text
+Flutter Pi Client
+  -> app-owned PiNodeApi
+     -> project-owned Pi Protocol and transport
+        -> first-party Pi Node
+           -> reviewed public Pi SDK boundary
+```
 
-| Platform | Connect to an Agent host | Run Pi SDK and host an Agent |
+The desktop Local Direct path runs Pi Node as a separate process. Pi Node owns the Pi SDK lifecycle, project trust, sessions, tools, host operations, and future provider credentials. Flutter owns presentation, navigation, transient interaction state, and non-sensitive preferences.
+
+The platform roles and current connectivity are intentionally different:
+
+| Platform | Product role | Current source connectivity |
 | --- | --- | --- |
-| macOS, Windows, Linux | Yes | Platform capability is allowed; the runtime integration is not implemented yet |
-| Android, iOS, Web | Yes | No |
+| macOS, Windows, Linux | Agent-host-capable client | Local Direct source is implemented; supported packaging and release qualification are incomplete |
+| Android, iOS, Web | Remote client only | Remote transport is not implemented |
 
-Android, iOS, and Web are connect-only clients. They must not embed Pi SDK, launch an Agent runtime, expose host tools, or obtain host filesystem authority.
+Android, iOS, and Web must not embed the Pi SDK, launch an Agent runtime, expose host tools, or obtain host filesystem authority.
 
-## Current implementation status
+## Current source status
 
-The repository contains all six Flutter platform projects and a tested `PlatformCapabilities` contract for the platform roles. The actual desktop Pi SDK host, Pi Node transport, Friday authentication, tunnel, and end-to-end encryption are still planned.
+The current source includes:
 
-The current workspace screen remains the legacy MVP implementation. It connects to pi-web `0.8.11` for session and Agent interactions. This adapter is retained for migration and verification only; pi-web is not the target Pi Client runtime or protocol authority.
+- A typed `PiNodeApi` and first-party Protobuf protocol implementation for Dart and TypeScript.
+- A first-party Pi Node that integrates reviewed public Pi SDK package entry points.
+- A desktop Local Direct transport, host controller, and verified runtime Capsule tooling.
+- Workspace behavior for project trust, session discovery and administration, paged history, branching, export, prompts, ordered events, and cancellation.
+- Focused Dart, TypeScript, cross-language protocol, cross-process, runtime Capsule, and platform-role tests.
 
-## What you can do today
+The first-party architecture is implemented in source, but it is not yet a supported public release. The public `v0.0.2` prerelease predates this architecture and remains historical release evidence only. Do not use that artifact to infer the current source setup or runtime design.
 
-With the legacy workspace adapter, you can:
+Friday Workspace, native authentication, end-to-end encrypted remote transport, full remote-client connectivity, and the remaining `1.0.0` feature set are still planned or incomplete. Local Direct remains independent of Friday services.
 
-- Connect to a reachable pi-web service.
-- Browse and refresh session summaries.
-- Open a session and read its visible message history.
-- Create a session for an absolute project directory.
-- Send prompts and watch Agent output as it arrives.
-- Stop an active Agent run.
-- See connection, loading, error, streaming, and reconnecting states.
+## Set up the repository
 
-Pi-web continues to own sessions, models, tools, provider credentials, project access, and Agent execution for this legacy path.
+Install these prerequisites:
 
-## Download the macOS Preview
+- [FVM](https://fvm.app/)
+- Bun `1.4.0`
+- Node.js `22.19.0`
+- The native toolchain for your target platform
 
-The current downloadable artifact is a Universal macOS Preview for Apple silicon and Intel Macs. Other platform projects are source/build baselines and do not yet have published downloads.
+The repository selects Flutter `3.41.6` through `.fvmrc`.
 
-1. Download both files from the [`v0.0.2` prerelease](https://github.com/Hu-Wentao/pi-client/releases/tag/v0.0.2):
-
-   - [`Pi-Client-0.0.2-macOS-universal.zip`](https://github.com/Hu-Wentao/pi-client/releases/download/v0.0.2/Pi-Client-0.0.2-macOS-universal.zip)
-   - [`Pi-Client-0.0.2-macOS-universal.zip.sha256`](https://github.com/Hu-Wentao/pi-client/releases/download/v0.0.2/Pi-Client-0.0.2-macOS-universal.zip.sha256)
-
-2. From the directory that contains both files, verify the download:
-
-   ```bash
-   shasum -a 256 -c Pi-Client-0.0.2-macOS-universal.zip.sha256
-   ```
-
-3. Extract the ZIP.
-
-4. In Finder, Control-click `Pi Client.app`, select **Open**, then confirm **Open** in the warning dialog.
-
-> **Unsigned Preview:** Version `0.0.2` is not signed with an Apple Developer ID and is not notarized. Gatekeeper warnings are expected. Install it only if you trust this repository and the checksum. Do not remove quarantine metadata with a shell command. A signed, notarized DMG is not available yet.
-
-The unsigned Preview stores only non-sensitive preferences in `fr_storage_unsigned_preview`. Its fixed public storage key avoids unavailable Keychain entitlements and provides no secrecy. A future signed release will use the standard secure-storage path and will not automatically inherit Preview preferences. The pi-web password is never persisted.
-
-## Set up the project
-
-You need [FVM](https://fvm.app/) and the native toolchain for the platform that you want to build. The repository selects Flutter `3.41.6` through `.fvmrc`. The current native minimums include macOS 11.0 and iOS 15.0; Android uses the minimum SDK from the pinned Flutter toolchain.
-
-Install the selected Flutter SDK and dependencies:
+Install the Flutter dependencies:
 
 ```bash
 fvm install
 fvm flutter pub get
 ```
 
-List available devices:
+Install and build the protocol and Pi Node packages:
+
+```bash
+(
+  cd protocol
+  bun install --frozen-lockfile
+)
+
+(
+  cd node
+  bun install --frozen-lockfile
+  bun run build
+)
+```
+
+## Run a desktop development build
+
+A normal source build does not silently download or trust an Agent runtime. For local development, build Pi Node and pass the complete development runtime configuration explicitly.
+
+The following macOS or Linux example runs the app with the local Node.js executable and built Pi Node entry point:
+
+```bash
+ROOT="$(pwd -P)"
+
+fvm flutter run -d DEVICE_ID \
+  --dart-define=PI_CLIENT_ALLOW_DEVELOPMENT_RUNTIME_FALLBACK=true \
+  --dart-define=PI_CLIENT_DEVELOPMENT_NODE_EXECUTABLE="$(command -v node)" \
+  --dart-define=PI_CLIENT_DEVELOPMENT_NODE_ENTRYPOINT="$ROOT/node/dist/stdio-main.js" \
+  --dart-define=PI_CLIENT_DEVELOPMENT_NODE_CWD="$ROOT" \
+  --dart-define=PI_CLIENT_DEVELOPMENT_AGENT_DIR="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
+```
+
+Replace `DEVICE_ID` with a desktop device from this command:
 
 ```bash
 fvm flutter devices
 ```
 
-Run the app by replacing `DEVICE_ID` with a listed device ID:
+Release builds reject the development fallback. Packaged desktop applications must contain a compatible, integrity-verified runtime Capsule.
+
+## Run the checks
+
+Run the Flutter checks from the repository root:
 
 ```bash
-fvm flutter run -d DEVICE_ID
+fvm dart format --output=none --set-exit-if-changed lib test tool
+fvm dart run build_runner build
+fvm flutter analyze
+fvm flutter test
 ```
 
-## Run the legacy workspace
-
-To use the current workspace features, start pi-web and keep it running:
+Run the protocol and Pi Node checks:
 
 ```bash
-npx @agegr/pi-web@0.8.11 --no-open
+(
+  cd protocol
+  bun run check
+)
+
+(
+  cd node
+  bun run check
+)
 ```
-
-The default address is `http://127.0.0.1:30141`. Loopback reaches the same device as Pi Client, so a mobile device or browser normally needs a host URL that it can reach over the network. Use HTTPS for remote connections; the Android and iOS projects do not enable unrestricted cleartext traffic.
-
-If pi-web uses `PI_WEB_PASSWORD`, enter the same password in Pi Client. The Basic Authentication username is fixed to `pi`.
-
-To set a different initial URL when running from source, use `PI_CLIENT_BASE_URL`:
-
-```bash
-fvm flutter run -d DEVICE_ID \
-  --dart-define=PI_CLIENT_BASE_URL=https://pi.example.com
-```
-
-Pi Client does not accept a password through `--dart-define`.
 
 ## Build a platform target
 
-Run each native desktop build on its target operating system. Android, iOS, macOS, and Web can be built from a configured macOS development host.
+Build each native desktop target on its target operating system. Android, iOS, macOS, and Web can be built from a configured macOS development host.
 
 ```bash
 fvm flutter build apk --debug
@@ -113,59 +133,53 @@ fvm flutter build macos --debug
 fvm flutter build web
 ```
 
-Run these commands on their corresponding desktop hosts:
+Run the corresponding command on a Windows or Linux host:
 
 ```bash
 fvm flutter build windows --debug
 fvm flutter build linux --debug
 ```
 
-Release signing, store registration, and distribution credentials are not configured for the general platform matrix. Only the explicitly disclosed unsigned macOS Preview is published by the current release workflow.
+These ordinary Flutter build commands do not qualify a release or prove that a runtime Capsule is bundled. Release signing, packaging, artifact inspection, and platform acceptance use separate repository workflows.
 
-## Keep access secure
+## Security boundaries
 
-An Agent host can access projects and run tools with the permissions of its host process. Keep a development host bound to loopback unless you have intentionally configured authenticated remote access.
+An Agent host can access projects and run tools with the permissions of its host process. Pi Client applies these boundaries:
 
-For remote access:
+- Pi Node authorizes project access before loading project resources.
+- Local Direct reserves standard output for bounded protocol frames and keeps diagnostics redacted.
+- Flutter serializable state must not contain reusable provider, Node, or Friday credentials.
+- Mobile and Web builds must not package desktop host runtime code.
+- A missing, incompatible, or integrity-invalid runtime Capsule fails closed.
+- Remote transports must add explicit authentication, authorization, and encryption without weakening Local Direct.
 
-- Use HTTPS or a trusted virtual private network.
-- Use a strong credential when the current legacy gateway requires one.
-- Do not expose an unprotected Agent host directly to the internet.
-- Configure browser cross-origin resource sharing only for explicitly trusted Web origins.
-
-Pi Client keeps the legacy pi-web password in memory for the current page lifecycle. It does not add the password to URLs, persist it in workspace state, or include request and response payloads in application logs.
+Do not commit credentials, local sessions, provider data, signing material, private prompts, or tool output.
 
 ## Current limitations
 
-The current release:
+The current source does not yet provide:
 
-- Publishes only an unsigned macOS Preview; Android, iOS, Windows, Linux, and Web have no release download yet.
-- Does not include the desktop Pi SDK Agent host runtime.
-- Does not include the first-party Pi Node transport, Friday Workspace runtime, tunnel, or end-to-end encryption.
-- Builds Flutter Web with the standard JavaScript target; WebAssembly remains blocked by the current `flutter_secure_storage_web` dependency.
-- Retains a legacy pi-web adapter whose HTTP routes are not a stable public API.
-- Has no Apple signing, notarization, store delivery, or signed DMG evidence.
-- Requires Windows and Linux build evidence from their respective operating systems.
-- Does not include file browsing, uploads, Git diffs, worktree controls, model selection, provider login, skill management, plugin management, or subagent configuration.
-- Does not include session rename, deletion, export, branching, compaction controls, rich Markdown, or media rendering.
+- A supported independent public release.
+- A frozen public protocol version or complete reconnect and replay behavior.
+- Production acceptance evidence for provider-backed prompt, cancellation, restart, and recovery flows.
+- Complete LAN or Friday Workspace transport, pairing, authentication, or end-to-end encryption.
+- Complete files, Git, worktree, model, provider, settings, skills, packages, extensions, localization, accessibility, and release workflows required for `1.0.0`.
+- Full signed and qualified artifacts for every supported platform.
+
+Android, iOS, and Web require a future remote transport. Until that transport is configured, they fail explicitly instead of acquiring desktop host authority.
 
 ## Troubleshooting and support
 
 | Problem | What to check |
 | --- | --- |
-| The status shows **Unavailable** | Confirm that the legacy gateway is running, the URL is reachable from the client device, and the password matches `PI_WEB_PASSWORD`. |
-| A mobile device cannot reach `127.0.0.1` | Use the Agent host's reachable network URL instead of the mobile device's loopback address. |
-| A Web build cannot connect | Confirm that the host uses HTTPS as required and permits the Web origin through its cross-origin policy. |
-| No sessions appear after connecting | Select **Refresh sessions**, or create a session with an absolute path that exists on the Agent host. |
-| A prompt does not execute | Confirm that the current host runtime has a working model provider configuration. |
-| A live response reconnects repeatedly | Check the host process and network path, then reopen the session or select **Retry** when shown. |
+| The desktop runtime is unavailable | Build Pi Node and provide every absolute development fallback path, or use an application package that contains a verified runtime Capsule. |
+| The runtime Capsule is rejected | Confirm that its target platform, architecture, source commit, package versions, and integrity manifest match the application. |
+| A project cannot open | Confirm that the project path exists and that Pi Node granted trust before loading project resources. |
+| A prompt does not execute | Confirm that the Pi SDK runtime has a working model-provider configuration and that the session is not already running an incompatible command. |
+| A mobile or Web client cannot connect | A supported remote transport is not implemented yet. These platforms cannot start a local Agent host. |
 
-To report a bug or request a feature, open a [GitHub issue](https://github.com/Hu-Wentao/pi-client/issues). Include the Pi Client version, target platform, Flutter version, host type, and relevant error text. Do not include passwords, provider credentials, private prompts, or tool output.
+To report a bug or request a feature, open a [GitHub issue](https://github.com/Hu-Wentao/pi-client/issues). Include the Pi Client version, target platform, Flutter version, host type, and relevant redacted error text. Do not include credentials, private prompts, project data, or tool output.
 
-To contribute code or documentation, see [Contributing to Pi Client](CONTRIBUTING.md).
-
-## License and attribution
+## License
 
 Pi Client is available under the [MIT License](LICENSE).
-
-The legacy adapter is an independent implementation based on observable behavior from pi-web commit `28bab3c25f5f6770c9b0b745ebbfec1c27f7b948` (`0.8.11`, MIT). Pi-web is Copyright (c) 2026 agegr. Pi-web remains a reference and migration input, not a target runtime dependency for the first-party Pi Client architecture.
