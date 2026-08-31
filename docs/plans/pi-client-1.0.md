@@ -42,7 +42,7 @@ mdq:
 
 ### 权威与计划关系
 
-- `DEC-017` 建立项目自有产品权威；`docs/requirements.md` 独立拥有产品语义、约束、完整性和可观察验收。
+- `DEC-020` 建立项目自有产品权威；`docs/requirements.md` 独立拥有产品语义、约束、完整性和可观察验收。
 - `PLAN-PI-001` 继续保持 Superseded，并且不授权任何实现。
 - `PLAN-PI-002` 是 Friday Workspace、Native OIDC、E2EE 和 WebAssembly 的并行轨道；它不得阻塞 Local Direct 功能完整性。
 - `PLAN-PI-003` 仅保留为 `v0.0.2` Landing Page 与 Preview 的历史记录，不拥有当前 `1.0.0` 范围或验收权威。

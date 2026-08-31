@@ -27,7 +27,7 @@ mdq:
 
 Reference snapshot: [`agegr/pi-web`](https://github.com/agegr/pi-web) `v0.8.11`, commit `28bab3c25f5f6770c9b0b745ebbfec1c27f7b948`, MIT.
 
-This inventory is bounded to user-visible capabilities that are reachable in the fixed snapshot. It was created as initial completeness-review evidence under `DEC-016`. The inventory and every `Strict parity`, `Partial strict parity`, or `Native adaptation` disposition below are now archived historical evidence: they do not define or expand the current Pi Client `1.0` scope, and they authorize no route, DTO, event, protocol, implementation, deployment, requirement, or acceptance criterion. Current scope must come from `DEC-017`, the active baseline, requirements, and `docs/plans/pi-client-1.0.md`; later upstream changes and this snapshot itself have no current product authority.
+This inventory is bounded to user-visible capabilities that are reachable in the fixed snapshot. It was created as initial completeness-review evidence under `DEC-019`. The inventory and every `Strict parity`, `Partial strict parity`, or `Native adaptation` disposition below are now archived historical evidence: they do not define or expand the current Pi Client `1.0` scope, and they authorize no route, DTO, event, protocol, implementation, deployment, requirement, or acceptance criterion. Current scope must come from `DEC-020`, the active baseline, requirements, and `docs/plans/pi-client-1.0.md`; later upstream changes and this snapshot itself have no current product authority.
 
 ## BENCH-PI-001 - Snapshot and independence boundary
 
@@ -150,3 +150,12 @@ This inventory is bounded to user-visible capabilities that are reachable in the
 - Observed capability: Completion sound, foreground/background notifications, attention-needed notices, notification navigation, application update notices, local-by-default access, optional authentication, and explicit remote-access warnings.
 - Pi Client treatment: Use native notification, update, pairing, secure transport, and release mechanisms. Browser PWA installation, loopback server binding, and Basic Auth are not exact parity mechanisms.
 - Requirements: `REQ-PI-006`, `REQ-PI-007`, `REQ-PI-008`, `REQ-PI-009`, `REQ-PI-032`, `REQ-PI-033`, and `REQ-PI-034`.
+
+## BENCH-PI-016 - FlClash native multi-platform delivery
+
+- Status: Observed
+- Disposition: Adopt delivery-governance capability, not product identity
+- Observed capability: Native Flutter CI across Android, iOS, macOS, Windows, Linux, and Web; target-specific packaging; explicit versioned assets; desktop signing and package-manager paths; public product-page delivery.
+- Pi Client treatment: Use native runner separation, deterministic artifact naming, platform qualification, manifest/checksum evidence, stable signing fail-closed policy, and future package-manager gating. Do not copy FlClash product UI, network semantics, release identity, dependencies, or trust claims.
+- Independent correction: Pi Client desktop artifacts are Agent-host-capable and must contain a verified first-party Runtime Capsule; Android, iOS, Web JavaScript, and WebAssembly remain connect-only. The current `0.1.0+3` Profile is publication-disabled, so qualification is not a release claim.
+- Evidence boundary: This benchmark informed `DEC-016`, `DEC-021`, `PLAN-PI-007`, and `REQ-PI-035`; exact repository/license observations remain audit inputs rather than Pi Client requirements.

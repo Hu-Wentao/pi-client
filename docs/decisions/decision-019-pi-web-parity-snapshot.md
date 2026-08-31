@@ -31,10 +31,10 @@ mdq:
 
 默认评审级别：L6。用户明确指定的功能完整性目标与独立实现边界为 L9。
 
-## DEC-016 - 冻结 pi-web 可见功能完整性快照
+## DEC-019 - 冻结 pi-web 可见功能完整性快照
 
 - 状态：Superseded
-- 取代决策：`DEC-017`
+- 取代决策：`DEC-020`
 - 生命周期：其固定快照、排除边界和独立实现负面边界作为已接受历史事实保留；其 completeness/parity baseline 对当前 Pi Client `1.0` 范围已归档且无产品权威。当前范围只能由当前 baseline、requirements、仍有效 decisions 与 `docs/plans/pi-client-1.0.md` 明确授权。
 - 评审级别：L9
 - 问题：如何把“Pi Client 拥有当前 pi-web 的所有功能”转为可完成、可验收且不破坏 `DEC-012` 独立实现边界的 `1.0.0` 范围。

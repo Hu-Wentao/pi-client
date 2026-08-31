@@ -35,7 +35,7 @@ The current source includes:
 - Workspace behavior for project trust, session discovery and administration, paged history, branching, export, prompts, ordered events, and cancellation.
 - Focused Dart, TypeScript, cross-language protocol, cross-process, runtime Capsule, and platform-role tests.
 
-The first-party architecture is implemented in source, but it is not yet a supported public release. The public `v0.0.2` prerelease predates this architecture and remains historical release evidence only. Do not use that artifact to infer the current source setup or runtime design.
+The first-party architecture is implemented in source, but it is not yet a supported public release. The current repository version, `0.1.0+3`, is an unpublished development identity with publication disabled. The public `v0.0.2` prerelease predates this architecture and remains historical release evidence only. Do not use that artifact to infer the current source setup or runtime design.
 
 Friday Workspace, native authentication, end-to-end encrypted remote transport, full remote-client connectivity, and the remaining `1.0.0` feature set are still planned or incomplete. Local Direct remains independent of Friday services.
 
@@ -131,6 +131,7 @@ fvm flutter build apk --debug
 fvm flutter build ios --debug --no-codesign
 fvm flutter build macos --debug
 fvm flutter build web
+fvm flutter build web --wasm
 ```
 
 Run the corresponding command on a Windows or Linux host:
@@ -141,6 +142,31 @@ fvm flutter build linux --debug
 ```
 
 These ordinary Flutter build commands do not qualify a release or prove that a runtime Capsule is bundled. Release signing, packaging, artifact inspection, and platform acceptance use separate repository workflows.
+
+## Development artifact qualification
+
+The active `independent-six-platform-development-v1` profile qualifies source evidence only:
+
+- macOS, Windows, and Linux candidates must package and verify the first-party Runtime Capsule;
+- Android, iOS, JavaScript Web, and WebAssembly candidates must remain connect-only;
+- aggregate manifests and checksums bind artifacts to an exact source commit; and
+- publication, release-bound Pages deployment, and Homebrew generation fail closed for the current profile.
+
+There is no supported `0.1.0` download or Homebrew installation command. Creating or changing tags, GitHub Releases, Pages release deployments, or Tap contents requires a separate explicit authorization and a publication-enabled release contract.
+
+## Landing Page
+
+The source-only product site lives in `site/` and uses `https://pi.wyattcoder.top/` as its canonical production identity. Validate it with:
+
+```bash
+(
+  cd site
+  bun install --frozen-lockfile
+  ASTRO_TELEMETRY_DISABLED=1 bun run check
+  ASTRO_TELEMETRY_DISABLED=1 bun run build
+  bun run validate
+)
+```
 
 ## Security boundaries
 

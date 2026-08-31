@@ -210,3 +210,33 @@ mdq:
 - Owner: final project-owned requirement status review, release manifest verification, installation matrix, and production operational acceptance
 - Planned evidence: Prove every release-scoped Must requirement is Active with complete acceptance evidence, all release identities and artifacts are immutable and verified, no external runtime or compatibility dependency remains, and no unsupported host runtime is present.
 - Gap: P0 governance is complete and P1/P2 source implementation is substantially complete as scoped by `VER-PI-007`, but their full acceptance and project-owned release evidence remain incomplete. P3 through P11 are not complete, so this audit cannot pass from documentation, source foundations, or partial platform builds alone.
+
+## VER-PI-023 - Independent development Release contract and local tooling
+
+- Status: PASS
+- Requirements: REQ-PI-005, REQ-PI-006, REQ-PI-034, REQ-PI-035
+- Evidence: `release/release.json`, `tool/release_contract.mjs`, `tool/release_metadata.mjs`, `tool/preview_artifacts.mjs`, `tool/homebrew_cask.mjs`, `.github/workflows/ci.yml`, `.github/workflows/release-preview.yml`, `.github/workflows/release-desktop-candidates.yml`, and their Node test suites prove the `0.1.0+3` publication-disabled Profile, truthful desktop Capsule inclusion, mobile/Web connect-only roles, deterministic manifest/checksum behavior, exact recovery policy, dormant Homebrew, and stable desktop signing denial.
+- Scope: This is source and local policy/tooling evidence. It does not claim a remote qualification run, public Release, installable `0.1.0`, or production acceptance.
+
+## VER-PI-024 - Native six-platform qualification and publication recovery
+
+- Status: PLANNED
+- Requirements: REQ-PI-035
+- Owner: GitHub Actions native runners, aggregate artifact verifier, Release readback, and Pages release-dispatch evidence
+- Planned evidence: One exact commit produces all nine application artifacts and manifest/checksums; desktop candidates pass Capsule verification and E2E; mobile/Web pass connect-only scans; retry uses the original qualification run; any future publication uses an annotated Tag, Draft-first readback, no overwrite, and publish-last.
+- Gap: Current Profile intentionally denies publication, and no new remote qualification or public Release is authorized by this merge.
+
+## VER-PI-025 - Independent Landing Page source and production identity
+
+- Status: PASS
+- Requirements: REQ-PI-036
+- Evidence: Astro build and `site/scripts/validate-built-site.mjs` validate source output; Pages governance preserves canonical `pi.wyattcoder.top`; the existing production evidence for the imported `main` Landing Page confirms status `200`, title `Pi Client | A Flutter UI for Pi`, canonical URL, expected independent-product copy, and absence of legacy runtime identity, downloads, Homebrew commands, unpublished versions, stale workspace screenshots, and secret markers.
+- Scope: Passing source and endpoint evidence proves the current source-only product page, not a binary release.
+
+## VER-PI-026 - Homebrew public installation
+
+- Status: PLANNED
+- Requirements: REQ-PI-037
+- Owner: future publication-enabled Release, public Tap repository, fresh Homebrew client, and exact asset readback
+- Planned evidence: Generate Cask from explicit Tag/commit/asset/SHA-256 evidence, commit the authorized Tap change, install the exact Universal runtime-bearing asset, verify version, launch and Capsule behavior, and confirm no Gatekeeper bypass.
+- Gap: Current development Profile is publication-disabled and no Homebrew publication is authorized; source tests prove only dormant fail-closed behavior.

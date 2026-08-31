@@ -474,7 +474,7 @@ async function stageProductionApplication(stageRoot, source) {
       "--production",
       "--ignore-scripts",
       `--os=${target.packageManagerOs}`,
-      `--cpu=${target.architecture}`,
+      `--cpu=${target.packageManagerCpu}`,
       "--backend=copyfile",
     ],
     {

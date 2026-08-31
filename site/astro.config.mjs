@@ -1,8 +1,8 @@
 import { defineConfig } from 'astro/config';
 
 export default defineConfig({
-  site: 'https://wyattcoder.top',
-  base: '/pi-client',
+  site: 'https://pi.wyattcoder.top',
+  base: '/',
   output: 'static',
   trailingSlash: 'always',
 });

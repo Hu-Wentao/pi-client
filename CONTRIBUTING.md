@@ -70,7 +70,7 @@ fvm flutter build windows --debug
 fvm flutter build linux --debug
 ```
 
-Windows and Linux builds require their respective operating systems. Record unavailable build targets as verification gaps; do not infer success from Dart analysis alone. The current Web build uses the standard JavaScript target because `flutter_secure_storage_web 1.2.1` is not compatible with Dart WebAssembly.
+Windows and Linux builds require their respective operating systems. Record unavailable build targets as verification gaps; do not infer success from Dart analysis alone. CI qualifies both standard JavaScript and WebAssembly Web builds, and both must remain connect-only.
 
 For Landing Page changes, run:
 
@@ -98,9 +98,10 @@ Keep changes focused. Update requirements, baselines, comparison scope, tests, g
 
 - Status: Active
 
-- Edit `assets/brand/pi-client-mark.svg` as the product-mark source, then run `cd site && bun run brand`. Commit the generated favicon, social card, screenshot WebP, and every macOS App Icon size together.
-- Generate the marketing screenshot with `fvm flutter test test/marketing_screenshot_test.dart --update-goldens`, inspect the final pixels, then run `cd site && bun run brand` to refresh its WebP delivery asset. Use only synthetic paths, sessions, prompts, and output. Its comparator permits at most 0.02% cross-host font raster variance and must still reject structural changes.
-- Keep release metadata synchronized across `pubspec.yaml`, `site/package.json`, release notes, and workflow-generated asset names. Keep the Landing Page source-only until a supported public release exists.
-- Do not manually move, overwrite, or delete a release tag or published asset. The manual Release workflow owns admission, Universal build checks, ZIP/checksum upload, and publication.
-- The `unsigned-preview` channel is not signed, notarized, or effectively sandboxed. Do not remove its Gatekeeper disclosure, claim that its public fixed key is secret, or merge its preferences directory with the future signed channel.
-- Publishing a Release, dispatching Pages, enabling Pages, pushing tags, and creating decision tags require explicit current authorization.
+- Edit `assets/brand/pi-client-mark.svg` and `assets/brand/social-card.svg` as the brand sources, then run `cd site && bun run brand`. Commit the generated product mark, social card, and every macOS App Icon size together.
+- Flutter Golden fixtures remain product-behavior evidence, not Landing Page assets. Update them only after intentional UI review, and keep all fixture paths, sessions, prompts, and output synthetic.
+- Keep release metadata synchronized across `pubspec.yaml`, `site/package.json`, `release/release.json`, release notes, artifact contracts, and workflow-generated asset names. The current `0.1.0+3` Profile is unpublished and publication-disabled.
+- Desktop development artifacts must contain the exact first-party Runtime Capsule and pass bundle verification. Android, iOS, JavaScript Web, and WebAssembly must remain connect-only.
+- Do not manually move, overwrite, delete, or reuse a release tag or published asset. Qualification evidence is not publication, and the current aggregate workflow must fail before remote mutation.
+- Homebrew tooling remains dormant until a separately authorized publication-enabled profile supplies exact public Tag, commit, asset, SHA-256, Universal architecture, and runtime evidence.
+- Publishing a Release, dispatching release-bound Pages, enabling Pages, updating a Tap, pushing tags, and creating decision tags require explicit current authorization.
