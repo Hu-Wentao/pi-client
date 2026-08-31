@@ -123,6 +123,7 @@ function targetFromDistributions(id, distributionIds) {
         ? "runtime/node_modules/npm/LICENSE"
         : "runtime/lib/node_modules/npm/LICENSE",
     packageManagerOs: platform,
+    packageManagerCpu: architectures.length === 1 ? architectures[0] : "*",
   };
 }
 

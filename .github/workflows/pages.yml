@@ -11,6 +11,15 @@ on:
       - 'site/**'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
+    inputs:
+      source_commit:
+        description: Exact released commit to deploy; must be paired with release_tag.
+        required: false
+        type: string
+      release_tag:
+        description: Published annotated tag expected from the frozen source metadata.
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -22,52 +31,150 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      commit: ${{ steps.freeze.outputs.commit }}
+      releaseRequest: ${{ steps.freeze.outputs.releaseRequest }}
+      releaseTag: ${{ steps.freeze.outputs.releaseTag }}
+    steps:
+      - name: Check out dispatch or event source with tag objects
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Freeze Pages source identity and bind an annotated tag
+        id: freeze
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_SOURCE_COMMIT: ${{ inputs.source_commit }}
+          INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$INPUT_SOURCE_COMMIT" || -n "$INPUT_RELEASE_TAG" ]]; then
+            [[ -n "$INPUT_SOURCE_COMMIT" && -n "$INPUT_RELEASE_TAG" ]] || {
+              echo 'source_commit and release_tag must be provided together.' >&2
+              exit 1
+            }
+            [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]]
+            [[ "$INPUT_SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+            [[ "$INPUT_RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+            [[ "$GITHUB_REF" == "refs/tags/$INPUT_RELEASE_TAG" ]]
+            [[ "$GITHUB_SHA" == "$INPUT_SOURCE_COMMIT" ]]
+            [[ "$(git rev-parse HEAD)" == "$INPUT_SOURCE_COMMIT" ]]
+
+            LOCAL_TAG_REF="refs/tags/$INPUT_RELEASE_TAG"
+            [[ "$(git cat-file -t "$LOCAL_TAG_REF")" == 'tag' ]]
+            LOCAL_TAG_OBJECT="$(git rev-parse "$LOCAL_TAG_REF")"
+            [[ "$(git rev-parse "$LOCAL_TAG_REF^{}")" == "$INPUT_SOURCE_COMMIT" ]]
+
+            REMOTE_TAG_REF='refs/pi-client-pages/validated-release-tag'
+            ! git show-ref --verify --quiet "$REMOTE_TAG_REF"
+            git fetch --no-tags origin "refs/tags/$INPUT_RELEASE_TAG:$REMOTE_TAG_REF"
+            [[ "$(git cat-file -t "$REMOTE_TAG_REF")" == 'tag' ]]
+            [[ "$(git rev-parse "$REMOTE_TAG_REF")" == "$LOCAL_TAG_OBJECT" ]]
+            [[ "$(git rev-parse "$REMOTE_TAG_REF^{}")" == "$INPUT_SOURCE_COMMIT" ]]
+
+            gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$INPUT_RELEASE_TAG" > "$RUNNER_TEMP/pages-api-tag-ref.json"
+            jq -e --arg object "$LOCAL_TAG_OBJECT" '.object.type == "tag" and .object.sha == $object' "$RUNNER_TEMP/pages-api-tag-ref.json" >/dev/null
+            gh api "repos/$GITHUB_REPOSITORY/git/tags/$LOCAL_TAG_OBJECT" > "$RUNNER_TEMP/pages-api-tag-object.json"
+            jq -e --arg commit "$INPUT_SOURCE_COMMIT" '.object.type == "commit" and .object.sha == $commit' "$RUNNER_TEMP/pages-api-tag-object.json" >/dev/null
+
+            SOURCE_COMMIT="$INPUT_SOURCE_COMMIT"
+            RELEASE_REQUEST=true
+          else
+            SOURCE_COMMIT="$GITHUB_SHA"
+            RELEASE_REQUEST=false
+          fi
+          {
+            echo "commit=$SOURCE_COMMIT"
+            echo "releaseRequest=$RELEASE_REQUEST"
+            echo "releaseTag=$INPUT_RELEASE_TAG"
+          } >> "$GITHUB_OUTPUT"
+
   build:
+    needs: source
     runs-on: ubuntu-24.04
     steps:
-      - name: Check out source
+      - name: Check out frozen source
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-
+        with:
+          ref: ${{ needs.source.outputs.commit }}
+          persist-credentials: false
       - name: Set up Bun 1.4.0
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.4.0
-
-      - name: Install site dependencies
-        working-directory: site
-        run: bun install --frozen-lockfile
-
-      - name: Check Astro source
+      - name: Install and validate the independent Landing Page
         working-directory: site
         env:
           ASTRO_TELEMETRY_DISABLED: '1'
-        run: bun run check
-
-      - name: Build Astro site
-        working-directory: site
-        env:
-          ASTRO_TELEMETRY_DISABLED: '1'
-        run: bun run build
-
-      - name: Validate built site
-        working-directory: site
-        run: bun run validate
-
+        run: |
+          bun install --frozen-lockfile
+          bun run check
+          bun run build
+          bun run validate
       - name: Configure GitHub Pages
         if: github.event_name != 'pull_request'
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
         with:
           enablement: true
-
+      - name: Verify canonical Pages domain
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/pages" > "$RUNNER_TEMP/pages-site.json"
+          jq -e '.cname == "pi.wyattcoder.top" and .build_type == "workflow"' "$RUNNER_TEMP/pages-site.json" >/dev/null
       - name: Upload Pages artifact
         if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
         with:
           path: site/dist
 
+  release-admission:
+    if: github.event_name != 'pull_request'
+    needs: source
+    runs-on: ubuntu-24.04
+    outputs:
+      complete: ${{ steps.admit.outputs.complete }}
+    steps:
+      - name: Check out frozen source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.source.outputs.commit }}
+          persist-credentials: false
+      - name: Admit ordinary main-site deployment or exact published Release
+        id: admit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_REQUEST: ${{ needs.source.outputs.releaseRequest }}
+          REQUESTED_TAG: ${{ needs.source.outputs.releaseTag }}
+        run: |
+          set -euo pipefail
+          if [[ "$RELEASE_REQUEST" != 'true' ]]; then
+            echo 'complete=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          node tool/release_metadata.mjs --require-publication --github-output "$RUNNER_TEMP/release-metadata"
+          METADATA_TAG="$(sed -n 's/^tag=//p' "$RUNNER_TEMP/release-metadata")"
+          EXPECTED_ASSETS="$(sed -n 's/^expectedAssetsJson=//p' "$RUNNER_TEMP/release-metadata")"
+          [[ "$REQUESTED_TAG" == "$METADATA_TAG" ]]
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RUNNER_TEMP/release-pages.json"
+          jq -c --arg tag "$REQUESTED_TAG" '[.[][] | select(.tag_name == $tag)]' "$RUNNER_TEMP/release-pages.json" > "$RUNNER_TEMP/release-matches.json"
+          [[ "$(jq 'length' "$RUNNER_TEMP/release-matches.json")" == '1' ]]
+          jq -e '.[0].draft == false' "$RUNNER_TEMP/release-matches.json" >/dev/null
+          jq -r '.[]' <<< "$EXPECTED_ASSETS" | sort > "$RUNNER_TEMP/expected-assets.txt"
+          jq -r '.[0].assets[].name' "$RUNNER_TEMP/release-matches.json" | sort > "$RUNNER_TEMP/actual-assets.txt"
+          diff -u "$RUNNER_TEMP/expected-assets.txt" "$RUNNER_TEMP/actual-assets.txt"
+          jq -e '.[0].assets | all(.size > 0 and .state == "uploaded")' "$RUNNER_TEMP/release-matches.json" >/dev/null
+          echo 'complete=true' >> "$GITHUB_OUTPUT"
+
   deploy:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    needs: build
+    if: github.event_name != 'pull_request' && needs.release-admission.outputs.complete == 'true'
+    needs: [build, release-admission]
     runs-on: ubuntu-24.04
     environment:
       name: github-pages

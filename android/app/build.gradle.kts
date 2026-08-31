@@ -29,13 +29,8 @@ android {
         versionName = flutter.versionName
     }
 
-    buildTypes {
-        release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
-        }
-    }
+    // Release APKs intentionally have no signingConfig. Preview automation verifies
+    // that the generated packages are unsigned instead of falling back to debug keys.
 }
 
 flutter {

@@ -82,19 +82,38 @@ Default review level: L6.
 
 - Status: Active
 - Review level: L9
-- The source version remains `0.0.2+2` during development, but no supported independent public release currently exists. Version metadata alone is not a release claim.
+- The source version is the unpublished development identity `0.1.0+3`; no supported independent public release currently exists. Version metadata and qualification evidence alone are not release claims.
 - The immutable public `v0.0.2` artifact is historical evidence only. The current Landing Page must not present it as the current product or offer a binary download.
 - Historical unsigned-Preview storage and trust limitations remain release-scoped facts. Future packages must disclose their own exact signing, notarization, sandbox, storage, migration, platform, and architecture state.
-- The Landing Page uses the Pi Client-owned SVG and sanitized Flutter screenshot. It must not use third-party product branding, production paths, credentials, private prompts, or real tool output.
+- The Landing Page uses only Pi Client-owned visuals and does not render the retired Workspace screenshot. It must not use third-party product branding, production paths, credentials, private prompts, real tool output, unpublished download URLs, or Homebrew commands.
 - GitHub Pages may publish a source-only project status page. A release CTA may appear only after the exact supported artifact is authorized, public, and verified.
 - A passing site build, release workflow, or source version does not prove publication, installation, or production acceptance.
+- The active `independent-six-platform-development-v1` Profile is publication-disabled. Desktop evidence must include the first-party Runtime Capsule; Android, iOS, Web JavaScript, and WebAssembly remain connect-only.
 
 ## BASE-PI-008 - Product authority and 1.0 completeness
 
 - Status: Active
 - Review level: L9
-- `DEC-017` establishes project-owned product authority; `docs/requirements.md` is the semantic authority for Pi Client outcomes, constraints, platform adaptations, and acceptance.
+- `DEC-020` establishes project-owned product authority; `docs/requirements.md` is the semantic authority for Pi Client outcomes, constraints, platform adaptations, and acceptance.
 - `1.0.0` completeness requires every project-owned Must requirement in release scope to be Active and every acceptance clause to have appropriate verification evidence.
 - Independently accepted requirements remain in scope until superseded through project governance; exploratory comparisons do not add, remove, or reinterpret product scope.
 - Completeness never authorizes importing, copying, calling, deploying, or requiring an external runtime, source, route, schema, event, protocol, component, or artifact.
 - `PLAN-PI-004` owns the P0-P11 implementation path; `PLAN-PI-002` remains the Friday Workspace parallel track, and `PLAN-PI-001` remains Superseded.
+
+## BASE-PI-009 - Development release integrity
+
+- Status: Active
+- Review level: L9
+- `DEC-021` and `PLAN-PI-007` define the only active aggregated artifact contract: `0.1.0+3`, Profile `independent-six-platform-development-v1`, publication disabled.
+- macOS, Windows, and Linux candidates must package a Runtime Capsule built from the exact source commit and pass platform-specific manifest/layout/architecture/startup gates before staging.
+- Android, iOS, Web JavaScript, and WebAssembly artifacts must remain connect-only and pass reserved-runtime scans.
+- Qualification artifacts are evidence only. No current workflow may create or mutate `v0.1.0`, `v0.0.3`, a GitHub Release, a Homebrew Tap, or a release-bound Pages deployment without a future publication-enabled contract and explicit authorization.
+- Existing remote stable tags are monotonic and immutable; retries may only reconcile the same annotated Tag, peeled commit, original qualification run, exact asset set, and identical bytes.
+
+## BASE-PI-010 - Dormant Homebrew integrity
+
+- Status: Active
+- Review level: L9
+- Homebrew tooling is retained as dormant deterministic infrastructure, not as a current installation promise.
+- Cask generation requires explicit qualified evidence for one publication-enabled, already-public Universal macOS runtime-bearing asset: annotated Tag, exact commit, exact file name, SHA-256, and published state.
+- Placeholder checksums, moving refs, connect-only assets, absent Runtime Capsules, Gatekeeper bypasses, and third-party Tap writes without separate authorization are rejected.

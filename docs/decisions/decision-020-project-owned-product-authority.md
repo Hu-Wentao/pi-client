@@ -31,7 +31,7 @@ mdq:
 
 默认评审级别：L6。用户明确指定的产品独立性、范围权威和历史边界为 L9。
 
-## DEC-017 - 项目自有产品权威
+## DEC-020 - 项目自有产品权威
 
 - 状态：Accepted
 - 评审级别：L9
@@ -44,7 +44,7 @@ mdq:
 - 同意影响：当前产品面、活跃治理、架构、协议、实现、兼容性、运行时、构建、部署和发布不再从初始探索资料获得任何权威；`BASE-PI-008`、release-scoped Must requirements 与对应 verification 共同定义 `1.0.0` 完整性。
 - 历史边界：旧版发布说明、已接受历史决策和归档探索清单保留当时事实，但不得作为当前需求、验收、兼容目标或安装入口。
 - 安全边界：产物 denylist、manifest 拒绝规则和公开素材负向测试继续保留；它们只证明禁止外部 artifact 和品牌进入当前产物，不建立产品关系。
-- 与既有决策的关系：本决策取代 `DEC-016` 的当前 completeness/parity 权威；`DEC-016` 的固定历史事实和排除边界继续归档。`DEC-012` 的独立实现负面边界保持兼容，但不定义当前产品范围。
+- 与既有决策的关系：本决策取代 `DEC-019` 的当前 completeness/parity 权威；`DEC-019` 的固定历史事实和排除边界继续归档。`DEC-012` 的独立实现负面边界保持兼容，但不定义当前产品范围。
 - 计划关系：`PLAN-PI-004` 只以项目自有 requirements、baseline 和 verification 为当前输入；`PLAN-PI-001` 与 `PLAN-PI-003` 继续作为历史记录，`PLAN-PI-002` 只拥有 Friday Workspace 轨道。
 - 发布边界：当前 Landing Page 只展示源代码和开发状态，不提供历史 Preview 或未发布版本的下载 CTA；未来下载入口必须绑定已授权、公开且验证通过的精确产物。
 - 兼容性：这是治理和文档级 Breaking correction，不改变当前第一方 runtime/API 行为，也不重写已发布 tag、Release 或历史证据。

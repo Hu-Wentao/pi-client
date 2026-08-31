@@ -40,7 +40,7 @@ mdq:
 - Lifecycle: Archived for current product scope; retained as immutable `v0.0.2` release and publication evidence.
 - Authority boundary: This plan does not define, expand, or verify the current Pi Client `1.0` product scope. Its remaining external acceptance gaps remain honest historical gaps and are not current `1.0` work unless reaccepted by a current authority.
 - Review level: L9（目标与范围）/ L6（实现路径）
-- Target: 提供中英文独立 Landing Page、精确 `v0.0.2` 下载入口和可审计的未签名 Universal macOS Preview 发布流程。
+- Target: 在 `https://pi.wyattcoder.top/` 提供中英文独立 Landing Page、精确 `v0.0.2` 下载入口和可审计的未签名 Universal macOS Preview 发布流程。
 
 ### 当前事实
 
@@ -49,18 +49,21 @@ mdq:
 - `v0.0.1` 是不可变历史 annotated tag，不能移动到当前代码，也没有 Release 资产。
 - 当前没有 Developer ID、Notarization 或 DMG 发布证据。
 - WebAssembly Client 依赖尚未冻结的第一方 Pi SDK/transport、Friday Workspace 和浏览器安全边界，本计划不实现它。
+- `PLAN-PI-007` 在不改写当前 `v0.0.2` 的前提下维护六平台资格与发布工具；本计划继续拥有不可变 macOS Release 与历史 Landing Page 事实。
+- `DEC-017` 与 `PLAN-PI-005` 已取代当前产品页的内容和 CTA；以下下载、截图和旧页面验收内容只记录历史，不再约束当前产品展示。
+- 用户已确认 `https://wyattcoder.top/pi-client/` 是错误部署目标；Landing Page 的规范域名为 `https://pi.wyattcoder.top/`，旧路径的历史部署证据不能替代该域名的生产验收。
 
 ### 已实现源码范围
 
 1. `site/` 使用 Astro `7.2.9`、Bun `1.4.0` 和锁文件生成英文根路由及简体中文 `/zh-cn/` 路由。
 2. 页面包含精确 `v0.0.2` Universal ZIP 下载 CTA、当前能力、过渡架构、安全边界、限制、canonical、`hreflang` 和 Open Graph 元数据。
-3. 生产页面不使用客户端 hydration；构建验证拒绝业务 JavaScript、错误子路径资产和漂移的下载 URL。
+3. 生产页面不使用客户端 hydration；构建验证拒绝业务 JavaScript、退役的 `/pi-client/` 子路径资产和漂移的下载 URL。
 4. 原创 SVG 是 App Icon、favicon 和社交分享图的单一品牌来源；确定性脚本生成 macOS PNG 尺寸、分享图和 Landing Page 截图 WebP。
 5. 营销截图由 Flutter Widget 测试使用真实 Roboto 和 Material Icons 字体、合成路径、会话、提示和输出生成；测试拒绝真实用户路径、密码和 token 文本，并将跨宿主字体栅格差异限制在 0.02%。
 6. `unsigned-preview` 分发通道使用独立 `fr_storage_unsigned_preview` 目录和固定公开 32 字节密钥，不访问 Keychain；标准 Release 继续使用 `fr_storage` 和平台安全存储。
 7. Release entitlement 为未来签名、沙箱化版本声明 outbound network client 能力，但不伪造 Apple Team 或 Keychain group。
 8. Pages workflow 在 PR 和 main 上检查并构建站点，只在精确 Release 资产已发布时部署。
-9. 手动 macOS workflow 从 main 构建、测试、生成未签名 Universal App、验证启动及架构、打包 ZIP/校验和、创建不可变 tag、发布 prerelease，并请求 Pages 部署。
+9. 历史 `.github/workflows/release-macos.yml@ac2b492` 从 main 构建、测试、生成未签名 Universal App、验证启动及架构、打包 ZIP/校验和、创建不可变 tag、发布 `v0.0.2` prerelease，并请求 Pages 部署；当前源码已由 `PLAN-PI-007` 的跨平台资格 workflow 和第一方 Capsule 候选流程取代。
 
 ### 外部发布状态
 
@@ -69,16 +72,20 @@ mdq:
 1. `main` 和 annotated `decision/015-landing-page-and-preview-release` 已推送。
 2. annotated `v0.0.2` 固定到 `ac2b492cf595a715fc5e86f7e850ae5bcaf4c942`。
 3. GitHub prerelease 已公开 20,344,765 字节 Universal ZIP 与 102 字节 SHA-256；重新下载后的 checksum、Bundle metadata 和 `arm64 + x86_64` 已复核。
-4. GitHub Pages 已通过 workflow 部署到 `https://wyattcoder.top/pi-client/` 和 `/zh-cn/`；精确 Release CTA、canonical、资源、零客户端 JavaScript和 Cloudflare 命令防改写已在生产 HTML 验证。
-5. Chrome production Lighthouse 为 Performance 94、Accessibility 100、Best Practices 100、SEO 100。
+4. 历史 Pages run `33309764563` 曾把同一站点产物部署到 `https://wyattcoder.top/pi-client/`；该运行只保留为旧路径证据，不满足当前规范域名验收。
+5. Pages run `33356691081` 已从 `da201f2ae74970651bf4feab582e9a9f0965982c` 构建并部署根路径站点；GitHub Pages 已固定 `cname=pi.wyattcoder.top`、workflow build、已批准 TLS 证书和 `https_enforced=true`。
+6. Host Governance transaction `pi-pages-dns-20260831T042531Z-7bd4164b` 创建并验证 DNS-only、TTL automatic 的 `pi.wyattcoder.top -> hu-wentao.github.io` CNAME；Cloudflare API 与公共 DNS readback 一致。
+7. 生产验收确认 HTTP `301` 到 HTTPS，英文 `/`、中文 `/zh-cn/`、SVG/WebP/social-card/CSS 均返回 `200`；HTML canonical 使用 `https://pi.wyattcoder.top/`、不含退役的根相对 `/pi-client/` 资源路径，并保留可下载的精确 `v0.0.2` 资产。
+8. 旧路径上的 Chrome production Lighthouse 为 Performance 94、Accessibility 100、Best Practices 100、SEO 100；规范域名仍需重新执行浏览器视觉与 Lighthouse 验收。
 
 仍未完成：
 
 1. Safari WebDriver 因宿主未启用 **Allow Remote Automation** 而无法执行；尚无 Safari 渲染验收证据。
-2. VoiceOver 与浏览器 200% 缩放仍需人工验收。
-3. 账户级 Cloudflare 自定义域名可通过 HTTPS 访问，但 GitHub Pages API 无法启用 `https_enforced`，且 HTTP 当前不自动跳转 HTTPS；修复需要独立的共享 Cloudflare/域名治理授权。
+2. 规范域名的 Chrome 视觉/Lighthouse、VoiceOver 与浏览器 200% 缩放仍需人工验收。
 
-### 发布准入
+### v0.0.2 历史发布准入
+
+以下规则记录已完成的 macOS-only workflow 和 `v0.0.2` 证据，不是未来跨平台发布状态机；当前准入与恢复规则以 `PLAN-PI-007` 为准。
 
 - Source commit 必须是已推送 `main` 的精确 HEAD。
 - `pubspec.yaml`、Landing Page 和资产名称必须共同解析为 `0.0.2+2`、`v0.0.2` 和 `Pi-Client-0.0.2-macOS-universal.zip`。
@@ -96,7 +103,8 @@ mdq:
 - 未签名 Preview 偏好不迁移到未来签名版；用户可删除独立 Preview 数据而不影响标准目录。
 - 签名、公证和 DMG 是后续独立目标，需要 Apple 开发者身份与发布授权。
 - WebAssembly Client 继续由 `PLAN-PI-002` 及未来正式 Pi SDK/transport 决策约束，不进入本计划。
+- 后续跨平台候选资格与聚合发布由 `PLAN-PI-007` 约束；当前产品页不再声明或渲染历史 macOS 下载，未来下载入口必须由新的已授权、已验证公开发布事实单独恢复。
 
 ### 完成条件
 
-本计划只有在 `VER-PI-013` 取得公开 Release、资产、Pages 和生产人工验收证据后才能改为 Completed。源码和工作流验证只满足 `VER-PI-012`，不能替代外部发布证据。
+本计划只有在 `VER-PI-013` 取得公开 Release、资产、`https://pi.wyattcoder.top/` Pages 部署和生产人工验收证据后才能改为 Completed。源码和工作流验证只满足 `VER-PI-012`，旧 `/pi-client/` 路径的历史部署也不能替代规范域名证据。

@@ -78,8 +78,8 @@ Default review level: L6. User-directed product scope and safety boundaries are 
 - Review level: L9
 - Actor and goal: Reviewers could trace the initial exploratory comparison, its license, exclusions, and independent implementation boundary.
 - Constraints: This comparison is historical evidence only and has no ongoing role in requirements, completeness, architecture, protocol, implementation, compatibility, runtime, build, deployment, or release.
-- Source: `DEC-003`, `DEC-012`, and `DEC-016`.
-- Superseded by: `DEC-017`; project-owned Must requirements and their acceptance evidence define `1.0.0` completeness.
+- Source: `DEC-003`, `DEC-012`, and `DEC-019`.
+- Superseded by: `DEC-020`; project-owned Must requirements and their acceptance evidence define `1.0.0` completeness.
 
 ## REQ-PI-006 - Keep Local Direct independent
 
@@ -370,3 +370,33 @@ Default review level: L6. User-directed product scope and safety boundaries are 
 - Constraints: Release identity binds the Pi Client, Pi Node, protocol, exact Pi SDK, immutable source, artifact manifest, checksums, software bill of materials, licenses, signing, and platform evidence.
 - Source: `DEC-014` and `PLAN-PI-004`.
 - Acceptance: Declared desktop host artifacts and connect-only client artifacts install and start on supported systems; signatures, notarization where applicable, checksums, update/rollback, migration, and absence of host runtime on mobile/Web are verified.
+
+## REQ-PI-035 - Qualify independent development artifacts without publishing
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: A maintainer can qualify one source commit across Android, iOS, macOS, Windows, Linux, Web JavaScript, and WebAssembly without turning an unpublished development version into a public release.
+- Constraints: The active Profile is `independent-six-platform-development-v1` at `0.1.0+3` with publication disabled; desktop artifacts contain verified first-party Runtime Capsules, while Android, iOS, and Web remain connect-only; Tag, Release, Pages Release dispatch, and Homebrew mutations fail before any remote write.
+- Source: `DEC-016`, `DEC-021`, and `PLAN-PI-007`.
+- Acceptance: Native-runner builds, per-target evidence, aggregate manifest/checksums, exact commit identity, desktop Capsule verification, mobile/Web connect-only scans, and publication-denial tests pass without creating or mutating any release identity.
+
+## REQ-PI-036 - Present an independent source-only product landing
+
+- Status: Active
+- Priority: Must
+- Review level: L6
+- Actor and goal: A visitor can understand Pi Client as an independent Flutter client, its current source capabilities, its desktop-host/mobile-Web role split, and the absence of a supported public binary.
+- Constraints: Canonical production identity is `https://pi.wyattcoder.top/`; copy must not name legacy runtime products, advertise unpublished versions, render stale workspace screenshots, or expose download and Homebrew instructions without verified public release facts.
+- Source: `DEC-017`, `DEC-021`, and `PLAN-PI-005`.
+- Acceptance: Source copy, built HTML and production endpoint contain the independent identity and source-only disclosure; release URLs, unpublished versions, Homebrew commands, legacy identities, workspace screenshots, secrets, and private operational content are absent.
+
+## REQ-PI-037 - Publish Homebrew only from exact qualified release evidence
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: A macOS user can eventually install Pi Client through Homebrew from the exact already-published qualified macOS artifact.
+- Constraints: Current tooling remains dormant; activation requires a publication-enabled Profile, annotated Tag and commit identity, a public Universal first-party Runtime Capsule artifact, exact SHA-256, signing/trust disclosure, independent Tap authorization, and no Gatekeeper bypass.
+- Source: `DEC-018`, `DEC-021`, and `PLAN-PI-006`.
+- Acceptance: Cask generation rejects unpublished, mismatched, placeholder, non-Universal, connect-only, or non-runtime evidence; an authorized future Tap update installs and launches the exact qualified asset and survives public readback.

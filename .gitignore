@@ -35,6 +35,9 @@ migrate_working_dir/
 /site/.astro/
 /site/dist/
 /site/node_modules/
+/dist/
+/release-bundle/
+/.release-staging/
 
 # Symbolication related
 app.*.symbols

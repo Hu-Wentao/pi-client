@@ -1,14 +1,17 @@
 export type Locale = 'en' | 'zh-cn';
 
-type Feature = {
+export type PrincipleIcon = 'code' | 'platforms' | 'roles' | 'open';
+
+type Principle = {
   title: string;
   description: string;
-  icon: 'sessions' | 'prompt' | 'stream' | 'stop';
+  icon: PrincipleIcon;
 };
 
-type Step = {
-  number: string;
+type Role = {
   title: string;
+  platforms: string;
+  badge: string;
   description: string;
 };
 
@@ -22,13 +25,12 @@ export type LandingCopy = {
   languageName: string;
   homeLabel: string;
   navigationLabel: string;
-  statusDetailsLabel: string;
   projectLinksLabel: string;
   socialImageAlt: string;
   nav: {
-    features: string;
-    workflow: string;
-    security: string;
+    product: string;
+    platforms: string;
+    status: string;
     github: string;
   };
   hero: {
@@ -36,53 +38,38 @@ export type LandingCopy = {
     title: string;
     description: string;
     badges: string[];
-    primaryAction: string;
-    source: string;
-    statusNote: string;
+    primary: string;
+    secondary: string;
+    note: string;
+    platformLabel: string;
   };
-  screenshotAlt: string;
-  screenshotCaption: string;
-  warning: {
-    title: string;
-    body: string;
-  };
-  features: {
+  principles: {
     eyebrow: string;
     title: string;
     description: string;
-    items: Feature[];
+    items: Principle[];
   };
-  workflow: {
+  roles: {
     eyebrow: string;
     title: string;
     description: string;
-    client: string;
-    bridge: string;
-    runtime: string;
-    architectureNote: string;
+    desktop: Role;
+    connectOnly: Role;
+    note: string;
   };
-  start: {
+  status: {
     eyebrow: string;
     title: string;
     description: string;
-    steps: Step[];
-    fullGuide: string;
-  };
-  security: {
-    eyebrow: string;
-    title: string;
-    description: string;
-    points: string[];
-  };
-  limitations: {
-    title: string;
-    points: string[];
+    items: string[];
+    noticeTitle: string;
+    noticeBody: string;
   };
   closing: {
     title: string;
     description: string;
     source: string;
-    issues: string;
+    contribute: string;
   };
   footer: {
     description: string;
@@ -98,284 +85,224 @@ export const copy: Record<Locale, LandingCopy> = {
   en: {
     locale: 'en',
     htmlLang: 'en',
-    metaTitle: 'Pi Client — Independent cross-platform client for pi',
+    metaTitle: 'Pi Client — Cross-platform Flutter client for pi',
     metaDescription:
-      'Explore the independent Pi Client source, first-party Pi Node architecture, and current development status.',
+      'An independent, open-source Flutter client for the pi coding agent across desktop, mobile, and web.',
     languageLabel: 'Language',
     languageHref: '/zh-cn/',
     languageName: '简体中文',
     homeLabel: 'Pi Client home',
     navigationLabel: 'Primary navigation',
-    statusDetailsLabel: 'Source status',
     projectLinksLabel: 'Project links',
-    socialImageAlt: 'Pi Client product mark and independent Flutter workspace',
+    socialImageAlt: 'Pi Client product mark with cross-platform product positioning',
     nav: {
-      features: 'Features',
-      workflow: 'How it works',
-      security: 'Security',
+      product: 'Product',
+      platforms: 'Platforms',
+      status: 'Status',
       github: 'GitHub',
     },
     hero: {
-      eyebrow: 'Independent workspace for pi',
-      title: 'Stay focused on the session, not the terminal plumbing.',
+      eyebrow: 'Independent cross-platform client',
+      title: 'One Pi Client. Six platform targets.',
       description:
-        'Pi Client brings session browsing, prompts, live output, and run control into an independent Flutter workspace. Current source targets six platforms, with Local Direct hosting on desktop.',
-      badges: ['Six-platform source', 'Desktop Local Direct', 'First-party Pi Node'],
-      primaryAction: 'View source repository',
-      source: 'Read setup guide',
-      statusNote: 'Current source is under development and is not a supported public release.',
+        'Pi Client is an independent, open-source Flutter client for the pi coding agent, built from one codebase for Android, iOS, macOS, Windows, Linux, and Web.',
+      badges: ['Flutter', 'Six platform targets', 'Open source'],
+      primary: 'Explore the source',
+      secondary: 'Contribute',
+      note: 'First-party Local Direct is implemented in source; supported public distribution is still under active development.',
+      platformLabel: 'Supported project targets',
     },
-    screenshotAlt:
-      'Pi Client window showing synthetic sessions and a sanitized coding-agent conversation.',
-    screenshotCaption:
-      'A real Flutter render with synthetic project paths, sessions, prompts, and agent output.',
-    warning: {
-      title: 'No supported public release is available.',
-      body:
-        'The repository contains development source, not a supported binary release. Build it locally only if you are prepared to use development tooling and evaluate the current source yourself.',
-    },
-    features: {
-      eyebrow: 'Current capabilities',
-      title: 'The essential session loop in one window.',
+    principles: {
+      eyebrow: 'Product foundation',
+      title: 'A focused client with explicit platform boundaries.',
       description:
-        'The current source implements the core session loop through project-owned APIs and runtime boundaries.',
+        'The repository separates verified source and contracts from runtime capabilities that are still being built.',
       items: [
         {
-          icon: 'sessions',
-          title: 'Browse sessions',
+          icon: 'code',
+          title: 'One Flutter codebase',
           description:
-            'Refresh session summaries, open a conversation, and read visible message history.',
+            'Shared product code and one version span six targets, while native configuration stays with each platform.',
         },
         {
-          icon: 'prompt',
-          title: 'Create and continue work',
+          icon: 'platforms',
+          title: 'Desktop, mobile, and web',
           description:
-            'Create a session for an absolute project path and send the next prompt.',
+            'Android, iOS, macOS, Windows, Linux, and Web are maintained as targets of the same Pi Client product.',
         },
         {
-          icon: 'stream',
-          title: 'Follow live output',
+          icon: 'roles',
+          title: 'Clear execution roles',
           description:
-            'Watch assistant updates arrive through the selected session event stream.',
+            'Desktop targets are host-capable by contract. Android, iOS, and Web remain connect-only.',
         },
         {
-          icon: 'stop',
-          title: 'Stop an active run',
+          icon: 'open',
+          title: 'Open development',
           description:
-            'Interrupt the current agent run without leaving the desktop workspace.',
+            'Architecture, source, issues, and contribution guidance stay visible in the public repository.',
         },
       ],
     },
-    workflow: {
-      eyebrow: 'How it works today',
-      title: 'A native client with a first-party runtime boundary.',
+    roles: {
+      eyebrow: 'Platform roles',
+      title: 'Capability follows the device boundary.',
       description:
-        'Desktop Pi Client uses Local Direct and the project-owned protocol to reach the first-party Pi Node.',
-      client: 'Pi Client',
-      bridge: 'Project-owned protocol',
-      runtime: 'Pi Node runtime Capsule',
-      architectureNote:
-        'Release packages must bundle and verify the runtime Capsule. Source development uses explicitly configured local process paths; Web and mobile remain connect-only.',
+        'Pi Client uses an application-wide platform contract instead of giving every target the same authority.',
+      desktop: {
+        title: 'Desktop clients',
+        platforms: 'macOS · Windows · Linux',
+        badge: 'Host-capable by contract',
+        description:
+          'Desktop source builds support first-party Local Direct and verified runtime Capsules. Supported public packages are still being qualified.',
+      },
+      connectOnly: {
+        title: 'Connect-only clients',
+        platforms: 'Android · iOS · Web',
+        badge: 'Connect-only',
+        description:
+          'Mobile and Web targets connect without embedding the Agent runtime or receiving host filesystem and tool-execution authority.',
+      },
+      note:
+        'First-party host runtime Capsules are verified in source and candidate workflows, but no supported public package is currently promoted.',
     },
-    start: {
-      eyebrow: 'Get started',
-      title: 'Build the current source for development.',
+    status: {
+      eyebrow: 'Current status',
+      title: 'The independent product is in active development.',
       description:
-        'You need macOS 11 or newer, FVM, Bun, the native macOS toolchain, and a working pi model-provider configuration.',
-      steps: [
-        {
-          number: '01',
-          title: 'Clone and inspect the source',
-          description: 'Clone the repository, then review its README and contributing guidance.',
-        },
-        {
-          number: '02',
-          title: 'Install all development dependencies',
-          description: 'Install the Flutter, Protocol, and Pi Node dependencies with the pinned toolchains.',
-        },
-        {
-          number: '03',
-          title: 'Run the documented development command',
-          description:
-            'Use the README command that supplies explicit local Pi Node process paths; ordinary source builds do not contain a runtime Capsule.',
-        },
+        'The public repository already establishes the cross-platform project and its safety boundaries. Runtime delivery is tracked separately.',
+      items: [
+        'Flutter project directories are present for Android, iOS, macOS, Windows, Linux, and Web.',
+        'Focused tests verify the desktop host-capable and mobile/Web connect-only role mapping.',
+        'Shared analysis, tests, and cross-platform build automation are maintained in the repository.',
+        'First-party Local Direct and runtime Capsules exist in source, but are not presented as a current public download.',
       ],
-      fullGuide: 'Read the complete setup guide',
-    },
-    security: {
-      eyebrow: 'Security boundary',
-      title: 'Keep execution local and explicit.',
-      description:
-        'Local Direct connects desktop Pi Client to Pi Node, which runs with the host process’s project and tool permissions.',
-      points: [
-        'Packaged desktop applications must verify the runtime Capsule before Pi Node starts.',
-        'Local Direct does not require a separately installed network gateway.',
-        'The project-owned protocol defines the complete client-to-node boundary.',
-        'Pi Client excludes credentials, provider data, prompts, and tool data from transport logs.',
-      ],
-    },
-    limitations: {
-      title: 'Current source limitations',
-      points: [
-        'No supported public binary release is available.',
-        'The project-owned protocol remains pre-1.0 and may change during development.',
-        'Mobile and Web remote transport is not implemented.',
-        'Provider-backed production recovery and complete desktop packaging are not yet accepted.',
-        'The remaining project-owned requirements for 1.0 are incomplete.',
-      ],
+      noticeTitle: 'Development status',
+      noticeBody:
+        'Pi Client is not promoting an installable build as the current product yet. Follow the repository for implementation progress and future releases.',
     },
     closing: {
-      title: 'Explore the source and follow development in public.',
+      title: 'Build the independent Pi Client with us.',
       description:
-        'Pi Client is open source and early. No supported public release is currently available; use GitHub Issues for bugs and development feedback.',
-      source: 'View source repository',
-      issues: 'Open GitHub Issues',
+        'Review the source, follow project decisions, open an issue, or contribute a focused improvement.',
+      source: 'View on GitHub',
+      contribute: 'Read contributing guide',
     },
     footer: {
-      description: 'An independent open-source client for the pi coding agent.',
+      description: 'An independent, open-source Flutter client for the pi coding agent.',
       readme: 'README',
       contributing: 'Contributing',
       license: 'MIT License',
       issues: 'Issues',
       attribution:
-        'Pi Client ships its first-party Pi Node through a project-owned protocol and is an independent open-source project.',
+        'Pi Client is independently developed. Delivered source, verified contracts, and planned runtime work are presented separately.',
     },
   },
   'zh-cn': {
     locale: 'zh-cn',
     htmlLang: 'zh-CN',
-    metaTitle: 'Pi Client — 面向 pi 的独立跨平台客户端',
+    metaTitle: 'Pi Client — 面向 pi 的跨平台 Flutter 客户端',
     metaDescription:
-      '了解独立 Pi Client 源代码、第一方 Pi Node 架构和当前开发状态。',
+      '面向 pi coding agent 的独立开放源代码 Flutter 客户端，覆盖桌面、移动端和 Web。',
     languageLabel: '语言',
     languageHref: '/',
     languageName: 'English',
     homeLabel: 'Pi Client 首页',
     navigationLabel: '主要导航',
-    statusDetailsLabel: '源代码状态',
     projectLinksLabel: '项目链接',
-    socialImageAlt: 'Pi Client 产品标识和独立 Flutter 工作区',
+    socialImageAlt: 'Pi Client 产品标识与跨平台产品定位',
     nav: {
-      features: '功能',
-      workflow: '工作方式',
-      security: '安全',
+      product: '产品',
+      platforms: '平台',
+      status: '状态',
       github: 'GitHub',
     },
     hero: {
-      eyebrow: '面向 pi 的独立工作区',
-      title: '专注于会话，而不是终端连接细节。',
+      eyebrow: '独立跨平台客户端',
+      title: '一个 Pi Client，覆盖六个平台目标。',
       description:
-        'Pi Client 将会话浏览、提示词、实时输出和运行控制集中到独立 Flutter 工作区。当前源代码面向六个平台，桌面端通过 Local Direct 承载运行时。',
-      badges: ['六平台源代码', '桌面 Local Direct', '第一方 Pi Node'],
-      primaryAction: '查看源代码仓库',
-      source: '阅读设置指南',
-      statusNote: '当前源代码仍在开发中，不是受支持的公开发布版本。',
+        'Pi Client 是面向 pi coding agent 的独立开放源代码 Flutter 客户端，以一套代码覆盖 Android、iOS、macOS、Windows、Linux 和 Web。',
+      badges: ['Flutter', '六个平台目标', '开放源代码'],
+      primary: '查看源代码',
+      secondary: '参与贡献',
+      note: '第一方 Local Direct 已在源码中实现；受支持的公开分发仍在积极建设中。',
+      platformLabel: '项目支持的平台目标',
     },
-    screenshotAlt: 'Pi Client 窗口，其中显示合成会话和经过脱敏的编码 Agent 对话。',
-    screenshotCaption: '真实 Flutter 渲染；项目路径、会话、提示词和 Agent 输出均为合成数据。',
-    warning: {
-      title: '当前没有受支持的公开发布版本。',
-      body:
-        '仓库提供的是开发中源代码，而不是受支持的二进制发布版本。仅在你能够使用开发工具并自行评估当前源代码时进行本地构建。',
-    },
-    features: {
-      eyebrow: '当前能力',
-      title: '在一个窗口中完成核心会话循环。',
-      description: '当前源代码通过项目自有 API 和运行时边界实现核心会话循环。',
+    principles: {
+      eyebrow: '产品基础',
+      title: '聚焦客户端，并明确不同平台的能力边界。',
+      description: '仓库将已经验证的源码和契约，与仍在建设的运行时能力清晰分开。',
       items: [
         {
-          icon: 'sessions',
-          title: '浏览会话',
-          description: '刷新会话摘要、打开对话并阅读可见消息历史。',
+          icon: 'code',
+          title: '一套 Flutter 代码',
+          description: '六个平台共享产品代码和版本，原生配置继续由各平台自身负责。',
         },
         {
-          icon: 'prompt',
-          title: '创建并继续工作',
-          description: '为绝对项目路径创建会话，并发送下一条提示词。',
+          icon: 'platforms',
+          title: '桌面、移动端与 Web',
+          description:
+            'Android、iOS、macOS、Windows、Linux 和 Web 都是同一个 Pi Client 产品的平台目标。',
         },
         {
-          icon: 'stream',
-          title: '查看实时输出',
-          description: '通过所选会话的事件流查看 Assistant 持续更新。',
+          icon: 'roles',
+          title: '清晰的执行角色',
+          description: '桌面端在契约上具备 Host 能力；Android、iOS 和 Web 仅负责连接。',
         },
         {
-          icon: 'stop',
-          title: '停止运行',
-          description: '无需离开桌面工作区即可中断当前 Agent 运行。',
+          icon: 'open',
+          title: '开放开发过程',
+          description: '架构、源码、Issue 和贡献指南都保留在公开仓库中。',
         },
       ],
     },
-    workflow: {
-      eyebrow: '当前工作方式',
-      title: '采用第一方运行时边界的原生客户端。',
-      description:
-        '桌面 Pi Client 通过 Local Direct 和项目自有协议连接第一方 Pi Node。',
-      client: 'Pi Client',
-      bridge: '项目自有协议',
-      runtime: 'Pi Node 运行时 Capsule',
-      architectureNote:
-        '发布包必须内置并验证运行时 Capsule；源码开发使用显式配置的本地进程路径。Web 和移动端仍仅支持连接。',
+    roles: {
+      eyebrow: '平台角色',
+      title: '能力边界由设备角色决定。',
+      description: 'Pi Client 使用应用级平台契约，而不是让所有目标获得相同权限。',
+      desktop: {
+        title: '桌面客户端',
+        platforms: 'macOS · Windows · Linux',
+        badge: '契约定义为 Host-capable',
+        description:
+          '桌面源码构建已支持第一方 Local Direct 和经过验证的 Runtime Capsule；受支持的公开安装包仍在资格验证中。',
+      },
+      connectOnly: {
+        title: '仅连接客户端',
+        platforms: 'Android · iOS · Web',
+        badge: 'Connect-only',
+        description:
+          '移动端和 Web 不嵌入 Agent 运行时，也不获取宿主文件系统或工具执行权限。',
+      },
+      note: '第一方 Host Runtime Capsule 已在源码和候选流程中验证，但当前没有受支持的公开安装包入口。',
     },
-    start: {
-      eyebrow: '开始使用',
-      title: '从当前源代码进行开发构建。',
-      description:
-        '你需要 macOS 11 或更高版本、FVM、Bun、macOS 原生工具链以及可用的 pi 模型 Provider 配置。',
-      steps: [
-        {
-          number: '01',
-          title: '克隆并检查源代码',
-          description: '克隆仓库，然后阅读 README 和贡献指南。',
-        },
-        {
-          number: '02',
-          title: '安装全部开发依赖',
-          description: '使用锁定的工具链安装 Flutter、Protocol 和 Pi Node 依赖。',
-        },
-        {
-          number: '03',
-          title: '运行文档中的开发命令',
-          description: '使用 README 中显式提供本地 Pi Node 进程路径的命令；普通源码构建不包含运行时 Capsule。',
-        },
+    status: {
+      eyebrow: '当前状态',
+      title: '独立产品正在积极开发中。',
+      description: '公开仓库已经建立跨平台工程与安全边界，运行时交付由独立进度负责。',
+      items: [
+        '仓库包含 Android、iOS、macOS、Windows、Linux 和 Web 的 Flutter 平台工程。',
+        '聚焦测试验证桌面 Host-capable 与移动端/Web connect-only 的角色映射。',
+        '共享分析、测试和跨平台构建自动化都在仓库中维护。',
+        '第一方 Local Direct 与 Runtime Capsule 已存在于源码中，但不会被描述为当前公开下载。',
       ],
-      fullGuide: '阅读完整设置指南',
-    },
-    security: {
-      eyebrow: '安全边界',
-      title: '保持本地执行边界明确。',
-      description:
-        'Local Direct 将桌面 Pi Client 连接到 Pi Node；Pi Node 具有宿主进程的项目与工具权限。',
-      points: [
-        '打包后的桌面应用必须在 Pi Node 启动前验证运行时 Capsule。',
-        'Local Direct 不需要单独安装网络网关。',
-        '项目自有协议定义完整的客户端到节点边界。',
-        'Pi Client 不会将凭据、Provider 数据、提示词或工具数据写入传输日志。',
-      ],
-    },
-    limitations: {
-      title: '当前源代码限制',
-      points: [
-        '当前没有受支持的公开二进制发布版本。',
-        '项目自有协议仍处于 1.0 之前，可能在开发期间发生变化。',
-        '移动端和 Web 远程传输尚未实现。',
-        'Provider 支持的生产恢复流程和完整桌面打包尚未通过验收。',
-        '其余项目自有 1.0 需求仍未完成。',
-      ],
+      noticeTitle: '开发状态',
+      noticeBody:
+        'Pi Client 当前不把任何可安装构建作为正式产品入口。请通过公开仓库关注实现进度与后续发布。',
     },
     closing: {
-      title: '浏览源代码并公开关注开发进展。',
-      description: 'Pi Client 是早期开放源代码项目，当前没有受支持的公开发布版本。请通过 GitHub Issues 报告缺陷和开发反馈。',
-      source: '查看源代码仓库',
-      issues: '打开 GitHub Issues',
+      title: '一起构建独立的 Pi Client。',
+      description: '查看源码、跟踪项目决策、提交 Issue，或贡献一个聚焦的改进。',
+      source: '在 GitHub 查看',
+      contribute: '阅读贡献指南',
     },
     footer: {
-      description: '面向 pi coding agent 的独立开放源代码客户端。',
+      description: '面向 pi coding agent 的独立开放源代码 Flutter 客户端。',
       readme: 'README',
       contributing: '参与贡献',
       license: 'MIT License',
       issues: 'Issues',
-      attribution:
-        'Pi Client 通过项目自有协议交付第一方 Pi Node，是独立的开放源代码项目。'
+      attribution: 'Pi Client 为独立开发项目；已交付源码、验证契约和规划中的运行时工作会分别说明。',
     },
   },
 };

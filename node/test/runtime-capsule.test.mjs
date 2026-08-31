@@ -58,6 +58,7 @@ for (const [targetId, expected] of Object.entries(targetExpectations)) {
     const target = resolveNodeDistribution(targetId);
     assert.deepEqual(target.architectures, [expected.architecture]);
     assert.equal(target.distributions.length, 1);
+    assert.equal(target.packageManagerCpu, target.architecture);
     assert.equal(target.distributions[0].archiveName, expected.archive);
     assert.equal(
       target.distributions[0].archiveUrl,
@@ -70,6 +71,7 @@ for (const [targetId, expected] of Object.entries(targetExpectations)) {
 test("Universal macOS target preserves both official architecture archives", () => {
   const target = resolveNodeDistribution("darwin-universal");
   assert.equal(target.architecture, "universal");
+  assert.equal(target.packageManagerCpu, "*");
   assert.deepEqual(target.architectures, ["arm64", "x64"]);
   assert.deepEqual(
     target.distributions.map((entry) => entry.id),
