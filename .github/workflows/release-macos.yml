@@ -41,6 +41,9 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      - name: Keep the legacy single-macOS publisher dormant
+        run: node tool/release_metadata.mjs --require-profile macos-preview-v1 --require-publication
+
       - name: Set up Bun ${{ env.BUN_VERSION }}
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
