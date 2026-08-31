@@ -86,7 +86,7 @@ Default review level: L6.
 - The current product site presents Pi Client as an independent, open-source Flutter client with six platform targets. It may state the verified execution-role contract, but must label undelivered Host runtime and transport work as active development rather than current capability.
 - Product-site visuals use Pi Client-owned brand and platform-role assets only. They must not contain production paths, credentials, private prompts, real tool output, archived runtime branding, or unverified feature claims.
 - The canonical product-site origin is `https://pi.wyattcoder.top/`; English is served at `/` and Simplified Chinese at `/zh-cn/`. The inherited `https://wyattcoder.top/pi-client/` path is not an accepted production target.
-- Historical release metadata may remain machine-readable for release verification without being imported by the rendered product page. Existing Pages Release-asset admission remains unchanged until a separate release-workflow decision replaces it.
+- Historical and active release metadata may remain machine-readable for release verification without being imported by the rendered product page. Existing Pages Release-asset admission remains unchanged until a separate release-workflow decision replaces it.
 - A passing local site build is source evidence only. Current publication requires an exact successful Pages run plus production canonical, content-exclusion, asset, HTTPS, and accessibility evidence.
 
 ## BASE-PI-008 - Cross-platform build and Preview release integrity
@@ -100,3 +100,14 @@ Default review level: L6.
 - Android, iOS, and Web release metadata must remain `remote-client-only`; macOS, Windows, and Linux may remain `agent-host-capable`, but all artifacts record `hostRuntimeIncluded: false` until a separately accepted Pi SDK Host implementation exists. Current evidence scans package path names, contained framework symlink targets, and reserved future Host names; it does not claim semantic inspection of arbitrary binary contents.
 - Preview signing state is fail-closed and explicit: Android Release must not fall back to Debug signing; iOS is no-codesign; macOS and Windows remain unsigned until their respective identity and trust workflows are configured. Web uses the standard JavaScript target until a separate WASM compatibility decision and evidence exist.
 - Publishing remains a manual, separately authorized transition. The candidate version must be stable and monotonic. It creates an annotated immutable Tag only after qualification or resumes only the same annotated Tag/full commit with the original qualification run ID and exact retained aggregate bundle. A matching Draft may receive missing assets after existing bytes are verified; only one failed `starter/0-byte` expected asset may be deleted under a revalidated Draft boundary, while uploaded assets and every public Release are read-only. Draft publication and annotated-Tag-bound Pages deployment occur only after exact service-set and downloaded-byte verification.
+
+## BASE-PI-009 - Unsigned Homebrew Cask integrity
+
+- Status: Active
+- Review level: L9
+- The Homebrew channel is the public Tap `Hu-Wentao/homebrew-tap`; the Cask token is globally unique `pi-client`, and the documented install command is `brew install --cask hu-wentao/tap/pi-client`.
+- The application repository owns deterministic Cask rendering and verification. A Cask is generated only from the active non-legacy Release contract plus the exact lowercase SHA-256 of its `macos-universal` ZIP.
+- The Cask URL must resolve to one immutable GitHub Release Tag asset. Actions Artifacts, moving branches, mutable URLs, zero/placeholder digests and the archived `v0.0.2` asset are not admissible.
+- Until Developer ID and Notarization are separately configured, Cask metadata and user documentation must state `unsigned` and `not notarized`; Homebrew quarantine remains intact, ordinary launch is expected to fail Gatekeeper, and Finder Control-click Open is the only documented first-launch exception.
+- Project code, workflows, documentation and Tap content must not add `--no-quarantine`, remove quarantine attributes, disable Gatekeeper, or imply that ad-hoc signing is a trusted Apple distribution identity.
+- Homebrew distribution does not prove the first-party Pi host runtime or transport. The Preview must disclose its transitional pi-web compatibility boundary, while the independent Landing Page continues to omit downloads, installation steps and legacy runtime names under `BASE-PI-007`.

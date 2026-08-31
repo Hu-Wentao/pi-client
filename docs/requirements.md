@@ -167,3 +167,13 @@ Default review level: L6. Requirements derived directly from the user-provided M
 - Constraints: The product site may present the six platform projects and verified execution-role contract, but it must separate delivered source facts from runtime work still in development. It must not expose legacy adapter names, archived Preview downloads, retired screenshots, platform-specific installation instructions, or unverified Pi Node, Local Direct, Friday Workspace, Agent Host, signing, or distribution claims.
 - Source: User product-identity correction and `DEC-017`.
 - Acceptance: `https://pi.wyattcoder.top/` and `/zh-cn/` serve canonical bilingual static pages with GitHub and contribution CTAs, name Android, iOS, macOS, Windows, Linux, and Web, explain desktop host-capable versus mobile/Web connect-only roles with a delivery caveat, contain no client JavaScript, and reject legacy runtime text, archived release URLs, retired screenshot assets, and `/pi-client/` paths.
+
+## REQ-PI-015 - Install the unsigned macOS Preview with one Homebrew command
+
+- Status: Planned
+- Priority: Must
+- Review level: L9
+- Actor and goal: A macOS user with Homebrew can install the current Universal Pi Client Preview into `/Applications` with `brew install --cask hu-wentao/tap/pi-client`.
+- Constraints: The Cask must bind one immutable GitHub Prerelease asset by exact version and SHA-256; it must not target archived `v0.0.2`, remove quarantine, disable Gatekeeper, claim Developer ID/Notarization, or conceal the transitional pi-web compatibility boundary and missing first-party Host runtime.
+- Source: User Homebrew installation request, `DEC-018`, and `PLAN-PI-006`.
+- Acceptance: The project-owned generator produces the exact Tap Cask from active Release metadata and the published macOS ZIP digest; Homebrew installs `Pi Client.app`; bundle version, Bundle ID and Universal architectures match the Release; `spctl` continues to reject normal launch as unsigned; Finder Control-click Open remains the disclosed first-launch path; uninstall succeeds without mutating Release bytes.

@@ -81,15 +81,15 @@ export type LandingCopy = {
   };
 };
 
-// Historical release metadata remains machine-readable for immutable release
-// verification. The independent product page intentionally does not render it.
+// Release metadata remains machine-readable for immutable release verification.
+// The independent product page intentionally does not render a download flow.
 export const release = {
-  version: '0.0.2',
-  tag: 'v0.0.2',
-  asset: 'Pi-Client-0.0.2-macOS-universal.zip',
+  version: '0.0.3',
+  tag: 'v0.0.3',
+  asset: 'Pi-Client-0.0.3-macOS-universal.zip',
   downloadUrl:
-    'https://github.com/Hu-Wentao/pi-client/releases/download/v0.0.2/Pi-Client-0.0.2-macOS-universal.zip',
-  releaseUrl: 'https://github.com/Hu-Wentao/pi-client/releases/tag/v0.0.2',
+    'https://github.com/Hu-Wentao/pi-client/releases/download/v0.0.3/Pi-Client-0.0.3-macOS-universal.zip',
+  releaseUrl: 'https://github.com/Hu-Wentao/pi-client/releases/tag/v0.0.3',
 } as const;
 
 export const copy: Record<Locale, LandingCopy> = {

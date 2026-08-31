@@ -42,7 +42,7 @@ jobs:
           fvm flutter test
 
       - name: Test release automation
-        run: node --test test/release_contract_test.mjs test/preview_artifacts_test.mjs test/workflow_policy_test.mjs
+        run: node --test test/homebrew_cask_test.mjs test/release_contract_test.mjs test/preview_artifacts_test.mjs test/workflow_policy_test.mjs
 
       - name: Validate release metadata
         run: node tool/release_metadata.mjs

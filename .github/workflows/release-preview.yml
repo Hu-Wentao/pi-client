@@ -198,7 +198,7 @@ jobs:
           fvm dart format --output=none --set-exit-if-changed lib test tool
           fvm flutter analyze
           fvm flutter test
-          node --test test/release_contract_test.mjs test/preview_artifacts_test.mjs test/workflow_policy_test.mjs
+          node --test test/homebrew_cask_test.mjs test/release_contract_test.mjs test/preview_artifacts_test.mjs test/workflow_policy_test.mjs
           node tool/release_metadata.mjs --require-profile six-platform-preview-v1
 
       - name: Set up Bun 1.4.0

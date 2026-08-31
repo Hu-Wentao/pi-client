@@ -38,11 +38,31 @@ The repository currently provides:
 - A tested `PlatformCapabilities` contract for desktop host-capable and mobile/Web connect-only roles.
 - Shared routing, state-management, storage, analysis, and test foundations.
 - Cross-platform CI and Preview release automation with explicit signing and packaging boundaries.
+- An unsigned macOS Preview distributed through a project-owned Homebrew Cask.
 - Public requirements, baselines, plans, decisions, and verification records under [`docs/`](docs/).
 
-The independent runtime and transport are under active development. Pi Client does not currently promote an installable build as the product entry. Follow the repository and [GitHub Releases](https://github.com/Hu-Wentao/pi-client/releases) for future delivery updates.
+The independent runtime and transport are under active development. Current Preview builds remain evaluation artifacts and still use the transitional pi-web compatibility boundary; they do not include the planned first-party Pi host runtime.
 
-Earlier Preview assets remain available as immutable project history. They are not presented as the current product path and are not modified or replaced by current development.
+Earlier Preview assets remain available as immutable project history. They are not modified or replaced by later releases.
+
+## Install the macOS Preview with Homebrew
+
+Install the Universal macOS Preview on macOS 11 or newer:
+
+```bash
+brew install --cask hu-wentao/tap/pi-client
+```
+
+Homebrew installs `Pi Client.app` into `/Applications`. The Preview is unsigned and not notarized because the project does not currently have an Apple Developer ID. Homebrew preserves macOS quarantine metadata, so Gatekeeper will reject a normal first launch. In Finder, Control-click `Pi Client.app`, select **Open**, then confirm **Open**. Do not use `--no-quarantine`, remove quarantine metadata, or disable Gatekeeper.
+
+The current Preview requires a reachable pi-web `0.8.11` service. The first-party Pi host runtime and transport remain under development. Use the Preview only for evaluation and review the matching [GitHub Release](https://github.com/Hu-Wentao/pi-client/releases) security and checksum disclosures.
+
+Upgrade or uninstall through the same Tap:
+
+```bash
+brew upgrade --cask hu-wentao/tap/pi-client
+brew uninstall --cask hu-wentao/tap/pi-client
+```
 
 ## Set up the project
 
@@ -98,7 +118,7 @@ fvm dart format --output=none --set-exit-if-changed lib test tool
 fvm dart run build_runner build
 fvm flutter analyze
 fvm flutter test
-node --test test/release_contract_test.mjs test/preview_artifacts_test.mjs test/workflow_policy_test.mjs
+node --test test/homebrew_cask_test.mjs test/release_contract_test.mjs test/preview_artifacts_test.mjs test/workflow_policy_test.mjs
 node tool/release_metadata.mjs
 ```
 
@@ -126,8 +146,8 @@ An Agent host can access projects and run tools with the permissions of its host
 ## Current limitations
 
 - The first-party Agent host runtime and complete transport integration are still under development.
-- A current installable product release is not promoted from the Landing Page.
-- Formal platform signing, notarization, store delivery, and installer trust remain separate release-readiness work.
+- The Landing Page remains an independent product overview and does not render the Preview download or platform-specific installation flow.
+- The macOS Homebrew Preview is unsigned and not notarized; formal platform signing, store delivery, and installer trust remain separate release-readiness work.
 - Windows and Linux builds require evidence from their respective operating systems.
 - Platform capability contracts prove role boundaries, not complete runtime availability.
 
