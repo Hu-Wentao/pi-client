@@ -555,6 +555,588 @@ bool _sameCapabilities(
   Set<PiProtocolCapability> right,
 ) => left.length == right.length && left.containsAll(right);
 
+enum PiConversationIdentityScope { persistent, runtime }
+
+enum PiThinkingVisibility { visible, redacted, deferred }
+
+enum PiToolActivityStatus { pending, running, succeeded, failed, cancelled }
+
+enum PiConversationMarkerKind { thinkingLevel, modelChange, label, sessionInfo }
+
+final class PiConversationEntryIdentity {
+  PiConversationEntryIdentity({
+    required String entryId,
+    required this.scope,
+    this.originCommandId,
+  }) : entryId = _validatedOpaqueId(entryId, 'entryId');
+
+  final String entryId;
+  final PiConversationIdentityScope scope;
+  final PiCommandId? originCommandId;
+}
+
+final class PiMessageContentReference {
+  PiMessageContentReference({
+    required String contentId,
+    required String mimeType,
+    required String displayName,
+    required int totalBytes,
+    required Uint8List sha256,
+  }) : contentId = _validatedOpaqueId(contentId, 'contentId'),
+       mimeType = _validatedText(mimeType, 'mimeType', allowEmpty: false),
+       displayName = _validatedText(
+         displayName,
+         'displayName',
+         allowEmpty: false,
+       ),
+       totalBytes = _validatedPositiveInt(totalBytes, 'totalBytes'),
+       sha256 = Uint8List.fromList(sha256) {
+    if (this.sha256.length != 32) {
+      throw ArgumentError('sha256 must contain 32 bytes.');
+    }
+  }
+
+  final String contentId;
+  final String mimeType;
+  final String displayName;
+  final int totalBytes;
+  final Uint8List sha256;
+}
+
+final class PiMessageContentBinding {
+  PiMessageContentBinding({
+    required this.sessionId,
+    required String entryId,
+    required String partId,
+    required int entryRevision,
+    required int partRevision,
+    required String contentId,
+  }) : entryId = _validatedOpaqueId(entryId, 'entryId'),
+       partId = _validatedOpaqueId(partId, 'partId'),
+       entryRevision = _validatedPositiveInt(entryRevision, 'entryRevision'),
+       partRevision = _validatedPositiveInt(partRevision, 'partRevision'),
+       contentId = _validatedOpaqueId(contentId, 'contentId');
+
+  final PiSessionId sessionId;
+  final String entryId;
+  final String partId;
+  final int entryRevision;
+  final int partRevision;
+  final String contentId;
+}
+
+final class PiMessageContentRequest {
+  const PiMessageContentRequest({
+    required this.projectId,
+    required this.binding,
+    required this.reference,
+  });
+
+  final PiProjectId projectId;
+  final PiMessageContentBinding binding;
+  final PiMessageContentReference reference;
+}
+
+abstract interface class PiMessageContentHandle {
+  PiMessageContentBinding get binding;
+  PiMessageContentReference get reference;
+  Stream<Uint8List> get bytes;
+  Future<void> get done;
+  Future<void> cancel();
+}
+
+sealed class PiSafeValue {
+  const PiSafeValue();
+}
+
+final class PiSafeNull extends PiSafeValue {
+  const PiSafeNull();
+}
+
+final class PiSafeRedacted extends PiSafeValue {
+  const PiSafeRedacted();
+}
+
+final class PiSafeBool extends PiSafeValue {
+  const PiSafeBool(this.value);
+  final bool value;
+}
+
+final class PiSafeInt extends PiSafeValue {
+  const PiSafeInt(this.value);
+  final int value;
+}
+
+final class PiSafeDouble extends PiSafeValue {
+  PiSafeDouble(this.value) {
+    if (!value.isFinite) throw ArgumentError('Safe doubles must be finite.');
+  }
+  final double value;
+}
+
+final class PiSafeString extends PiSafeValue {
+  PiSafeString(String value) : value = _validatedText(value, 'safeString');
+  final String value;
+}
+
+final class PiSafeList extends PiSafeValue {
+  PiSafeList(Iterable<PiSafeValue> values)
+    : values = List<PiSafeValue>.unmodifiable(values);
+  final List<PiSafeValue> values;
+}
+
+final class PiSafeObjectField {
+  PiSafeObjectField({required String key, required this.value})
+    : key = _validatedText(key, 'safeObjectKey', allowEmpty: false);
+  final String key;
+  final PiSafeValue value;
+}
+
+final class PiSafeObject extends PiSafeValue {
+  PiSafeObject(Iterable<PiSafeObjectField> fields)
+    : fields = List<PiSafeObjectField>.unmodifiable(fields);
+  final List<PiSafeObjectField> fields;
+}
+
+final class PiUsageMetrics {
+  PiUsageMetrics({
+    required int inputTokens,
+    required int outputTokens,
+    required int cacheReadTokens,
+    required int cacheWriteTokens,
+    required int totalTokens,
+  }) : inputTokens = _validatedNonNegativeInt(inputTokens, 'inputTokens'),
+       outputTokens = _validatedNonNegativeInt(outputTokens, 'outputTokens'),
+       cacheReadTokens = _validatedNonNegativeInt(
+         cacheReadTokens,
+         'cacheReadTokens',
+       ),
+       cacheWriteTokens = _validatedNonNegativeInt(
+         cacheWriteTokens,
+         'cacheWriteTokens',
+       ),
+       totalTokens = _validatedNonNegativeInt(totalTokens, 'totalTokens');
+
+  final int inputTokens;
+  final int outputTokens;
+  final int cacheReadTokens;
+  final int cacheWriteTokens;
+  final int totalTokens;
+}
+
+final class PiMoneyAmount {
+  PiMoneyAmount({required String currencyCode, required String decimalAmount})
+    : currencyCode = _validatedText(
+        currencyCode,
+        'currencyCode',
+        allowEmpty: false,
+      ),
+      decimalAmount = _validatedText(
+        decimalAmount,
+        'decimalAmount',
+        allowEmpty: false,
+      );
+
+  final String currencyCode;
+  final String decimalAmount;
+}
+
+final class PiContextMetrics {
+  PiContextMetrics({
+    this.tokens,
+    required int contextWindow,
+    this.percentDecimal,
+  }) : contextWindow = _validatedPositiveInt(contextWindow, 'contextWindow') {
+    if (tokens != null) _validatedNonNegativeInt(tokens!, 'contextTokens');
+  }
+
+  final int? tokens;
+  final int contextWindow;
+  final String? percentDecimal;
+}
+
+final class PiConversationMetrics {
+  const PiConversationMetrics({
+    required this.usage,
+    required this.cost,
+    this.context,
+  });
+
+  final PiUsageMetrics usage;
+  final PiMoneyAmount cost;
+  final PiContextMetrics? context;
+}
+
+sealed class PiConversationPart {
+  PiConversationPart({required String partId, required int revision})
+    : partId = _validatedOpaqueId(partId, 'partId'),
+      revision = _validatedPositiveInt(revision, 'partRevision');
+
+  final String partId;
+  final int revision;
+}
+
+final class PiTextConversationPart extends PiConversationPart {
+  PiTextConversationPart({
+    required super.partId,
+    required super.revision,
+    this.text,
+    this.contentReference,
+  }) {
+    if ((text == null) == (contentReference == null)) {
+      throw ArgumentError('Text parts require exactly one content source.');
+    }
+  }
+
+  final String? text;
+  final PiMessageContentReference? contentReference;
+}
+
+final class PiThinkingConversationPart extends PiConversationPart {
+  PiThinkingConversationPart({
+    required super.partId,
+    required super.revision,
+    required this.visibility,
+    this.text,
+    this.contentReference,
+  }) {
+    if (visibility == PiThinkingVisibility.visible) {
+      if ((text == null) == (contentReference == null)) {
+        throw ArgumentError(
+          'Visible thinking requires exactly one content source.',
+        );
+      }
+    } else if (text != null || contentReference != null) {
+      throw ArgumentError('Hidden thinking must not expose content.');
+    }
+  }
+
+  final PiThinkingVisibility visibility;
+  final String? text;
+  final PiMessageContentReference? contentReference;
+}
+
+final class PiImageConversationPart extends PiConversationPart {
+  PiImageConversationPart({
+    required super.partId,
+    required super.revision,
+    required this.contentReference,
+  });
+
+  final PiMessageContentReference contentReference;
+}
+
+final class PiToolCallConversationPart extends PiConversationPart {
+  PiToolCallConversationPart({
+    required super.partId,
+    required super.revision,
+    required String toolCallId,
+    required String toolName,
+    required this.safeArguments,
+  }) : toolCallId = _validatedOpaqueId(toolCallId, 'toolCallId'),
+       toolName = _validatedText(toolName, 'toolName', allowEmpty: false);
+
+  final String toolCallId;
+  final String toolName;
+  final PiSafeValue safeArguments;
+}
+
+final class PiUnsupportedConversationPart extends PiConversationPart {
+  PiUnsupportedConversationPart({
+    required super.partId,
+    required super.revision,
+    required String sourceType,
+  }) : sourceType = _validatedText(sourceType, 'sourceType', allowEmpty: false);
+
+  final String sourceType;
+}
+
+final class PiToolActivity {
+  PiToolActivity({
+    required String activityId,
+    required String toolCallId,
+    required String toolName,
+    required int sourceOrdinal,
+    required int revision,
+    required this.status,
+    this.progressBasisPoints,
+    required this.safeDetails,
+  }) : activityId = _validatedOpaqueId(activityId, 'activityId'),
+       toolCallId = _validatedOpaqueId(toolCallId, 'toolCallId'),
+       toolName = _validatedText(toolName, 'toolName', allowEmpty: false),
+       sourceOrdinal = _validatedNonNegativeInt(sourceOrdinal, 'sourceOrdinal'),
+       revision = _validatedPositiveInt(revision, 'activityRevision') {
+    if (progressBasisPoints != null &&
+        (progressBasisPoints! < 0 || progressBasisPoints! > 10000)) {
+      throw ArgumentError(
+        'progressBasisPoints is outside the supported range.',
+      );
+    }
+  }
+
+  final String activityId;
+  final String toolCallId;
+  final String toolName;
+  final int sourceOrdinal;
+  final int revision;
+  final PiToolActivityStatus status;
+  final int? progressBasisPoints;
+  final PiSafeValue safeDetails;
+}
+
+sealed class PiConversationEntry {
+  PiConversationEntry({
+    required this.identity,
+    required int revision,
+    required DateTime createdAt,
+    required this.finalized,
+    required Iterable<PiConversationPart> parts,
+    required Iterable<PiToolActivity> toolActivities,
+    this.metrics,
+  }) : revision = _validatedPositiveInt(revision, 'entryRevision'),
+       createdAt = _validatedUtcInstant(createdAt, 'createdAt'),
+       parts = List<PiConversationPart>.unmodifiable(parts),
+       toolActivities = List<PiToolActivity>.unmodifiable(toolActivities);
+
+  final PiConversationEntryIdentity identity;
+  final int revision;
+  final DateTime createdAt;
+  final bool finalized;
+  final List<PiConversationPart> parts;
+  final List<PiToolActivity> toolActivities;
+  final PiConversationMetrics? metrics;
+}
+
+final class PiUserConversationEntry extends PiConversationEntry {
+  PiUserConversationEntry({
+    required super.identity,
+    required super.revision,
+    required super.createdAt,
+    required super.finalized,
+    required super.parts,
+    required super.toolActivities,
+    super.metrics,
+  });
+}
+
+final class PiAssistantConversationEntry extends PiConversationEntry {
+  PiAssistantConversationEntry({
+    required super.identity,
+    required super.revision,
+    required super.createdAt,
+    required super.finalized,
+    required super.parts,
+    required super.toolActivities,
+    super.metrics,
+    required String provider,
+    required String model,
+    required String stopReason,
+    this.safeErrorMessage,
+  }) : provider = _validatedText(provider, 'provider', allowEmpty: false),
+       model = _validatedText(model, 'model', allowEmpty: false),
+       stopReason = _validatedText(stopReason, 'stopReason', allowEmpty: false);
+
+  final String provider;
+  final String model;
+  final String stopReason;
+  final String? safeErrorMessage;
+}
+
+final class PiToolResultConversationEntry extends PiConversationEntry {
+  PiToolResultConversationEntry({
+    required super.identity,
+    required super.revision,
+    required super.createdAt,
+    required super.finalized,
+    required super.parts,
+    required super.toolActivities,
+    super.metrics,
+    required String toolCallId,
+    required String toolName,
+    required this.isError,
+    required this.safeDetails,
+  }) : toolCallId = _validatedOpaqueId(toolCallId, 'toolCallId'),
+       toolName = _validatedText(toolName, 'toolName', allowEmpty: false);
+
+  final String toolCallId;
+  final String toolName;
+  final bool isError;
+  final PiSafeValue safeDetails;
+}
+
+final class PiBashConversationEntry extends PiConversationEntry {
+  PiBashConversationEntry({
+    required super.identity,
+    required super.revision,
+    required super.createdAt,
+    required super.finalized,
+    required super.parts,
+    required super.toolActivities,
+    super.metrics,
+    required String command,
+    this.exitCode,
+    required this.cancelled,
+    required this.truncated,
+    required this.excludedFromContext,
+  }) : command = _validatedText(command, 'command');
+
+  final String command;
+  final int? exitCode;
+  final bool cancelled;
+  final bool truncated;
+  final bool excludedFromContext;
+}
+
+final class PiCustomConversationEntry extends PiConversationEntry {
+  PiCustomConversationEntry({
+    required super.identity,
+    required super.revision,
+    required super.createdAt,
+    required super.finalized,
+    required super.parts,
+    required super.toolActivities,
+    super.metrics,
+    required String customType,
+    required this.display,
+    required this.safeDetails,
+  }) : customType = _validatedText(customType, 'customType', allowEmpty: false);
+
+  final String customType;
+  final bool display;
+  final PiSafeValue safeDetails;
+}
+
+final class PiCompactionConversationEntry extends PiConversationEntry {
+  PiCompactionConversationEntry({
+    required super.identity,
+    required super.revision,
+    required super.createdAt,
+    required super.finalized,
+    required super.parts,
+    required super.toolActivities,
+    super.metrics,
+    required String firstKeptEntryId,
+    required int tokensBefore,
+    required this.fromHook,
+    required this.safeDetails,
+  }) : firstKeptEntryId = _validatedOpaqueId(
+         firstKeptEntryId,
+         'firstKeptEntryId',
+       ),
+       tokensBefore = _validatedNonNegativeInt(tokensBefore, 'tokensBefore');
+
+  final String firstKeptEntryId;
+  final int tokensBefore;
+  final bool fromHook;
+  final PiSafeValue safeDetails;
+}
+
+final class PiBranchSummaryConversationEntry extends PiConversationEntry {
+  PiBranchSummaryConversationEntry({
+    required super.identity,
+    required super.revision,
+    required super.createdAt,
+    required super.finalized,
+    required super.parts,
+    required super.toolActivities,
+    super.metrics,
+    required String fromEntryId,
+    required this.fromHook,
+    required this.safeDetails,
+  }) : fromEntryId = _validatedOpaqueId(fromEntryId, 'fromEntryId');
+
+  final String fromEntryId;
+  final bool fromHook;
+  final PiSafeValue safeDetails;
+}
+
+final class PiMarkerConversationEntry extends PiConversationEntry {
+  PiMarkerConversationEntry({
+    required super.identity,
+    required super.revision,
+    required super.createdAt,
+    required super.finalized,
+    required super.parts,
+    required super.toolActivities,
+    super.metrics,
+    required this.markerKind,
+    this.targetEntryId,
+    this.label,
+    this.provider,
+    this.model,
+    this.thinkingLevel,
+  });
+
+  final PiConversationMarkerKind markerKind;
+  final String? targetEntryId;
+  final String? label;
+  final String? provider;
+  final String? model;
+  final String? thinkingLevel;
+}
+
+final class PiUnknownConversationEntry extends PiConversationEntry {
+  PiUnknownConversationEntry({
+    required super.identity,
+    required super.revision,
+    required super.createdAt,
+    required super.finalized,
+    required super.parts,
+    required super.toolActivities,
+    super.metrics,
+    required String sourceType,
+  }) : sourceType = _validatedText(sourceType, 'sourceType', allowEmpty: false);
+
+  final String sourceType;
+}
+
+final class PiConversationSnapshot {
+  PiConversationSnapshot({
+    required this.sessionId,
+    required Iterable<PiConversationEntry> entries,
+    required int lastEventSequence,
+  }) : entries = List<PiConversationEntry>.unmodifiable(entries),
+       lastEventSequence = _validatedNonNegativeInt(
+         lastEventSequence,
+         'lastEventSequence',
+       );
+
+  final PiSessionId sessionId;
+  final List<PiConversationEntry> entries;
+  final int lastEventSequence;
+
+  List<PiMessage> get messages =>
+      List<PiMessage>.unmodifiable(entries.map(piConversationEntryToMessage));
+}
+
+final class PiConversationPage {
+  PiConversationPage({
+    required this.sessionId,
+    required Iterable<PiConversationEntry> entries,
+    this.nextCursor,
+    required this.hasMore,
+    required this.activeBranchRevision,
+    required this.treeRevision,
+    required int lastEventSequence,
+  }) : entries = List<PiConversationEntry>.unmodifiable(entries),
+       lastEventSequence = _validatedNonNegativeInt(
+         lastEventSequence,
+         'lastEventSequence',
+       ) {
+    if (hasMore != (nextCursor != null)) {
+      throw ArgumentError('hasMore and nextCursor must agree.');
+    }
+  }
+
+  final PiSessionId sessionId;
+  final List<PiConversationEntry> entries;
+  final PiSessionHistoryCursor? nextCursor;
+  final bool hasMore;
+  final PiSessionBranchRevision activeBranchRevision;
+  final PiSessionTreeRevision treeRevision;
+  final int lastEventSequence;
+}
+
 enum PiMessageRole { user, assistant, tool, system }
 
 final class PiMessage {
@@ -587,6 +1169,44 @@ final class PiMessage {
 
   @override
   String toString() => 'PiMessage(role: $role, <redacted>)';
+}
+
+PiMessage piConversationEntryToMessage(PiConversationEntry entry) {
+  final role = switch (entry) {
+    PiUserConversationEntry() => PiMessageRole.user,
+    PiAssistantConversationEntry() => PiMessageRole.assistant,
+    PiToolResultConversationEntry() => PiMessageRole.tool,
+    _ => PiMessageRole.system,
+  };
+  final text = entry.parts
+      .map((part) {
+        return switch (part) {
+          PiTextConversationPart(:final text, :final contentReference) =>
+            text ?? '[Content: ${contentReference!.displayName}]',
+          PiThinkingConversationPart(
+            visibility: PiThinkingVisibility.visible,
+            :final text,
+            :final contentReference,
+          ) =>
+            text ?? '[Thinking: ${contentReference!.displayName}]',
+          PiThinkingConversationPart() => '',
+          PiImageConversationPart(:final contentReference) =>
+            '[Image: ${contentReference.mimeType}]',
+          PiToolCallConversationPart(:final toolName) =>
+            '[Tool call: $toolName]',
+          PiUnsupportedConversationPart(:final sourceType) =>
+            '[Unsupported content: $sourceType]',
+        };
+      })
+      .where((value) => value.isNotEmpty)
+      .join('\n');
+  return PiMessage(
+    id: PiMessageId(entry.identity.entryId),
+    role: role,
+    text: text,
+    createdAt: entry.createdAt,
+    isStreaming: !entry.finalized,
+  );
 }
 
 final class PiSessionSummary {
@@ -654,28 +1274,26 @@ final class PiSessionSummary {
 }
 
 final class PiSessionHistoryPage {
-  PiSessionHistoryPage({
-    required this.summary,
-    required Iterable<PiMessage> messages,
-    this.nextCursor,
-    required this.hasMore,
-    required this.activeBranchRevision,
-    required this.treeRevision,
-  }) : messages = List<PiMessage>.unmodifiable(messages) {
-    if (hasMore != (nextCursor != null)) {
-      throw ArgumentError('hasMore and nextCursor must agree.');
-    }
-    if (this.messages.length > 200) {
+  PiSessionHistoryPage({required this.summary, required this.conversation}) {
+    if (conversation.entries.length > 200) {
       throw ArgumentError('Session history page is too large.');
+    }
+    if (conversation.sessionId != summary.id) {
+      throw ArgumentError('Conversation session does not match its summary.');
     }
   }
 
   final PiSessionSummary summary;
-  final List<PiMessage> messages;
-  final PiSessionHistoryCursor? nextCursor;
-  final bool hasMore;
-  final PiSessionBranchRevision activeBranchRevision;
-  final PiSessionTreeRevision treeRevision;
+  final PiConversationPage conversation;
+
+  List<PiMessage> get messages => List<PiMessage>.unmodifiable(
+    conversation.entries.map(piConversationEntryToMessage),
+  );
+  PiSessionHistoryCursor? get nextCursor => conversation.nextCursor;
+  bool get hasMore => conversation.hasMore;
+  PiSessionBranchRevision get activeBranchRevision =>
+      conversation.activeBranchRevision;
+  PiSessionTreeRevision get treeRevision => conversation.treeRevision;
 }
 
 final class PiSessionHistoryRequest {
@@ -839,26 +1457,15 @@ abstract interface class PiSessionExportHandle {
 }
 
 final class PiSessionDetail {
-  PiSessionDetail({
-    required this.summary,
-    required Iterable<PiMessage> messages,
-  }) : messages = List<PiMessage>.unmodifiable(messages);
-
-  final PiSessionSummary summary;
-  final List<PiMessage> messages;
-
-  @override
-  bool operator ==(Object other) {
-    if (other is! PiSessionDetail || summary != other.summary) return false;
-    if (messages.length != other.messages.length) return false;
-    for (var index = 0; index < messages.length; index += 1) {
-      if (messages[index] != other.messages[index]) return false;
+  PiSessionDetail({required this.summary, required this.conversation}) {
+    if (conversation.sessionId != summary.id) {
+      throw ArgumentError('Conversation session does not match its summary.');
     }
-    return true;
   }
 
-  @override
-  int get hashCode => Object.hash(summary, Object.hashAll(messages));
+  final PiSessionSummary summary;
+  final PiConversationSnapshot conversation;
+  List<PiMessage> get messages => conversation.messages;
 
   @override
   String toString() => 'PiSessionDetail(<redacted>)';
@@ -1325,6 +1932,131 @@ final class PiSessionMessageDeltaEvent extends PiSessionEvent {
 
   @override
   String toString() => 'PiSessionMessageDeltaEvent(<redacted>)';
+}
+
+final class PiSessionEntryUpsertEvent extends PiSessionEvent {
+  PiSessionEntryUpsertEvent({
+    required super.sessionId,
+    required super.sequence,
+    required this.entry,
+    this.expectedPreviousRevision,
+  });
+
+  final PiConversationEntry entry;
+  final int? expectedPreviousRevision;
+}
+
+final class PiSessionPartDeltaEvent extends PiSessionEvent {
+  PiSessionPartDeltaEvent({
+    required super.sessionId,
+    required super.sequence,
+    required String entryId,
+    required int expectedEntryRevision,
+    required int resultingEntryRevision,
+    required String partId,
+    required int expectedPartRevision,
+    required int resultingPartRevision,
+    required String textDelta,
+  }) : entryId = _validatedOpaqueId(entryId, 'entryId'),
+       expectedEntryRevision = _validatedPositiveInt(
+         expectedEntryRevision,
+         'expectedEntryRevision',
+       ),
+       resultingEntryRevision = _validatedPositiveInt(
+         resultingEntryRevision,
+         'resultingEntryRevision',
+       ),
+       partId = _validatedOpaqueId(partId, 'partId'),
+       expectedPartRevision = _validatedPositiveInt(
+         expectedPartRevision,
+         'expectedPartRevision',
+       ),
+       resultingPartRevision = _validatedPositiveInt(
+         resultingPartRevision,
+         'resultingPartRevision',
+       ),
+       textDelta = _validatedText(textDelta, 'textDelta');
+
+  final String entryId;
+  final int expectedEntryRevision;
+  final int resultingEntryRevision;
+  final String partId;
+  final int expectedPartRevision;
+  final int resultingPartRevision;
+  final String textDelta;
+}
+
+final class PiSessionEntryFinalizedEvent extends PiSessionEvent {
+  PiSessionEntryFinalizedEvent({
+    required super.sessionId,
+    required super.sequence,
+    required this.entry,
+    required int expectedPreviousRevision,
+  }) : expectedPreviousRevision = _validatedNonNegativeInt(
+         expectedPreviousRevision,
+         'expectedPreviousRevision',
+       );
+
+  final PiConversationEntry entry;
+  final int expectedPreviousRevision;
+}
+
+final class PiSessionToolActivityEvent extends PiSessionEvent {
+  PiSessionToolActivityEvent({
+    required super.sessionId,
+    required super.sequence,
+    required String entryId,
+    required int expectedEntryRevision,
+    required int resultingEntryRevision,
+    required this.activity,
+  }) : entryId = _validatedOpaqueId(entryId, 'entryId'),
+       expectedEntryRevision = _validatedPositiveInt(
+         expectedEntryRevision,
+         'expectedEntryRevision',
+       ),
+       resultingEntryRevision = _validatedPositiveInt(
+         resultingEntryRevision,
+         'resultingEntryRevision',
+       );
+
+  final String entryId;
+  final int expectedEntryRevision;
+  final int resultingEntryRevision;
+  final PiToolActivity activity;
+}
+
+final class PiSessionMetricsEvent extends PiSessionEvent {
+  PiSessionMetricsEvent({
+    required super.sessionId,
+    required super.sequence,
+    required String entryId,
+    required int expectedEntryRevision,
+    required int resultingEntryRevision,
+    required this.metrics,
+  }) : entryId = _validatedOpaqueId(entryId, 'entryId'),
+       expectedEntryRevision = _validatedPositiveInt(
+         expectedEntryRevision,
+         'expectedEntryRevision',
+       ),
+       resultingEntryRevision = _validatedPositiveInt(
+         resultingEntryRevision,
+         'resultingEntryRevision',
+       );
+
+  final String entryId;
+  final int expectedEntryRevision;
+  final int resultingEntryRevision;
+  final PiConversationMetrics metrics;
+}
+
+final class PiSessionRevisionGapEvent extends PiSessionEvent {
+  PiSessionRevisionGapEvent({
+    required super.sessionId,
+    required super.sequence,
+    required String entryId,
+  }) : entryId = _validatedOpaqueId(entryId, 'entryId');
+
+  final String entryId;
 }
 
 final class PiSessionRunningChangedEvent extends PiSessionEvent {

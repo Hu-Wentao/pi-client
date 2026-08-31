@@ -131,6 +131,7 @@ class WorkspaceViewModel
         sessionTreeMutationOperation: null,
         sessionTreeMutationLoading: false,
         sessions: const <PiSessionSummary>[],
+        conversationEntries: const <PiConversationEntry>[],
         messages: const <PiMessage>[],
         historyCursor: null,
         activeBranchRevision: null,
@@ -359,6 +360,7 @@ class WorkspaceViewModel
         sessionTreeMutationOperation: null,
         sessionTreeMutationLoading: false,
         sessions: const <PiSessionSummary>[],
+        conversationEntries: const <PiConversationEntry>[],
         messages: const <PiMessage>[],
         historyCursor: null,
         activeBranchRevision: null,
@@ -532,6 +534,9 @@ class WorkspaceViewModel
           sessionsLoading: false,
           sessions: sessions,
           selectedSessionId: selectedStillExists ? selectedSessionId : null,
+          conversationEntries: selectedStillExists
+              ? state.conversationEntries
+              : const <PiConversationEntry>[],
           messages: selectedStillExists ? state.messages : const <PiMessage>[],
           sessionTree: selectedStillExists ? state.sessionTree : null,
           sessionTreeError: selectedStillExists ? state.sessionTreeError : null,
@@ -599,6 +604,7 @@ class WorkspaceViewModel
         selectedSessionId: sessionId,
         conversationLoading: true,
         sessionTreeLoading: true,
+        conversationEntries: const <PiConversationEntry>[],
         messages: const <PiMessage>[],
         historyCursor: null,
         activeBranchRevision: null,
@@ -649,6 +655,7 @@ class WorkspaceViewModel
           sessionTreeLoading: false,
           sessionStatsLoading: false,
           sessions: _replaceSession(state.sessions, history.summary),
+          conversationEntries: history.conversation.entries,
           messages: history.messages,
           historyCursor: history.nextCursor,
           activeBranchRevision: history.activeBranchRevision,
@@ -914,6 +921,9 @@ class WorkspaceViewModel
         selectedSessionId: immediateDeleteCleanup
             ? null
             : state.selectedSessionId,
+        conversationEntries: immediateDeleteCleanup
+            ? const <PiConversationEntry>[]
+            : state.conversationEntries,
         messages: immediateDeleteCleanup ? const <PiMessage>[] : state.messages,
         conversationLoading: wasSelected && !immediateDeleteCleanup,
         sessionTreeLoading: wasSelected && !immediateDeleteCleanup,
@@ -1023,6 +1033,11 @@ class WorkspaceViewModel
               : selectedOtherSession
               ? state.selectedSessionId
               : null,
+          conversationEntries: history != null
+              ? history.conversation.entries
+              : selectedOtherSession
+              ? state.conversationEntries
+              : const <PiConversationEntry>[],
           messages: history != null
               ? history.messages
               : selectedOtherSession
@@ -1323,6 +1338,7 @@ class WorkspaceViewModel
         state.copyWith(
           sessions: _replaceSession(sessions, history.summary),
           selectedSessionId: targetSessionId,
+          conversationEntries: history.conversation.entries,
           messages: history.messages,
           historyCursor: history.nextCursor,
           activeBranchRevision: history.activeBranchRevision,
@@ -1424,14 +1440,21 @@ class WorkspaceViewModel
         expectedTreeRevision: treeRevision,
       );
       if (!_isCurrentSessionLoad(generation, sessionId)) return;
-      final existingIds = state.messages.map((message) => message.id).toSet();
-      final older = page.messages
-          .where((message) => !existingIds.contains(message.id))
+      final existingIds = state.conversationEntries
+          .map((entry) => entry.identity.entryId)
+          .toSet();
+      final olderEntries = page.conversation.entries
+          .where((entry) => !existingIds.contains(entry.identity.entryId))
           .toList(growable: false);
+      final entries = <PiConversationEntry>[
+        ...olderEntries,
+        ...state.conversationEntries,
+      ];
       emit(
         state.copyWith(
           sessions: _replaceSession(state.sessions, page.summary),
-          messages: <PiMessage>[...older, ...state.messages],
+          conversationEntries: entries,
+          messages: _messagesFromEntries(entries),
           historyCursor: page.nextCursor,
           activeBranchRevision: page.activeBranchRevision,
           treeRevision: page.treeRevision,
@@ -1439,7 +1462,7 @@ class WorkspaceViewModel
           historyLoading: false,
           conversationError: null,
           statusMessage: page.hasMore
-              ? '${older.length} older messages loaded.'
+              ? '${olderEntries.length} older messages loaded.'
               : 'The complete active-branch history is loaded.',
         ),
       );
@@ -1681,19 +1704,32 @@ class WorkspaceViewModel
     final generation = ++_promptGeneration;
     final commandId = _newCommandId('prompt');
     _activePromptCommandId = commandId;
-    final optimisticId = PiMessageId(
-      'workspace-optimistic-${DateTime.now().toUtc().microsecondsSinceEpoch}',
-    );
-    final optimistic = PiMessage(
-      id: optimisticId,
-      role: PiMessageRole.user,
-      text: prompt,
+    final optimisticEntry = PiUserConversationEntry(
+      identity: PiConversationEntryIdentity(
+        entryId: 'workspace-optimistic-${commandId.value}',
+        scope: PiConversationIdentityScope.runtime,
+        originCommandId: commandId,
+      ),
+      revision: 1,
       createdAt: DateTime.now().toUtc(),
-      isStreaming: false,
+      finalized: true,
+      parts: <PiConversationPart>[
+        PiTextConversationPart(
+          partId: 'workspace-optimistic-part-${commandId.value}',
+          revision: 1,
+          text: prompt,
+        ),
+      ],
+      toolActivities: const <PiToolActivity>[],
     );
+    final optimisticEntries = <PiConversationEntry>[
+      ...state.conversationEntries,
+      optimisticEntry,
+    ];
     emit(
       state.copyWith(
-        messages: <PiMessage>[...state.messages, optimistic],
+        conversationEntries: optimisticEntries,
+        messages: _messagesFromEntries(optimisticEntries),
         sending: true,
         promptAdmissionStatus: WorkspacePromptAdmissionStatus.idle,
         promptError: null,
@@ -1721,11 +1757,14 @@ class WorkspaceViewModel
           );
         case PiCommandRejected(:final error):
           _activePromptCommandId = null;
+          final entries = _withoutOriginCommand(
+            state.conversationEntries,
+            commandId,
+          );
           emit(
             state.copyWith(
-              messages: state.messages
-                  .where((message) => message.id != optimisticId)
-                  .toList(growable: false),
+              conversationEntries: entries,
+              messages: _messagesFromEntries(entries),
               sending: false,
               promptAdmissionStatus: WorkspacePromptAdmissionStatus.rejected,
               promptError: _service.describeError(error),
@@ -1752,11 +1791,14 @@ class WorkspaceViewModel
         error: error,
         stackTrace: stackTrace,
       );
+      final entries = _withoutOriginCommand(
+        state.conversationEntries,
+        commandId,
+      );
       emit(
         state.copyWith(
-          messages: state.messages
-              .where((message) => message.id != optimisticId)
-              .toList(growable: false),
+          conversationEntries: entries,
+          messages: _messagesFromEntries(entries),
           sending: false,
           promptAdmissionStatus: WorkspacePromptAdmissionStatus.rejected,
           promptError: _service.describeError(error),
@@ -1902,26 +1944,23 @@ class WorkspaceViewModel
           event.generation,
           emit,
         );
-      case PiSessionMessageAddedEvent(:final message):
-        emit(
-          state.copyWith(
-            eventStatus: WorkspaceEventStatus.listening,
-            messages: _mergeAddedMessage(state.messages, message),
-            conversationError: null,
-            statusMessage: message.isStreaming
-                ? 'Receiving Pi output…'
-                : state.statusMessage,
-          ),
+      case PiSessionEntryUpsertEvent() ||
+          PiSessionPartDeltaEvent() ||
+          PiSessionEntryFinalizedEvent() ||
+          PiSessionToolActivityEvent() ||
+          PiSessionMetricsEvent():
+        final entries = _reduceConversationEvent(
+          state.conversationEntries,
+          nodeEvent,
         );
-      case PiSessionMessageDeltaEvent(:final messageId, :final delta):
-        final messages = _appendMessageDelta(state.messages, messageId, delta);
-        if (messages == null) {
+        if (entries == null) {
           emit(
             state.copyWith(
               eventStatus: WorkspaceEventStatus.recovering,
               conversationLoading: true,
+              conversationError: null,
               statusMessage:
-                  'A Pi message update could not be applied. Reloading authoritative state…',
+                  'A Pi conversation revision gap was detected. Reloading authoritative state…',
             ),
           );
           await _refreshSelectedAuthoritatively(
@@ -1934,9 +1973,28 @@ class WorkspaceViewModel
         emit(
           state.copyWith(
             eventStatus: WorkspaceEventStatus.listening,
-            messages: messages,
+            conversationEntries: entries,
+            messages: _messagesFromEntries(entries),
+            conversationError: null,
             statusMessage: 'Receiving Pi output…',
           ),
+        );
+      case PiSessionMessageAddedEvent() ||
+          PiSessionMessageDeltaEvent() ||
+          PiSessionRevisionGapEvent():
+        emit(
+          state.copyWith(
+            eventStatus: WorkspaceEventStatus.recovering,
+            conversationLoading: true,
+            conversationError: null,
+            statusMessage:
+                'A legacy or invalid conversation event was received. Reloading authoritative state…',
+          ),
+        );
+        await _refreshSelectedAuthoritatively(
+          event.sessionId,
+          event.generation,
+          emit,
         );
       case PiSessionRunningChangedEvent(:final isRunning):
         emit(
@@ -2046,6 +2104,7 @@ class WorkspaceViewModel
           conversationLoading: false,
           sessionsLoading: false,
           sessions: _replaceSession(sessions, history.summary),
+          conversationEntries: history.conversation.entries,
           messages: history.messages,
           historyCursor: history.nextCursor,
           activeBranchRevision: history.activeBranchRevision,
@@ -2286,54 +2345,332 @@ List<PiSessionSummary> _setSessionRunning(
     )
     .toList(growable: false);
 
-List<PiMessage> _mergeAddedMessage(
-  List<PiMessage> messages,
-  PiMessage message,
+List<PiMessage> _messagesFromEntries(List<PiConversationEntry> entries) =>
+    List<PiMessage>.unmodifiable(entries.map(piConversationEntryToMessage));
+
+List<PiConversationEntry> _withoutOriginCommand(
+  List<PiConversationEntry> entries,
+  PiCommandId commandId,
+) => entries
+    .where((entry) => entry.identity.originCommandId != commandId)
+    .toList(growable: false);
+
+List<PiConversationEntry>? _reduceConversationEvent(
+  List<PiConversationEntry> current,
+  PiSessionEvent event,
 ) {
-  final existingIndex = messages.indexWhere((item) => item.id == message.id);
-  if (existingIndex != -1) {
-    return <PiMessage>[
-      ...messages.take(existingIndex),
-      message,
-      ...messages.skip(existingIndex + 1),
-    ];
-  }
-  if (message.role == PiMessageRole.user) {
-    final optimisticIndex = messages.lastIndexWhere(
-      (item) =>
-          item.role == PiMessageRole.user &&
-          item.id.value.startsWith('workspace-optimistic-') &&
-          item.text == message.text,
-    );
-    if (optimisticIndex != -1) {
-      return <PiMessage>[
-        ...messages.take(optimisticIndex),
-        message,
-        ...messages.skip(optimisticIndex + 1),
+  switch (event) {
+    case PiSessionEntryUpsertEvent(
+      :final entry,
+      :final expectedPreviousRevision,
+    ):
+      var entries = current;
+      final originCommandId = entry.identity.originCommandId;
+      if (originCommandId != null) {
+        entries = entries
+            .where(
+              (candidate) =>
+                  candidate.identity.entryId == entry.identity.entryId ||
+                  candidate.identity.originCommandId != originCommandId,
+            )
+            .toList(growable: false);
+      }
+      final index = entries.indexWhere(
+        (candidate) => candidate.identity.entryId == entry.identity.entryId,
+      );
+      if (index == -1) {
+        if (expectedPreviousRevision != null) return null;
+        return <PiConversationEntry>[...entries, entry];
+      }
+      final previous = entries[index];
+      if (entry.revision <= previous.revision) return entries;
+      if (expectedPreviousRevision != null) {
+        if (previous.revision != expectedPreviousRevision ||
+            entry.revision != expectedPreviousRevision + 1) {
+          return null;
+        }
+      } else if (entry.revision != previous.revision + 1) {
+        return null;
+      }
+      return <PiConversationEntry>[
+        ...entries.take(index),
+        entry,
+        ...entries.skip(index + 1),
       ];
-    }
+    case PiSessionPartDeltaEvent(
+      :final entryId,
+      :final expectedEntryRevision,
+      :final resultingEntryRevision,
+      :final partId,
+      :final expectedPartRevision,
+      :final resultingPartRevision,
+      :final textDelta,
+    ):
+      final entryIndex = current.indexWhere(
+        (entry) => entry.identity.entryId == entryId,
+      );
+      if (entryIndex == -1) return null;
+      final entry = current[entryIndex];
+      if (entry.revision != expectedEntryRevision ||
+          resultingEntryRevision != expectedEntryRevision + 1 ||
+          resultingPartRevision != expectedPartRevision + 1) {
+        return null;
+      }
+      final partIndex = entry.parts.indexWhere((part) => part.partId == partId);
+      if (partIndex == -1) return null;
+      final part = entry.parts[partIndex];
+      if (part.revision != expectedPartRevision) return null;
+      final updatedPart = switch (part) {
+        PiTextConversationPart(:final text, contentReference: null) =>
+          PiTextConversationPart(
+            partId: part.partId,
+            revision: resultingPartRevision,
+            text: '${text ?? ''}$textDelta',
+          ),
+        PiThinkingConversationPart(
+          visibility: PiThinkingVisibility.visible,
+          :final text,
+          contentReference: null,
+        ) =>
+          PiThinkingConversationPart(
+            partId: part.partId,
+            revision: resultingPartRevision,
+            visibility: PiThinkingVisibility.visible,
+            text: '${text ?? ''}$textDelta',
+          ),
+        _ => null,
+      };
+      if (updatedPart == null) return null;
+      final parts = <PiConversationPart>[
+        ...entry.parts.take(partIndex),
+        updatedPart,
+        ...entry.parts.skip(partIndex + 1),
+      ];
+      return _replaceConversationEntry(
+        current,
+        entryIndex,
+        _copyConversationEntry(
+          entry,
+          revision: resultingEntryRevision,
+          parts: parts,
+        ),
+      );
+    case PiSessionEntryFinalizedEvent(
+      :final entry,
+      :final expectedPreviousRevision,
+    ):
+      if (!entry.finalized || entry.revision != expectedPreviousRevision + 1) {
+        return null;
+      }
+      final index = current.indexWhere(
+        (candidate) => candidate.identity.entryId == entry.identity.entryId,
+      );
+      if (index == -1) {
+        return expectedPreviousRevision == 0
+            ? <PiConversationEntry>[...current, entry]
+            : null;
+      }
+      if (current[index].revision != expectedPreviousRevision) return null;
+      return _replaceConversationEntry(current, index, entry);
+    case PiSessionToolActivityEvent(
+      :final entryId,
+      :final expectedEntryRevision,
+      :final resultingEntryRevision,
+      :final activity,
+    ):
+      final index = current.indexWhere(
+        (entry) => entry.identity.entryId == entryId,
+      );
+      if (index == -1 ||
+          current[index].revision != expectedEntryRevision ||
+          resultingEntryRevision != expectedEntryRevision + 1) {
+        return null;
+      }
+      final entry = current[index];
+      final existing = entry.toolActivities.indexWhere(
+        (candidate) => candidate.activityId == activity.activityId,
+      );
+      if (existing != -1 &&
+          activity.revision != entry.toolActivities[existing].revision + 1) {
+        return null;
+      }
+      final activities =
+          <PiToolActivity>[
+            ...entry.toolActivities.where(
+              (candidate) => candidate.activityId != activity.activityId,
+            ),
+            activity,
+          ]..sort(
+            (left, right) => left.sourceOrdinal.compareTo(right.sourceOrdinal),
+          );
+      return _replaceConversationEntry(
+        current,
+        index,
+        _copyConversationEntry(
+          entry,
+          revision: resultingEntryRevision,
+          toolActivities: activities,
+        ),
+      );
+    case PiSessionMetricsEvent(
+      :final entryId,
+      :final expectedEntryRevision,
+      :final resultingEntryRevision,
+      :final metrics,
+    ):
+      final index = current.indexWhere(
+        (entry) => entry.identity.entryId == entryId,
+      );
+      if (index == -1 ||
+          current[index].revision != expectedEntryRevision ||
+          resultingEntryRevision != expectedEntryRevision + 1) {
+        return null;
+      }
+      return _replaceConversationEntry(
+        current,
+        index,
+        _copyConversationEntry(
+          current[index],
+          revision: resultingEntryRevision,
+          metrics: metrics,
+        ),
+      );
+    default:
+      return null;
   }
-  return <PiMessage>[...messages, message];
 }
 
-List<PiMessage>? _appendMessageDelta(
-  List<PiMessage> messages,
-  PiMessageId messageId,
-  String delta,
-) {
-  final index = messages.indexWhere((message) => message.id == messageId);
-  if (index == -1) return null;
-  final current = messages[index];
-  final updated = PiMessage(
-    id: current.id,
-    role: current.role,
-    text: '${current.text}$delta',
-    createdAt: current.createdAt,
-    isStreaming: true,
-  );
-  return <PiMessage>[
-    ...messages.take(index),
-    updated,
-    ...messages.skip(index + 1),
-  ];
+List<PiConversationEntry> _replaceConversationEntry(
+  List<PiConversationEntry> entries,
+  int index,
+  PiConversationEntry replacement,
+) => <PiConversationEntry>[
+  ...entries.take(index),
+  replacement,
+  ...entries.skip(index + 1),
+];
+
+PiConversationEntry _copyConversationEntry(
+  PiConversationEntry entry, {
+  required int revision,
+  List<PiConversationPart>? parts,
+  List<PiToolActivity>? toolActivities,
+  PiConversationMetrics? metrics,
+}) {
+  final nextParts = parts ?? entry.parts;
+  final nextActivities = toolActivities ?? entry.toolActivities;
+  final nextMetrics = metrics ?? entry.metrics;
+  return switch (entry) {
+    PiUserConversationEntry() => PiUserConversationEntry(
+      identity: entry.identity,
+      revision: revision,
+      createdAt: entry.createdAt,
+      finalized: entry.finalized,
+      parts: nextParts,
+      toolActivities: nextActivities,
+      metrics: nextMetrics,
+    ),
+    PiAssistantConversationEntry() => PiAssistantConversationEntry(
+      identity: entry.identity,
+      revision: revision,
+      createdAt: entry.createdAt,
+      finalized: entry.finalized,
+      parts: nextParts,
+      toolActivities: nextActivities,
+      metrics: nextMetrics,
+      provider: entry.provider,
+      model: entry.model,
+      stopReason: entry.stopReason,
+      safeErrorMessage: entry.safeErrorMessage,
+    ),
+    PiToolResultConversationEntry() => PiToolResultConversationEntry(
+      identity: entry.identity,
+      revision: revision,
+      createdAt: entry.createdAt,
+      finalized: entry.finalized,
+      parts: nextParts,
+      toolActivities: nextActivities,
+      metrics: nextMetrics,
+      toolCallId: entry.toolCallId,
+      toolName: entry.toolName,
+      isError: entry.isError,
+      safeDetails: entry.safeDetails,
+    ),
+    PiBashConversationEntry() => PiBashConversationEntry(
+      identity: entry.identity,
+      revision: revision,
+      createdAt: entry.createdAt,
+      finalized: entry.finalized,
+      parts: nextParts,
+      toolActivities: nextActivities,
+      metrics: nextMetrics,
+      command: entry.command,
+      exitCode: entry.exitCode,
+      cancelled: entry.cancelled,
+      truncated: entry.truncated,
+      excludedFromContext: entry.excludedFromContext,
+    ),
+    PiCustomConversationEntry() => PiCustomConversationEntry(
+      identity: entry.identity,
+      revision: revision,
+      createdAt: entry.createdAt,
+      finalized: entry.finalized,
+      parts: nextParts,
+      toolActivities: nextActivities,
+      metrics: nextMetrics,
+      customType: entry.customType,
+      display: entry.display,
+      safeDetails: entry.safeDetails,
+    ),
+    PiCompactionConversationEntry() => PiCompactionConversationEntry(
+      identity: entry.identity,
+      revision: revision,
+      createdAt: entry.createdAt,
+      finalized: entry.finalized,
+      parts: nextParts,
+      toolActivities: nextActivities,
+      metrics: nextMetrics,
+      firstKeptEntryId: entry.firstKeptEntryId,
+      tokensBefore: entry.tokensBefore,
+      fromHook: entry.fromHook,
+      safeDetails: entry.safeDetails,
+    ),
+    PiBranchSummaryConversationEntry() => PiBranchSummaryConversationEntry(
+      identity: entry.identity,
+      revision: revision,
+      createdAt: entry.createdAt,
+      finalized: entry.finalized,
+      parts: nextParts,
+      toolActivities: nextActivities,
+      metrics: nextMetrics,
+      fromEntryId: entry.fromEntryId,
+      fromHook: entry.fromHook,
+      safeDetails: entry.safeDetails,
+    ),
+    PiMarkerConversationEntry() => PiMarkerConversationEntry(
+      identity: entry.identity,
+      revision: revision,
+      createdAt: entry.createdAt,
+      finalized: entry.finalized,
+      parts: nextParts,
+      toolActivities: nextActivities,
+      metrics: nextMetrics,
+      markerKind: entry.markerKind,
+      targetEntryId: entry.targetEntryId,
+      label: entry.label,
+      provider: entry.provider,
+      model: entry.model,
+      thinkingLevel: entry.thinkingLevel,
+    ),
+    PiUnknownConversationEntry() => PiUnknownConversationEntry(
+      identity: entry.identity,
+      revision: revision,
+      createdAt: entry.createdAt,
+      finalized: entry.finalized,
+      parts: nextParts,
+      toolActivities: nextActivities,
+      metrics: nextMetrics,
+      sourceType: entry.sourceType,
+    ),
+  };
 }

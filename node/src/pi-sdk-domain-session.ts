@@ -22,10 +22,8 @@ import {
   type PiNodeCommandFailure,
   type PiNodeDomainSessionBackend,
   type PiNodeDomainSessionBackendFactory,
-  type PiNodeJsonValue,
-  type PiNodeMessage,
-  type PiNodeMessagePart,
-  type PiNodeMessageUsage,
+  type PiNodeMessageContent,
+  type PiNodeMessageContentRequest,
   type PiNodePromptExecution,
   type PiNodeSessionBackendEvent,
   type PiNodeSessionBackendMutationResult,
@@ -43,6 +41,10 @@ import {
   type ProjectTrustAuthorization,
 } from "./project-trust.js";
 import { assertRuntimeCompatibility } from "./runtime-metadata.js";
+import {
+  PiSdkConversationNormalizer,
+  PiSdkConversationNormalizerError,
+} from "./pi-sdk-conversation-normalizer.js";
 import {
   createSessionAdminRevision,
   PublicPiSdkSessionAdministration,
@@ -63,7 +65,8 @@ export type PiSdkDomainAdapterErrorCode =
   | "session-mutation-failed"
   | "session-history-cursor-invalid"
   | "session-history-conflict"
-  | "session-export-failed";
+  | "session-export-failed"
+  | "session-content-invalid";
 
 export class PiSdkDomainAdapterError extends Error {
   constructor(
@@ -268,9 +271,9 @@ class PublicPiSdkDomainSession implements PiNodeDomainSessionBackend {
   readonly #historyCursorKey = randomBytes(32);
 
   #parentSessionId: string | undefined;
-  #messageIds = new WeakMap<object, string>();
+  #conversation: PiSdkConversationNormalizer;
   #unsubscribeSdk: () => void = () => {};
-  #messageOrdinal = 0;
+  #activeOriginCommandId: string | undefined;
   #running = false;
   #promptInFlight = false;
   #mutationInFlight = false;
@@ -287,6 +290,7 @@ class PublicPiSdkDomainSession implements PiNodeDomainSessionBackend {
     this.#initialSessionInfo = sessionInfo;
     this.#parentSessionId = parentSessionId;
     this.#clock = clock;
+    this.#conversation = new PiSdkConversationNormalizer(runtime.session.sessionId, clock);
     this.#bindSdkSession(runtime.session);
     runtime.setRebindSession(async (session) => this.#bindSdkSession(session));
   }
@@ -312,9 +316,11 @@ class PublicPiSdkDomainSession implements PiNodeDomainSessionBackend {
     return Object.freeze({
       ...summary,
       persistence: "persistent",
-      messages: Object.freeze(
-        branchEntries.flatMap((entry) => normalizeSessionEntry(entry, this.#clock)),
-      ),
+      conversation: Object.freeze({
+        sessionId: summary.sessionId,
+        entries: this.#conversation.persistentEntries(branchEntries),
+        lastEventSequence: 0,
+      }),
     });
   }
 
@@ -342,18 +348,19 @@ class PublicPiSdkDomainSession implements PiNodeDomainSessionBackend {
         ? messageEntries.length
         : this.#decodeHistoryCursor(input.cursor, revisions, messageEntries.length);
     const start = Math.max(0, endExclusive - input.limit);
-    const messages = messageEntries
-      .slice(start, endExclusive)
-      .flatMap((entry) => normalizeSessionEntry(entry, this.#clock));
+    const entries = this.#conversation.persistentEntries(messageEntries.slice(start, endExclusive));
     const hasMore = start > 0;
     return Object.freeze({
       summary,
-      messages: Object.freeze(messages),
-      ...(hasMore ? { nextCursor: this.#encodeHistoryCursor(start, revisions) } : {}),
-      hasMore,
-      activeBranchRevision: revisions.activeBranchRevision,
-      treeRevision: revisions.treeRevision,
-      lastEventSequence: 0,
+      conversation: Object.freeze({
+        sessionId: summary.sessionId,
+        entries,
+        ...(hasMore ? { nextCursor: this.#encodeHistoryCursor(start, revisions) } : {}),
+        hasMore,
+        activeBranchRevision: revisions.activeBranchRevision,
+        treeRevision: revisions.treeRevision,
+        lastEventSequence: 0,
+      }),
     });
   }
 
@@ -595,7 +602,10 @@ class PublicPiSdkDomainSession implements PiNodeDomainSessionBackend {
     };
   }
 
-  async startPrompt(input: { readonly text: string }): Promise<PiNodePromptExecution> {
+  async startPrompt(input: {
+    readonly commandId: string;
+    readonly text: string;
+  }): Promise<PiNodePromptExecution> {
     this.#assertNotDisposed();
     if (this.isRunning || this.#mutationInFlight) {
       const failure = Object.freeze({
@@ -609,6 +619,7 @@ class PublicPiSdkDomainSession implements PiNodeDomainSessionBackend {
     }
 
     this.#promptInFlight = true;
+    this.#activeOriginCommandId = input.commandId;
     let resolvePreflight: ((accepted: boolean) => void) | undefined;
     const preflight = new Promise<boolean>((resolvePreflightPromise) => {
       resolvePreflight = resolvePreflightPromise;
@@ -630,6 +641,7 @@ class PublicPiSdkDomainSession implements PiNodeDomainSessionBackend {
       )
       .finally(() => {
         this.#promptInFlight = false;
+        this.#activeOriginCommandId = undefined;
       });
 
     const signal = await Promise.race([
@@ -679,6 +691,22 @@ class PublicPiSdkDomainSession implements PiNodeDomainSessionBackend {
       }),
       completion,
     });
+  }
+
+  getMessageContent(input: PiNodeMessageContentRequest): PiNodeMessageContent {
+    this.#assertNotDisposed();
+    try {
+      return this.#conversation.getContent(input);
+    } catch (error) {
+      if (error instanceof PiSdkConversationNormalizerError) {
+        throw new PiSdkDomainAdapterError(
+          "session-content-invalid",
+          "The message content reference is invalid.",
+          { cause: error },
+        );
+      }
+      throw error;
+    }
   }
 
   async abort(): Promise<boolean> {
@@ -875,10 +903,10 @@ class PublicPiSdkDomainSession implements PiNodeDomainSessionBackend {
 
   #bindSdkSession(session: AgentSession): void {
     this.#unsubscribeSdk();
-    this.#messageIds = new WeakMap<object, string>();
-    this.#messageOrdinal = 0;
+    this.#conversation = new PiSdkConversationNormalizer(session.sessionId, this.#clock);
     this.#running = !session.isIdle;
     this.#promptInFlight = false;
+    this.#activeOriginCommandId = undefined;
     this.#unsubscribeSdk = session.subscribe((event) => this.#handleSdkEvent(event));
   }
 
@@ -895,22 +923,11 @@ class PublicPiSdkDomainSession implements PiNodeDomainSessionBackend {
       this.#setRunning(false);
       return;
     }
-    if (
-      event.type === "message_start" ||
-      event.type === "message_update" ||
-      event.type === "message_end"
-    ) {
-      const phase =
-        event.type === "message_start"
-          ? "started"
-          : event.type === "message_update"
-            ? "updated"
-            : "completed";
-      this.#emit({
-        type: "message",
-        phase,
-        message: normalizePiSdkMessage(event.message, this.#messageId(event.message), this.#clock),
-      });
+    for (const conversationEvent of this.#conversation.acceptEvent(
+      event,
+      this.#activeOriginCommandId,
+    )) {
+      this.#emit(conversationEvent);
     }
   }
 
@@ -920,19 +937,6 @@ class PublicPiSdkDomainSession implements PiNodeDomainSessionBackend {
     }
     this.#running = running;
     this.#emit({ type: "running", running });
-  }
-
-  #messageId(message: unknown): string {
-    if (typeof message === "object" && message !== null) {
-      const existing = this.#messageIds.get(message);
-      if (existing) {
-        return existing;
-      }
-      const next = `${this.sessionId}:runtime:${++this.#messageOrdinal}`;
-      this.#messageIds.set(message, next);
-      return next;
-    }
-    return `${this.sessionId}:runtime:${++this.#messageOrdinal}`;
   }
 
   #emit(event: PiNodeSessionBackendEvent): void {
@@ -982,68 +986,6 @@ class PublicPiSdkDomainSession implements PiNodeDomainSessionBackend {
       );
     }
   }
-}
-
-export function normalizePiSdkMessage(
-  input: unknown,
-  messageId: string,
-  clock: () => number = Date.now,
-): PiNodeMessage {
-  const message = isRecord(input) ? input : {};
-  const sourceRole = typeof message.role === "string" ? message.role : "unknown";
-  const role = normalizeRole(sourceRole);
-  const parts = normalizeContent(message.content);
-  const timestampMs = finiteNumber(message.timestamp, clock());
-  const assistant =
-    sourceRole === "assistant"
-      ? Object.freeze({
-          provider: stringValue(message.provider),
-          model: stringValue(message.model),
-          stopReason: stringValue(message.stopReason),
-          ...(typeof message.errorMessage === "string"
-            ? { errorMessage: message.errorMessage }
-            : {}),
-          ...(isRecord(message.usage) ? { usage: normalizeUsage(message.usage) } : {}),
-        })
-      : undefined;
-  const tool =
-    sourceRole === "toolResult"
-      ? Object.freeze({
-          callId: stringValue(message.toolCallId),
-          name: stringValue(message.toolName),
-          isError: message.isError === true,
-        })
-      : undefined;
-
-  return Object.freeze({
-    id: messageId,
-    role,
-    sourceRole,
-    timestampMs,
-    parts: Object.freeze(parts),
-    ...(assistant === undefined ? {} : { assistant }),
-    ...(tool === undefined ? {} : { tool }),
-  });
-}
-
-function normalizeSessionEntry(entry: SessionEntry, clock: () => number): PiNodeMessage[] {
-  if (entry.type === "message") {
-    return [normalizePiSdkMessage(entry.message, entry.id, clock)];
-  }
-  if (entry.type === "custom_message") {
-    return [
-      normalizePiSdkMessage(
-        {
-          role: "custom",
-          content: entry.content,
-          timestamp: parseTimestamp(entry.timestamp, clock()),
-        },
-        entry.id,
-        clock,
-      ),
-    ];
-  }
-  return [];
 }
 
 function parentSessionIdsByChildPath(
@@ -1238,99 +1180,6 @@ function resolveSessionDirectory(
   return undefined;
 }
 
-function normalizeRole(sourceRole: string): PiNodeMessage["role"] {
-  switch (sourceRole) {
-    case "user":
-      return "user";
-    case "assistant":
-      return "assistant";
-    case "toolResult":
-      return "tool";
-    default:
-      return "custom";
-  }
-}
-
-function normalizeContent(content: unknown): PiNodeMessagePart[] {
-  if (typeof content === "string") {
-    return [Object.freeze({ type: "text", text: content })];
-  }
-  if (!Array.isArray(content)) {
-    return [];
-  }
-
-  return content.map((part): PiNodeMessagePart => {
-    if (!isRecord(part) || typeof part.type !== "string") {
-      return Object.freeze({ type: "unsupported", sourceType: "unknown" });
-    }
-    if (part.type === "text" && typeof part.text === "string") {
-      return Object.freeze({ type: "text", text: part.text });
-    }
-    if (part.type === "thinking" && typeof part.thinking === "string") {
-      return Object.freeze({
-        type: "thinking",
-        text: part.redacted === true ? "" : part.thinking,
-        redacted: part.redacted === true,
-      });
-    }
-    if (
-      part.type === "image" &&
-      typeof part.mimeType === "string" &&
-      typeof part.data === "string"
-    ) {
-      return Object.freeze({
-        type: "image",
-        mimeType: part.mimeType,
-        data: part.data,
-      });
-    }
-    if (part.type === "toolCall") {
-      return Object.freeze({
-        type: "tool-call",
-        id: stringValue(part.id),
-        name: stringValue(part.name),
-        arguments: normalizeJsonValue(part.arguments),
-      });
-    }
-    return Object.freeze({ type: "unsupported", sourceType: part.type });
-  });
-}
-
-function normalizeUsage(usage: Record<string, unknown>): PiNodeMessageUsage {
-  const cost = isRecord(usage.cost) ? usage.cost : {};
-  return Object.freeze({
-    inputTokens: finiteNumber(usage.input, 0),
-    outputTokens: finiteNumber(usage.output, 0),
-    cacheReadTokens: finiteNumber(usage.cacheRead, 0),
-    cacheWriteTokens: finiteNumber(usage.cacheWrite, 0),
-    totalTokens: finiteNumber(usage.totalTokens, 0),
-    totalCost: finiteNumber(cost.total, 0),
-  });
-}
-
-function normalizeJsonValue(value: unknown, depth = 0): PiNodeJsonValue {
-  if (value === null || typeof value === "string" || typeof value === "boolean") {
-    return value;
-  }
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? value : String(value);
-  }
-  if (depth >= 20) {
-    return "[depth-limit]";
-  }
-  if (Array.isArray(value)) {
-    return Object.freeze(value.map((item) => normalizeJsonValue(item, depth + 1)));
-  }
-  if (isRecord(value)) {
-    const normalized: Record<string, PiNodeJsonValue> = {};
-    for (const key of Object.keys(value).sort()) {
-      normalized[key] = normalizeJsonValue(value[key], depth + 1);
-    }
-    return Object.freeze(normalized);
-  }
-  return String(value);
-}
-
 function classifySdkFailure(error: unknown): PiNodeCommandFailure {
   const message = error instanceof Error ? error.message : "";
   if (/no model selected/i.test(message)) {
@@ -1397,14 +1246,6 @@ function parseTimestamp(value: unknown, fallback: number): number {
   }
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? parsed : fallback;
-}
-
-function finiteNumber(value: unknown, fallback: number): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
-
-function stringValue(value: unknown): string {
-  return typeof value === "string" ? value : "";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

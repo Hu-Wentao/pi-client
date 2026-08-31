@@ -616,10 +616,13 @@ void main() {
               )
               as PiProtocolSessionResponse;
       expect(
-        detail.session.messages.single.role,
-        PiProtocolMessageRole.assistant,
+        detail.session.conversation.entries.single.type,
+        PiProtocolConversationEntryType.assistant,
       );
-      expect(detail.session.messages.single.createdAt.isUtc, isTrue);
+      expect(
+        detail.session.conversation.entries.single.createdAt.isUtc,
+        isTrue,
+      );
 
       final created =
           codec.decode(
@@ -714,22 +717,27 @@ void main() {
                     getSessionHistoryResponse: wire.GetSessionHistoryResponse(
                       requestId: Int64(30),
                       summary: _summary('session-1'),
-                      messages: <wire.MessageSnapshot>[
-                        _message('history-message'),
-                      ],
-                      nextCursor: 'opaque-next',
-                      hasMore: true,
-                      activeBranchRevision: 'active-1',
-                      treeRevision: 'tree-1',
+                      conversation: wire.ConversationPage(
+                        sessionId: 'session-1',
+                        entries: <wire.ConversationEntry>[
+                          _conversationEntry('history-message'),
+                        ],
+                        nextCursor: 'opaque-next',
+                        hasMore: true,
+                        activeBranchRevision: 'active-1',
+                        treeRevision: 'tree-1',
+                        lastEventSequence: Int64(12),
+                      ),
                     ),
                   ),
                 ),
               )
               as PiProtocolSessionHistoryResponse;
-      expect(history.messages.single.id, 'history-message');
-      expect(history.nextCursor, 'opaque-next');
-      expect(history.hasMore, isTrue);
-      expect(history.activeBranchRevision, 'active-1');
+      expect(history.conversation.entries.single.entryId, 'history-message');
+      expect(history.conversation.nextCursor, 'opaque-next');
+      expect(history.conversation.hasMore, isTrue);
+      expect(history.conversation.activeBranchRevision, 'active-1');
+      expect(history.conversation.lastEventSequence, 12);
 
       codec.encode(
         PiProtocolGetSessionStatsRequest(
@@ -882,41 +890,110 @@ void main() {
       expect(result.failure.retryable, isTrue);
     });
 
-    test('decodes every current session event payload', () {
-      final added =
+    test('decodes every current rich session event payload', () {
+      final upsert =
           codec.decode(
                 server.encode(
                   _sessionEventFrame(
                     sequence: 1,
-                    messageAdded: wire.MessageAddedEvent(
-                      message: _message('message-added'),
+                    entryUpsert: wire.ConversationEntryUpsertEvent(
+                      entry: _conversationEntry('entry-1', revision: 1),
                     ),
                   ),
                 ),
               )
               as PiProtocolSessionEventMessage;
-      expect(added.event, isA<PiProtocolMessageAddedEvent>());
+      expect(upsert.event, isA<PiProtocolConversationEntryUpsertEvent>());
 
       final delta =
           codec.decode(
                 server.encode(
                   _sessionEventFrame(
                     sequence: 2,
-                    messageDelta: wire.MessageDeltaEvent(
-                      messageId: 'message-added',
-                      delta: 'delta',
+                    partDelta: wire.ConversationPartDeltaEvent(
+                      entryId: 'entry-1',
+                      expectedEntryRevision: Int64(1),
+                      resultingEntryRevision: Int64(2),
+                      partId: 'entry-1-part-1',
+                      expectedPartRevision: Int64(1),
+                      resultingPartRevision: Int64(2),
+                      textDelta: 'delta',
                     ),
                   ),
                 ),
               )
               as PiProtocolSessionEventMessage;
-      expect((delta.event as PiProtocolMessageDeltaEvent).delta, 'delta');
+      expect(
+        (delta.event as PiProtocolConversationPartDeltaEvent).textDelta,
+        'delta',
+      );
+
+      final finalized =
+          codec.decode(
+                server.encode(
+                  _sessionEventFrame(
+                    sequence: 3,
+                    entryFinalized: wire.ConversationEntryFinalizedEvent(
+                      entry: _conversationEntry('entry-1', revision: 3),
+                      expectedPreviousRevision: Int64(2),
+                    ),
+                  ),
+                ),
+              )
+              as PiProtocolSessionEventMessage;
+      expect(finalized.event, isA<PiProtocolConversationEntryFinalizedEvent>());
+
+      final activity =
+          codec.decode(
+                server.encode(
+                  _sessionEventFrame(
+                    sequence: 4,
+                    toolActivity: wire.ConversationToolActivityEvent(
+                      entryId: 'entry-1',
+                      expectedEntryRevision: Int64(3),
+                      resultingEntryRevision: Int64(4),
+                      activity: wire.ToolActivity(
+                        activityId: 'activity-1',
+                        toolCallId: 'call-1',
+                        toolName: 'tool',
+                        sourceOrdinal: 0,
+                        revision: Int64(1),
+                        status: wire
+                            .ToolActivityStatus
+                            .TOOL_ACTIVITY_STATUS_RUNNING,
+                        safeDetails: wire.SafeValue(
+                          sentinel: wire.SafeValueKind.SAFE_VALUE_KIND_NULL,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+              as PiProtocolSessionEventMessage;
+      expect(activity.event, isA<PiProtocolConversationToolActivityEvent>());
+
+      final metrics =
+          codec.decode(
+                server.encode(
+                  _sessionEventFrame(
+                    sequence: 5,
+                    metrics: wire.ConversationMetricsEvent(
+                      entryId: 'entry-1',
+                      expectedEntryRevision: Int64(4),
+                      resultingEntryRevision: Int64(5),
+                      metrics: _metrics(),
+                    ),
+                  ),
+                ),
+              )
+              as PiProtocolSessionEventMessage;
+      expect(metrics.event, isA<PiProtocolConversationMetricsEvent>());
 
       final running =
           codec.decode(
                 server.encode(
                   _sessionEventFrame(
-                    sequence: 3,
+                    sequence: 6,
                     runningChanged: wire.SessionRunningChangedEvent(
                       isRunning: true,
                     ),
@@ -933,7 +1010,7 @@ void main() {
           codec.decode(
                 server.encode(
                   _sessionEventFrame(
-                    sequence: 4,
+                    sequence: 7,
                     commandCompleted: wire.CommandCompletedEvent(
                       commandId: 'command-completed',
                       succeeded: true,
@@ -942,7 +1019,7 @@ void main() {
                 ),
               )
               as PiProtocolSessionEventMessage;
-      expect(completed.sequence, 4);
+      expect(completed.sequence, 7);
       expect(
         (completed.event as PiProtocolCommandCompletedEvent).succeeded,
         isTrue,
@@ -1120,21 +1197,61 @@ wire.SessionSummarySnapshot _summary(String id) => wire.SessionSummarySnapshot(
 
 wire.SessionDetailSnapshot _detail(String id) => wire.SessionDetailSnapshot(
   summary: _summary(id),
-  messages: <wire.MessageSnapshot>[_message('message-1')],
+  conversation: wire.ConversationSnapshot(
+    sessionId: id,
+    entries: <wire.ConversationEntry>[_conversationEntry('message-1')],
+    lastEventSequence: Int64(7),
+  ),
 );
 
-wire.MessageSnapshot _message(String id) => wire.MessageSnapshot(
-  messageId: id,
-  role: wire.MessageRole.MESSAGE_ROLE_ASSISTANT,
-  text: 'Message text',
-  createdAtUnixMillis: Int64(1767268800000),
-  isStreaming: false,
+wire.ConversationEntry _conversationEntry(String id, {int revision = 1}) =>
+    wire.ConversationEntry(
+      identity: wire.ConversationEntryIdentity(
+        entryId: id,
+        scope:
+            wire.ConversationIdentityScope.CONVERSATION_IDENTITY_SCOPE_RUNTIME,
+        originCommandId: 'command-1',
+      ),
+      revision: Int64(revision),
+      createdAtUnixMillis: Int64(1767268800000),
+      finalized: true,
+      parts: <wire.ConversationPart>[
+        wire.ConversationPart(
+          partId: '$id-part-1',
+          revision: Int64(revision),
+          text: wire.BoundedTextPart(inlineText: 'Message text'),
+        ),
+      ],
+      assistant: wire.AssistantConversationEntry(
+        provider: 'provider',
+        model: 'model',
+        stopReason: 'stop',
+      ),
+    );
+
+wire.ConversationMetrics _metrics() => wire.ConversationMetrics(
+  usage: wire.UsageMetrics(
+    inputTokens: Int64(5),
+    outputTokens: Int64(3),
+    cacheReadTokens: Int64(1),
+    cacheWriteTokens: Int64(2),
+    totalTokens: Int64(11),
+  ),
+  cost: wire.MoneyAmount(currencyCode: 'USD', decimalAmount: '0.001'),
+  context: wire.ContextMetrics(
+    tokens: Int64(11),
+    contextWindow: Int64(200000),
+    percentDecimal: '0.0055',
+  ),
 );
 
 wire.PiTransportFrame _sessionEventFrame({
   required int sequence,
-  wire.MessageAddedEvent? messageAdded,
-  wire.MessageDeltaEvent? messageDelta,
+  wire.ConversationEntryUpsertEvent? entryUpsert,
+  wire.ConversationPartDeltaEvent? partDelta,
+  wire.ConversationEntryFinalizedEvent? entryFinalized,
+  wire.ConversationToolActivityEvent? toolActivity,
+  wire.ConversationMetricsEvent? metrics,
   wire.SessionRunningChangedEvent? runningChanged,
   wire.CommandCompletedEvent? commandCompleted,
 }) => wire.PiTransportFrame(
@@ -1142,8 +1259,11 @@ wire.PiTransportFrame _sessionEventFrame({
     streamId: 'session-events-1',
     sessionId: 'session-1',
     eventSequence: Int64(sequence),
-    messageAdded: messageAdded,
-    messageDelta: messageDelta,
+    entryUpsert: entryUpsert,
+    partDelta: partDelta,
+    entryFinalized: entryFinalized,
+    toolActivity: toolActivity,
+    metrics: metrics,
     runningChanged: runningChanged,
     commandCompleted: commandCompleted,
   ),

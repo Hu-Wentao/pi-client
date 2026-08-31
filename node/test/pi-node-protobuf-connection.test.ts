@@ -13,6 +13,7 @@ import {
   SessionAdminOperation,
   SessionExportFormat,
   SessionTreeMutationOperation,
+  TransferPurpose,
   decodeTransportFrame,
   encodeTransportFrame,
   type PiTransportFrame,
@@ -34,7 +35,7 @@ function protocolOffer(
     readonly major: number;
     readonly minor: number;
     readonly patch: number;
-  }[] = [{ major: 0, minor: 1, patch: 0 }],
+  }[] = [{ major: 0, minor: 2, patch: 0 }],
   capabilities: readonly Capability[] = [
     Capability.SESSION_READ,
     Capability.SESSION_CREATE,
@@ -105,7 +106,7 @@ test("handshake selects the first explicitly supported offered v0 version and ca
       protocolOffer(
         [
           { major: 0, minor: 9, patch: 0 },
-          { major: 0, minor: 1, patch: 0 },
+          { major: 0, minor: 2, patch: 0 },
           { major: 0, minor: 0, patch: 9 },
         ],
         [
@@ -124,7 +125,7 @@ test("handshake selects the first explicitly supported offered v0 version and ca
       assert.deepEqual(accepted.operation.value.selectedProtocolVersion, {
         $typeName: "pi.client.protocol.v0.ProtocolVersion",
         major: 0,
-        minor: 1,
+        minor: 2,
         patch: 0,
       });
       assert.deepEqual(accepted.operation.value.capabilities, [
@@ -642,6 +643,229 @@ test("preserves an uncertain prompt admission as a correlated error", async () =
   }
 });
 
+test("streams exactly bound message content through the existing transfer engine", async () => {
+  const domain = new FakeProtocolDomain();
+  const payload = Uint8Array.from(Buffer.from("session-scoped content", "utf8"));
+  const digest = Uint8Array.from(createHash("sha256").update(payload).digest());
+  const binding = {
+    sessionId: "session-1",
+    entryId: "entry-1",
+    partId: "part-1",
+    entryRevision: 3,
+    partRevision: 2,
+    contentId: "content-1",
+  } as const;
+  domain.getMessageContent = async ({ request }) => ({
+    binding,
+    reference: {
+      contentId: binding.contentId,
+      mimeType: request.expectedMimeType,
+      displayName: "message.txt",
+      totalBytes: payload.length,
+      sha256: digest,
+    },
+    bytes: payload,
+  });
+  const { output, server } = connection(domain);
+  try {
+    await handshake(
+      server,
+      protocolOffer(
+        [{ major: 0, minor: 2, patch: 0 }],
+        [
+          Capability.PROJECT_DISCOVERY,
+          Capability.RICH_CONVERSATION,
+          Capability.MESSAGE_CONTENT,
+          Capability.TRANSFER,
+          Capability.FLOW_CONTROL,
+          Capability.CANCELLATION,
+        ],
+      ),
+    );
+    await bootstrapProject(server);
+    await server.receive(
+      clientFrame(3n, {
+        case: "getMessageContentRequest",
+        value: {
+          requestId: 1n,
+          projectId: defaultProjectId,
+          binding: {
+            ...binding,
+            entryRevision: BigInt(binding.entryRevision),
+            partRevision: BigInt(binding.partRevision),
+          },
+          expectedMimeType: "text/plain; charset=utf-8",
+          expectedTotalBytes: BigInt(payload.length),
+          expectedSha256: digest,
+        },
+      }),
+    );
+
+    const opened = output.at(-1);
+    assert.equal(opened?.operation.case, "transferOpen");
+    if (opened?.operation.case !== "transferOpen") return;
+    assert.equal(opened.operation.value.purpose, TransferPurpose.MESSAGE_CONTENT);
+    assert.equal(opened.operation.value.contentType, "text/plain; charset=utf-8");
+    assert.equal(opened.operation.value.totalBytes, BigInt(payload.length));
+    assert.deepEqual(opened.operation.value.messageContentBinding, {
+      $typeName: "pi.client.protocol.v0.MessageContentBinding",
+      sessionId: binding.sessionId,
+      entryId: binding.entryId,
+      partId: binding.partId,
+      entryRevision: BigInt(binding.entryRevision),
+      partRevision: BigInt(binding.partRevision),
+      contentId: binding.contentId,
+    });
+    assert.deepEqual(Buffer.from(opened.operation.value.sha256), Buffer.from(digest));
+
+    const transferId = opened.operation.value.transferId;
+    await server.receive(
+      clientFrame(4n, {
+        case: "windowUpdate",
+        value: {
+          target: { case: "transferId", value: transferId },
+          creditMessages: 0,
+          creditBytes: BigInt(payload.length),
+        },
+      }),
+    );
+    const chunk = output.at(-1);
+    assert.equal(chunk?.operation.case, "transferChunk");
+    if (chunk?.operation.case !== "transferChunk") return;
+    assert.deepEqual(Buffer.from(chunk.operation.value.data), Buffer.from(payload));
+    await server.receive(
+      clientFrame(5n, {
+        case: "transferAck",
+        value: {
+          transferId,
+          acknowledgedSequence: 1n,
+          committedBytes: BigInt(payload.length),
+        },
+      }),
+    );
+    assert.equal(output.at(-1)?.operation.case, "transferComplete");
+  } finally {
+    await server.dispose();
+  }
+});
+
+test("rejects message content returned with stale or tampered metadata", async () => {
+  const payload = Uint8Array.from(Buffer.from("content", "utf8"));
+  const digest = Uint8Array.from(createHash("sha256").update(payload).digest());
+  const expectedBinding = {
+    sessionId: "session-1",
+    entryId: "entry-1",
+    partId: "part-1",
+    entryRevision: 2,
+    partRevision: 1,
+    contentId: "content-1",
+  } as const;
+  const variants = [
+    {
+      label: "binding",
+      binding: { ...expectedBinding, partRevision: 2 },
+      mimeType: "image/png",
+      totalBytes: payload.length,
+      sha256: digest,
+      bytes: payload,
+    },
+    {
+      label: "MIME",
+      binding: expectedBinding,
+      mimeType: "image/jpeg",
+      totalBytes: payload.length,
+      sha256: digest,
+      bytes: payload,
+    },
+    {
+      label: "length",
+      binding: expectedBinding,
+      mimeType: "image/png",
+      totalBytes: payload.length + 1,
+      sha256: digest,
+      bytes: payload,
+    },
+    {
+      label: "digest",
+      binding: expectedBinding,
+      mimeType: "image/png",
+      totalBytes: payload.length,
+      sha256: new Uint8Array(32).fill(7),
+      bytes: payload,
+    },
+    {
+      label: "bytes",
+      binding: expectedBinding,
+      mimeType: "image/png",
+      totalBytes: payload.length,
+      sha256: digest,
+      bytes: Uint8Array.from(Buffer.from("tampere", "utf8")),
+    },
+  ] as const;
+
+  for (const variant of variants) {
+    const domain = new FakeProtocolDomain();
+    domain.getMessageContent = async () => ({
+      binding: variant.binding,
+      reference: {
+        contentId: variant.binding.contentId,
+        mimeType: variant.mimeType,
+        displayName: "image.png",
+        totalBytes: variant.totalBytes,
+        sha256: variant.sha256,
+      },
+      bytes: variant.bytes,
+    });
+    const { output, server } = connection(domain);
+    try {
+      await handshake(
+        server,
+        protocolOffer(
+          [{ major: 0, minor: 2, patch: 0 }],
+          [
+            Capability.PROJECT_DISCOVERY,
+            Capability.RICH_CONVERSATION,
+            Capability.MESSAGE_CONTENT,
+            Capability.TRANSFER,
+            Capability.FLOW_CONTROL,
+            Capability.CANCELLATION,
+          ],
+        ),
+      );
+      await bootstrapProject(server);
+      await server.receive(
+        clientFrame(3n, {
+          case: "getMessageContentRequest",
+          value: {
+            requestId: 1n,
+            projectId: defaultProjectId,
+            binding: {
+              ...expectedBinding,
+              entryRevision: BigInt(expectedBinding.entryRevision),
+              partRevision: BigInt(expectedBinding.partRevision),
+            },
+            expectedMimeType: "image/png",
+            expectedTotalBytes: BigInt(payload.length),
+            expectedSha256: digest,
+          },
+        }),
+      );
+      const rejected = output.at(-1);
+      assert.equal(rejected?.operation.case, "requestRejected", variant.label);
+      if (rejected?.operation.case === "requestRejected") {
+        assert.equal(rejected.operation.value.error?.code, ErrorCode.DATA_LOSS, variant.label);
+      }
+      assert.equal(
+        output.some((frame) => frame.operation.case === "transferOpen"),
+        false,
+        variant.label,
+      );
+    } finally {
+      await server.dispose();
+    }
+  }
+});
+
 test("streams large exports only within byte credit and the 16-chunk ACK window", async () => {
   const domain = new FakeProtocolDomain();
   const payload = new Uint8Array(20 * 64 * 1024 + 7);
@@ -652,7 +876,7 @@ test("streams large exports only within byte credit and the 16-chunk ACK window"
     await handshake(
       server,
       protocolOffer(
-        [{ major: 0, minor: 1, patch: 0 }],
+        [{ major: 0, minor: 2, patch: 0 }],
         [
           Capability.PROJECT_DISCOVERY,
           Capability.SESSION_EXPORT,
@@ -776,7 +1000,7 @@ test("aborts invalid export ACKs and explicit cancellation with temp-file cleanu
       await handshake(
         server,
         protocolOffer(
-          [{ major: 0, minor: 1, patch: 0 }],
+          [{ major: 0, minor: 2, patch: 0 }],
           [
             Capability.PROJECT_DISCOVERY,
             Capability.SESSION_EXPORT,

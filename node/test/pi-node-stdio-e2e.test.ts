@@ -21,7 +21,7 @@ type FrameOperationInit = NonNullable<MessageInitShape<typeof PiTransportFrameSc
 
 const fixture = fileURLToPath(new URL("fixtures/stdio-fake-server.ts", import.meta.url));
 
-function operationOffer(minor = 1): FrameOperationInit {
+function operationOffer(minor = 2): FrameOperationInit {
   return {
     case: "clientProtocolOffer",
     value: {
@@ -304,7 +304,7 @@ test("binary stdio rejects unsupported unpublished v0 versions", async (t) => {
       rejected.operation.value.supportedProtocolVersions.map(
         (version) => `${version.major}.${version.minor}.${version.patch}`,
       ),
-      ["0.1.0"],
+      ["0.2.0"],
     );
   }
   assert.deepEqual(await client.exit(), { code: 2, signal: null });

@@ -10,8 +10,10 @@ import {
   type PiNodeCommandCompletion,
   PiNodeDomainError,
   type PiNodeDomainSessionBackend,
+  type PiNodeConversationEntry,
   type PiNodeDomainSessionBackendFactory,
-  type PiNodeMessage,
+  type PiNodeMessageContent,
+  type PiNodeMessageContentRequest,
   type PiNodePromptExecution,
   type PiNodeSessionBackendEvent,
   type PiNodeSessionBackendMutationResult,
@@ -56,14 +58,32 @@ function trustCoordinator(
   });
 }
 
-function message(id: string, text: string, role: PiNodeMessage["role"] = "user"): PiNodeMessage {
-  return Object.freeze({
-    id,
-    role,
-    sourceRole: role,
-    timestampMs: 10,
-    parts: Object.freeze([{ type: "text" as const, text }]),
-  });
+function message(
+  entryId: string,
+  text: string,
+  role: "user" | "assistant" = "user",
+  options: { readonly revision?: number; readonly finalized?: boolean } = {},
+): PiNodeConversationEntry {
+  const revision = options.revision ?? 1;
+  const common = {
+    identity: Object.freeze({ entryId, scope: "runtime" as const }),
+    revision,
+    createdAtMs: 10,
+    finalized: options.finalized ?? true,
+    parts: Object.freeze([
+      Object.freeze({ type: "text" as const, partId: `${entryId}:part:0`, revision, text }),
+    ]),
+    toolActivities: Object.freeze([]),
+  };
+  return role === "user"
+    ? Object.freeze({ ...common, type: "user" })
+    : Object.freeze({
+        ...common,
+        type: "assistant",
+        provider: "fake-provider",
+        model: "fake-model",
+        stopReason: common.finalized ? "stop" : "streaming",
+      });
 }
 
 function summary(sessionId: string): PiNodeSessionSummary {
@@ -100,7 +120,7 @@ class FakeSessionBackend implements PiNodeDomainSessionBackend {
   readonly #listeners = new Set<(event: PiNodeSessionBackendEvent) => void>();
   readonly #completion = deferred<PiNodeCommandCompletion>();
   readonly disposeLog: string[];
-  readonly messages: PiNodeMessage[];
+  readonly messages: PiNodeConversationEntry[];
 
   isRunning = false;
   disposed = false;
@@ -119,7 +139,7 @@ class FakeSessionBackend implements PiNodeDomainSessionBackend {
     sessionId: string,
     readonly cwd: string = canonicalCwd,
     disposeLog: string[] = [],
-    messages: PiNodeMessage[] = [message(`${sessionId}:message`, "hello")],
+    messages: PiNodeConversationEntry[] = [message(`${sessionId}:message`, "hello")],
   ) {
     this.sessionId = sessionId;
     this.disposeLog = disposeLog;
@@ -139,7 +159,11 @@ class FakeSessionBackend implements PiNodeDomainSessionBackend {
       running: this.isRunning,
       adminRevision: this.adminRevision,
       persistence: "persistent",
-      messages: this.messages,
+      conversation: {
+        sessionId: this.sessionId,
+        entries: this.messages,
+        lastEventSequence: 0,
+      },
     };
   }
 
@@ -151,12 +175,15 @@ class FakeSessionBackend implements PiNodeDomainSessionBackend {
     const start = Math.max(0, end - input.limit);
     return {
       summary: this.getSnapshot(),
-      messages: this.messages.slice(start, end),
-      ...(start > 0 ? { nextCursor: String(start) } : {}),
-      hasMore: start > 0,
-      activeBranchRevision: `active-${this.adminRevision}`,
-      treeRevision: this.adminRevision,
-      lastEventSequence: 0,
+      conversation: {
+        sessionId: this.sessionId,
+        entries: this.messages.slice(start, end),
+        ...(start > 0 ? { nextCursor: String(start) } : {}),
+        hasMore: start > 0,
+        activeBranchRevision: `active-${this.adminRevision}`,
+        treeRevision: this.adminRevision,
+        lastEventSequence: 0,
+      },
     };
   }
 
@@ -174,10 +201,12 @@ class FakeSessionBackend implements PiNodeDomainSessionBackend {
         isLinkedWorktree: input.project.identity.isLinkedWorktree,
         isDetachedHead: input.project.identity.isDetachedHead,
       },
-      userMessages: this.messages.filter((item) => item.role === "user").length,
-      assistantMessages: this.messages.filter((item) => item.role === "assistant").length,
-      toolCalls: 0,
-      toolResults: this.messages.filter((item) => item.role === "tool").length,
+      userMessages: this.messages.filter((item) => item.type === "user").length,
+      assistantMessages: this.messages.filter((item) => item.type === "assistant").length,
+      toolCalls: this.messages
+        .flatMap((item) => item.parts)
+        .filter((part) => part.type === "tool-call").length,
+      toolResults: this.messages.filter((item) => item.type === "tool-result").length,
       totalMessages: this.messages.length,
       inputTokens: 0,
       outputTokens: 0,
@@ -200,6 +229,10 @@ class FakeSessionBackend implements PiNodeDomainSessionBackend {
   subscribe(listener: (event: PiNodeSessionBackendEvent) => void): () => void {
     this.#listeners.add(listener);
     return () => this.#listeners.delete(listener);
+  }
+
+  getMessageContent(_input: PiNodeMessageContentRequest): PiNodeMessageContent {
+    throw new Error("No fake content is available.");
   }
 
   startPrompt(): Promise<PiNodePromptExecution> {
@@ -230,16 +263,16 @@ class FakeSessionBackend implements PiNodeDomainSessionBackend {
 
   getTreeSnapshot(): PiNodeSessionTreeSnapshot {
     const nodes = this.messages.map((item, index) => ({
-      entryId: item.id,
-      ...(index === 0 ? {} : { parentEntryId: this.messages[index - 1]!.id }),
-      kind: item.role === "user" ? ("user-message" as const) : ("assistant-message" as const),
-      text: item.parts[0]?.type === "text" ? item.parts[0].text : "",
-      createdAtMs: item.timestampMs,
+      entryId: item.identity.entryId,
+      ...(index === 0 ? {} : { parentEntryId: this.messages[index - 1]!.identity.entryId }),
+      kind: item.type === "user" ? ("user-message" as const) : ("assistant-message" as const),
+      text: item.parts[0]?.type === "text" ? (item.parts[0].text ?? "") : "",
+      createdAtMs: item.createdAtMs,
       depth: index,
       isOnActivePath: true,
       hasChildren: index + 1 < this.messages.length,
-      canEditFromHere: item.role === "user",
-      canFork: item.role === "user",
+      canEditFromHere: item.type === "user",
+      canFork: item.type === "user",
     }));
     return {
       sessionId: this.sessionId,
@@ -528,7 +561,7 @@ test("concurrent loads share one exclusive loaded backend and snapshot copy", as
 
     assert.equal(factory.openCount, 1);
     assert.deepEqual(left, right);
-    assert.notEqual(left.messages, right.messages);
+    assert.notEqual(left.conversation.entries, right.conversation.entries);
   } finally {
     await service.dispose();
   }
@@ -558,14 +591,13 @@ test("prompt admission streams normalized events with monotonic session sequence
       text: "do work",
     });
     backend.emit({
-      type: "message",
-      phase: "started",
-      message: message("runtime-1", "answer", "assistant"),
+      type: "entry-upsert",
+      entry: message("runtime-1", "answer", "assistant", { revision: 1, finalized: false }),
     });
     backend.emit({
-      type: "message",
-      phase: "completed",
-      message: message("runtime-1", "answer complete", "assistant"),
+      type: "entry-finalized",
+      expectedPreviousRevision: 1,
+      entry: message("runtime-1", "answer complete", "assistant", { revision: 2 }),
     });
     backend.complete({ outcome: "succeeded" });
     await nextTask();
@@ -573,7 +605,7 @@ test("prompt admission streams normalized events with monotonic session sequence
     assert.equal(admission.status, "accepted");
     assert.deepEqual(
       events.map((event) => event.type),
-      ["running", "message", "message", "running", "command-completed"],
+      ["running", "entry-upsert", "entry-finalized", "running", "command-completed"],
     );
     assert.deepEqual(
       events.map((event) => event.sequence),
@@ -585,8 +617,8 @@ test("prompt admission streams normalized events with monotonic session sequence
       lastEvent?.type === "command-completed" ? lastEvent.outcome : undefined,
       "succeeded",
     );
-    assert.equal(observation.snapshot.lastEventSequence, 0);
-    assert.equal(service.getLoadedSessionSnapshot("session-1").lastEventSequence, 5);
+    assert.equal(observation.snapshot.conversation.lastEventSequence, 0);
+    assert.equal(service.getLoadedSessionSnapshot("session-1").conversation.lastEventSequence, 5);
     observation.unsubscribe();
   } finally {
     await service.dispose();
@@ -920,7 +952,7 @@ test("rejects concurrent session tree mutations instead of queueing them", async
     const first = service.navigateSessionTree({
       cwd: "/input",
       sessionId: "session-1",
-      entryId: backend.messages[0]!.id,
+      entryId: backend.messages[0]!.identity.entryId,
       expectedAdminRevision: loaded.adminRevision,
     });
     await nextTask();
@@ -928,7 +960,7 @@ test("rejects concurrent session tree mutations instead of queueing them", async
       service.navigateSessionTree({
         cwd: "/input",
         sessionId: "session-1",
-        entryId: backend.messages[0]!.id,
+        entryId: backend.messages[0]!.identity.entryId,
         expectedAdminRevision: loaded.adminRevision,
       }),
       (error) => error instanceof PiNodeDomainError && error.code === "session-mutation-locked",
@@ -961,7 +993,7 @@ test("fork rekeys exclusive ownership, clears old observers, and preserves paren
     const result = await service.forkSessionFromUserEntry({
       cwd: "/input",
       sessionId: "session-1",
-      userEntryId: backend.messages[0]!.id,
+      userEntryId: backend.messages[0]!.identity.entryId,
       expectedAdminRevision: loaded.adminRevision,
     });
 

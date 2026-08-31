@@ -71,23 +71,30 @@ void main() {
 
       final commandId = api.lastPrompt!.commandId;
       api.emitEvent(
-        PiSessionMessageAddedEvent(
+        PiSessionEntryUpsertEvent(
           sessionId: session.id,
           sequence: 1,
-          message: fakeMessage(
-            id: 'assistant-live',
-            role: PiMessageRole.assistant,
-            text: 'Working',
-            isStreaming: true,
+          entry: fakeConversationEntryFromMessage(
+            fakeMessage(
+              id: 'assistant-live',
+              role: PiMessageRole.assistant,
+              text: 'Working',
+              isStreaming: true,
+            ),
           ),
         ),
       );
       api.emitEvent(
-        PiSessionMessageDeltaEvent(
+        PiSessionPartDeltaEvent(
           sessionId: session.id,
           sequence: 2,
-          messageId: PiMessageId('assistant-live'),
-          delta: ' now',
+          entryId: 'assistant-live',
+          expectedEntryRevision: 1,
+          resultingEntryRevision: 2,
+          partId: 'assistant-live-part-1',
+          expectedPartRevision: 1,
+          resultingPartRevision: 2,
+          textDelta: ' now',
         ),
       );
       await _waitFor(
@@ -320,6 +327,159 @@ void main() {
             state.eventStatus == WorkspaceEventStatus.listening &&
             state.messages.single.text == 'Authoritative answer',
       );
+
+      await viewModel.close();
+      await api.close();
+    },
+  );
+
+  test(
+    'reconciles optimistic prompts by origin command ID instead of text',
+    () async {
+      final session = fakeSession(
+        id: 'command-reconcile-session',
+        title: 'Command reconcile',
+        workingDirectory: '/Projects/command-reconcile',
+      );
+      final api = FakePiNodeApi(
+        sessions: <PiSessionSummary>[session],
+        details: <PiSessionId, PiSessionDetail>{
+          session.id: fakeDetail(session),
+        },
+      );
+      final viewModel = WorkspaceViewModel(service: WorkspaceService(api));
+
+      viewModel.add(const WorkspaceStarted());
+      await _waitFor(
+        viewModel,
+        (state) => state.connection.status == PiNodeConnectionStatus.connected,
+      );
+      viewModel.add(WorkspaceSessionSelected(session.id));
+      await _waitFor(
+        viewModel,
+        (state) => state.eventStatus == WorkspaceEventStatus.listening,
+      );
+      viewModel.add(const WorkspacePromptSubmitted('Original local text'));
+      await _waitFor(
+        viewModel,
+        (state) =>
+            state.promptAdmissionStatus ==
+            WorkspacePromptAdmissionStatus.accepted,
+      );
+      final commandId = api.lastPrompt!.commandId;
+      expect(
+        viewModel.state.conversationEntries.single.identity.originCommandId,
+        commandId,
+      );
+
+      api.emitEvent(
+        PiSessionEntryUpsertEvent(
+          sessionId: session.id,
+          sequence: 1,
+          entry: fakeConversationEntryFromMessage(
+            fakeMessage(
+              id: 'authoritative-user-entry',
+              role: PiMessageRole.user,
+              text: 'Canonical server text',
+            ),
+            originCommandId: commandId,
+          ),
+        ),
+      );
+      await _waitFor(
+        viewModel,
+        (state) =>
+            state.conversationEntries.length == 1 &&
+            state.conversationEntries.single.identity.entryId ==
+                'authoritative-user-entry',
+      );
+      expect(viewModel.state.messages.single.text, 'Canonical server text');
+      expect(
+        viewModel.state.conversationEntries.single.identity.originCommandId,
+        commandId,
+      );
+
+      await viewModel.close();
+      await api.close();
+    },
+  );
+
+  test(
+    'reloads authoritative state after a conversation revision gap',
+    () async {
+      final session = fakeSession(
+        id: 'revision-gap-session',
+        title: 'Revision gap',
+        workingDirectory: '/Projects/revision-gap',
+      );
+      final initial = fakeConversationEntryFromMessage(
+        fakeMessage(
+          id: 'assistant-revisioned',
+          role: PiMessageRole.assistant,
+          text: 'Initial',
+          isStreaming: true,
+        ),
+      );
+      final api = FakePiNodeApi(
+        sessions: <PiSessionSummary>[session],
+        details: <PiSessionId, PiSessionDetail>{
+          session.id: fakeDetail(
+            session,
+            entries: <PiConversationEntry>[initial],
+          ),
+        },
+      );
+      final viewModel = WorkspaceViewModel(service: WorkspaceService(api));
+
+      viewModel.add(const WorkspaceStarted());
+      await _waitFor(
+        viewModel,
+        (state) => state.connection.status == PiNodeConnectionStatus.connected,
+      );
+      viewModel.add(WorkspaceSessionSelected(session.id));
+      await _waitFor(
+        viewModel,
+        (state) => state.eventStatus == WorkspaceEventStatus.listening,
+      );
+      final callsBeforeGap = api.getCalls;
+      api.updateDetail(
+        fakeDetail(
+          session,
+          entries: <PiConversationEntry>[
+            fakeConversationEntryFromMessage(
+              fakeMessage(
+                id: 'assistant-revisioned',
+                role: PiMessageRole.assistant,
+                text: 'Authoritative replacement',
+              ),
+              revision: 5,
+            ),
+          ],
+          lastEventSequence: 1,
+        ),
+      );
+      api.emitEvent(
+        PiSessionPartDeltaEvent(
+          sessionId: session.id,
+          sequence: 1,
+          entryId: 'assistant-revisioned',
+          expectedEntryRevision: 2,
+          resultingEntryRevision: 3,
+          partId: 'assistant-revisioned-part-1',
+          expectedPartRevision: 2,
+          resultingPartRevision: 3,
+          textDelta: ' impossible speculative delta',
+        ),
+      );
+
+      await _waitFor(
+        viewModel,
+        (state) =>
+            api.getCalls > callsBeforeGap &&
+            state.eventStatus == WorkspaceEventStatus.listening &&
+            state.messages.single.text == 'Authoritative replacement',
+      );
+      expect(viewModel.state.conversationEntries.single.revision, 5);
 
       await viewModel.close();
       await api.close();

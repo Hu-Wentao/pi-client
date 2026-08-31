@@ -1,6 +1,15 @@
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { chmod, mkdtemp, open, realpath, rm, stat, type FileHandle } from "node:fs/promises";
+import {
+  chmod,
+  mkdtemp,
+  open,
+  realpath,
+  rm,
+  stat,
+  writeFile,
+  type FileHandle,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, relative } from "node:path";
 
@@ -19,6 +28,7 @@ import {
   TransferPurpose,
   decodeTransportFrame,
   encodeTransportFrame,
+  type MessageContentBinding,
   type PiTransportFrame,
   type ProtocolVersion,
   type StableError,
@@ -26,6 +36,7 @@ import {
 
 import {
   PiNodeDomainError,
+  type PiNodeMessageContentBinding,
   type PiNodeProjectSnapshot,
   type PiNodeSessionEvent,
   type PiNodeSessionHistoryPage,
@@ -34,16 +45,19 @@ import {
 import {
   mapCommandFailure,
   mapDomainError,
-  piNodeMessageText,
   stableError,
+  toProtocolConversationEntry,
+  toProtocolConversationMetrics,
+  toProtocolConversationPage,
   toProtocolDirectoryListing,
   toProtocolKnownProjectSnapshot,
-  toProtocolMessageSnapshot,
+  toProtocolMessageContentBinding,
   toProtocolProjectSnapshot,
   toProtocolSessionDetail,
   toProtocolSessionStats,
   toProtocolSessionSummary,
   toProtocolSessionTree,
+  toProtocolToolActivity,
 } from "./protobuf-domain-adapter.js";
 import type { PiNodeProtocolDomain } from "./pi-node-protocol-domain-port.js";
 
@@ -56,7 +70,7 @@ const MAX_OUTSTANDING_TRANSFER_CHUNKS = 16;
 
 export const PI_NODE_PROTOCOL_IMPLEMENTATION_NAME = "Pi Client Node";
 export const SUPPORTED_UNPUBLISHED_PROTOCOL_VERSIONS = Object.freeze([
-  Object.freeze({ major: 0, minor: 1, patch: 0 }),
+  Object.freeze({ major: 0, minor: 2, patch: 0 }),
 ] as const);
 export const SUPPORTED_PROTOCOL_CAPABILITIES = Object.freeze([
   Capability.SESSION_READ,
@@ -74,6 +88,8 @@ export const SUPPORTED_PROTOCOL_CAPABILITIES = Object.freeze([
   Capability.CANCELLATION,
   Capability.FLOW_CONTROL,
   Capability.TRANSFER,
+  Capability.RICH_CONVERSATION,
+  Capability.MESSAGE_CONTENT,
 ] as const);
 
 export interface PiNodeProtocolLogger {
@@ -108,7 +124,6 @@ type FrameOperationInit = NonNullable<MessageInitShape<typeof PiTransportFrameSc
 interface ObservedSession {
   readonly sessionId: string;
   readonly streamId: string;
-  readonly messageTextById: Map<string, string>;
   unsubscribe: () => void;
   lastDomainSequence: number;
   eventSequence: bigint;
@@ -380,6 +395,16 @@ export class PiNodeProtobufConnection {
           frame.operation.value.limit,
           frame.operation.value.expectedActiveBranchRevision,
           frame.operation.value.expectedTreeRevision,
+        );
+        return;
+      case "getMessageContentRequest":
+        await this.#handleGetMessageContent(
+          frame.operation.value.requestId,
+          frame.operation.value.projectId,
+          frame.operation.value.binding,
+          frame.operation.value.expectedMimeType,
+          frame.operation.value.expectedTotalBytes,
+          frame.operation.value.expectedSha256,
         );
         return;
       case "getSessionStatsRequest":
@@ -757,11 +782,7 @@ export class PiNodeProtobufConnection {
           value: {
             requestId,
             summary: toProtocolSessionSummary(page.summary),
-            messages: page.messages.map((message) => toProtocolMessageSnapshot(message, false)),
-            nextCursor: page.nextCursor ?? "",
-            hasMore: page.hasMore,
-            activeBranchRevision: page.activeBranchRevision,
-            treeRevision: page.treeRevision,
+            conversation: toProtocolConversationPage(page.conversation),
           },
         },
         false,
@@ -770,6 +791,139 @@ export class PiNodeProtobufConnection {
       await this.#sendRequestRejected(requestId, mapDomainError(error));
     } finally {
       await this.#flushAdmission(sessionId, observationPending);
+    }
+  }
+
+  async #handleGetMessageContent(
+    requestId: bigint,
+    projectId: string,
+    binding: MessageContentBinding | undefined,
+    expectedMimeType: string,
+    expectedTotalBytes: bigint,
+    expectedSha256: Uint8Array,
+  ): Promise<void> {
+    if (!(await this.#claimRequest(requestId, false))) return;
+    for (const capability of [
+      Capability.MESSAGE_CONTENT,
+      Capability.RICH_CONVERSATION,
+      Capability.TRANSFER,
+      Capability.FLOW_CONTROL,
+      Capability.CANCELLATION,
+    ]) {
+      if (!(await this.#requireCapability(requestId, capability, false))) return;
+    }
+    if (binding === undefined || expectedTotalBytes > BigInt(Number.MAX_SAFE_INTEGER)) {
+      await this.#sendRequestRejected(
+        requestId,
+        stableError(ErrorCode.INVALID_REQUEST, "The message content reference is invalid."),
+      );
+      return;
+    }
+    if (this.#outboundTransfers.size >= 8) {
+      await this.#sendRequestRejected(
+        requestId,
+        stableError(ErrorCode.RESOURCE_EXHAUSTED, "Too many downloads are active."),
+      );
+      return;
+    }
+
+    let tempDirectory: string | undefined;
+    try {
+      const domainBinding: PiNodeMessageContentBinding = Object.freeze({
+        sessionId: binding.sessionId,
+        entryId: binding.entryId,
+        partId: binding.partId,
+        entryRevision: safeUint64Number(binding.entryRevision, "entry revision"),
+        partRevision: safeUint64Number(binding.partRevision, "part revision"),
+        contentId: binding.contentId,
+      });
+      const expectedLength = safeUint64Number(expectedTotalBytes, "content length");
+      const content = await this.#domain.getMessageContent({
+        cwd: this.#requireRegisteredProject(projectId),
+        request: Object.freeze({
+          binding: domainBinding,
+          expectedMimeType,
+          expectedTotalBytes: expectedLength,
+          expectedSha256: Uint8Array.from(expectedSha256),
+        }),
+      });
+      if (
+        !sameMessageContentBinding(content.binding, domainBinding) ||
+        content.reference.contentId !== domainBinding.contentId ||
+        content.reference.mimeType !== expectedMimeType ||
+        content.reference.totalBytes !== expectedLength ||
+        content.bytes.length !== expectedLength ||
+        !sameDigest(content.reference.sha256, expectedSha256)
+      ) {
+        throw new PiNodeDomainError(
+          "session-content-invalid",
+          "The message content no longer matches its requested binding.",
+        );
+      }
+      tempDirectory = await mkdtemp(join(tmpdir(), "pi-client-message-content-"));
+      await chmod(tempDirectory, 0o700);
+      tempDirectory = await realpath(tempDirectory);
+      const filePath = join(tempDirectory, "content.bin");
+      assertContainedTransferPath(tempDirectory, filePath, "message content");
+      await writeFile(filePath, content.bytes, { flag: "wx", mode: 0o600 });
+      const canonicalFile = await realpath(filePath);
+      assertContainedTransferPath(tempDirectory, canonicalFile, "message content");
+      const metadata = await stat(canonicalFile, { bigint: true });
+      if (!metadata.isFile() || metadata.size !== BigInt(content.reference.totalBytes)) {
+        throw new PiNodeDomainError(
+          "session-content-invalid",
+          "The message content file is invalid.",
+        );
+      }
+      const sha256 = await sha256File(canonicalFile);
+      if (!sameDigest(sha256, content.reference.sha256)) {
+        throw new PiNodeDomainError(
+          "session-content-invalid",
+          "The message content digest is invalid.",
+        );
+      }
+      const transferId = `message-content-${randomUUID()}`;
+      const chunkBytes = Math.min(EXPORT_TRANSFER_CHUNK_BYTES, this.#maxTransferChunkBytes);
+      const transfer: OutboundTransfer = {
+        requestId,
+        transferId,
+        tempDirectory,
+        filePath: canonicalFile,
+        fileName: content.reference.displayName,
+        contentType: content.reference.mimeType,
+        totalBytes: BigInt(content.reference.totalBytes),
+        chunkBytes,
+        sha256,
+        sentEndOffsets: new Map(),
+        handle: undefined,
+        nextSequence: 1n,
+        nextOffset: 0n,
+        acknowledgedSequence: 0n,
+        committedBytes: 0n,
+        creditBytes: 0n,
+        pumpTail: Promise.resolve(),
+        closed: false,
+      };
+      this.#outboundTransfers.set(transferId, transfer);
+      tempDirectory = undefined;
+      await this.#sendOperation({
+        case: "transferOpen",
+        value: {
+          requestId,
+          transferId,
+          direction: TransferDirection.DOWNLOAD,
+          purpose: TransferPurpose.MESSAGE_CONTENT,
+          contentType: transfer.contentType,
+          fileName: transfer.fileName,
+          totalBytes: transfer.totalBytes,
+          chunkBytes,
+          sha256,
+          messageContentBinding: toProtocolMessageContentBinding(content.binding),
+        },
+      });
+    } catch (error) {
+      if (tempDirectory !== undefined) await removePrivateTempDirectory(tempDirectory);
+      await this.#sendRequestRejected(requestId, mapDomainError(error));
     }
   }
 
@@ -1679,12 +1833,9 @@ export class PiNodeProtobufConnection {
     const entry: ObservedSession = {
       sessionId: snapshot.sessionId,
       streamId: this.#streamIdFactory(snapshot.sessionId, ++this.#streamOrdinal),
-      messageTextById: new Map(
-        snapshot.messages.map((message) => [message.id, piNodeMessageText(message)]),
-      ),
       unsubscribe: () => {},
-      lastDomainSequence: snapshot.lastEventSequence,
-      eventSequence: 0n,
+      lastDomainSequence: snapshot.conversation.lastEventSequence,
+      eventSequence: BigInt(snapshot.conversation.lastEventSequence),
       eventTail: Promise.resolve(),
       closed: false,
     };
@@ -1695,11 +1846,8 @@ export class PiNodeProtobufConnection {
         this.#acceptDomainEvent(entry, event),
       );
       entry.unsubscribe = observation.unsubscribe;
-      entry.lastDomainSequence = observation.snapshot.lastEventSequence;
-      entry.messageTextById.clear();
-      for (const message of observation.snapshot.messages) {
-        entry.messageTextById.set(message.id, piNodeMessageText(message));
-      }
+      entry.lastDomainSequence = observation.snapshot.conversation.lastEventSequence;
+      entry.eventSequence = BigInt(observation.snapshot.conversation.lastEventSequence);
       return { snapshot: observation.snapshot, entry, pending };
     } catch (error) {
       this.#observations.delete(snapshot.sessionId);
@@ -1789,37 +1937,64 @@ export class PiNodeProtobufConnection {
                 },
         });
         return;
-      case "message": {
-        const message = toProtocolMessageSnapshot(event.message, event.phase !== "completed");
-        const previous = entry.messageTextById.get(event.message.id);
-        const current = message.text;
-        entry.messageTextById.set(event.message.id, current);
-
-        if (event.phase === "started" || event.phase === "completed" || previous === undefined) {
-          await this.#sendSessionEvent(entry, {
-            case: "messageAdded",
-            value: { message },
-          });
-          return;
-        }
-        if (current === previous) {
-          return;
-        }
-        if (!current.startsWith(previous)) {
-          await this.#sendSessionEvent(entry, {
-            case: "messageAdded",
-            value: { message },
-          });
-          return;
-        }
-        const delta = current.slice(previous.length);
-        if (delta.length > 0) {
-          await this.#sendSessionEvent(entry, {
-            case: "messageDelta",
-            value: { messageId: event.message.id, delta },
-          });
-        }
-      }
+      case "entry-upsert":
+        await this.#sendSessionEvent(entry, {
+          case: "entryUpsert",
+          value: {
+            entry: toProtocolConversationEntry(event.entry),
+            ...(event.expectedPreviousRevision === undefined
+              ? {}
+              : {
+                  expectedPreviousRevision: BigInt(event.expectedPreviousRevision),
+                }),
+          },
+        });
+        return;
+      case "part-delta":
+        await this.#sendSessionEvent(entry, {
+          case: "partDelta",
+          value: {
+            entryId: event.entryId,
+            expectedEntryRevision: BigInt(event.expectedEntryRevision),
+            resultingEntryRevision: BigInt(event.resultingEntryRevision),
+            partId: event.partId,
+            expectedPartRevision: BigInt(event.expectedPartRevision),
+            resultingPartRevision: BigInt(event.resultingPartRevision),
+            textDelta: event.textDelta,
+          },
+        });
+        return;
+      case "entry-finalized":
+        await this.#sendSessionEvent(entry, {
+          case: "entryFinalized",
+          value: {
+            entry: toProtocolConversationEntry(event.entry),
+            expectedPreviousRevision: BigInt(event.expectedPreviousRevision),
+          },
+        });
+        return;
+      case "tool-activity":
+        await this.#sendSessionEvent(entry, {
+          case: "toolActivity",
+          value: {
+            entryId: event.entryId,
+            expectedEntryRevision: BigInt(event.expectedEntryRevision),
+            resultingEntryRevision: BigInt(event.resultingEntryRevision),
+            activity: toProtocolToolActivity(event.activity),
+          },
+        });
+        return;
+      case "metrics":
+        await this.#sendSessionEvent(entry, {
+          case: "metrics",
+          value: {
+            entryId: event.entryId,
+            expectedEntryRevision: BigInt(event.expectedEntryRevision),
+            resultingEntryRevision: BigInt(event.resultingEntryRevision),
+            metrics: toProtocolConversationMetrics(event.metrics),
+          },
+        });
+        return;
     }
   }
 
@@ -1988,8 +2163,11 @@ function sessionHistoryPageToSnapshot(page: PiNodeSessionHistoryPage): PiNodeSes
   return Object.freeze({
     ...page.summary,
     persistence: "persistent",
-    messages: page.messages,
-    lastEventSequence: page.lastEventSequence,
+    conversation: Object.freeze({
+      sessionId: page.conversation.sessionId,
+      entries: page.conversation.entries,
+      lastEventSequence: page.conversation.lastEventSequence,
+    }),
   });
 }
 
@@ -2001,6 +2179,51 @@ async function sha256File(path: string): Promise<Uint8Array> {
     hash.update(chunk as Buffer);
   }
   return new Uint8Array(hash.digest());
+}
+
+function safeUint64Number(value: bigint, label: string): number {
+  if (value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new TypeError(`The ${label} is outside the safe integer range.`);
+  }
+  return Number(value);
+}
+
+function sameMessageContentBinding(
+  left: PiNodeMessageContentBinding,
+  right: PiNodeMessageContentBinding,
+): boolean {
+  return (
+    left.sessionId === right.sessionId &&
+    left.entryId === right.entryId &&
+    left.partId === right.partId &&
+    left.entryRevision === right.entryRevision &&
+    left.partRevision === right.partRevision &&
+    left.contentId === right.contentId
+  );
+}
+
+function sameDigest(left: Uint8Array, right: Uint8Array): boolean {
+  if (left.length !== right.length) return false;
+  let difference = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    difference |= left[index]! ^ right[index]!;
+  }
+  return difference === 0;
+}
+
+function assertContainedTransferPath(root: string, candidate: string, label: string): void {
+  const child = relative(root, candidate);
+  if (
+    child.length === 0 ||
+    child.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`) ||
+    child === ".." ||
+    isAbsolute(child)
+  ) {
+    throw new PiNodeDomainError(
+      "session-load-failed",
+      `The private ${label} path escaped its temporary root.`,
+    );
+  }
 }
 
 function assertContainedExportPath(root: string, candidate: string): void {

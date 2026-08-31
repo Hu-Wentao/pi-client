@@ -1,20 +1,43 @@
 import { create } from "@bufbuild/protobuf";
 import {
+  AssistantConversationEntrySchema,
+  BashConversationEntrySchema,
+  BoundedTextPartSchema,
+  BranchSummaryConversationEntrySchema,
+  CompactionConversationEntrySchema,
+  ContextMetricsSchema,
+  ConversationEntryIdentitySchema,
+  ConversationEntrySchema,
+  ConversationIdentityScope,
+  ConversationMetricsSchema,
+  ConversationPageSchema,
+  ConversationPartSchema,
+  ConversationSnapshotSchema,
+  CustomConversationEntrySchema,
   DirectoryEntrySnapshotSchema,
   DirectoryListingSnapshotSchema,
   ErrorCode,
+  ImagePartSchema,
   KnownProjectSnapshotSchema,
+  MarkerConversationEntrySchema,
+  MarkerKind,
   MAX_CONTENT_TEXT_BYTES,
   MAX_IDENTIFIER_BYTES,
   MAX_PATH_BYTES,
   MAX_SHORT_TEXT_BYTES,
-  MessageRole,
-  MessageSnapshotSchema,
+  MessageContentBindingSchema,
+  MessageContentReferenceSchema,
+  MoneyAmountSchema,
   ProjectIdentitySnapshotSchema,
   ProjectSnapshotSchema,
   ProjectTrustReason,
   ProjectTrustSnapshotSchema,
   ProjectTrustStatus,
+  SafeListSchema,
+  SafeObjectFieldSchema,
+  SafeObjectSchema,
+  SafeValueKind,
+  SafeValueSchema,
   SessionDetailSnapshotSchema,
   SessionSafeProjectionSnapshotSchema,
   SessionStatsSnapshotSchema,
@@ -23,10 +46,24 @@ import {
   SessionTreeNodeSnapshotSchema,
   SessionTreeSnapshotSchema,
   StableErrorSchema,
+  ThinkingPartSchema,
+  ThinkingVisibility,
+  ToolActivitySchema,
+  ToolActivityStatus,
+  ToolCallPartSchema,
+  ToolResultConversationEntrySchema,
+  UnknownConversationEntrySchema,
+  UnsupportedPartSchema,
+  UsageMetricsSchema,
+  UserConversationEntrySchema,
+  type ConversationEntry,
+  type ConversationPage,
+  type ConversationSnapshot,
   type DirectoryListingSnapshot,
   type KnownProjectSnapshot,
-  type MessageSnapshot,
+  type MessageContentBinding,
   type ProjectSnapshot,
+  type SafeValue,
   type SessionDetailSnapshot,
   type SessionStatsSnapshot,
   type SessionSummarySnapshot,
@@ -37,10 +74,17 @@ import {
 import {
   PiNodeDomainError,
   type PiNodeCommandFailure,
+  type PiNodeConversationEntry,
+  type PiNodeConversationMetrics,
+  type PiNodeConversationPage,
+  type PiNodeConversationPart,
+  type PiNodeConversationSnapshot,
   type PiNodeDirectoryListing,
   type PiNodeKnownProjectSnapshot,
-  type PiNodeMessage,
+  type PiNodeMessageContentBinding,
   type PiNodeProjectSnapshot,
+  type PiNodeSafeValue,
+  type PiNodeToolActivity,
   type PiNodeProjectTrustReason,
   type PiNodeSessionSnapshot,
   type PiNodeSessionStats,
@@ -146,7 +190,7 @@ export function toProtocolSessionSummary(summary: PiNodeSessionSummary): Session
 export function toProtocolSessionDetail(snapshot: PiNodeSessionSnapshot): SessionDetailSnapshot {
   return create(SessionDetailSnapshotSchema, {
     summary: toProtocolSessionSummary(snapshot),
-    messages: snapshot.messages.map((message) => toProtocolMessageSnapshot(message, false)),
+    conversation: toProtocolConversationSnapshot(snapshot.conversation),
   });
 }
 
@@ -225,43 +269,335 @@ export function toProtocolSessionTree(tree: PiNodeSessionTreeSnapshot): SessionT
   });
 }
 
-export function toProtocolMessageSnapshot(
-  message: PiNodeMessage,
-  isStreaming: boolean,
-): MessageSnapshot {
-  return create(MessageSnapshotSchema, {
-    messageId: requireIdentifier(message.id, "message identifier"),
-    role: toProtocolMessageRole(message.role),
-    text: fitContentText(piNodeMessageText(message)),
-    createdAtUnixMillis: positiveMillis(message.timestampMs),
-    isStreaming,
+export function toProtocolConversationSnapshot(
+  snapshot: PiNodeConversationSnapshot,
+): ConversationSnapshot {
+  return create(ConversationSnapshotSchema, {
+    sessionId: requireIdentifier(snapshot.sessionId, "conversation session identifier"),
+    entries: snapshot.entries.map(toProtocolConversationEntry),
+    lastEventSequence: nonNegativeUint64(snapshot.lastEventSequence, "conversation event sequence"),
   });
 }
 
-export function piNodeMessageText(message: PiNodeMessage): string {
-  const parts: string[] = [];
-  for (const part of message.parts) {
-    switch (part.type) {
-      case "text":
-        parts.push(part.text);
-        break;
-      case "thinking":
-        if (!part.redacted && part.text.length > 0) {
-          parts.push(part.text);
-        }
-        break;
-      case "image":
-        parts.push(`[Image: ${fitShortText(part.mimeType || "unknown media type")}]`);
-        break;
-      case "tool-call":
-        parts.push(`[Tool call: ${fitShortText(part.name || "unnamed")}]`);
-        break;
-      case "unsupported":
-        parts.push(`[Unsupported content: ${fitShortText(part.sourceType || "unknown")}]`);
-        break;
-    }
+export function toProtocolConversationPage(page: PiNodeConversationPage): ConversationPage {
+  return create(ConversationPageSchema, {
+    sessionId: requireIdentifier(page.sessionId, "conversation session identifier"),
+    entries: page.entries.map(toProtocolConversationEntry),
+    nextCursor: page.nextCursor === undefined ? "" : fitShortText(page.nextCursor),
+    hasMore: page.hasMore,
+    activeBranchRevision: requireIdentifier(page.activeBranchRevision, "active branch revision"),
+    treeRevision: requireIdentifier(page.treeRevision, "tree revision"),
+    lastEventSequence: nonNegativeUint64(page.lastEventSequence, "conversation event sequence"),
+  });
+}
+
+export function toProtocolConversationEntry(entry: PiNodeConversationEntry): ConversationEntry {
+  const kind = toProtocolEntryKind(entry);
+  return create(ConversationEntrySchema, {
+    identity: create(ConversationEntryIdentitySchema, {
+      entryId: requireIdentifier(entry.identity.entryId, "conversation entry identifier"),
+      scope:
+        entry.identity.scope === "persistent"
+          ? ConversationIdentityScope.PERSISTENT
+          : ConversationIdentityScope.RUNTIME,
+      originCommandId:
+        entry.identity.originCommandId === undefined
+          ? ""
+          : requireIdentifier(entry.identity.originCommandId, "origin command identifier"),
+    }),
+    revision: positiveUint64(entry.revision, "conversation entry revision"),
+    createdAtUnixMillis: positiveMillis(entry.createdAtMs),
+    finalized: entry.finalized,
+    parts: entry.parts.map(toProtocolConversationPart),
+    toolActivities: entry.toolActivities.map(toProtocolToolActivity),
+    ...(entry.metrics === undefined
+      ? {}
+      : { metrics: toProtocolConversationMetrics(entry.metrics) }),
+    kind,
+  });
+}
+
+function toProtocolEntryKind(entry: PiNodeConversationEntry): ConversationEntry["kind"] {
+  switch (entry.type) {
+    case "user":
+      return { case: "user", value: create(UserConversationEntrySchema) };
+    case "assistant":
+      return {
+        case: "assistant",
+        value: create(AssistantConversationEntrySchema, {
+          provider: fitShortText(entry.provider),
+          model: fitShortText(entry.model),
+          stopReason: fitShortText(entry.stopReason),
+          safeErrorMessage:
+            entry.safeErrorMessage === undefined ? "" : fitShortText(entry.safeErrorMessage),
+        }),
+      };
+    case "tool-result":
+      return {
+        case: "toolResult",
+        value: create(ToolResultConversationEntrySchema, {
+          toolCallId: requireIdentifier(entry.toolCallId, "tool call identifier"),
+          toolName: fitShortText(entry.toolName),
+          isError: entry.isError,
+          safeDetails: toProtocolSafeValue(entry.safeDetails),
+        }),
+      };
+    case "bash":
+      return {
+        case: "bash",
+        value: create(BashConversationEntrySchema, {
+          command: fitContentText(entry.command),
+          ...(entry.exitCode === undefined ? {} : { exitCode: entry.exitCode }),
+          cancelled: entry.cancelled,
+          truncated: entry.truncated,
+          excludedFromContext: entry.excludedFromContext,
+        }),
+      };
+    case "custom":
+      return {
+        case: "custom",
+        value: create(CustomConversationEntrySchema, {
+          customType: fitShortText(entry.customType),
+          display: entry.display,
+          safeDetails: toProtocolSafeValue(entry.safeDetails),
+        }),
+      };
+    case "compaction":
+      return {
+        case: "compaction",
+        value: create(CompactionConversationEntrySchema, {
+          firstKeptEntryId: requireIdentifier(
+            entry.firstKeptEntryId,
+            "first kept entry identifier",
+          ),
+          tokensBefore: nonNegativeUint64(entry.tokensBefore, "tokens before compaction"),
+          fromHook: entry.fromHook,
+          safeDetails: toProtocolSafeValue(entry.safeDetails),
+        }),
+      };
+    case "branch-summary":
+      return {
+        case: "branchSummary",
+        value: create(BranchSummaryConversationEntrySchema, {
+          fromEntryId: requireIdentifier(entry.fromEntryId, "branch source entry identifier"),
+          fromHook: entry.fromHook,
+          safeDetails: toProtocolSafeValue(entry.safeDetails),
+        }),
+      };
+    case "marker":
+      return {
+        case: "marker",
+        value: create(MarkerConversationEntrySchema, {
+          markerKind: toProtocolMarkerKind(entry.markerKind),
+          targetEntryId:
+            entry.targetEntryId === undefined
+              ? ""
+              : requireIdentifier(entry.targetEntryId, "marker target entry identifier"),
+          label: entry.label === undefined ? "" : fitShortText(entry.label),
+          provider: entry.provider === undefined ? "" : fitShortText(entry.provider),
+          model: entry.model === undefined ? "" : fitShortText(entry.model),
+          thinkingLevel: entry.thinkingLevel === undefined ? "" : fitShortText(entry.thinkingLevel),
+        }),
+      };
+    case "unknown":
+      return {
+        case: "unknown",
+        value: create(UnknownConversationEntrySchema, {
+          sourceType: fitShortText(entry.sourceType),
+        }),
+      };
   }
-  return parts.join("\n");
+}
+
+function toProtocolConversationPart(part: PiNodeConversationPart) {
+  const base = {
+    partId: requireIdentifier(part.partId, "conversation part identifier"),
+    revision: positiveUint64(part.revision, "conversation part revision"),
+  };
+  switch (part.type) {
+    case "text":
+      return create(ConversationPartSchema, {
+        ...base,
+        kind: {
+          case: "text",
+          value: create(BoundedTextPartSchema, {
+            content:
+              part.text !== undefined
+                ? { case: "inlineText", value: part.text }
+                : {
+                    case: "contentReference",
+                    value: toProtocolContentReference(part.contentReference!),
+                  },
+          }),
+        },
+      });
+    case "thinking":
+      return create(ConversationPartSchema, {
+        ...base,
+        kind: {
+          case: "thinking",
+          value: create(ThinkingPartSchema, {
+            visibility: toProtocolThinkingVisibility(part.visibility),
+            content:
+              part.visibility !== "visible"
+                ? { case: undefined }
+                : part.text !== undefined
+                  ? { case: "inlineText", value: part.text }
+                  : {
+                      case: "contentReference",
+                      value: toProtocolContentReference(part.contentReference!),
+                    },
+          }),
+        },
+      });
+    case "image":
+      return create(ConversationPartSchema, {
+        ...base,
+        kind: {
+          case: "image",
+          value: create(ImagePartSchema, {
+            contentReference: toProtocolContentReference(part.contentReference),
+          }),
+        },
+      });
+    case "tool-call":
+      return create(ConversationPartSchema, {
+        ...base,
+        kind: {
+          case: "toolCall",
+          value: create(ToolCallPartSchema, {
+            toolCallId: requireIdentifier(part.toolCallId, "tool call identifier"),
+            toolName: fitShortText(part.toolName),
+            safeArguments: toProtocolSafeValue(part.safeArguments),
+          }),
+        },
+      });
+    case "unsupported":
+      return create(ConversationPartSchema, {
+        ...base,
+        kind: {
+          case: "unsupported",
+          value: create(UnsupportedPartSchema, { sourceType: fitShortText(part.sourceType) }),
+        },
+      });
+  }
+}
+
+function toProtocolContentReference(
+  reference: NonNullable<Extract<PiNodeConversationPart, { type: "image" }>["contentReference"]>,
+) {
+  return create(MessageContentReferenceSchema, {
+    contentId: requireIdentifier(reference.contentId, "message content identifier"),
+    mimeType: fitShortText(reference.mimeType),
+    displayName: fitShortText(reference.displayName),
+    totalBytes: positiveUint64(reference.totalBytes, "message content length"),
+    sha256: Uint8Array.from(reference.sha256),
+  });
+}
+
+export function toProtocolMessageContentBinding(
+  binding: PiNodeMessageContentBinding,
+): MessageContentBinding {
+  return create(MessageContentBindingSchema, {
+    sessionId: requireIdentifier(binding.sessionId, "content session identifier"),
+    entryId: requireIdentifier(binding.entryId, "content entry identifier"),
+    partId: requireIdentifier(binding.partId, "content part identifier"),
+    entryRevision: positiveUint64(binding.entryRevision, "content entry revision"),
+    partRevision: positiveUint64(binding.partRevision, "content part revision"),
+    contentId: requireIdentifier(binding.contentId, "message content identifier"),
+  });
+}
+
+function toProtocolSafeValue(value: PiNodeSafeValue): SafeValue {
+  switch (value.kind) {
+    case "null":
+      return create(SafeValueSchema, {
+        value: { case: "sentinel", value: SafeValueKind.NULL },
+      });
+    case "redacted":
+      return create(SafeValueSchema, {
+        value: { case: "sentinel", value: SafeValueKind.REDACTED },
+      });
+    case "bool":
+      return create(SafeValueSchema, { value: { case: "boolValue", value: value.value } });
+    case "int":
+      return create(SafeValueSchema, {
+        value: { case: "intValue", value: BigInt(value.value) },
+      });
+    case "double":
+      return create(SafeValueSchema, {
+        value: { case: "doubleValue", value: value.value },
+      });
+    case "string":
+      return create(SafeValueSchema, {
+        value: { case: "stringValue", value: value.value },
+      });
+    case "list":
+      return create(SafeValueSchema, {
+        value: {
+          case: "listValue",
+          value: create(SafeListSchema, { values: value.values.map(toProtocolSafeValue) }),
+        },
+      });
+    case "object":
+      return create(SafeValueSchema, {
+        value: {
+          case: "objectValue",
+          value: create(SafeObjectSchema, {
+            fields: value.fields.map((field) =>
+              create(SafeObjectFieldSchema, {
+                key: fitShortText(field.key),
+                value: toProtocolSafeValue(field.value),
+              }),
+            ),
+          }),
+        },
+      });
+  }
+}
+
+export function toProtocolToolActivity(activity: PiNodeToolActivity) {
+  return create(ToolActivitySchema, {
+    activityId: requireIdentifier(activity.activityId, "tool activity identifier"),
+    toolCallId: requireIdentifier(activity.toolCallId, "tool call identifier"),
+    toolName: fitShortText(activity.toolName),
+    sourceOrdinal: positiveOrZeroUint32(activity.sourceOrdinal),
+    revision: positiveUint64(activity.revision, "tool activity revision"),
+    status: toProtocolToolActivityStatus(activity.status),
+    ...(activity.progressBasisPoints === undefined
+      ? {}
+      : { progressBasisPoints: activity.progressBasisPoints }),
+    safeDetails: toProtocolSafeValue(activity.safeDetails),
+  });
+}
+
+export function toProtocolConversationMetrics(metrics: PiNodeConversationMetrics) {
+  return create(ConversationMetricsSchema, {
+    usage: create(UsageMetricsSchema, {
+      inputTokens: nonNegativeUint64(metrics.usage.inputTokens, "input tokens"),
+      outputTokens: nonNegativeUint64(metrics.usage.outputTokens, "output tokens"),
+      cacheReadTokens: nonNegativeUint64(metrics.usage.cacheReadTokens, "cache read tokens"),
+      cacheWriteTokens: nonNegativeUint64(metrics.usage.cacheWriteTokens, "cache write tokens"),
+      totalTokens: nonNegativeUint64(metrics.usage.totalTokens, "total tokens"),
+    }),
+    cost: create(MoneyAmountSchema, {
+      currencyCode: fitShortText(metrics.cost.currencyCode),
+      decimalAmount: fitShortText(metrics.cost.decimalAmount),
+    }),
+    ...(metrics.context === undefined
+      ? {}
+      : {
+          context: create(ContextMetricsSchema, {
+            ...(metrics.context.tokens === undefined
+              ? {}
+              : { tokens: nonNegativeUint64(metrics.context.tokens, "context tokens") }),
+            contextWindow: positiveUint64(metrics.context.contextWindow, "context window"),
+            ...(metrics.context.percentDecimal === undefined
+              ? {}
+              : { percentDecimal: fitShortText(metrics.context.percentDecimal) }),
+          }),
+        }),
+  });
 }
 
 export function mapDomainError(error: unknown): StableError {
@@ -314,6 +650,8 @@ export function mapDomainError(error: unknown): StableError {
         ErrorCode.CONFLICT,
         "The active session branch changed. Refresh and try again.",
       );
+    case "session-content-invalid":
+      return stableError(ErrorCode.DATA_LOSS, "The message content reference is stale or invalid.");
     case "session-admin-invalid-name":
       return stableError(ErrorCode.INVALID_REQUEST, "The session name is invalid.");
     case "session-admin-confirmation-required":
@@ -406,6 +744,49 @@ export function stableError(
   });
 }
 
+function toProtocolMarkerKind(
+  kind: Extract<PiNodeConversationEntry, { type: "marker" }>["markerKind"],
+): MarkerKind {
+  switch (kind) {
+    case "thinking-level":
+      return MarkerKind.THINKING_LEVEL;
+    case "model-change":
+      return MarkerKind.MODEL_CHANGE;
+    case "label":
+      return MarkerKind.LABEL;
+    case "session-info":
+      return MarkerKind.SESSION_INFO;
+  }
+}
+
+function toProtocolThinkingVisibility(
+  visibility: Extract<PiNodeConversationPart, { type: "thinking" }>["visibility"],
+): ThinkingVisibility {
+  switch (visibility) {
+    case "visible":
+      return ThinkingVisibility.VISIBLE;
+    case "redacted":
+      return ThinkingVisibility.REDACTED;
+    case "deferred":
+      return ThinkingVisibility.DEFERRED;
+  }
+}
+
+function toProtocolToolActivityStatus(status: PiNodeToolActivity["status"]): ToolActivityStatus {
+  switch (status) {
+    case "pending":
+      return ToolActivityStatus.PENDING;
+    case "running":
+      return ToolActivityStatus.RUNNING;
+    case "succeeded":
+      return ToolActivityStatus.SUCCEEDED;
+    case "failed":
+      return ToolActivityStatus.FAILED;
+    case "cancelled":
+      return ToolActivityStatus.CANCELLED;
+  }
+}
+
 function toProtocolProjectTrustStatus(
   status: PiNodeProjectSnapshot["trust"]["status"],
 ): ProjectTrustStatus {
@@ -468,19 +849,6 @@ function toProtocolSessionTreeEntryKind(kind: PiNodeSessionTreeEntryKind): Sessi
       return SessionTreeEntryKind.LABEL;
     case "session-info":
       return SessionTreeEntryKind.SESSION_INFO;
-  }
-}
-
-function toProtocolMessageRole(role: PiNodeMessage["role"]): MessageRole {
-  switch (role) {
-    case "user":
-      return MessageRole.USER;
-    case "assistant":
-      return MessageRole.ASSISTANT;
-    case "tool":
-      return MessageRole.TOOL;
-    case "custom":
-      return MessageRole.SYSTEM;
   }
 }
 

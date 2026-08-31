@@ -250,7 +250,7 @@ final class WorkspaceService {
       PiNodeErrorCode.failedPrecondition =>
         'The Pi Node operation requires refreshed or additional state.',
       PiNodeErrorCode.protocolMismatch =>
-        'Pi Node does not support protocol 0.1.0.',
+        'Pi Node does not support protocol 0.2.0.',
       PiNodeErrorCode.malformedFrame || PiNodeErrorCode.unexpectedResponse =>
         'Pi Node returned an invalid protocol response.',
       PiNodeErrorCode.dataLoss =>

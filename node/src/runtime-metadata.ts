@@ -1,6 +1,6 @@
 import { VERSION as PI_SDK_VERSION } from "@earendil-works/pi-coding-agent";
 
-export const PI_NODE_VERSION = "0.1.0-dev.0";
+export const PI_NODE_VERSION = "0.2.0-dev.0";
 export const REQUIRED_NODE_VERSION = ">=22.19.0";
 export const REQUIRED_PI_SDK_VERSION = "0.84.3";
 

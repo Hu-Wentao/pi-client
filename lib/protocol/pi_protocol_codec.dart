@@ -170,6 +170,37 @@ final class PiProtocolGetSessionHistoryRequest
   final String? expectedTreeRevision;
 }
 
+final class PiProtocolGetMessageContentRequest
+    extends PiProtocolRequestMessage {
+  PiProtocolGetMessageContentRequest({
+    required super.requestId,
+    required String projectId,
+    required this.binding,
+    required String expectedMimeType,
+    required int expectedTotalBytes,
+    required Uint8List expectedSha256,
+  }) : projectId = _validatedOpaqueId(projectId, 'projectId'),
+       expectedMimeType = _validatedShortText(
+         expectedMimeType,
+         'expectedMimeType',
+       ),
+       expectedTotalBytes = _validatedPositiveInt(
+         expectedTotalBytes,
+         'expectedTotalBytes',
+       ),
+       expectedSha256 = Uint8List.fromList(expectedSha256) {
+    if (this.expectedSha256.length != 32) {
+      throw ArgumentError('expectedSha256 must contain 32 bytes.');
+    }
+  }
+
+  final String projectId;
+  final PiProtocolMessageContentBinding binding;
+  final String expectedMimeType;
+  final int expectedTotalBytes;
+  final Uint8List expectedSha256;
+}
+
 final class PiProtocolGetSessionStatsRequest extends PiProtocolRequestMessage {
   PiProtocolGetSessionStatsRequest({
     required super.requestId,
@@ -459,6 +490,8 @@ enum PiProtocolCapability {
   sessionHistory,
   sessionStats,
   sessionExport,
+  richConversation,
+  messageContent,
 }
 
 final class PiProtocolHandshakeAcceptedMessage extends PiServerProtocolMessage {
@@ -569,32 +602,11 @@ final class PiProtocolSessionHistoryResponse extends PiProtocolResponseMessage {
   PiProtocolSessionHistoryResponse({
     required super.requestId,
     required this.summary,
-    required Iterable<PiProtocolMessageSnapshot> messages,
-    this.nextCursor,
-    required this.hasMore,
-    required String activeBranchRevision,
-    required String treeRevision,
-  }) : messages = List<PiProtocolMessageSnapshot>.unmodifiable(messages),
-       activeBranchRevision = _validatedOpaqueId(
-         activeBranchRevision,
-         'activeBranchRevision',
-       ),
-       treeRevision = _validatedOpaqueId(treeRevision, 'treeRevision') {
-    if (this.messages.length > 200) {
-      throw ArgumentError('Session history page is too large.');
-    }
-    if (nextCursor != null) _validatedShortText(nextCursor!, 'nextCursor');
-    if (hasMore != (nextCursor != null)) {
-      throw ArgumentError('hasMore and nextCursor must agree.');
-    }
-  }
+    required this.conversation,
+  });
 
   final PiProtocolSessionSummary summary;
-  final List<PiProtocolMessageSnapshot> messages;
-  final String? nextCursor;
-  final bool hasMore;
-  final String activeBranchRevision;
-  final String treeRevision;
+  final PiProtocolConversationPage conversation;
 }
 
 final class PiProtocolSessionSafeProjection {
@@ -718,15 +730,19 @@ final class PiProtocolSessionStatsResponse extends PiProtocolResponseMessage {
   final PiProtocolSessionStatsSnapshot stats;
 }
 
+enum PiProtocolTransferPurpose { attachment, export, messageContent }
+
 final class PiProtocolTransferOpenMessage extends PiProtocolResponseMessage {
   PiProtocolTransferOpenMessage({
     required super.requestId,
     required String transferId,
+    required this.purpose,
     required String contentType,
     required String fileName,
     required int totalBytes,
     required int chunkBytes,
     required Iterable<int> sha256,
+    this.messageContentBinding,
   }) : transferId = _validatedOpaqueId(transferId, 'transferId'),
        contentType = _validatedShortText(contentType, 'contentType'),
        fileName = _validatedShortText(fileName, 'fileName'),
@@ -736,14 +752,22 @@ final class PiProtocolTransferOpenMessage extends PiProtocolResponseMessage {
     if (chunkBytes > 1024 * 1024 || this.sha256.length != 32) {
       throw ArgumentError('Invalid transfer metadata.');
     }
+    if ((purpose == PiProtocolTransferPurpose.messageContent) !=
+        (messageContentBinding != null)) {
+      throw ArgumentError(
+        'Message content transfers require an exact binding.',
+      );
+    }
   }
 
   final String transferId;
+  final PiProtocolTransferPurpose purpose;
   final String contentType;
   final String fileName;
   final int totalBytes;
   final int chunkBytes;
   final List<int> sha256;
+  final PiProtocolMessageContentBinding? messageContentBinding;
 }
 
 final class PiProtocolTransferChunkMessage extends PiServerProtocolMessage {
@@ -1166,14 +1190,341 @@ final class PiProtocolSessionSummary {
   String toString() => 'PiProtocolSessionSummary(<redacted>)';
 }
 
+enum PiProtocolConversationIdentityScope { persistent, runtime }
+
+enum PiProtocolConversationEntryType {
+  user,
+  assistant,
+  toolResult,
+  bash,
+  custom,
+  compaction,
+  branchSummary,
+  marker,
+  unknown,
+}
+
+enum PiProtocolConversationPartType {
+  text,
+  thinking,
+  image,
+  toolCall,
+  unsupported,
+}
+
+enum PiProtocolThinkingVisibility { visible, redacted, deferred }
+
+enum PiProtocolToolActivityStatus {
+  pending,
+  running,
+  succeeded,
+  failed,
+  cancelled,
+}
+
+enum PiProtocolConversationMarkerKind {
+  thinkingLevel,
+  modelChange,
+  label,
+  sessionInfo,
+}
+
+sealed class PiProtocolSafeValue {
+  const PiProtocolSafeValue();
+}
+
+final class PiProtocolSafeNull extends PiProtocolSafeValue {
+  const PiProtocolSafeNull();
+}
+
+final class PiProtocolSafeRedacted extends PiProtocolSafeValue {
+  const PiProtocolSafeRedacted();
+}
+
+final class PiProtocolSafeBool extends PiProtocolSafeValue {
+  const PiProtocolSafeBool(this.value);
+  final bool value;
+}
+
+final class PiProtocolSafeInt extends PiProtocolSafeValue {
+  const PiProtocolSafeInt(this.value);
+  final int value;
+}
+
+final class PiProtocolSafeDouble extends PiProtocolSafeValue {
+  const PiProtocolSafeDouble(this.value);
+  final double value;
+}
+
+final class PiProtocolSafeString extends PiProtocolSafeValue {
+  const PiProtocolSafeString(this.value);
+  final String value;
+}
+
+final class PiProtocolSafeList extends PiProtocolSafeValue {
+  PiProtocolSafeList(Iterable<PiProtocolSafeValue> values)
+    : values = List<PiProtocolSafeValue>.unmodifiable(values);
+  final List<PiProtocolSafeValue> values;
+}
+
+final class PiProtocolSafeObjectField {
+  const PiProtocolSafeObjectField({required this.key, required this.value});
+  final String key;
+  final PiProtocolSafeValue value;
+}
+
+final class PiProtocolSafeObject extends PiProtocolSafeValue {
+  PiProtocolSafeObject(Iterable<PiProtocolSafeObjectField> fields)
+    : fields = List<PiProtocolSafeObjectField>.unmodifiable(fields);
+  final List<PiProtocolSafeObjectField> fields;
+}
+
+final class PiProtocolMessageContentReference {
+  PiProtocolMessageContentReference({
+    required this.contentId,
+    required this.mimeType,
+    required this.displayName,
+    required this.totalBytes,
+    required Uint8List sha256,
+  }) : sha256 = Uint8List.fromList(sha256);
+
+  final String contentId;
+  final String mimeType;
+  final String displayName;
+  final int totalBytes;
+  final Uint8List sha256;
+}
+
+final class PiProtocolMessageContentBinding {
+  const PiProtocolMessageContentBinding({
+    required this.sessionId,
+    required this.entryId,
+    required this.partId,
+    required this.entryRevision,
+    required this.partRevision,
+    required this.contentId,
+  });
+
+  final String sessionId;
+  final String entryId;
+  final String partId;
+  final int entryRevision;
+  final int partRevision;
+  final String contentId;
+}
+
+final class PiProtocolConversationPart {
+  const PiProtocolConversationPart({
+    required this.partId,
+    required this.revision,
+    required this.type,
+    this.text,
+    this.contentReference,
+    this.thinkingVisibility,
+    this.toolCallId,
+    this.toolName,
+    this.safeArguments,
+    this.sourceType,
+  });
+
+  final String partId;
+  final int revision;
+  final PiProtocolConversationPartType type;
+  final String? text;
+  final PiProtocolMessageContentReference? contentReference;
+  final PiProtocolThinkingVisibility? thinkingVisibility;
+  final String? toolCallId;
+  final String? toolName;
+  final PiProtocolSafeValue? safeArguments;
+  final String? sourceType;
+}
+
+final class PiProtocolToolActivity {
+  const PiProtocolToolActivity({
+    required this.activityId,
+    required this.toolCallId,
+    required this.toolName,
+    required this.sourceOrdinal,
+    required this.revision,
+    required this.status,
+    this.progressBasisPoints,
+    required this.safeDetails,
+  });
+
+  final String activityId;
+  final String toolCallId;
+  final String toolName;
+  final int sourceOrdinal;
+  final int revision;
+  final PiProtocolToolActivityStatus status;
+  final int? progressBasisPoints;
+  final PiProtocolSafeValue safeDetails;
+}
+
+final class PiProtocolUsageMetrics {
+  const PiProtocolUsageMetrics({
+    required this.inputTokens,
+    required this.outputTokens,
+    required this.cacheReadTokens,
+    required this.cacheWriteTokens,
+    required this.totalTokens,
+  });
+
+  final int inputTokens;
+  final int outputTokens;
+  final int cacheReadTokens;
+  final int cacheWriteTokens;
+  final int totalTokens;
+}
+
+final class PiProtocolMoneyAmount {
+  const PiProtocolMoneyAmount({
+    required this.currencyCode,
+    required this.decimalAmount,
+  });
+  final String currencyCode;
+  final String decimalAmount;
+}
+
+final class PiProtocolContextMetrics {
+  const PiProtocolContextMetrics({
+    this.tokens,
+    required this.contextWindow,
+    this.percentDecimal,
+  });
+  final int? tokens;
+  final int contextWindow;
+  final String? percentDecimal;
+}
+
+final class PiProtocolConversationMetrics {
+  const PiProtocolConversationMetrics({
+    required this.usage,
+    required this.cost,
+    this.context,
+  });
+  final PiProtocolUsageMetrics usage;
+  final PiProtocolMoneyAmount cost;
+  final PiProtocolContextMetrics? context;
+}
+
+final class PiProtocolConversationEntry {
+  PiProtocolConversationEntry({
+    required this.entryId,
+    required this.scope,
+    this.originCommandId,
+    required this.revision,
+    required this.createdAt,
+    required this.finalized,
+    required Iterable<PiProtocolConversationPart> parts,
+    required Iterable<PiProtocolToolActivity> toolActivities,
+    this.metrics,
+    required this.type,
+    this.provider,
+    this.model,
+    this.stopReason,
+    this.safeErrorMessage,
+    this.toolCallId,
+    this.toolName,
+    this.isError,
+    this.safeDetails,
+    this.command,
+    this.exitCode,
+    this.cancelled,
+    this.truncated,
+    this.excludedFromContext,
+    this.customType,
+    this.display,
+    this.firstKeptEntryId,
+    this.tokensBefore,
+    this.fromHook,
+    this.fromEntryId,
+    this.markerKind,
+    this.targetEntryId,
+    this.label,
+    this.thinkingLevel,
+    this.sourceType,
+  }) : parts = List<PiProtocolConversationPart>.unmodifiable(parts),
+       toolActivities = List<PiProtocolToolActivity>.unmodifiable(
+         toolActivities,
+       );
+
+  final String entryId;
+  final PiProtocolConversationIdentityScope scope;
+  final String? originCommandId;
+  final int revision;
+  final DateTime createdAt;
+  final bool finalized;
+  final List<PiProtocolConversationPart> parts;
+  final List<PiProtocolToolActivity> toolActivities;
+  final PiProtocolConversationMetrics? metrics;
+  final PiProtocolConversationEntryType type;
+  final String? provider;
+  final String? model;
+  final String? stopReason;
+  final String? safeErrorMessage;
+  final String? toolCallId;
+  final String? toolName;
+  final bool? isError;
+  final PiProtocolSafeValue? safeDetails;
+  final String? command;
+  final int? exitCode;
+  final bool? cancelled;
+  final bool? truncated;
+  final bool? excludedFromContext;
+  final String? customType;
+  final bool? display;
+  final String? firstKeptEntryId;
+  final int? tokensBefore;
+  final bool? fromHook;
+  final String? fromEntryId;
+  final PiProtocolConversationMarkerKind? markerKind;
+  final String? targetEntryId;
+  final String? label;
+  final String? thinkingLevel;
+  final String? sourceType;
+}
+
+final class PiProtocolConversationSnapshot {
+  PiProtocolConversationSnapshot({
+    required this.sessionId,
+    required Iterable<PiProtocolConversationEntry> entries,
+    required this.lastEventSequence,
+  }) : entries = List<PiProtocolConversationEntry>.unmodifiable(entries);
+
+  final String sessionId;
+  final List<PiProtocolConversationEntry> entries;
+  final int lastEventSequence;
+}
+
+final class PiProtocolConversationPage {
+  PiProtocolConversationPage({
+    required this.sessionId,
+    required Iterable<PiProtocolConversationEntry> entries,
+    this.nextCursor,
+    required this.hasMore,
+    required this.activeBranchRevision,
+    required this.treeRevision,
+    required this.lastEventSequence,
+  }) : entries = List<PiProtocolConversationEntry>.unmodifiable(entries);
+
+  final String sessionId;
+  final List<PiProtocolConversationEntry> entries;
+  final String? nextCursor;
+  final bool hasMore;
+  final String activeBranchRevision;
+  final String treeRevision;
+  final int lastEventSequence;
+}
+
 final class PiProtocolSessionDetail {
-  PiProtocolSessionDetail({
+  const PiProtocolSessionDetail({
     required this.summary,
-    required Iterable<PiProtocolMessageSnapshot> messages,
-  }) : messages = List<PiProtocolMessageSnapshot>.unmodifiable(messages);
+    required this.conversation,
+  });
 
   final PiProtocolSessionSummary summary;
-  final List<PiProtocolMessageSnapshot> messages;
+  final PiProtocolConversationSnapshot conversation;
 
   @override
   String toString() => 'PiProtocolSessionDetail(<redacted>)';
@@ -1301,6 +1652,74 @@ final class PiProtocolMessageDeltaEvent extends PiProtocolSessionEventPayload {
 
   @override
   String toString() => 'PiProtocolMessageDeltaEvent(<redacted>)';
+}
+
+final class PiProtocolConversationEntryUpsertEvent
+    extends PiProtocolSessionEventPayload {
+  const PiProtocolConversationEntryUpsertEvent({
+    required this.entry,
+    this.expectedPreviousRevision,
+  });
+  final PiProtocolConversationEntry entry;
+  final int? expectedPreviousRevision;
+}
+
+final class PiProtocolConversationPartDeltaEvent
+    extends PiProtocolSessionEventPayload {
+  const PiProtocolConversationPartDeltaEvent({
+    required this.entryId,
+    required this.expectedEntryRevision,
+    required this.resultingEntryRevision,
+    required this.partId,
+    required this.expectedPartRevision,
+    required this.resultingPartRevision,
+    required this.textDelta,
+  });
+  final String entryId;
+  final int expectedEntryRevision;
+  final int resultingEntryRevision;
+  final String partId;
+  final int expectedPartRevision;
+  final int resultingPartRevision;
+  final String textDelta;
+}
+
+final class PiProtocolConversationEntryFinalizedEvent
+    extends PiProtocolSessionEventPayload {
+  const PiProtocolConversationEntryFinalizedEvent({
+    required this.entry,
+    required this.expectedPreviousRevision,
+  });
+  final PiProtocolConversationEntry entry;
+  final int expectedPreviousRevision;
+}
+
+final class PiProtocolConversationToolActivityEvent
+    extends PiProtocolSessionEventPayload {
+  const PiProtocolConversationToolActivityEvent({
+    required this.entryId,
+    required this.expectedEntryRevision,
+    required this.resultingEntryRevision,
+    required this.activity,
+  });
+  final String entryId;
+  final int expectedEntryRevision;
+  final int resultingEntryRevision;
+  final PiProtocolToolActivity activity;
+}
+
+final class PiProtocolConversationMetricsEvent
+    extends PiProtocolSessionEventPayload {
+  const PiProtocolConversationMetricsEvent({
+    required this.entryId,
+    required this.expectedEntryRevision,
+    required this.resultingEntryRevision,
+    required this.metrics,
+  });
+  final String entryId;
+  final int expectedEntryRevision;
+  final int resultingEntryRevision;
+  final PiProtocolConversationMetrics metrics;
 }
 
 final class PiProtocolSessionRunningChangedEvent

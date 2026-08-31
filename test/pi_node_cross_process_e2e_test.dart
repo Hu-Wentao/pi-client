@@ -25,6 +25,8 @@ const _expectedCapabilities = <PiProtocolCapability>{
   PiProtocolCapability.cancellation,
   PiProtocolCapability.flowControl,
   PiProtocolCapability.transfer,
+  PiProtocolCapability.richConversation,
+  PiProtocolCapability.messageContent,
 };
 
 void main() {
@@ -61,7 +63,10 @@ void main() {
         );
         final canonicalCwd = await cwd.resolveSymbolicLinks();
         expect(created.summary.workingDirectory, canonicalCwd);
-        expect(created.messages, isEmpty);
+        expect(
+          created.conversation.entries,
+          everyElement(isA<PiMarkerConversationEntry>()),
+        );
 
         final listed = await harness.client.listSessions(projectId);
         expect(
@@ -593,17 +598,19 @@ void main() {
         expect(events.map((event) => event.sequence), <int>[1, 2, 3, 4, 5]);
         expect(events.map((event) => event.runtimeType), <Type>[
           PiSessionRunningChangedEvent,
-          PiSessionMessageAddedEvent,
-          PiSessionMessageDeltaEvent,
+          PiSessionEntryUpsertEvent,
+          PiSessionPartDeltaEvent,
           PiSessionRunningChangedEvent,
           PiSessionCommandCompletedEvent,
         ]);
         expect((events[0] as PiSessionRunningChangedEvent).isRunning, isTrue);
         expect(
-          (events[1] as PiSessionMessageAddedEvent).message.text,
+          piConversationEntryToMessage(
+            (events[1] as PiSessionEntryUpsertEvent).entry,
+          ).text,
           'Working',
         );
-        expect((events[2] as PiSessionMessageDeltaEvent).delta, ' now');
+        expect((events[2] as PiSessionPartDeltaEvent).textDelta, ' now');
         expect((events[3] as PiSessionRunningChangedEvent).isRunning, isFalse);
         final completed = events[4] as PiSessionCommandCompletedEvent;
         expect(completed.commandId, promptCommandId);
@@ -761,7 +768,7 @@ Future<WorkspaceModel> _waitForWorkspace(
 
 void _expectSupportedHandshake(PiNodeConnectionSnapshot connection) {
   expect(connection.status, PiNodeConnectionStatus.connected);
-  expect(connection.negotiatedVersion, PiProtocolVersion(0, 1, 0));
+  expect(connection.negotiatedVersion, PiProtocolVersion(0, 2, 0));
   expect(connection.capabilities, _expectedCapabilities);
 }
 
@@ -777,7 +784,7 @@ Future<_ClientHarness> _startProductionNode({
     agentDir,
   ],
   workingDirectory: _repositoryRootPath(),
-  protocolVersion: PiProtocolVersion(0, 1, 0),
+  protocolVersion: PiProtocolVersion(0, 2, 0),
 );
 
 Future<_ClientHarness> _startFixtureNode({
@@ -797,7 +804,7 @@ Future<_ClientHarness> _startFixtureNode({
     if (evidenceFile != null) ...<String>['--evidence-file', evidenceFile],
   ],
   workingDirectory: _nodeRootPath(),
-  protocolVersion: protocolVersion ?? PiProtocolVersion(0, 1, 0),
+  protocolVersion: protocolVersion ?? PiProtocolVersion(0, 2, 0),
 );
 
 Future<_ClientHarness> _startClient({

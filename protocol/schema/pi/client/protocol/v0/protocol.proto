@@ -70,6 +70,8 @@ message PiTransportFrame {
     TransferAbort transfer_abort = 74;
 
     ErrorEnvelope error = 80;
+
+    GetMessageContentRequest get_message_content_request = 100;
   }
 
   reserved 2 to 9;
@@ -106,6 +108,8 @@ enum Capability {
   CAPABILITY_SESSION_HISTORY = 14;
   CAPABILITY_SESSION_STATS = 15;
   CAPABILITY_SESSION_EXPORT = 16;
+  CAPABILITY_RICH_CONVERSATION = 17;
+  CAPABILITY_MESSAGE_CONTENT = 18;
 }
 
 // protocol_versions is ordered by client preference. The server selects one
@@ -474,7 +478,8 @@ message SessionSummarySnapshot {
 
 message SessionDetailSnapshot {
   SessionSummarySnapshot summary = 1;
-  repeated MessageSnapshot messages = 2;
+  reserved 2;
+  ConversationSnapshot conversation = 3;
 }
 
 enum MessageRole {
@@ -486,6 +491,7 @@ enum MessageRole {
 }
 
 message MessageSnapshot {
+  option deprecated = true;
   string message_id = 1;
   MessageRole role = 2;
   string text = 3;
@@ -544,11 +550,277 @@ message GetSessionHistoryRequest {
 message GetSessionHistoryResponse {
   uint64 request_id = 1;
   SessionSummarySnapshot summary = 2;
-  repeated MessageSnapshot messages = 3;
-  string next_cursor = 4;
-  bool has_more = 5;
-  string active_branch_revision = 6;
-  string tree_revision = 7;
+  reserved 3 to 7;
+  ConversationPage conversation = 8;
+}
+
+enum ConversationIdentityScope {
+  CONVERSATION_IDENTITY_SCOPE_UNSPECIFIED = 0;
+  CONVERSATION_IDENTITY_SCOPE_PERSISTENT = 1;
+  CONVERSATION_IDENTITY_SCOPE_RUNTIME = 2;
+}
+
+message ConversationEntryIdentity {
+  string entry_id = 1;
+  ConversationIdentityScope scope = 2;
+  string origin_command_id = 3;
+}
+
+message ConversationSnapshot {
+  string session_id = 1;
+  repeated ConversationEntry entries = 2;
+  uint64 last_event_sequence = 3;
+}
+
+message ConversationPage {
+  string session_id = 1;
+  repeated ConversationEntry entries = 2;
+  string next_cursor = 3;
+  bool has_more = 4;
+  string active_branch_revision = 5;
+  string tree_revision = 6;
+  uint64 last_event_sequence = 7;
+}
+
+message ConversationEntry {
+  ConversationEntryIdentity identity = 1;
+  uint64 revision = 2;
+  uint64 created_at_unix_millis = 3;
+  bool finalized = 4;
+  repeated ConversationPart parts = 5;
+  repeated ToolActivity tool_activities = 6;
+  ConversationMetrics metrics = 7;
+
+  oneof kind {
+    UserConversationEntry user = 20;
+    AssistantConversationEntry assistant = 21;
+    ToolResultConversationEntry tool_result = 22;
+    BashConversationEntry bash = 23;
+    CustomConversationEntry custom = 24;
+    CompactionConversationEntry compaction = 25;
+    BranchSummaryConversationEntry branch_summary = 26;
+    MarkerConversationEntry marker = 27;
+    UnknownConversationEntry unknown = 28;
+  }
+
+  reserved 8 to 19;
+}
+
+message UserConversationEntry {}
+
+message AssistantConversationEntry {
+  string provider = 1;
+  string model = 2;
+  string stop_reason = 3;
+  string safe_error_message = 4;
+}
+
+message ToolResultConversationEntry {
+  string tool_call_id = 1;
+  string tool_name = 2;
+  bool is_error = 3;
+  SafeValue safe_details = 4;
+}
+
+message BashConversationEntry {
+  string command = 1;
+  optional int32 exit_code = 2;
+  bool cancelled = 3;
+  bool truncated = 4;
+  bool excluded_from_context = 5;
+}
+
+message CustomConversationEntry {
+  string custom_type = 1;
+  bool display = 2;
+  SafeValue safe_details = 3;
+}
+
+message CompactionConversationEntry {
+  string first_kept_entry_id = 1;
+  uint64 tokens_before = 2;
+  bool from_hook = 3;
+  SafeValue safe_details = 4;
+}
+
+message BranchSummaryConversationEntry {
+  string from_entry_id = 1;
+  bool from_hook = 2;
+  SafeValue safe_details = 3;
+}
+
+enum MarkerKind {
+  MARKER_KIND_UNSPECIFIED = 0;
+  MARKER_KIND_THINKING_LEVEL = 1;
+  MARKER_KIND_MODEL_CHANGE = 2;
+  MARKER_KIND_LABEL = 3;
+  MARKER_KIND_SESSION_INFO = 4;
+}
+
+message MarkerConversationEntry {
+  MarkerKind marker_kind = 1;
+  string target_entry_id = 2;
+  string label = 3;
+  string provider = 4;
+  string model = 5;
+  string thinking_level = 6;
+}
+
+message UnknownConversationEntry {
+  string source_type = 1;
+}
+
+message ConversationPart {
+  string part_id = 1;
+  uint64 revision = 2;
+
+  oneof kind {
+    BoundedTextPart text = 10;
+    ThinkingPart thinking = 11;
+    ImagePart image = 12;
+    ToolCallPart tool_call = 13;
+    UnsupportedPart unsupported = 14;
+  }
+
+  reserved 3 to 9;
+}
+
+message BoundedTextPart {
+  oneof content {
+    string inline_text = 1;
+    MessageContentReference content_reference = 2;
+  }
+}
+
+enum ThinkingVisibility {
+  THINKING_VISIBILITY_UNSPECIFIED = 0;
+  THINKING_VISIBILITY_VISIBLE = 1;
+  THINKING_VISIBILITY_REDACTED = 2;
+  THINKING_VISIBILITY_DEFERRED = 3;
+}
+
+message ThinkingPart {
+  ThinkingVisibility visibility = 1;
+  oneof content {
+    string inline_text = 2;
+    MessageContentReference content_reference = 3;
+  }
+}
+
+message ImagePart {
+  MessageContentReference content_reference = 1;
+}
+
+message ToolCallPart {
+  string tool_call_id = 1;
+  string tool_name = 2;
+  SafeValue safe_arguments = 3;
+}
+
+message UnsupportedPart {
+  string source_type = 1;
+}
+
+message MessageContentReference {
+  string content_id = 1;
+  string mime_type = 2;
+  string display_name = 3;
+  uint64 total_bytes = 4;
+  bytes sha256 = 5;
+}
+
+message MessageContentBinding {
+  string session_id = 1;
+  string entry_id = 2;
+  string part_id = 3;
+  uint64 entry_revision = 4;
+  uint64 part_revision = 5;
+  string content_id = 6;
+}
+
+message GetMessageContentRequest {
+  uint64 request_id = 1;
+  string project_id = 2;
+  MessageContentBinding binding = 3;
+  string expected_mime_type = 4;
+  uint64 expected_total_bytes = 5;
+  bytes expected_sha256 = 6;
+}
+
+enum SafeValueKind {
+  SAFE_VALUE_KIND_UNSPECIFIED = 0;
+  SAFE_VALUE_KIND_NULL = 1;
+  SAFE_VALUE_KIND_REDACTED = 2;
+}
+
+message SafeList {
+  repeated SafeValue values = 1;
+}
+
+message SafeObjectField {
+  string key = 1;
+  SafeValue value = 2;
+}
+
+message SafeObject {
+  repeated SafeObjectField fields = 1;
+}
+
+message SafeValue {
+  oneof value {
+    SafeValueKind sentinel = 1;
+    bool bool_value = 2;
+    sint64 int_value = 3;
+    double double_value = 4;
+    string string_value = 5;
+    SafeList list_value = 6;
+    SafeObject object_value = 7;
+  }
+}
+
+enum ToolActivityStatus {
+  TOOL_ACTIVITY_STATUS_UNSPECIFIED = 0;
+  TOOL_ACTIVITY_STATUS_PENDING = 1;
+  TOOL_ACTIVITY_STATUS_RUNNING = 2;
+  TOOL_ACTIVITY_STATUS_SUCCEEDED = 3;
+  TOOL_ACTIVITY_STATUS_FAILED = 4;
+  TOOL_ACTIVITY_STATUS_CANCELLED = 5;
+}
+
+message ToolActivity {
+  string activity_id = 1;
+  string tool_call_id = 2;
+  string tool_name = 3;
+  uint32 source_ordinal = 4;
+  uint64 revision = 5;
+  ToolActivityStatus status = 6;
+  optional uint32 progress_basis_points = 7;
+  SafeValue safe_details = 8;
+}
+
+message UsageMetrics {
+  uint64 input_tokens = 1;
+  uint64 output_tokens = 2;
+  uint64 cache_read_tokens = 3;
+  uint64 cache_write_tokens = 4;
+  uint64 total_tokens = 5;
+}
+
+message MoneyAmount {
+  string currency_code = 1;
+  string decimal_amount = 2;
+}
+
+message ContextMetrics {
+  optional uint64 tokens = 1;
+  uint64 context_window = 2;
+  optional string percent_decimal = 3;
+}
+
+message ConversationMetrics {
+  UsageMetrics usage = 1;
+  MoneyAmount cost = 2;
+  ContextMetrics context = 3;
 }
 
 message GetSessionStatsRequest {
@@ -618,23 +890,63 @@ message SessionEventStreamEnvelope {
   uint64 event_sequence = 3;
 
   oneof event {
-    MessageAddedEvent message_added = 10;
-    MessageDeltaEvent message_delta = 11;
     SessionRunningChangedEvent running_changed = 12;
     CommandCompletedEvent command_completed = 13;
     StreamClosedEvent stream_closed = 14;
+    ConversationEntryUpsertEvent entry_upsert = 20;
+    ConversationPartDeltaEvent part_delta = 21;
+    ConversationEntryFinalizedEvent entry_finalized = 22;
+    ConversationToolActivityEvent tool_activity = 23;
+    ConversationMetricsEvent metrics = 24;
   }
 
-  reserved 4 to 9;
+  reserved 4 to 11;
+  reserved 15 to 19;
 }
 
 message MessageAddedEvent {
+  option deprecated = true;
   MessageSnapshot message = 1;
 }
 
 message MessageDeltaEvent {
+  option deprecated = true;
   string message_id = 1;
   string delta = 2;
+}
+
+message ConversationEntryUpsertEvent {
+  ConversationEntry entry = 1;
+  optional uint64 expected_previous_revision = 2;
+}
+
+message ConversationPartDeltaEvent {
+  string entry_id = 1;
+  uint64 expected_entry_revision = 2;
+  uint64 resulting_entry_revision = 3;
+  string part_id = 4;
+  uint64 expected_part_revision = 5;
+  uint64 resulting_part_revision = 6;
+  string text_delta = 7;
+}
+
+message ConversationEntryFinalizedEvent {
+  ConversationEntry entry = 1;
+  uint64 expected_previous_revision = 2;
+}
+
+message ConversationToolActivityEvent {
+  string entry_id = 1;
+  uint64 expected_entry_revision = 2;
+  uint64 resulting_entry_revision = 3;
+  ToolActivity activity = 4;
+}
+
+message ConversationMetricsEvent {
+  string entry_id = 1;
+  uint64 expected_entry_revision = 2;
+  uint64 resulting_entry_revision = 3;
+  ConversationMetrics metrics = 4;
 }
 
 message SessionRunningChangedEvent {
@@ -707,6 +1019,7 @@ enum TransferPurpose {
   TRANSFER_PURPOSE_FILE = 1;
   TRANSFER_PURPOSE_ATTACHMENT = 2;
   TRANSFER_PURPOSE_EXPORT = 3;
+  TRANSFER_PURPOSE_MESSAGE_CONTENT = 4;
 }
 
 message TransferOpen {
@@ -719,6 +1032,7 @@ message TransferOpen {
   uint32 chunk_bytes = 7;
   bytes sha256 = 8;
   uint64 request_id = 9;
+  MessageContentBinding message_content_binding = 10;
 }
 
 message TransferChunk {

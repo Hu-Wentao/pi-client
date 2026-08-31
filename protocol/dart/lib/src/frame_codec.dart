@@ -29,6 +29,8 @@ final _knownCapabilities = <Capability>{
   Capability.CAPABILITY_SESSION_HISTORY,
   Capability.CAPABILITY_SESSION_STATS,
   Capability.CAPABILITY_SESSION_EXPORT,
+  Capability.CAPABILITY_RICH_CONVERSATION,
+  Capability.CAPABILITY_MESSAGE_CONTENT,
 };
 final _knownHealthStatuses = <HealthStatus>{
   HealthStatus.HEALTH_STATUS_STARTING,
@@ -53,12 +55,6 @@ final _knownProjectTrustReasons = <ProjectTrustReason>{
   ProjectTrustReason.PROJECT_TRUST_REASON_SAVED_APPROVAL,
   ProjectTrustReason.PROJECT_TRUST_REASON_SAVED_DENIAL,
 };
-final _knownMessageRoles = <MessageRole>{
-  MessageRole.MESSAGE_ROLE_USER,
-  MessageRole.MESSAGE_ROLE_ASSISTANT,
-  MessageRole.MESSAGE_ROLE_TOOL,
-  MessageRole.MESSAGE_ROLE_SYSTEM,
-};
 final _knownSessionExportFormats = <SessionExportFormat>{
   SessionExportFormat.SESSION_EXPORT_FORMAT_HTML,
   SessionExportFormat.SESSION_EXPORT_FORMAT_JSONL,
@@ -71,6 +67,7 @@ final _knownTransferPurposes = <TransferPurpose>{
   TransferPurpose.TRANSFER_PURPOSE_FILE,
   TransferPurpose.TRANSFER_PURPOSE_ATTACHMENT,
   TransferPurpose.TRANSFER_PURPOSE_EXPORT,
+  TransferPurpose.TRANSFER_PURPOSE_MESSAGE_CONTENT,
 };
 final _knownErrorCodes = <ErrorCode>{
   ErrorCode.ERROR_CODE_AUTHENTICATION_REQUIRED,
@@ -436,29 +433,39 @@ void validateTransportFrame(PiTransportFrame frame) {
     case PiTransportFrame_Operation.getSessionHistoryResponse:
       final response = frame.getSessionHistoryResponse;
       _validateRequestId(response.requestId);
-      if (!response.hasSummary()) {
-        _fail('session history response must contain a summary');
+      if (!response.hasSummary() || !response.hasConversation()) {
+        _fail('session history response must contain summary and conversation');
       }
       _validateSessionSummary(response.summary);
-      if (response.messages.length > maxSessionHistoryPageMessages) {
-        _fail('session history page exceeds the local hard limit');
+      _validateConversationPage(response.conversation);
+      if (response.summary.sessionId != response.conversation.sessionId) {
+        _fail('session history conversation must match its summary');
       }
-      final messageIds = <String>{};
-      for (final message in response.messages) {
-        _validateMessageSnapshot(message);
-        if (!messageIds.add(message.messageId)) {
-          _fail('session history page contains a duplicate message_id');
-        }
+      return;
+    case PiTransportFrame_Operation.getMessageContentRequest:
+      final request = frame.getMessageContentRequest;
+      _validateRequestId(request.requestId);
+      _validateIdentifier('project_id', request.projectId);
+      if (!request.hasBinding()) {
+        _fail('message content request must contain a binding');
       }
-      _validateShortText('next_cursor', response.nextCursor, required: false);
-      if (response.hasMore != response.nextCursor.isNotEmpty) {
-        _fail('session history cursor and has_more must agree');
-      }
-      _validateIdentifier(
-        'active_branch_revision',
-        response.activeBranchRevision,
+      _validateMessageContentBinding(request.binding);
+      _validateRequiredShortText(
+        'expected_mime_type',
+        request.expectedMimeType,
       );
-      _validateIdentifier('tree_revision', response.treeRevision);
+      _validatePositiveUint64(
+        'expected_total_bytes',
+        request.expectedTotalBytes,
+      );
+      if (_compareUnsigned(
+            request.expectedTotalBytes,
+            Int64(maxMessageContentBytes),
+          ) >
+          0) {
+        _fail('message content request exceeds the local hard limit');
+      }
+      _validateRequiredDigest(request.expectedSha256);
       return;
     case PiTransportFrame_Operation.getSessionStatsRequest:
       final request = frame.getSessionStatsRequest;
@@ -652,19 +659,68 @@ void validateTransportFrame(PiTransportFrame frame) {
       _validateIdentifier('session_id', stream.sessionId);
       _validatePositiveUint64('event_sequence', stream.eventSequence);
       switch (stream.whichEvent()) {
-        case SessionEventStreamEnvelope_Event.messageAdded:
-          if (!stream.messageAdded.hasMessage()) {
-            _fail('message added event must contain a message snapshot');
+        case SessionEventStreamEnvelope_Event.entryUpsert:
+          if (!stream.entryUpsert.hasEntry()) {
+            _fail('entry upsert event must contain an entry');
           }
-          _validateMessageSnapshot(stream.messageAdded.message);
+          _validateConversationEntry(stream.entryUpsert.entry);
+          if (stream.entryUpsert.hasExpectedPreviousRevision()) {
+            _validatePositiveUint64(
+              'expected_previous_revision',
+              stream.entryUpsert.expectedPreviousRevision,
+            );
+          }
           return;
-        case SessionEventStreamEnvelope_Event.messageDelta:
-          _validateIdentifier('message_id', stream.messageDelta.messageId);
-          _validateContentText(
-            'message delta',
-            stream.messageDelta.delta,
-            required: true,
+        case SessionEventStreamEnvelope_Event.partDelta:
+          final delta = stream.partDelta;
+          _validateIdentifier('entry_id', delta.entryId);
+          _validateIdentifier('part_id', delta.partId);
+          _validateRevisionTransition(
+            delta.expectedEntryRevision,
+            delta.resultingEntryRevision,
+            'entry',
           );
+          _validateRevisionTransition(
+            delta.expectedPartRevision,
+            delta.resultingPartRevision,
+            'part',
+          );
+          _validateInlineConversationText('part delta', delta.textDelta);
+          return;
+        case SessionEventStreamEnvelope_Event.entryFinalized:
+          if (!stream.entryFinalized.hasEntry() ||
+              !stream.entryFinalized.entry.finalized) {
+            _fail('entry finalized event must contain a finalized entry');
+          }
+          _validateConversationEntry(stream.entryFinalized.entry);
+          _validateNonNegativeUint64(
+            'expected_previous_revision',
+            stream.entryFinalized.expectedPreviousRevision,
+          );
+          return;
+        case SessionEventStreamEnvelope_Event.toolActivity:
+          _validateIdentifier('entry_id', stream.toolActivity.entryId);
+          _validateRevisionTransition(
+            stream.toolActivity.expectedEntryRevision,
+            stream.toolActivity.resultingEntryRevision,
+            'entry',
+          );
+          if (!stream.toolActivity.hasActivity()) {
+            _fail('tool activity event must contain an activity');
+          }
+          _validateToolActivity(stream.toolActivity.activity);
+          return;
+        case SessionEventStreamEnvelope_Event.metrics:
+          _validateIdentifier('entry_id', stream.metrics.entryId);
+          _validateRevisionTransition(
+            stream.metrics.expectedEntryRevision,
+            stream.metrics.resultingEntryRevision,
+            'entry',
+          );
+          if (!stream.metrics.hasMetrics()) {
+            _fail('metrics event must contain metrics');
+          }
+          _validateConversationMetrics(stream.metrics.metrics);
           return;
         case SessionEventStreamEnvelope_Event.runningChanged:
           return;
@@ -778,6 +834,24 @@ void validateTransportFrame(PiTransportFrame frame) {
         _fail('transfer chunk_bytes is outside the local hard limit');
       }
       _validateRequiredDigest(transfer.sha256);
+      if (transfer.purpose ==
+          TransferPurpose.TRANSFER_PURPOSE_MESSAGE_CONTENT) {
+        if (transfer.direction !=
+                TransferDirection.TRANSFER_DIRECTION_DOWNLOAD ||
+            !transfer.hasMessageContentBinding()) {
+          _fail('message content transfers must be bound downloads');
+        }
+        if (_compareUnsigned(
+              transfer.totalBytes,
+              Int64(maxMessageContentBytes),
+            ) >
+            0) {
+          _fail('message content transfer exceeds the local hard limit');
+        }
+        _validateMessageContentBinding(transfer.messageContentBinding);
+      } else if (transfer.hasMessageContentBinding()) {
+        _fail('only message content transfers may contain a binding');
+      }
       return;
     case PiTransportFrame_Operation.transferChunk:
       final chunk = frame.transferChunk;
@@ -982,19 +1056,13 @@ void _requireSessionDetail(
 }
 
 void _validateSessionDetail(SessionDetailSnapshot detail) {
-  if (!detail.hasSummary()) {
-    _fail('session detail must contain a summary snapshot');
+  if (!detail.hasSummary() || !detail.hasConversation()) {
+    _fail('session detail must contain summary and conversation');
   }
   _validateSessionSummary(detail.summary);
-  if (detail.messages.length > maxMessagesPerSessionSnapshot) {
-    _fail('session message count exceeds the local hard limit');
-  }
-  final messageIds = <String>{};
-  for (final message in detail.messages) {
-    _validateMessageSnapshot(message);
-    if (!messageIds.add(message.messageId)) {
-      _fail('session detail contains a duplicate message_id');
-    }
+  _validateConversationSnapshot(detail.conversation);
+  if (detail.summary.sessionId != detail.conversation.sessionId) {
+    _fail('session detail conversation must match its summary');
   }
 }
 
@@ -1008,6 +1076,318 @@ void _validateSessionAdminCommand(
   _validateIdentifier('command_id', commandId);
   _validateIdentifier('project_id', projectId);
   _validateIdentifier('session_id', sessionId);
+}
+
+void _validateConversationSnapshot(ConversationSnapshot snapshot) {
+  _validateIdentifier('conversation session_id', snapshot.sessionId);
+  if (snapshot.entries.length > maxMessagesPerSessionSnapshot) {
+    _fail('conversation entry count exceeds the local hard limit');
+  }
+  _validateConversationEntries(snapshot.entries);
+  _validateNonNegativeUint64('last_event_sequence', snapshot.lastEventSequence);
+}
+
+void _validateConversationPage(ConversationPage page) {
+  _validateIdentifier('conversation page session_id', page.sessionId);
+  if (page.entries.length > maxSessionHistoryPageMessages) {
+    _fail('conversation page exceeds the local hard limit');
+  }
+  _validateConversationEntries(page.entries);
+  _validateShortText('next_cursor', page.nextCursor, required: false);
+  if (page.hasMore != page.nextCursor.isNotEmpty) {
+    _fail('conversation page cursor and has_more must agree');
+  }
+  _validateIdentifier('active_branch_revision', page.activeBranchRevision);
+  _validateIdentifier('tree_revision', page.treeRevision);
+  _validateNonNegativeUint64('last_event_sequence', page.lastEventSequence);
+}
+
+void _validateConversationEntries(Iterable<ConversationEntry> entries) {
+  final ids = <String>{};
+  for (final entry in entries) {
+    _validateConversationEntry(entry);
+    if (!ids.add(entry.identity.entryId)) {
+      _fail('conversation contains a duplicate entry_id');
+    }
+  }
+}
+
+void _validateConversationEntry(ConversationEntry entry) {
+  if (!entry.hasIdentity()) _fail('conversation entry must contain identity');
+  _validateIdentifier('entry_id', entry.identity.entryId);
+  if (entry.identity.scope !=
+          ConversationIdentityScope.CONVERSATION_IDENTITY_SCOPE_PERSISTENT &&
+      entry.identity.scope !=
+          ConversationIdentityScope.CONVERSATION_IDENTITY_SCOPE_RUNTIME) {
+    _fail('conversation identity scope is unknown');
+  }
+  _validateOptionalIdentifier(
+    'origin_command_id',
+    entry.identity.originCommandId,
+  );
+  _validatePositiveUint64('entry revision', entry.revision);
+  _validatePositiveUint64(
+    'entry created_at_unix_millis',
+    entry.createdAtUnixMillis,
+  );
+  if (entry.parts.length > maxConversationParts ||
+      entry.toolActivities.length > maxToolActivities) {
+    _fail('conversation entry exceeds collection limits');
+  }
+  final partIds = <String>{};
+  for (final part in entry.parts) {
+    _validateConversationPart(part);
+    if (!partIds.add(part.partId)) _fail('duplicate part_id');
+  }
+  var priorOrdinal = -1;
+  final activityIds = <String>{};
+  for (final activity in entry.toolActivities) {
+    _validateToolActivity(activity);
+    if (!activityIds.add(activity.activityId) ||
+        activity.sourceOrdinal < priorOrdinal) {
+      _fail('tool activity identity or order is invalid');
+    }
+    priorOrdinal = activity.sourceOrdinal;
+  }
+  if (entry.hasMetrics()) _validateConversationMetrics(entry.metrics);
+  switch (entry.whichKind()) {
+    case ConversationEntry_Kind.user:
+      return;
+    case ConversationEntry_Kind.assistant:
+      _validateRequiredShortText(
+        'assistant provider',
+        entry.assistant.provider,
+      );
+      _validateRequiredShortText('assistant model', entry.assistant.model);
+      _validateRequiredShortText(
+        'assistant stop_reason',
+        entry.assistant.stopReason,
+      );
+      return;
+    case ConversationEntry_Kind.toolResult:
+      _validateIdentifier('tool_call_id', entry.toolResult.toolCallId);
+      _validateRequiredShortText('tool_name', entry.toolResult.toolName);
+      _requireSafeValue('tool result details', entry.toolResult.safeDetails);
+      return;
+    case ConversationEntry_Kind.bash:
+      _validateInlineConversationText('bash command', entry.bash.command);
+      return;
+    case ConversationEntry_Kind.custom:
+      _validateRequiredShortText('custom_type', entry.custom.customType);
+      _requireSafeValue('custom details', entry.custom.safeDetails);
+      return;
+    case ConversationEntry_Kind.compaction:
+      _validateIdentifier(
+        'first_kept_entry_id',
+        entry.compaction.firstKeptEntryId,
+      );
+      _requireSafeValue('compaction details', entry.compaction.safeDetails);
+      return;
+    case ConversationEntry_Kind.branchSummary:
+      _validateIdentifier('from_entry_id', entry.branchSummary.fromEntryId);
+      _requireSafeValue(
+        'branch summary details',
+        entry.branchSummary.safeDetails,
+      );
+      return;
+    case ConversationEntry_Kind.marker:
+      if (entry.marker.markerKind == MarkerKind.MARKER_KIND_UNSPECIFIED) {
+        _fail('conversation marker kind is unknown');
+      }
+      _validateOptionalIdentifier(
+        'target_entry_id',
+        entry.marker.targetEntryId,
+      );
+      return;
+    case ConversationEntry_Kind.unknown:
+      _validateRequiredShortText(
+        'unknown source_type',
+        entry.unknown.sourceType,
+      );
+      return;
+    case ConversationEntry_Kind.notSet:
+      _fail('conversation entry must contain a typed kind');
+  }
+}
+
+void _validateConversationPart(ConversationPart part) {
+  _validateIdentifier('part_id', part.partId);
+  _validatePositiveUint64('part revision', part.revision);
+  switch (part.whichKind()) {
+    case ConversationPart_Kind.text:
+      switch (part.text.whichContent()) {
+        case BoundedTextPart_Content.inlineText:
+          _validateInlineConversationText('text part', part.text.inlineText);
+          return;
+        case BoundedTextPart_Content.contentReference:
+          _validateMessageContentReference(part.text.contentReference);
+          return;
+        case BoundedTextPart_Content.notSet:
+          _fail('text part must contain content');
+      }
+    case ConversationPart_Kind.thinking:
+      final thinking = part.thinking;
+      if (thinking.visibility ==
+          ThinkingVisibility.THINKING_VISIBILITY_UNSPECIFIED) {
+        _fail('thinking visibility is unknown');
+      }
+      if (thinking.visibility ==
+          ThinkingVisibility.THINKING_VISIBILITY_VISIBLE) {
+        switch (thinking.whichContent()) {
+          case ThinkingPart_Content.inlineText:
+            _validateInlineConversationText(
+              'thinking part',
+              thinking.inlineText,
+            );
+            return;
+          case ThinkingPart_Content.contentReference:
+            _validateMessageContentReference(thinking.contentReference);
+            return;
+          case ThinkingPart_Content.notSet:
+            _fail('visible thinking must contain content');
+        }
+      } else if (thinking.whichContent() != ThinkingPart_Content.notSet) {
+        _fail('hidden thinking must not contain content');
+      }
+      return;
+    case ConversationPart_Kind.image:
+      if (!part.image.hasContentReference()) {
+        _fail('image part must contain a content reference');
+      }
+      _validateMessageContentReference(part.image.contentReference);
+      return;
+    case ConversationPart_Kind.toolCall:
+      _validateIdentifier('tool_call_id', part.toolCall.toolCallId);
+      _validateRequiredShortText('tool_name', part.toolCall.toolName);
+      _requireSafeValue('tool arguments', part.toolCall.safeArguments);
+      return;
+    case ConversationPart_Kind.unsupported:
+      _validateRequiredShortText(
+        'unsupported source_type',
+        part.unsupported.sourceType,
+      );
+      return;
+    case ConversationPart_Kind.notSet:
+      _fail('conversation part must contain a typed kind');
+  }
+}
+
+void _validateInlineConversationText(String label, String value) {
+  if (utf8.encode(value).length > maxInlineConversationTextBytes) {
+    _fail('$label exceeds the inline conversation limit');
+  }
+}
+
+void _validateMessageContentReference(MessageContentReference reference) {
+  _validateIdentifier('content_id', reference.contentId);
+  _validateRequiredShortText('content mime_type', reference.mimeType);
+  _validateRequiredShortText('content display_name', reference.displayName);
+  _validatePositiveUint64('content total_bytes', reference.totalBytes);
+  if (_compareUnsigned(reference.totalBytes, Int64(maxMessageContentBytes)) >
+      0) {
+    _fail('message content reference exceeds the local hard limit');
+  }
+  _validateRequiredDigest(reference.sha256);
+}
+
+void _validateMessageContentBinding(MessageContentBinding binding) {
+  _validateIdentifier('binding session_id', binding.sessionId);
+  _validateIdentifier('binding entry_id', binding.entryId);
+  _validateIdentifier('binding part_id', binding.partId);
+  _validatePositiveUint64('binding entry_revision', binding.entryRevision);
+  _validatePositiveUint64('binding part_revision', binding.partRevision);
+  _validateIdentifier('binding content_id', binding.contentId);
+}
+
+void _requireSafeValue(String label, SafeValue value) {
+  final bytes = _validateSafeValue(value, 0);
+  if (bytes > maxSafeValueBytes) _fail('$label exceeds safe value bytes');
+}
+
+int _validateSafeValue(SafeValue value, int depth) {
+  if (depth > maxSafeValueDepth) _fail('safe value exceeds depth limit');
+  switch (value.whichValue()) {
+    case SafeValue_Value.sentinel:
+      if (value.sentinel != SafeValueKind.SAFE_VALUE_KIND_NULL &&
+          value.sentinel != SafeValueKind.SAFE_VALUE_KIND_REDACTED) {
+        _fail('safe value sentinel is unknown');
+      }
+      return 1;
+    case SafeValue_Value.boolValue:
+    case SafeValue_Value.intValue:
+      return 8;
+    case SafeValue_Value.doubleValue:
+      if (!value.doubleValue.isFinite) _fail('safe double must be finite');
+      return 8;
+    case SafeValue_Value.stringValue:
+      return utf8.encode(value.stringValue).length;
+    case SafeValue_Value.listValue:
+      if (value.listValue.values.length > maxSafeValueItems) {
+        _fail('safe list exceeds item limit');
+      }
+      return value.listValue.values.fold<int>(
+        0,
+        (total, child) => total + _validateSafeValue(child, depth + 1),
+      );
+    case SafeValue_Value.objectValue:
+      if (value.objectValue.fields.length > maxSafeValueItems) {
+        _fail('safe object exceeds item limit');
+      }
+      final keys = <String>{};
+      var total = 0;
+      for (final field in value.objectValue.fields) {
+        _validateRequiredShortText('safe object key', field.key);
+        if (!keys.add(field.key) || !field.hasValue()) {
+          _fail('safe object field is invalid');
+        }
+        total += utf8.encode(field.key).length;
+        total += _validateSafeValue(field.value, depth + 1);
+      }
+      return total;
+    case SafeValue_Value.notSet:
+      _fail('safe value must contain a typed value');
+  }
+}
+
+void _validateToolActivity(ToolActivity activity) {
+  _validateIdentifier('activity_id', activity.activityId);
+  _validateIdentifier('activity tool_call_id', activity.toolCallId);
+  _validateRequiredShortText('activity tool_name', activity.toolName);
+  _validatePositiveUint64('activity revision', activity.revision);
+  if (activity.status == ToolActivityStatus.TOOL_ACTIVITY_STATUS_UNSPECIFIED) {
+    _fail('tool activity status is unknown');
+  }
+  if (activity.hasProgressBasisPoints() &&
+      activity.progressBasisPoints > 10000) {
+    _fail('tool activity progress exceeds 10000 basis points');
+  }
+  _requireSafeValue('tool activity details', activity.safeDetails);
+}
+
+void _validateConversationMetrics(ConversationMetrics metrics) {
+  if (!metrics.hasUsage() || !metrics.hasCost()) {
+    _fail('conversation metrics must contain usage and cost');
+  }
+  _validateRequiredShortText('currency_code', metrics.cost.currencyCode);
+  _validateRequiredShortText('decimal_amount', metrics.cost.decimalAmount);
+  if (metrics.hasContext()) {
+    _validatePositiveUint64('context_window', metrics.context.contextWindow);
+    if (metrics.context.hasTokens()) {
+      _validateNonNegativeUint64('context tokens', metrics.context.tokens);
+    }
+  }
+}
+
+void _validateRevisionTransition(
+  Int64 expected,
+  Int64 resulting,
+  String label,
+) {
+  _validatePositiveUint64('$label expected revision', expected);
+  _validatePositiveUint64('$label resulting revision', resulting);
+  if (resulting != expected + Int64.ONE) {
+    _fail('$label revision transition must advance by one');
+  }
 }
 
 void _validateSessionTreeMutationCommand(
@@ -1137,16 +1517,6 @@ void _validateSessionSummary(SessionSummarySnapshot summary) {
       0) {
     _fail('session updated time must not precede its created time');
   }
-}
-
-void _validateMessageSnapshot(MessageSnapshot message) {
-  _validateIdentifier('message_id', message.messageId);
-  _validateKnownEnum('message role', message.role, _knownMessageRoles);
-  _validateContentText('message text', message.text, required: false);
-  _validatePositiveUint64(
-    'created_at_unix_millis',
-    message.createdAtUnixMillis,
-  );
 }
 
 void _validateCompletionError(CommandCompletedEvent completed) {

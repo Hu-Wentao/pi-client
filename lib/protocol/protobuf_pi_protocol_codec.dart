@@ -178,6 +178,25 @@ final class ProtobufPiProtocolCodec implements PiProtocolCodec {
             expectedTreeRevision: expectedTreeRevision ?? '',
           ),
         ),
+      PiProtocolGetMessageContentRequest(
+        :final requestId,
+        :final projectId,
+        :final binding,
+        :final expectedMimeType,
+        :final expectedTotalBytes,
+        :final expectedSha256,
+      ) =>
+        wire.PiTransportFrame(
+          frameSequence: _wirePositiveInt(frameSequence),
+          getMessageContentRequest: wire.GetMessageContentRequest(
+            requestId: _wirePositiveInt(requestId),
+            projectId: projectId,
+            binding: _wireMessageContentBinding(binding),
+            expectedMimeType: expectedMimeType,
+            expectedTotalBytes: _wirePositiveInt(expectedTotalBytes),
+            expectedSha256: expectedSha256,
+          ),
+        ),
       PiProtocolGetSessionStatsRequest(
         :final requestId,
         :final projectId,
@@ -620,11 +639,7 @@ final class ProtobufPiProtocolCodec implements PiProtocolCodec {
     return PiProtocolSessionHistoryResponse(
       requestId: requestId,
       summary: _semanticSessionSummary(response.summary),
-      messages: response.messages.map(_semanticMessage),
-      nextCursor: response.nextCursor.isEmpty ? null : response.nextCursor,
-      hasMore: response.hasMore,
-      activeBranchRevision: response.activeBranchRevision,
-      treeRevision: response.treeRevision,
+      conversation: _semanticConversationPage(response.conversation),
     );
   }
 
@@ -682,11 +697,15 @@ final class ProtobufPiProtocolCodec implements PiProtocolCodec {
     return PiProtocolTransferOpenMessage(
       requestId: requestId,
       transferId: transfer.transferId,
+      purpose: _semanticTransferPurpose(transfer.purpose),
       contentType: transfer.contentType,
       fileName: transfer.fileName,
       totalBytes: _semanticPositiveInt(transfer.totalBytes),
       chunkBytes: transfer.chunkBytes,
       sha256: transfer.sha256,
+      messageContentBinding: transfer.hasMessageContentBinding()
+          ? _semanticMessageContentBinding(transfer.messageContentBinding)
+          : null,
     );
   }
 
@@ -843,14 +862,62 @@ final class ProtobufPiProtocolCodec implements PiProtocolCodec {
     wire.SessionEventStreamEnvelope envelope,
   ) {
     final event = switch (envelope.whichEvent()) {
-      wire.SessionEventStreamEnvelope_Event.messageAdded =>
-        PiProtocolMessageAddedEvent(
-          _semanticMessage(envelope.messageAdded.message),
+      wire.SessionEventStreamEnvelope_Event.entryUpsert =>
+        PiProtocolConversationEntryUpsertEvent(
+          entry: _semanticConversationEntry(envelope.entryUpsert.entry),
+          expectedPreviousRevision:
+              envelope.entryUpsert.hasExpectedPreviousRevision()
+              ? _semanticPositiveInt(
+                  envelope.entryUpsert.expectedPreviousRevision,
+                )
+              : null,
         ),
-      wire.SessionEventStreamEnvelope_Event.messageDelta =>
-        PiProtocolMessageDeltaEvent(
-          messageId: envelope.messageDelta.messageId,
-          delta: envelope.messageDelta.delta,
+      wire.SessionEventStreamEnvelope_Event.partDelta =>
+        PiProtocolConversationPartDeltaEvent(
+          entryId: envelope.partDelta.entryId,
+          expectedEntryRevision: _semanticPositiveInt(
+            envelope.partDelta.expectedEntryRevision,
+          ),
+          resultingEntryRevision: _semanticPositiveInt(
+            envelope.partDelta.resultingEntryRevision,
+          ),
+          partId: envelope.partDelta.partId,
+          expectedPartRevision: _semanticPositiveInt(
+            envelope.partDelta.expectedPartRevision,
+          ),
+          resultingPartRevision: _semanticPositiveInt(
+            envelope.partDelta.resultingPartRevision,
+          ),
+          textDelta: envelope.partDelta.textDelta,
+        ),
+      wire.SessionEventStreamEnvelope_Event.entryFinalized =>
+        PiProtocolConversationEntryFinalizedEvent(
+          entry: _semanticConversationEntry(envelope.entryFinalized.entry),
+          expectedPreviousRevision: _semanticNonNegativeInt(
+            envelope.entryFinalized.expectedPreviousRevision,
+          ),
+        ),
+      wire.SessionEventStreamEnvelope_Event.toolActivity =>
+        PiProtocolConversationToolActivityEvent(
+          entryId: envelope.toolActivity.entryId,
+          expectedEntryRevision: _semanticPositiveInt(
+            envelope.toolActivity.expectedEntryRevision,
+          ),
+          resultingEntryRevision: _semanticPositiveInt(
+            envelope.toolActivity.resultingEntryRevision,
+          ),
+          activity: _semanticToolActivity(envelope.toolActivity.activity),
+        ),
+      wire.SessionEventStreamEnvelope_Event.metrics =>
+        PiProtocolConversationMetricsEvent(
+          entryId: envelope.metrics.entryId,
+          expectedEntryRevision: _semanticPositiveInt(
+            envelope.metrics.expectedEntryRevision,
+          ),
+          resultingEntryRevision: _semanticPositiveInt(
+            envelope.metrics.resultingEntryRevision,
+          ),
+          metrics: _semanticConversationMetrics(envelope.metrics.metrics),
         ),
       wire.SessionEventStreamEnvelope_Event.runningChanged =>
         PiProtocolSessionRunningChangedEvent(
@@ -939,17 +1006,331 @@ final class ProtobufPiProtocolCodec implements PiProtocolCodec {
     wire.SessionDetailSnapshot detail,
   ) => PiProtocolSessionDetail(
     summary: _semanticSessionSummary(detail.summary),
-    messages: detail.messages.map(_semanticMessage),
+    conversation: _semanticConversationSnapshot(detail.conversation),
   );
 
-  PiProtocolMessageSnapshot _semanticMessage(wire.MessageSnapshot message) =>
-      PiProtocolMessageSnapshot(
-        id: message.messageId,
-        role: _semanticRole(message.role),
-        text: message.text,
-        createdAt: _semanticInstant(message.createdAtUnixMillis),
-        isStreaming: message.isStreaming,
+  PiProtocolConversationSnapshot _semanticConversationSnapshot(
+    wire.ConversationSnapshot snapshot,
+  ) => PiProtocolConversationSnapshot(
+    sessionId: snapshot.sessionId,
+    entries: snapshot.entries.map(_semanticConversationEntry),
+    lastEventSequence: _semanticNonNegativeInt(snapshot.lastEventSequence),
+  );
+
+  PiProtocolConversationPage _semanticConversationPage(
+    wire.ConversationPage page,
+  ) => PiProtocolConversationPage(
+    sessionId: page.sessionId,
+    entries: page.entries.map(_semanticConversationEntry),
+    nextCursor: page.nextCursor.isEmpty ? null : page.nextCursor,
+    hasMore: page.hasMore,
+    activeBranchRevision: page.activeBranchRevision,
+    treeRevision: page.treeRevision,
+    lastEventSequence: _semanticNonNegativeInt(page.lastEventSequence),
+  );
+
+  PiProtocolConversationEntry _semanticConversationEntry(
+    wire.ConversationEntry entry,
+  ) {
+    return switch (entry.whichKind()) {
+      wire.ConversationEntry_Kind.user => _semanticConversationEntryCommon(
+        entry,
+        PiProtocolConversationEntryType.user,
+      ),
+      wire.ConversationEntry_Kind.assistant => _semanticConversationEntryCommon(
+        entry,
+        PiProtocolConversationEntryType.assistant,
+        provider: entry.assistant.provider,
+        model: entry.assistant.model,
+        stopReason: entry.assistant.stopReason,
+        safeErrorMessage: entry.assistant.safeErrorMessage.isEmpty
+            ? null
+            : entry.assistant.safeErrorMessage,
+      ),
+      wire.ConversationEntry_Kind.toolResult =>
+        _semanticConversationEntryCommon(
+          entry,
+          PiProtocolConversationEntryType.toolResult,
+          toolCallId: entry.toolResult.toolCallId,
+          toolName: entry.toolResult.toolName,
+          isError: entry.toolResult.isError,
+          safeDetails: _semanticSafeValue(entry.toolResult.safeDetails),
+        ),
+      wire.ConversationEntry_Kind.bash => _semanticConversationEntryCommon(
+        entry,
+        PiProtocolConversationEntryType.bash,
+        command: entry.bash.command,
+        exitCode: entry.bash.hasExitCode() ? entry.bash.exitCode : null,
+        cancelled: entry.bash.cancelled,
+        truncated: entry.bash.truncated,
+        excludedFromContext: entry.bash.excludedFromContext,
+      ),
+      wire.ConversationEntry_Kind.custom => _semanticConversationEntryCommon(
+        entry,
+        PiProtocolConversationEntryType.custom,
+        customType: entry.custom.customType,
+        display: entry.custom.display,
+        safeDetails: _semanticSafeValue(entry.custom.safeDetails),
+      ),
+      wire.ConversationEntry_Kind.compaction =>
+        _semanticConversationEntryCommon(
+          entry,
+          PiProtocolConversationEntryType.compaction,
+          firstKeptEntryId: entry.compaction.firstKeptEntryId,
+          tokensBefore: _semanticNonNegativeInt(entry.compaction.tokensBefore),
+          fromHook: entry.compaction.fromHook,
+          safeDetails: _semanticSafeValue(entry.compaction.safeDetails),
+        ),
+      wire.ConversationEntry_Kind.branchSummary =>
+        _semanticConversationEntryCommon(
+          entry,
+          PiProtocolConversationEntryType.branchSummary,
+          fromEntryId: entry.branchSummary.fromEntryId,
+          fromHook: entry.branchSummary.fromHook,
+          safeDetails: _semanticSafeValue(entry.branchSummary.safeDetails),
+        ),
+      wire.ConversationEntry_Kind.marker => _semanticConversationEntryCommon(
+        entry,
+        PiProtocolConversationEntryType.marker,
+        markerKind: _semanticMarkerKind(entry.marker.markerKind),
+        targetEntryId: entry.marker.targetEntryId.isEmpty
+            ? null
+            : entry.marker.targetEntryId,
+        label: entry.marker.label.isEmpty ? null : entry.marker.label,
+        provider: entry.marker.provider.isEmpty ? null : entry.marker.provider,
+        model: entry.marker.model.isEmpty ? null : entry.marker.model,
+        thinkingLevel: entry.marker.thinkingLevel.isEmpty
+            ? null
+            : entry.marker.thinkingLevel,
+      ),
+      wire.ConversationEntry_Kind.unknown => _semanticConversationEntryCommon(
+        entry,
+        PiProtocolConversationEntryType.unknown,
+        sourceType: entry.unknown.sourceType,
+      ),
+      wire.ConversationEntry_Kind.notSet =>
+        throw const PiProtocolCodecException(
+          PiProtocolCodecErrorCode.malformedFrame,
+        ),
+    };
+  }
+
+  PiProtocolConversationEntry _semanticConversationEntryCommon(
+    wire.ConversationEntry entry,
+    PiProtocolConversationEntryType type, {
+    String? provider,
+    String? model,
+    String? stopReason,
+    String? safeErrorMessage,
+    String? toolCallId,
+    String? toolName,
+    bool? isError,
+    PiProtocolSafeValue? safeDetails,
+    String? command,
+    int? exitCode,
+    bool? cancelled,
+    bool? truncated,
+    bool? excludedFromContext,
+    String? customType,
+    bool? display,
+    String? firstKeptEntryId,
+    int? tokensBefore,
+    bool? fromHook,
+    String? fromEntryId,
+    PiProtocolConversationMarkerKind? markerKind,
+    String? targetEntryId,
+    String? label,
+    String? thinkingLevel,
+    String? sourceType,
+  }) => PiProtocolConversationEntry(
+    entryId: entry.identity.entryId,
+    scope: _semanticConversationIdentityScope(entry.identity.scope),
+    originCommandId: entry.identity.originCommandId.isEmpty
+        ? null
+        : entry.identity.originCommandId,
+    revision: _semanticPositiveInt(entry.revision),
+    createdAt: _semanticInstant(entry.createdAtUnixMillis),
+    finalized: entry.finalized,
+    parts: entry.parts.map(_semanticConversationPart),
+    toolActivities: entry.toolActivities.map(_semanticToolActivity),
+    metrics: entry.hasMetrics()
+        ? _semanticConversationMetrics(entry.metrics)
+        : null,
+    type: type,
+    provider: provider,
+    model: model,
+    stopReason: stopReason,
+    safeErrorMessage: safeErrorMessage,
+    toolCallId: toolCallId,
+    toolName: toolName,
+    isError: isError,
+    safeDetails: safeDetails,
+    command: command,
+    exitCode: exitCode,
+    cancelled: cancelled,
+    truncated: truncated,
+    excludedFromContext: excludedFromContext,
+    customType: customType,
+    display: display,
+    firstKeptEntryId: firstKeptEntryId,
+    tokensBefore: tokensBefore,
+    fromHook: fromHook,
+    fromEntryId: fromEntryId,
+    markerKind: markerKind,
+    targetEntryId: targetEntryId,
+    label: label,
+    thinkingLevel: thinkingLevel,
+    sourceType: sourceType,
+  );
+
+  PiProtocolConversationPart _semanticConversationPart(
+    wire.ConversationPart part,
+  ) => switch (part.whichKind()) {
+    wire.ConversationPart_Kind.text => PiProtocolConversationPart(
+      partId: part.partId,
+      revision: _semanticPositiveInt(part.revision),
+      type: PiProtocolConversationPartType.text,
+      text: part.text.whichContent() == wire.BoundedTextPart_Content.inlineText
+          ? part.text.inlineText
+          : null,
+      contentReference:
+          part.text.whichContent() ==
+              wire.BoundedTextPart_Content.contentReference
+          ? _semanticContentReference(part.text.contentReference)
+          : null,
+    ),
+    wire.ConversationPart_Kind.thinking => PiProtocolConversationPart(
+      partId: part.partId,
+      revision: _semanticPositiveInt(part.revision),
+      type: PiProtocolConversationPartType.thinking,
+      thinkingVisibility: _semanticThinkingVisibility(part.thinking.visibility),
+      text: part.thinking.whichContent() == wire.ThinkingPart_Content.inlineText
+          ? part.thinking.inlineText
+          : null,
+      contentReference:
+          part.thinking.whichContent() ==
+              wire.ThinkingPart_Content.contentReference
+          ? _semanticContentReference(part.thinking.contentReference)
+          : null,
+    ),
+    wire.ConversationPart_Kind.image => PiProtocolConversationPart(
+      partId: part.partId,
+      revision: _semanticPositiveInt(part.revision),
+      type: PiProtocolConversationPartType.image,
+      contentReference: _semanticContentReference(part.image.contentReference),
+    ),
+    wire.ConversationPart_Kind.toolCall => PiProtocolConversationPart(
+      partId: part.partId,
+      revision: _semanticPositiveInt(part.revision),
+      type: PiProtocolConversationPartType.toolCall,
+      toolCallId: part.toolCall.toolCallId,
+      toolName: part.toolCall.toolName,
+      safeArguments: _semanticSafeValue(part.toolCall.safeArguments),
+    ),
+    wire.ConversationPart_Kind.unsupported => PiProtocolConversationPart(
+      partId: part.partId,
+      revision: _semanticPositiveInt(part.revision),
+      type: PiProtocolConversationPartType.unsupported,
+      sourceType: part.unsupported.sourceType,
+    ),
+    wire.ConversationPart_Kind.notSet => throw const PiProtocolCodecException(
+      PiProtocolCodecErrorCode.malformedFrame,
+    ),
+  };
+
+  PiProtocolMessageContentReference _semanticContentReference(
+    wire.MessageContentReference reference,
+  ) => PiProtocolMessageContentReference(
+    contentId: reference.contentId,
+    mimeType: reference.mimeType,
+    displayName: reference.displayName,
+    totalBytes: _semanticPositiveInt(reference.totalBytes),
+    sha256: Uint8List.fromList(reference.sha256),
+  );
+
+  PiProtocolMessageContentBinding _semanticMessageContentBinding(
+    wire.MessageContentBinding binding,
+  ) => PiProtocolMessageContentBinding(
+    sessionId: binding.sessionId,
+    entryId: binding.entryId,
+    partId: binding.partId,
+    entryRevision: _semanticPositiveInt(binding.entryRevision),
+    partRevision: _semanticPositiveInt(binding.partRevision),
+    contentId: binding.contentId,
+  );
+
+  PiProtocolSafeValue _semanticSafeValue(wire.SafeValue value) => switch (value
+      .whichValue()) {
+    wire.SafeValue_Value.sentinel => switch (value.sentinel) {
+      wire.SafeValueKind.SAFE_VALUE_KIND_NULL => const PiProtocolSafeNull(),
+      wire.SafeValueKind.SAFE_VALUE_KIND_REDACTED =>
+        const PiProtocolSafeRedacted(),
+      _ => throw const PiProtocolCodecException(
+        PiProtocolCodecErrorCode.malformedFrame,
+      ),
+    },
+    wire.SafeValue_Value.boolValue => PiProtocolSafeBool(value.boolValue),
+    wire.SafeValue_Value.intValue => PiProtocolSafeInt(
+      _semanticSignedInt(value.intValue),
+    ),
+    wire.SafeValue_Value.doubleValue => PiProtocolSafeDouble(value.doubleValue),
+    wire.SafeValue_Value.stringValue => PiProtocolSafeString(value.stringValue),
+    wire.SafeValue_Value.listValue => PiProtocolSafeList(
+      value.listValue.values.map(_semanticSafeValue),
+    ),
+    wire.SafeValue_Value.objectValue => PiProtocolSafeObject(
+      value.objectValue.fields.map(
+        (field) => PiProtocolSafeObjectField(
+          key: field.key,
+          value: _semanticSafeValue(field.value),
+        ),
+      ),
+    ),
+    wire.SafeValue_Value.notSet => throw const PiProtocolCodecException(
+      PiProtocolCodecErrorCode.malformedFrame,
+    ),
+  };
+
+  PiProtocolToolActivity _semanticToolActivity(wire.ToolActivity activity) =>
+      PiProtocolToolActivity(
+        activityId: activity.activityId,
+        toolCallId: activity.toolCallId,
+        toolName: activity.toolName,
+        sourceOrdinal: activity.sourceOrdinal,
+        revision: _semanticPositiveInt(activity.revision),
+        status: _semanticToolActivityStatus(activity.status),
+        progressBasisPoints: activity.hasProgressBasisPoints()
+            ? activity.progressBasisPoints
+            : null,
+        safeDetails: _semanticSafeValue(activity.safeDetails),
       );
+
+  PiProtocolConversationMetrics _semanticConversationMetrics(
+    wire.ConversationMetrics metrics,
+  ) => PiProtocolConversationMetrics(
+    usage: PiProtocolUsageMetrics(
+      inputTokens: _semanticNonNegativeInt(metrics.usage.inputTokens),
+      outputTokens: _semanticNonNegativeInt(metrics.usage.outputTokens),
+      cacheReadTokens: _semanticNonNegativeInt(metrics.usage.cacheReadTokens),
+      cacheWriteTokens: _semanticNonNegativeInt(metrics.usage.cacheWriteTokens),
+      totalTokens: _semanticNonNegativeInt(metrics.usage.totalTokens),
+    ),
+    cost: PiProtocolMoneyAmount(
+      currencyCode: metrics.cost.currencyCode,
+      decimalAmount: metrics.cost.decimalAmount,
+    ),
+    context: metrics.hasContext()
+        ? PiProtocolContextMetrics(
+            tokens: metrics.context.hasTokens()
+                ? _semanticNonNegativeInt(metrics.context.tokens)
+                : null,
+            contextWindow: _semanticPositiveInt(metrics.context.contextWindow),
+            percentDecimal: metrics.context.hasPercentDecimal()
+                ? metrics.context.percentDecimal
+                : null,
+          )
+        : null,
+  );
 
   PiProtocolSessionTreeSnapshot _semanticSessionTree(
     wire.SessionTreeSnapshot tree,
@@ -990,6 +1371,7 @@ final class ProtobufPiProtocolCodec implements PiProtocolCodec {
       PiProtocolCreateSessionRequest() ||
       PiProtocolGetSessionTreeRequest() ||
       PiProtocolGetSessionHistoryRequest() ||
+      PiProtocolGetMessageContentRequest() ||
       PiProtocolGetSessionStatsRequest() ||
       PiProtocolExportSessionRequest() => const _RegularRequestCorrelation(),
       PiProtocolPromptCommandRequest(:final commandId) ||
@@ -1047,6 +1429,7 @@ final class _CommandCorrelation extends _RequestCorrelation {
 }
 
 final _maximumExactDartInt64 = Int64(_maximumExactDartInt);
+final _minimumExactDartInt64 = Int64(-_maximumExactDartInt);
 const _maximumExactDartInt = 9007199254740991;
 const _maximumUint32 = 0xffffffff;
 
@@ -1066,7 +1449,20 @@ final _clientCapabilities = <wire.Capability>[
   wire.Capability.CAPABILITY_SESSION_HISTORY,
   wire.Capability.CAPABILITY_SESSION_STATS,
   wire.Capability.CAPABILITY_SESSION_EXPORT,
+  wire.Capability.CAPABILITY_RICH_CONVERSATION,
+  wire.Capability.CAPABILITY_MESSAGE_CONTENT,
 ];
+
+wire.MessageContentBinding _wireMessageContentBinding(
+  PiProtocolMessageContentBinding binding,
+) => wire.MessageContentBinding(
+  sessionId: binding.sessionId,
+  entryId: binding.entryId,
+  partId: binding.partId,
+  entryRevision: _wirePositiveInt(binding.entryRevision),
+  partRevision: _wirePositiveInt(binding.partRevision),
+  contentId: binding.contentId,
+);
 
 wire.ProtocolVersion _wireVersion(PiProtocolVersion version) {
   if (version.major > _maximumUint32 ||
@@ -1093,6 +1489,16 @@ Int64 _wirePositiveInt(int value) {
     );
   }
   return Int64(value);
+}
+
+int _semanticSignedInt(Int64 value) {
+  if (value.compareTo(_minimumExactDartInt64) < 0 ||
+      value.compareTo(_maximumExactDartInt64) > 0) {
+    throw const PiProtocolCodecException(
+      PiProtocolCodecErrorCode.integerOutOfRange,
+    );
+  }
+  return value.toInt();
 }
 
 int _semanticNonNegativeInt(Int64 value) {
@@ -1180,6 +1586,103 @@ PiProtocolCapability _semanticCapability(wire.Capability capability) {
   }
   if (capability == wire.Capability.CAPABILITY_SESSION_EXPORT) {
     return PiProtocolCapability.sessionExport;
+  }
+  if (capability == wire.Capability.CAPABILITY_RICH_CONVERSATION) {
+    return PiProtocolCapability.richConversation;
+  }
+  if (capability == wire.Capability.CAPABILITY_MESSAGE_CONTENT) {
+    return PiProtocolCapability.messageContent;
+  }
+  throw const PiProtocolCodecException(
+    PiProtocolCodecErrorCode.unsupportedOperation,
+  );
+}
+
+PiProtocolConversationIdentityScope _semanticConversationIdentityScope(
+  wire.ConversationIdentityScope scope,
+) {
+  if (scope ==
+      wire.ConversationIdentityScope.CONVERSATION_IDENTITY_SCOPE_PERSISTENT) {
+    return PiProtocolConversationIdentityScope.persistent;
+  }
+  if (scope ==
+      wire.ConversationIdentityScope.CONVERSATION_IDENTITY_SCOPE_RUNTIME) {
+    return PiProtocolConversationIdentityScope.runtime;
+  }
+  throw const PiProtocolCodecException(
+    PiProtocolCodecErrorCode.unsupportedOperation,
+  );
+}
+
+PiProtocolConversationMarkerKind _semanticMarkerKind(wire.MarkerKind kind) {
+  if (kind == wire.MarkerKind.MARKER_KIND_THINKING_LEVEL) {
+    return PiProtocolConversationMarkerKind.thinkingLevel;
+  }
+  if (kind == wire.MarkerKind.MARKER_KIND_MODEL_CHANGE) {
+    return PiProtocolConversationMarkerKind.modelChange;
+  }
+  if (kind == wire.MarkerKind.MARKER_KIND_LABEL) {
+    return PiProtocolConversationMarkerKind.label;
+  }
+  if (kind == wire.MarkerKind.MARKER_KIND_SESSION_INFO) {
+    return PiProtocolConversationMarkerKind.sessionInfo;
+  }
+  throw const PiProtocolCodecException(
+    PiProtocolCodecErrorCode.unsupportedOperation,
+  );
+}
+
+PiProtocolThinkingVisibility _semanticThinkingVisibility(
+  wire.ThinkingVisibility visibility,
+) {
+  if (visibility == wire.ThinkingVisibility.THINKING_VISIBILITY_VISIBLE) {
+    return PiProtocolThinkingVisibility.visible;
+  }
+  if (visibility == wire.ThinkingVisibility.THINKING_VISIBILITY_REDACTED) {
+    return PiProtocolThinkingVisibility.redacted;
+  }
+  if (visibility == wire.ThinkingVisibility.THINKING_VISIBILITY_DEFERRED) {
+    return PiProtocolThinkingVisibility.deferred;
+  }
+  throw const PiProtocolCodecException(
+    PiProtocolCodecErrorCode.unsupportedOperation,
+  );
+}
+
+PiProtocolToolActivityStatus _semanticToolActivityStatus(
+  wire.ToolActivityStatus status,
+) {
+  if (status == wire.ToolActivityStatus.TOOL_ACTIVITY_STATUS_PENDING) {
+    return PiProtocolToolActivityStatus.pending;
+  }
+  if (status == wire.ToolActivityStatus.TOOL_ACTIVITY_STATUS_RUNNING) {
+    return PiProtocolToolActivityStatus.running;
+  }
+  if (status == wire.ToolActivityStatus.TOOL_ACTIVITY_STATUS_SUCCEEDED) {
+    return PiProtocolToolActivityStatus.succeeded;
+  }
+  if (status == wire.ToolActivityStatus.TOOL_ACTIVITY_STATUS_FAILED) {
+    return PiProtocolToolActivityStatus.failed;
+  }
+  if (status == wire.ToolActivityStatus.TOOL_ACTIVITY_STATUS_CANCELLED) {
+    return PiProtocolToolActivityStatus.cancelled;
+  }
+  throw const PiProtocolCodecException(
+    PiProtocolCodecErrorCode.unsupportedOperation,
+  );
+}
+
+PiProtocolTransferPurpose _semanticTransferPurpose(
+  wire.TransferPurpose purpose,
+) {
+  if (purpose == wire.TransferPurpose.TRANSFER_PURPOSE_ATTACHMENT) {
+    return PiProtocolTransferPurpose.attachment;
+  }
+  if (purpose == wire.TransferPurpose.TRANSFER_PURPOSE_EXPORT) {
+    return PiProtocolTransferPurpose.export;
+  }
+  if (purpose == wire.TransferPurpose.TRANSFER_PURPOSE_MESSAGE_CONTENT) {
+    return PiProtocolTransferPurpose.messageContent;
   }
   throw const PiProtocolCodecException(
     PiProtocolCodecErrorCode.unsupportedOperation,
@@ -1329,22 +1832,6 @@ PiProtocolSessionTreeEntryKind _semanticSessionTreeEntryKind(
   throw const PiProtocolCodecException(
     PiProtocolCodecErrorCode.unsupportedOperation,
   );
-}
-
-PiProtocolMessageRole _semanticRole(wire.MessageRole role) {
-  if (role == wire.MessageRole.MESSAGE_ROLE_USER) {
-    return PiProtocolMessageRole.user;
-  }
-  if (role == wire.MessageRole.MESSAGE_ROLE_ASSISTANT) {
-    return PiProtocolMessageRole.assistant;
-  }
-  if (role == wire.MessageRole.MESSAGE_ROLE_TOOL) {
-    return PiProtocolMessageRole.tool;
-  }
-  if (role == wire.MessageRole.MESSAGE_ROLE_SYSTEM) {
-    return PiProtocolMessageRole.system;
-  }
-  throw const PiProtocolCodecException(PiProtocolCodecErrorCode.malformedFrame);
 }
 
 PiProtocolFailure _semanticFailure(wire.StableError error) => PiProtocolFailure(

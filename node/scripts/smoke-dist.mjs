@@ -1,7 +1,7 @@
 const api = await import("../dist/index.js");
 const metadata = api.getRuntimeMetadata();
 
-if (metadata.piNodeVersion !== "0.1.0-dev.0") {
+if (metadata.piNodeVersion !== "0.2.0-dev.0") {
   throw new Error(`Unexpected Pi Node version: ${metadata.piNodeVersion}`);
 }
 if (metadata.piSdkVersion !== "0.84.3") {

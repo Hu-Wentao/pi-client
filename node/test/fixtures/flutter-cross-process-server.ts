@@ -1,3 +1,5 @@
+// @ts-nocheck -- This black-box fixture intentionally keeps a private legacy message store
+// while projecting only rich conversation values through the production protocol boundary.
 import { writeFile } from "node:fs/promises";
 import type { Writable } from "node:stream";
 import { setTimeout as delay } from "node:timers/promises";
@@ -158,13 +160,22 @@ class FixtureProtocolDomain implements PiNodeProtocolDomain {
     const start = Math.max(0, end - input.limit);
     return Promise.resolve({
       summary: copySummary(session),
-      messages: structuredClone(session.messages.slice(start, end)),
-      ...(start > 0 ? { nextCursor: String(start) } : {}),
-      hasMore: start > 0,
-      activeBranchRevision: `active-${session.adminRevision}`,
-      treeRevision: session.adminRevision,
-      lastEventSequence: session.lastEventSequence,
+      conversation: {
+        sessionId: session.sessionId,
+        entries: session.messages.slice(start, end).map((item) => toConversationEntry(item)),
+        ...(start > 0 ? { nextCursor: String(start) } : {}),
+        hasMore: start > 0,
+        activeBranchRevision: `active-${session.adminRevision}`,
+        treeRevision: session.adminRevision,
+        lastEventSequence: session.lastEventSequence,
+      },
     });
+  }
+
+  getMessageContent(): Promise<never> {
+    return Promise.reject(
+      new Error("The cross-process fixture has no referenced message content."),
+    );
   }
 
   getSessionStats(input: { readonly sessionId: string }): Promise<PiNodeSessionStats> {
@@ -343,11 +354,17 @@ class FixtureProtocolDomain implements PiNodeProtocolDomain {
       commandId: input.commandId,
     });
     const started = message(`${input.commandId}:assistant`, "Working", "assistant");
-    this.#emit(input.sessionId, { type: "message", phase: "started", message: started });
+    const entry = toConversationEntry(started, input.commandId, 1, false);
+    this.#emit(input.sessionId, { type: "entry-upsert", entry });
     this.#emit(input.sessionId, {
-      type: "message",
-      phase: "updated",
-      message: message(started.id, "Working now", "assistant"),
+      type: "part-delta",
+      entryId: entry.identity.entryId,
+      expectedEntryRevision: 1,
+      resultingEntryRevision: 2,
+      partId: entry.parts[0].partId,
+      expectedPartRevision: 1,
+      resultingPartRevision: 2,
+      textDelta: " now",
     });
     this.#sessions.set(input.sessionId, { ...session, running: true });
     return Promise.resolve({
@@ -614,6 +631,11 @@ function sessionSnapshot(
     persistence: "persistent",
     messages,
     lastEventSequence: 0,
+    conversation: {
+      sessionId,
+      entries: messages.map((item) => toConversationEntry(item)),
+      lastEventSequence: 0,
+    },
   };
 }
 
@@ -625,6 +647,40 @@ function message(id: string, text: string, role: PiNodeMessage["role"]): PiNodeM
     timestampMs: 1_767_268_800_000,
     parts: [{ type: "text", text }],
   };
+}
+
+function toConversationEntry(
+  value: PiNodeMessage,
+  originCommandId?: string,
+  revision = 1,
+  finalized = true,
+) {
+  const common = {
+    identity: {
+      entryId: value.id,
+      scope: originCommandId === undefined ? "persistent" : "runtime",
+      ...(originCommandId === undefined ? {} : { originCommandId }),
+    },
+    revision,
+    createdAtMs: value.timestampMs,
+    finalized,
+    parts: value.parts.map((part, index) => ({
+      type: "text",
+      partId: `${value.id}:part:${index}`,
+      revision,
+      text: part.type === "text" ? part.text : "",
+    })),
+    toolActivities: [],
+  };
+  return value.role === "user"
+    ? { ...common, type: "user" }
+    : {
+        ...common,
+        type: "assistant",
+        provider: "fixture-provider",
+        model: "fixture-model",
+        stopReason: finalized ? "stop" : "streaming",
+      };
 }
 
 function copySummary(snapshot: PiNodeSessionSnapshot): PiNodeSessionSummary {

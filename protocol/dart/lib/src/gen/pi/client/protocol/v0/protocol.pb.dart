@@ -74,6 +74,7 @@ enum PiTransportFrame_Operation {
   transferComplete,
   transferAbort,
   error,
+  getMessageContentRequest,
   notSet
 }
 
@@ -135,6 +136,7 @@ class PiTransportFrame extends $pb.GeneratedMessage {
     TransferComplete? transferComplete,
     TransferAbort? transferAbort,
     ErrorEnvelope? error,
+    GetMessageContentRequest? getMessageContentRequest,
   }) {
     final result = create();
     if (frameSequence != null) result.frameSequence = frameSequence;
@@ -225,6 +227,8 @@ class PiTransportFrame extends $pb.GeneratedMessage {
     if (transferComplete != null) result.transferComplete = transferComplete;
     if (transferAbort != null) result.transferAbort = transferAbort;
     if (error != null) result.error = error;
+    if (getMessageContentRequest != null)
+      result.getMessageContentRequest = getMessageContentRequest;
     return result;
   }
 
@@ -291,6 +295,7 @@ class PiTransportFrame extends $pb.GeneratedMessage {
     73: PiTransportFrame_Operation.transferComplete,
     74: PiTransportFrame_Operation.transferAbort,
     80: PiTransportFrame_Operation.error,
+    100: PiTransportFrame_Operation.getMessageContentRequest,
     0: PiTransportFrame_Operation.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -350,7 +355,8 @@ class PiTransportFrame extends $pb.GeneratedMessage {
       72,
       73,
       74,
-      80
+      80,
+      100
     ])
     ..a<$fixnum.Int64>(
         1, _omitFieldNames ? '' : 'frameSequence', $pb.PbFieldType.OU6,
@@ -489,6 +495,9 @@ class PiTransportFrame extends $pb.GeneratedMessage {
         subBuilder: TransferAbort.create)
     ..aOM<ErrorEnvelope>(80, _omitFieldNames ? '' : 'error',
         subBuilder: ErrorEnvelope.create)
+    ..aOM<GetMessageContentRequest>(
+        100, _omitFieldNames ? '' : 'getMessageContentRequest',
+        subBuilder: GetMessageContentRequest.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -562,6 +571,7 @@ class PiTransportFrame extends $pb.GeneratedMessage {
   @$pb.TagNumber(73)
   @$pb.TagNumber(74)
   @$pb.TagNumber(80)
+  @$pb.TagNumber(100)
   PiTransportFrame_Operation whichOperation() =>
       _PiTransportFrame_OperationByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(10)
@@ -616,6 +626,7 @@ class PiTransportFrame extends $pb.GeneratedMessage {
   @$pb.TagNumber(73)
   @$pb.TagNumber(74)
   @$pb.TagNumber(80)
+  @$pb.TagNumber(100)
   void clearOperation() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -1225,6 +1236,18 @@ class PiTransportFrame extends $pb.GeneratedMessage {
   void clearError() => $_clearField(80);
   @$pb.TagNumber(80)
   ErrorEnvelope ensureError() => $_ensure(52);
+
+  @$pb.TagNumber(100)
+  GetMessageContentRequest get getMessageContentRequest => $_getN(53);
+  @$pb.TagNumber(100)
+  set getMessageContentRequest(GetMessageContentRequest value) =>
+      $_setField(100, value);
+  @$pb.TagNumber(100)
+  $core.bool hasGetMessageContentRequest() => $_has(53);
+  @$pb.TagNumber(100)
+  void clearGetMessageContentRequest() => $_clearField(100);
+  @$pb.TagNumber(100)
+  GetMessageContentRequest ensureGetMessageContentRequest() => $_ensure(53);
 }
 
 /// ProtocolVersion is the numeric SemVer core used for exact wire negotiation.
@@ -5562,11 +5585,11 @@ class SessionSummarySnapshot extends $pb.GeneratedMessage {
 class SessionDetailSnapshot extends $pb.GeneratedMessage {
   factory SessionDetailSnapshot({
     SessionSummarySnapshot? summary,
-    $core.Iterable<MessageSnapshot>? messages,
+    ConversationSnapshot? conversation,
   }) {
     final result = create();
     if (summary != null) result.summary = summary;
-    if (messages != null) result.messages.addAll(messages);
+    if (conversation != null) result.conversation = conversation;
     return result;
   }
 
@@ -5586,8 +5609,8 @@ class SessionDetailSnapshot extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aOM<SessionSummarySnapshot>(1, _omitFieldNames ? '' : 'summary',
         subBuilder: SessionSummarySnapshot.create)
-    ..pPM<MessageSnapshot>(2, _omitFieldNames ? '' : 'messages',
-        subBuilder: MessageSnapshot.create)
+    ..aOM<ConversationSnapshot>(3, _omitFieldNames ? '' : 'conversation',
+        subBuilder: ConversationSnapshot.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -5621,10 +5644,19 @@ class SessionDetailSnapshot extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   SessionSummarySnapshot ensureSummary() => $_ensure(0);
 
-  @$pb.TagNumber(2)
-  $pb.PbList<MessageSnapshot> get messages => $_getList(1);
+  @$pb.TagNumber(3)
+  ConversationSnapshot get conversation => $_getN(1);
+  @$pb.TagNumber(3)
+  set conversation(ConversationSnapshot value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasConversation() => $_has(1);
+  @$pb.TagNumber(3)
+  void clearConversation() => $_clearField(3);
+  @$pb.TagNumber(3)
+  ConversationSnapshot ensureConversation() => $_ensure(1);
 }
 
+@$core.Deprecated('This message is deprecated')
 class MessageSnapshot extends $pb.GeneratedMessage {
   factory MessageSnapshot({
     $core.String? messageId,
@@ -6154,21 +6186,12 @@ class GetSessionHistoryResponse extends $pb.GeneratedMessage {
   factory GetSessionHistoryResponse({
     $fixnum.Int64? requestId,
     SessionSummarySnapshot? summary,
-    $core.Iterable<MessageSnapshot>? messages,
-    $core.String? nextCursor,
-    $core.bool? hasMore,
-    $core.String? activeBranchRevision,
-    $core.String? treeRevision,
+    ConversationPage? conversation,
   }) {
     final result = create();
     if (requestId != null) result.requestId = requestId;
     if (summary != null) result.summary = summary;
-    if (messages != null) result.messages.addAll(messages);
-    if (nextCursor != null) result.nextCursor = nextCursor;
-    if (hasMore != null) result.hasMore = hasMore;
-    if (activeBranchRevision != null)
-      result.activeBranchRevision = activeBranchRevision;
-    if (treeRevision != null) result.treeRevision = treeRevision;
+    if (conversation != null) result.conversation = conversation;
     return result;
   }
 
@@ -6191,12 +6214,8 @@ class GetSessionHistoryResponse extends $pb.GeneratedMessage {
         defaultOrMaker: $fixnum.Int64.ZERO)
     ..aOM<SessionSummarySnapshot>(2, _omitFieldNames ? '' : 'summary',
         subBuilder: SessionSummarySnapshot.create)
-    ..pPM<MessageSnapshot>(3, _omitFieldNames ? '' : 'messages',
-        subBuilder: MessageSnapshot.create)
-    ..aOS(4, _omitFieldNames ? '' : 'nextCursor')
-    ..aOB(5, _omitFieldNames ? '' : 'hasMore')
-    ..aOS(6, _omitFieldNames ? '' : 'activeBranchRevision')
-    ..aOS(7, _omitFieldNames ? '' : 'treeRevision')
+    ..aOM<ConversationPage>(8, _omitFieldNames ? '' : 'conversation',
+        subBuilder: ConversationPage.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -6239,44 +6258,3137 @@ class GetSessionHistoryResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   SessionSummarySnapshot ensureSummary() => $_ensure(1);
 
+  @$pb.TagNumber(8)
+  ConversationPage get conversation => $_getN(2);
+  @$pb.TagNumber(8)
+  set conversation(ConversationPage value) => $_setField(8, value);
+  @$pb.TagNumber(8)
+  $core.bool hasConversation() => $_has(2);
+  @$pb.TagNumber(8)
+  void clearConversation() => $_clearField(8);
+  @$pb.TagNumber(8)
+  ConversationPage ensureConversation() => $_ensure(2);
+}
+
+class ConversationEntryIdentity extends $pb.GeneratedMessage {
+  factory ConversationEntryIdentity({
+    $core.String? entryId,
+    ConversationIdentityScope? scope,
+    $core.String? originCommandId,
+  }) {
+    final result = create();
+    if (entryId != null) result.entryId = entryId;
+    if (scope != null) result.scope = scope;
+    if (originCommandId != null) result.originCommandId = originCommandId;
+    return result;
+  }
+
+  ConversationEntryIdentity._();
+
+  factory ConversationEntryIdentity.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ConversationEntryIdentity.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ConversationEntryIdentity',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'entryId')
+    ..aE<ConversationIdentityScope>(2, _omitFieldNames ? '' : 'scope',
+        enumValues: ConversationIdentityScope.values)
+    ..aOS(3, _omitFieldNames ? '' : 'originCommandId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConversationEntryIdentity clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConversationEntryIdentity copyWith(
+          void Function(ConversationEntryIdentity) updates) =>
+      super.copyWith((message) => updates(message as ConversationEntryIdentity))
+          as ConversationEntryIdentity;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ConversationEntryIdentity create() => ConversationEntryIdentity._();
+  @$core.override
+  ConversationEntryIdentity createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ConversationEntryIdentity getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ConversationEntryIdentity>(create);
+  static ConversationEntryIdentity? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get entryId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set entryId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasEntryId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearEntryId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  ConversationIdentityScope get scope => $_getN(1);
+  @$pb.TagNumber(2)
+  set scope(ConversationIdentityScope value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasScope() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearScope() => $_clearField(2);
+
   @$pb.TagNumber(3)
-  $pb.PbList<MessageSnapshot> get messages => $_getList(2);
+  $core.String get originCommandId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set originCommandId($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasOriginCommandId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearOriginCommandId() => $_clearField(3);
+}
+
+class ConversationSnapshot extends $pb.GeneratedMessage {
+  factory ConversationSnapshot({
+    $core.String? sessionId,
+    $core.Iterable<ConversationEntry>? entries,
+    $fixnum.Int64? lastEventSequence,
+  }) {
+    final result = create();
+    if (sessionId != null) result.sessionId = sessionId;
+    if (entries != null) result.entries.addAll(entries);
+    if (lastEventSequence != null) result.lastEventSequence = lastEventSequence;
+    return result;
+  }
+
+  ConversationSnapshot._();
+
+  factory ConversationSnapshot.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ConversationSnapshot.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ConversationSnapshot',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'sessionId')
+    ..pPM<ConversationEntry>(2, _omitFieldNames ? '' : 'entries',
+        subBuilder: ConversationEntry.create)
+    ..a<$fixnum.Int64>(
+        3, _omitFieldNames ? '' : 'lastEventSequence', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConversationSnapshot clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConversationSnapshot copyWith(void Function(ConversationSnapshot) updates) =>
+      super.copyWith((message) => updates(message as ConversationSnapshot))
+          as ConversationSnapshot;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ConversationSnapshot create() => ConversationSnapshot._();
+  @$core.override
+  ConversationSnapshot createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ConversationSnapshot getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ConversationSnapshot>(create);
+  static ConversationSnapshot? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get sessionId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set sessionId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSessionId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSessionId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $pb.PbList<ConversationEntry> get entries => $_getList(1);
+
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get lastEventSequence => $_getI64(2);
+  @$pb.TagNumber(3)
+  set lastEventSequence($fixnum.Int64 value) => $_setInt64(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasLastEventSequence() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearLastEventSequence() => $_clearField(3);
+}
+
+class ConversationPage extends $pb.GeneratedMessage {
+  factory ConversationPage({
+    $core.String? sessionId,
+    $core.Iterable<ConversationEntry>? entries,
+    $core.String? nextCursor,
+    $core.bool? hasMore,
+    $core.String? activeBranchRevision,
+    $core.String? treeRevision,
+    $fixnum.Int64? lastEventSequence,
+  }) {
+    final result = create();
+    if (sessionId != null) result.sessionId = sessionId;
+    if (entries != null) result.entries.addAll(entries);
+    if (nextCursor != null) result.nextCursor = nextCursor;
+    if (hasMore != null) result.hasMore = hasMore;
+    if (activeBranchRevision != null)
+      result.activeBranchRevision = activeBranchRevision;
+    if (treeRevision != null) result.treeRevision = treeRevision;
+    if (lastEventSequence != null) result.lastEventSequence = lastEventSequence;
+    return result;
+  }
+
+  ConversationPage._();
+
+  factory ConversationPage.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ConversationPage.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ConversationPage',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'sessionId')
+    ..pPM<ConversationEntry>(2, _omitFieldNames ? '' : 'entries',
+        subBuilder: ConversationEntry.create)
+    ..aOS(3, _omitFieldNames ? '' : 'nextCursor')
+    ..aOB(4, _omitFieldNames ? '' : 'hasMore')
+    ..aOS(5, _omitFieldNames ? '' : 'activeBranchRevision')
+    ..aOS(6, _omitFieldNames ? '' : 'treeRevision')
+    ..a<$fixnum.Int64>(
+        7, _omitFieldNames ? '' : 'lastEventSequence', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConversationPage clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConversationPage copyWith(void Function(ConversationPage) updates) =>
+      super.copyWith((message) => updates(message as ConversationPage))
+          as ConversationPage;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ConversationPage create() => ConversationPage._();
+  @$core.override
+  ConversationPage createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ConversationPage getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ConversationPage>(create);
+  static ConversationPage? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get sessionId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set sessionId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSessionId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSessionId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $pb.PbList<ConversationEntry> get entries => $_getList(1);
+
+  @$pb.TagNumber(3)
+  $core.String get nextCursor => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set nextCursor($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasNextCursor() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearNextCursor() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $core.String get nextCursor => $_getSZ(3);
+  $core.bool get hasMore => $_getBF(3);
   @$pb.TagNumber(4)
-  set nextCursor($core.String value) => $_setString(3, value);
+  set hasMore($core.bool value) => $_setBool(3, value);
   @$pb.TagNumber(4)
-  $core.bool hasNextCursor() => $_has(3);
+  $core.bool hasHasMore() => $_has(3);
   @$pb.TagNumber(4)
-  void clearNextCursor() => $_clearField(4);
+  void clearHasMore() => $_clearField(4);
 
   @$pb.TagNumber(5)
-  $core.bool get hasMore => $_getBF(4);
+  $core.String get activeBranchRevision => $_getSZ(4);
   @$pb.TagNumber(5)
-  set hasMore($core.bool value) => $_setBool(4, value);
+  set activeBranchRevision($core.String value) => $_setString(4, value);
   @$pb.TagNumber(5)
-  $core.bool hasHasMore() => $_has(4);
+  $core.bool hasActiveBranchRevision() => $_has(4);
   @$pb.TagNumber(5)
-  void clearHasMore() => $_clearField(5);
+  void clearActiveBranchRevision() => $_clearField(5);
 
   @$pb.TagNumber(6)
-  $core.String get activeBranchRevision => $_getSZ(5);
+  $core.String get treeRevision => $_getSZ(5);
   @$pb.TagNumber(6)
-  set activeBranchRevision($core.String value) => $_setString(5, value);
+  set treeRevision($core.String value) => $_setString(5, value);
   @$pb.TagNumber(6)
-  $core.bool hasActiveBranchRevision() => $_has(5);
+  $core.bool hasTreeRevision() => $_has(5);
   @$pb.TagNumber(6)
-  void clearActiveBranchRevision() => $_clearField(6);
+  void clearTreeRevision() => $_clearField(6);
 
   @$pb.TagNumber(7)
-  $core.String get treeRevision => $_getSZ(6);
+  $fixnum.Int64 get lastEventSequence => $_getI64(6);
   @$pb.TagNumber(7)
-  set treeRevision($core.String value) => $_setString(6, value);
+  set lastEventSequence($fixnum.Int64 value) => $_setInt64(6, value);
   @$pb.TagNumber(7)
-  $core.bool hasTreeRevision() => $_has(6);
+  $core.bool hasLastEventSequence() => $_has(6);
   @$pb.TagNumber(7)
-  void clearTreeRevision() => $_clearField(7);
+  void clearLastEventSequence() => $_clearField(7);
+}
+
+enum ConversationEntry_Kind {
+  user,
+  assistant,
+  toolResult,
+  bash,
+  custom,
+  compaction,
+  branchSummary,
+  marker,
+  unknown,
+  notSet
+}
+
+class ConversationEntry extends $pb.GeneratedMessage {
+  factory ConversationEntry({
+    ConversationEntryIdentity? identity,
+    $fixnum.Int64? revision,
+    $fixnum.Int64? createdAtUnixMillis,
+    $core.bool? finalized,
+    $core.Iterable<ConversationPart>? parts,
+    $core.Iterable<ToolActivity>? toolActivities,
+    ConversationMetrics? metrics,
+    UserConversationEntry? user,
+    AssistantConversationEntry? assistant,
+    ToolResultConversationEntry? toolResult,
+    BashConversationEntry? bash,
+    CustomConversationEntry? custom,
+    CompactionConversationEntry? compaction,
+    BranchSummaryConversationEntry? branchSummary,
+    MarkerConversationEntry? marker,
+    UnknownConversationEntry? unknown,
+  }) {
+    final result = create();
+    if (identity != null) result.identity = identity;
+    if (revision != null) result.revision = revision;
+    if (createdAtUnixMillis != null)
+      result.createdAtUnixMillis = createdAtUnixMillis;
+    if (finalized != null) result.finalized = finalized;
+    if (parts != null) result.parts.addAll(parts);
+    if (toolActivities != null) result.toolActivities.addAll(toolActivities);
+    if (metrics != null) result.metrics = metrics;
+    if (user != null) result.user = user;
+    if (assistant != null) result.assistant = assistant;
+    if (toolResult != null) result.toolResult = toolResult;
+    if (bash != null) result.bash = bash;
+    if (custom != null) result.custom = custom;
+    if (compaction != null) result.compaction = compaction;
+    if (branchSummary != null) result.branchSummary = branchSummary;
+    if (marker != null) result.marker = marker;
+    if (unknown != null) result.unknown = unknown;
+    return result;
+  }
+
+  ConversationEntry._();
+
+  factory ConversationEntry.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ConversationEntry.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static const $core.Map<$core.int, ConversationEntry_Kind>
+      _ConversationEntry_KindByTag = {
+    20: ConversationEntry_Kind.user,
+    21: ConversationEntry_Kind.assistant,
+    22: ConversationEntry_Kind.toolResult,
+    23: ConversationEntry_Kind.bash,
+    24: ConversationEntry_Kind.custom,
+    25: ConversationEntry_Kind.compaction,
+    26: ConversationEntry_Kind.branchSummary,
+    27: ConversationEntry_Kind.marker,
+    28: ConversationEntry_Kind.unknown,
+    0: ConversationEntry_Kind.notSet
+  };
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ConversationEntry',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..oo(0, [20, 21, 22, 23, 24, 25, 26, 27, 28])
+    ..aOM<ConversationEntryIdentity>(1, _omitFieldNames ? '' : 'identity',
+        subBuilder: ConversationEntryIdentity.create)
+    ..a<$fixnum.Int64>(
+        2, _omitFieldNames ? '' : 'revision', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..a<$fixnum.Int64>(
+        3, _omitFieldNames ? '' : 'createdAtUnixMillis', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOB(4, _omitFieldNames ? '' : 'finalized')
+    ..pPM<ConversationPart>(5, _omitFieldNames ? '' : 'parts',
+        subBuilder: ConversationPart.create)
+    ..pPM<ToolActivity>(6, _omitFieldNames ? '' : 'toolActivities',
+        subBuilder: ToolActivity.create)
+    ..aOM<ConversationMetrics>(7, _omitFieldNames ? '' : 'metrics',
+        subBuilder: ConversationMetrics.create)
+    ..aOM<UserConversationEntry>(20, _omitFieldNames ? '' : 'user',
+        subBuilder: UserConversationEntry.create)
+    ..aOM<AssistantConversationEntry>(21, _omitFieldNames ? '' : 'assistant',
+        subBuilder: AssistantConversationEntry.create)
+    ..aOM<ToolResultConversationEntry>(22, _omitFieldNames ? '' : 'toolResult',
+        subBuilder: ToolResultConversationEntry.create)
+    ..aOM<BashConversationEntry>(23, _omitFieldNames ? '' : 'bash',
+        subBuilder: BashConversationEntry.create)
+    ..aOM<CustomConversationEntry>(24, _omitFieldNames ? '' : 'custom',
+        subBuilder: CustomConversationEntry.create)
+    ..aOM<CompactionConversationEntry>(25, _omitFieldNames ? '' : 'compaction',
+        subBuilder: CompactionConversationEntry.create)
+    ..aOM<BranchSummaryConversationEntry>(
+        26, _omitFieldNames ? '' : 'branchSummary',
+        subBuilder: BranchSummaryConversationEntry.create)
+    ..aOM<MarkerConversationEntry>(27, _omitFieldNames ? '' : 'marker',
+        subBuilder: MarkerConversationEntry.create)
+    ..aOM<UnknownConversationEntry>(28, _omitFieldNames ? '' : 'unknown',
+        subBuilder: UnknownConversationEntry.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConversationEntry clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConversationEntry copyWith(void Function(ConversationEntry) updates) =>
+      super.copyWith((message) => updates(message as ConversationEntry))
+          as ConversationEntry;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ConversationEntry create() => ConversationEntry._();
+  @$core.override
+  ConversationEntry createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ConversationEntry getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ConversationEntry>(create);
+  static ConversationEntry? _defaultInstance;
+
+  @$pb.TagNumber(20)
+  @$pb.TagNumber(21)
+  @$pb.TagNumber(22)
+  @$pb.TagNumber(23)
+  @$pb.TagNumber(24)
+  @$pb.TagNumber(25)
+  @$pb.TagNumber(26)
+  @$pb.TagNumber(27)
+  @$pb.TagNumber(28)
+  ConversationEntry_Kind whichKind() =>
+      _ConversationEntry_KindByTag[$_whichOneof(0)]!;
+  @$pb.TagNumber(20)
+  @$pb.TagNumber(21)
+  @$pb.TagNumber(22)
+  @$pb.TagNumber(23)
+  @$pb.TagNumber(24)
+  @$pb.TagNumber(25)
+  @$pb.TagNumber(26)
+  @$pb.TagNumber(27)
+  @$pb.TagNumber(28)
+  void clearKind() => $_clearField($_whichOneof(0));
+
+  @$pb.TagNumber(1)
+  ConversationEntryIdentity get identity => $_getN(0);
+  @$pb.TagNumber(1)
+  set identity(ConversationEntryIdentity value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasIdentity() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearIdentity() => $_clearField(1);
+  @$pb.TagNumber(1)
+  ConversationEntryIdentity ensureIdentity() => $_ensure(0);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get revision => $_getI64(1);
+  @$pb.TagNumber(2)
+  set revision($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasRevision() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearRevision() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get createdAtUnixMillis => $_getI64(2);
+  @$pb.TagNumber(3)
+  set createdAtUnixMillis($fixnum.Int64 value) => $_setInt64(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasCreatedAtUnixMillis() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearCreatedAtUnixMillis() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.bool get finalized => $_getBF(3);
+  @$pb.TagNumber(4)
+  set finalized($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasFinalized() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearFinalized() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $pb.PbList<ConversationPart> get parts => $_getList(4);
+
+  @$pb.TagNumber(6)
+  $pb.PbList<ToolActivity> get toolActivities => $_getList(5);
+
+  @$pb.TagNumber(7)
+  ConversationMetrics get metrics => $_getN(6);
+  @$pb.TagNumber(7)
+  set metrics(ConversationMetrics value) => $_setField(7, value);
+  @$pb.TagNumber(7)
+  $core.bool hasMetrics() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearMetrics() => $_clearField(7);
+  @$pb.TagNumber(7)
+  ConversationMetrics ensureMetrics() => $_ensure(6);
+
+  @$pb.TagNumber(20)
+  UserConversationEntry get user => $_getN(7);
+  @$pb.TagNumber(20)
+  set user(UserConversationEntry value) => $_setField(20, value);
+  @$pb.TagNumber(20)
+  $core.bool hasUser() => $_has(7);
+  @$pb.TagNumber(20)
+  void clearUser() => $_clearField(20);
+  @$pb.TagNumber(20)
+  UserConversationEntry ensureUser() => $_ensure(7);
+
+  @$pb.TagNumber(21)
+  AssistantConversationEntry get assistant => $_getN(8);
+  @$pb.TagNumber(21)
+  set assistant(AssistantConversationEntry value) => $_setField(21, value);
+  @$pb.TagNumber(21)
+  $core.bool hasAssistant() => $_has(8);
+  @$pb.TagNumber(21)
+  void clearAssistant() => $_clearField(21);
+  @$pb.TagNumber(21)
+  AssistantConversationEntry ensureAssistant() => $_ensure(8);
+
+  @$pb.TagNumber(22)
+  ToolResultConversationEntry get toolResult => $_getN(9);
+  @$pb.TagNumber(22)
+  set toolResult(ToolResultConversationEntry value) => $_setField(22, value);
+  @$pb.TagNumber(22)
+  $core.bool hasToolResult() => $_has(9);
+  @$pb.TagNumber(22)
+  void clearToolResult() => $_clearField(22);
+  @$pb.TagNumber(22)
+  ToolResultConversationEntry ensureToolResult() => $_ensure(9);
+
+  @$pb.TagNumber(23)
+  BashConversationEntry get bash => $_getN(10);
+  @$pb.TagNumber(23)
+  set bash(BashConversationEntry value) => $_setField(23, value);
+  @$pb.TagNumber(23)
+  $core.bool hasBash() => $_has(10);
+  @$pb.TagNumber(23)
+  void clearBash() => $_clearField(23);
+  @$pb.TagNumber(23)
+  BashConversationEntry ensureBash() => $_ensure(10);
+
+  @$pb.TagNumber(24)
+  CustomConversationEntry get custom => $_getN(11);
+  @$pb.TagNumber(24)
+  set custom(CustomConversationEntry value) => $_setField(24, value);
+  @$pb.TagNumber(24)
+  $core.bool hasCustom() => $_has(11);
+  @$pb.TagNumber(24)
+  void clearCustom() => $_clearField(24);
+  @$pb.TagNumber(24)
+  CustomConversationEntry ensureCustom() => $_ensure(11);
+
+  @$pb.TagNumber(25)
+  CompactionConversationEntry get compaction => $_getN(12);
+  @$pb.TagNumber(25)
+  set compaction(CompactionConversationEntry value) => $_setField(25, value);
+  @$pb.TagNumber(25)
+  $core.bool hasCompaction() => $_has(12);
+  @$pb.TagNumber(25)
+  void clearCompaction() => $_clearField(25);
+  @$pb.TagNumber(25)
+  CompactionConversationEntry ensureCompaction() => $_ensure(12);
+
+  @$pb.TagNumber(26)
+  BranchSummaryConversationEntry get branchSummary => $_getN(13);
+  @$pb.TagNumber(26)
+  set branchSummary(BranchSummaryConversationEntry value) =>
+      $_setField(26, value);
+  @$pb.TagNumber(26)
+  $core.bool hasBranchSummary() => $_has(13);
+  @$pb.TagNumber(26)
+  void clearBranchSummary() => $_clearField(26);
+  @$pb.TagNumber(26)
+  BranchSummaryConversationEntry ensureBranchSummary() => $_ensure(13);
+
+  @$pb.TagNumber(27)
+  MarkerConversationEntry get marker => $_getN(14);
+  @$pb.TagNumber(27)
+  set marker(MarkerConversationEntry value) => $_setField(27, value);
+  @$pb.TagNumber(27)
+  $core.bool hasMarker() => $_has(14);
+  @$pb.TagNumber(27)
+  void clearMarker() => $_clearField(27);
+  @$pb.TagNumber(27)
+  MarkerConversationEntry ensureMarker() => $_ensure(14);
+
+  @$pb.TagNumber(28)
+  UnknownConversationEntry get unknown => $_getN(15);
+  @$pb.TagNumber(28)
+  set unknown(UnknownConversationEntry value) => $_setField(28, value);
+  @$pb.TagNumber(28)
+  $core.bool hasUnknown() => $_has(15);
+  @$pb.TagNumber(28)
+  void clearUnknown() => $_clearField(28);
+  @$pb.TagNumber(28)
+  UnknownConversationEntry ensureUnknown() => $_ensure(15);
+}
+
+class UserConversationEntry extends $pb.GeneratedMessage {
+  factory UserConversationEntry() => create();
+
+  UserConversationEntry._();
+
+  factory UserConversationEntry.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UserConversationEntry.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UserConversationEntry',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UserConversationEntry clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UserConversationEntry copyWith(
+          void Function(UserConversationEntry) updates) =>
+      super.copyWith((message) => updates(message as UserConversationEntry))
+          as UserConversationEntry;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UserConversationEntry create() => UserConversationEntry._();
+  @$core.override
+  UserConversationEntry createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UserConversationEntry getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UserConversationEntry>(create);
+  static UserConversationEntry? _defaultInstance;
+}
+
+class AssistantConversationEntry extends $pb.GeneratedMessage {
+  factory AssistantConversationEntry({
+    $core.String? provider,
+    $core.String? model,
+    $core.String? stopReason,
+    $core.String? safeErrorMessage,
+  }) {
+    final result = create();
+    if (provider != null) result.provider = provider;
+    if (model != null) result.model = model;
+    if (stopReason != null) result.stopReason = stopReason;
+    if (safeErrorMessage != null) result.safeErrorMessage = safeErrorMessage;
+    return result;
+  }
+
+  AssistantConversationEntry._();
+
+  factory AssistantConversationEntry.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory AssistantConversationEntry.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AssistantConversationEntry',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'provider')
+    ..aOS(2, _omitFieldNames ? '' : 'model')
+    ..aOS(3, _omitFieldNames ? '' : 'stopReason')
+    ..aOS(4, _omitFieldNames ? '' : 'safeErrorMessage')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AssistantConversationEntry clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AssistantConversationEntry copyWith(
+          void Function(AssistantConversationEntry) updates) =>
+      super.copyWith(
+              (message) => updates(message as AssistantConversationEntry))
+          as AssistantConversationEntry;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static AssistantConversationEntry create() => AssistantConversationEntry._();
+  @$core.override
+  AssistantConversationEntry createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static AssistantConversationEntry getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<AssistantConversationEntry>(create);
+  static AssistantConversationEntry? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get provider => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set provider($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasProvider() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearProvider() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get model => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set model($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasModel() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearModel() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get stopReason => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set stopReason($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasStopReason() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearStopReason() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get safeErrorMessage => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set safeErrorMessage($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSafeErrorMessage() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSafeErrorMessage() => $_clearField(4);
+}
+
+class ToolResultConversationEntry extends $pb.GeneratedMessage {
+  factory ToolResultConversationEntry({
+    $core.String? toolCallId,
+    $core.String? toolName,
+    $core.bool? isError,
+    SafeValue? safeDetails,
+  }) {
+    final result = create();
+    if (toolCallId != null) result.toolCallId = toolCallId;
+    if (toolName != null) result.toolName = toolName;
+    if (isError != null) result.isError = isError;
+    if (safeDetails != null) result.safeDetails = safeDetails;
+    return result;
+  }
+
+  ToolResultConversationEntry._();
+
+  factory ToolResultConversationEntry.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ToolResultConversationEntry.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ToolResultConversationEntry',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'toolCallId')
+    ..aOS(2, _omitFieldNames ? '' : 'toolName')
+    ..aOB(3, _omitFieldNames ? '' : 'isError')
+    ..aOM<SafeValue>(4, _omitFieldNames ? '' : 'safeDetails',
+        subBuilder: SafeValue.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ToolResultConversationEntry clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ToolResultConversationEntry copyWith(
+          void Function(ToolResultConversationEntry) updates) =>
+      super.copyWith(
+              (message) => updates(message as ToolResultConversationEntry))
+          as ToolResultConversationEntry;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ToolResultConversationEntry create() =>
+      ToolResultConversationEntry._();
+  @$core.override
+  ToolResultConversationEntry createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ToolResultConversationEntry getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ToolResultConversationEntry>(create);
+  static ToolResultConversationEntry? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get toolCallId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set toolCallId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasToolCallId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearToolCallId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get toolName => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set toolName($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasToolName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearToolName() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.bool get isError => $_getBF(2);
+  @$pb.TagNumber(3)
+  set isError($core.bool value) => $_setBool(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasIsError() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearIsError() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  SafeValue get safeDetails => $_getN(3);
+  @$pb.TagNumber(4)
+  set safeDetails(SafeValue value) => $_setField(4, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSafeDetails() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSafeDetails() => $_clearField(4);
+  @$pb.TagNumber(4)
+  SafeValue ensureSafeDetails() => $_ensure(3);
+}
+
+class BashConversationEntry extends $pb.GeneratedMessage {
+  factory BashConversationEntry({
+    $core.String? command,
+    $core.int? exitCode,
+    $core.bool? cancelled,
+    $core.bool? truncated,
+    $core.bool? excludedFromContext,
+  }) {
+    final result = create();
+    if (command != null) result.command = command;
+    if (exitCode != null) result.exitCode = exitCode;
+    if (cancelled != null) result.cancelled = cancelled;
+    if (truncated != null) result.truncated = truncated;
+    if (excludedFromContext != null)
+      result.excludedFromContext = excludedFromContext;
+    return result;
+  }
+
+  BashConversationEntry._();
+
+  factory BashConversationEntry.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory BashConversationEntry.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'BashConversationEntry',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'command')
+    ..aI(2, _omitFieldNames ? '' : 'exitCode')
+    ..aOB(3, _omitFieldNames ? '' : 'cancelled')
+    ..aOB(4, _omitFieldNames ? '' : 'truncated')
+    ..aOB(5, _omitFieldNames ? '' : 'excludedFromContext')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  BashConversationEntry clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  BashConversationEntry copyWith(
+          void Function(BashConversationEntry) updates) =>
+      super.copyWith((message) => updates(message as BashConversationEntry))
+          as BashConversationEntry;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static BashConversationEntry create() => BashConversationEntry._();
+  @$core.override
+  BashConversationEntry createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static BashConversationEntry getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<BashConversationEntry>(create);
+  static BashConversationEntry? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get command => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set command($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasCommand() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearCommand() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get exitCode => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set exitCode($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasExitCode() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearExitCode() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.bool get cancelled => $_getBF(2);
+  @$pb.TagNumber(3)
+  set cancelled($core.bool value) => $_setBool(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasCancelled() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearCancelled() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.bool get truncated => $_getBF(3);
+  @$pb.TagNumber(4)
+  set truncated($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasTruncated() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearTruncated() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.bool get excludedFromContext => $_getBF(4);
+  @$pb.TagNumber(5)
+  set excludedFromContext($core.bool value) => $_setBool(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasExcludedFromContext() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearExcludedFromContext() => $_clearField(5);
+}
+
+class CustomConversationEntry extends $pb.GeneratedMessage {
+  factory CustomConversationEntry({
+    $core.String? customType,
+    $core.bool? display,
+    SafeValue? safeDetails,
+  }) {
+    final result = create();
+    if (customType != null) result.customType = customType;
+    if (display != null) result.display = display;
+    if (safeDetails != null) result.safeDetails = safeDetails;
+    return result;
+  }
+
+  CustomConversationEntry._();
+
+  factory CustomConversationEntry.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CustomConversationEntry.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CustomConversationEntry',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'customType')
+    ..aOB(2, _omitFieldNames ? '' : 'display')
+    ..aOM<SafeValue>(3, _omitFieldNames ? '' : 'safeDetails',
+        subBuilder: SafeValue.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CustomConversationEntry clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CustomConversationEntry copyWith(
+          void Function(CustomConversationEntry) updates) =>
+      super.copyWith((message) => updates(message as CustomConversationEntry))
+          as CustomConversationEntry;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CustomConversationEntry create() => CustomConversationEntry._();
+  @$core.override
+  CustomConversationEntry createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CustomConversationEntry getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CustomConversationEntry>(create);
+  static CustomConversationEntry? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get customType => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set customType($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasCustomType() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearCustomType() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get display => $_getBF(1);
+  @$pb.TagNumber(2)
+  set display($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDisplay() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDisplay() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  SafeValue get safeDetails => $_getN(2);
+  @$pb.TagNumber(3)
+  set safeDetails(SafeValue value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSafeDetails() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSafeDetails() => $_clearField(3);
+  @$pb.TagNumber(3)
+  SafeValue ensureSafeDetails() => $_ensure(2);
+}
+
+class CompactionConversationEntry extends $pb.GeneratedMessage {
+  factory CompactionConversationEntry({
+    $core.String? firstKeptEntryId,
+    $fixnum.Int64? tokensBefore,
+    $core.bool? fromHook,
+    SafeValue? safeDetails,
+  }) {
+    final result = create();
+    if (firstKeptEntryId != null) result.firstKeptEntryId = firstKeptEntryId;
+    if (tokensBefore != null) result.tokensBefore = tokensBefore;
+    if (fromHook != null) result.fromHook = fromHook;
+    if (safeDetails != null) result.safeDetails = safeDetails;
+    return result;
+  }
+
+  CompactionConversationEntry._();
+
+  factory CompactionConversationEntry.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CompactionConversationEntry.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CompactionConversationEntry',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'firstKeptEntryId')
+    ..a<$fixnum.Int64>(
+        2, _omitFieldNames ? '' : 'tokensBefore', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOB(3, _omitFieldNames ? '' : 'fromHook')
+    ..aOM<SafeValue>(4, _omitFieldNames ? '' : 'safeDetails',
+        subBuilder: SafeValue.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CompactionConversationEntry clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CompactionConversationEntry copyWith(
+          void Function(CompactionConversationEntry) updates) =>
+      super.copyWith(
+              (message) => updates(message as CompactionConversationEntry))
+          as CompactionConversationEntry;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CompactionConversationEntry create() =>
+      CompactionConversationEntry._();
+  @$core.override
+  CompactionConversationEntry createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CompactionConversationEntry getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CompactionConversationEntry>(create);
+  static CompactionConversationEntry? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get firstKeptEntryId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set firstKeptEntryId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasFirstKeptEntryId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearFirstKeptEntryId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get tokensBefore => $_getI64(1);
+  @$pb.TagNumber(2)
+  set tokensBefore($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasTokensBefore() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearTokensBefore() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.bool get fromHook => $_getBF(2);
+  @$pb.TagNumber(3)
+  set fromHook($core.bool value) => $_setBool(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasFromHook() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearFromHook() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  SafeValue get safeDetails => $_getN(3);
+  @$pb.TagNumber(4)
+  set safeDetails(SafeValue value) => $_setField(4, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSafeDetails() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSafeDetails() => $_clearField(4);
+  @$pb.TagNumber(4)
+  SafeValue ensureSafeDetails() => $_ensure(3);
+}
+
+class BranchSummaryConversationEntry extends $pb.GeneratedMessage {
+  factory BranchSummaryConversationEntry({
+    $core.String? fromEntryId,
+    $core.bool? fromHook,
+    SafeValue? safeDetails,
+  }) {
+    final result = create();
+    if (fromEntryId != null) result.fromEntryId = fromEntryId;
+    if (fromHook != null) result.fromHook = fromHook;
+    if (safeDetails != null) result.safeDetails = safeDetails;
+    return result;
+  }
+
+  BranchSummaryConversationEntry._();
+
+  factory BranchSummaryConversationEntry.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory BranchSummaryConversationEntry.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'BranchSummaryConversationEntry',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'fromEntryId')
+    ..aOB(2, _omitFieldNames ? '' : 'fromHook')
+    ..aOM<SafeValue>(3, _omitFieldNames ? '' : 'safeDetails',
+        subBuilder: SafeValue.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  BranchSummaryConversationEntry clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  BranchSummaryConversationEntry copyWith(
+          void Function(BranchSummaryConversationEntry) updates) =>
+      super.copyWith(
+              (message) => updates(message as BranchSummaryConversationEntry))
+          as BranchSummaryConversationEntry;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static BranchSummaryConversationEntry create() =>
+      BranchSummaryConversationEntry._();
+  @$core.override
+  BranchSummaryConversationEntry createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static BranchSummaryConversationEntry getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<BranchSummaryConversationEntry>(create);
+  static BranchSummaryConversationEntry? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get fromEntryId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set fromEntryId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasFromEntryId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearFromEntryId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get fromHook => $_getBF(1);
+  @$pb.TagNumber(2)
+  set fromHook($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasFromHook() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearFromHook() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  SafeValue get safeDetails => $_getN(2);
+  @$pb.TagNumber(3)
+  set safeDetails(SafeValue value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSafeDetails() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSafeDetails() => $_clearField(3);
+  @$pb.TagNumber(3)
+  SafeValue ensureSafeDetails() => $_ensure(2);
+}
+
+class MarkerConversationEntry extends $pb.GeneratedMessage {
+  factory MarkerConversationEntry({
+    MarkerKind? markerKind,
+    $core.String? targetEntryId,
+    $core.String? label,
+    $core.String? provider,
+    $core.String? model,
+    $core.String? thinkingLevel,
+  }) {
+    final result = create();
+    if (markerKind != null) result.markerKind = markerKind;
+    if (targetEntryId != null) result.targetEntryId = targetEntryId;
+    if (label != null) result.label = label;
+    if (provider != null) result.provider = provider;
+    if (model != null) result.model = model;
+    if (thinkingLevel != null) result.thinkingLevel = thinkingLevel;
+    return result;
+  }
+
+  MarkerConversationEntry._();
+
+  factory MarkerConversationEntry.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory MarkerConversationEntry.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'MarkerConversationEntry',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aE<MarkerKind>(1, _omitFieldNames ? '' : 'markerKind',
+        enumValues: MarkerKind.values)
+    ..aOS(2, _omitFieldNames ? '' : 'targetEntryId')
+    ..aOS(3, _omitFieldNames ? '' : 'label')
+    ..aOS(4, _omitFieldNames ? '' : 'provider')
+    ..aOS(5, _omitFieldNames ? '' : 'model')
+    ..aOS(6, _omitFieldNames ? '' : 'thinkingLevel')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MarkerConversationEntry clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MarkerConversationEntry copyWith(
+          void Function(MarkerConversationEntry) updates) =>
+      super.copyWith((message) => updates(message as MarkerConversationEntry))
+          as MarkerConversationEntry;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MarkerConversationEntry create() => MarkerConversationEntry._();
+  @$core.override
+  MarkerConversationEntry createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static MarkerConversationEntry getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<MarkerConversationEntry>(create);
+  static MarkerConversationEntry? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  MarkerKind get markerKind => $_getN(0);
+  @$pb.TagNumber(1)
+  set markerKind(MarkerKind value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasMarkerKind() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearMarkerKind() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get targetEntryId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set targetEntryId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasTargetEntryId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearTargetEntryId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get label => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set label($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasLabel() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearLabel() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get provider => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set provider($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasProvider() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearProvider() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get model => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set model($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasModel() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearModel() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get thinkingLevel => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set thinkingLevel($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasThinkingLevel() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearThinkingLevel() => $_clearField(6);
+}
+
+class UnknownConversationEntry extends $pb.GeneratedMessage {
+  factory UnknownConversationEntry({
+    $core.String? sourceType,
+  }) {
+    final result = create();
+    if (sourceType != null) result.sourceType = sourceType;
+    return result;
+  }
+
+  UnknownConversationEntry._();
+
+  factory UnknownConversationEntry.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UnknownConversationEntry.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UnknownConversationEntry',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'sourceType')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UnknownConversationEntry clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UnknownConversationEntry copyWith(
+          void Function(UnknownConversationEntry) updates) =>
+      super.copyWith((message) => updates(message as UnknownConversationEntry))
+          as UnknownConversationEntry;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UnknownConversationEntry create() => UnknownConversationEntry._();
+  @$core.override
+  UnknownConversationEntry createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UnknownConversationEntry getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UnknownConversationEntry>(create);
+  static UnknownConversationEntry? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get sourceType => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set sourceType($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSourceType() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSourceType() => $_clearField(1);
+}
+
+enum ConversationPart_Kind {
+  text,
+  thinking,
+  image,
+  toolCall,
+  unsupported,
+  notSet
+}
+
+class ConversationPart extends $pb.GeneratedMessage {
+  factory ConversationPart({
+    $core.String? partId,
+    $fixnum.Int64? revision,
+    BoundedTextPart? text,
+    ThinkingPart? thinking,
+    ImagePart? image,
+    ToolCallPart? toolCall,
+    UnsupportedPart? unsupported,
+  }) {
+    final result = create();
+    if (partId != null) result.partId = partId;
+    if (revision != null) result.revision = revision;
+    if (text != null) result.text = text;
+    if (thinking != null) result.thinking = thinking;
+    if (image != null) result.image = image;
+    if (toolCall != null) result.toolCall = toolCall;
+    if (unsupported != null) result.unsupported = unsupported;
+    return result;
+  }
+
+  ConversationPart._();
+
+  factory ConversationPart.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ConversationPart.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static const $core.Map<$core.int, ConversationPart_Kind>
+      _ConversationPart_KindByTag = {
+    10: ConversationPart_Kind.text,
+    11: ConversationPart_Kind.thinking,
+    12: ConversationPart_Kind.image,
+    13: ConversationPart_Kind.toolCall,
+    14: ConversationPart_Kind.unsupported,
+    0: ConversationPart_Kind.notSet
+  };
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ConversationPart',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..oo(0, [10, 11, 12, 13, 14])
+    ..aOS(1, _omitFieldNames ? '' : 'partId')
+    ..a<$fixnum.Int64>(
+        2, _omitFieldNames ? '' : 'revision', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOM<BoundedTextPart>(10, _omitFieldNames ? '' : 'text',
+        subBuilder: BoundedTextPart.create)
+    ..aOM<ThinkingPart>(11, _omitFieldNames ? '' : 'thinking',
+        subBuilder: ThinkingPart.create)
+    ..aOM<ImagePart>(12, _omitFieldNames ? '' : 'image',
+        subBuilder: ImagePart.create)
+    ..aOM<ToolCallPart>(13, _omitFieldNames ? '' : 'toolCall',
+        subBuilder: ToolCallPart.create)
+    ..aOM<UnsupportedPart>(14, _omitFieldNames ? '' : 'unsupported',
+        subBuilder: UnsupportedPart.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConversationPart clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConversationPart copyWith(void Function(ConversationPart) updates) =>
+      super.copyWith((message) => updates(message as ConversationPart))
+          as ConversationPart;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ConversationPart create() => ConversationPart._();
+  @$core.override
+  ConversationPart createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ConversationPart getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ConversationPart>(create);
+  static ConversationPart? _defaultInstance;
+
+  @$pb.TagNumber(10)
+  @$pb.TagNumber(11)
+  @$pb.TagNumber(12)
+  @$pb.TagNumber(13)
+  @$pb.TagNumber(14)
+  ConversationPart_Kind whichKind() =>
+      _ConversationPart_KindByTag[$_whichOneof(0)]!;
+  @$pb.TagNumber(10)
+  @$pb.TagNumber(11)
+  @$pb.TagNumber(12)
+  @$pb.TagNumber(13)
+  @$pb.TagNumber(14)
+  void clearKind() => $_clearField($_whichOneof(0));
+
+  @$pb.TagNumber(1)
+  $core.String get partId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set partId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasPartId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearPartId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get revision => $_getI64(1);
+  @$pb.TagNumber(2)
+  set revision($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasRevision() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearRevision() => $_clearField(2);
+
+  @$pb.TagNumber(10)
+  BoundedTextPart get text => $_getN(2);
+  @$pb.TagNumber(10)
+  set text(BoundedTextPart value) => $_setField(10, value);
+  @$pb.TagNumber(10)
+  $core.bool hasText() => $_has(2);
+  @$pb.TagNumber(10)
+  void clearText() => $_clearField(10);
+  @$pb.TagNumber(10)
+  BoundedTextPart ensureText() => $_ensure(2);
+
+  @$pb.TagNumber(11)
+  ThinkingPart get thinking => $_getN(3);
+  @$pb.TagNumber(11)
+  set thinking(ThinkingPart value) => $_setField(11, value);
+  @$pb.TagNumber(11)
+  $core.bool hasThinking() => $_has(3);
+  @$pb.TagNumber(11)
+  void clearThinking() => $_clearField(11);
+  @$pb.TagNumber(11)
+  ThinkingPart ensureThinking() => $_ensure(3);
+
+  @$pb.TagNumber(12)
+  ImagePart get image => $_getN(4);
+  @$pb.TagNumber(12)
+  set image(ImagePart value) => $_setField(12, value);
+  @$pb.TagNumber(12)
+  $core.bool hasImage() => $_has(4);
+  @$pb.TagNumber(12)
+  void clearImage() => $_clearField(12);
+  @$pb.TagNumber(12)
+  ImagePart ensureImage() => $_ensure(4);
+
+  @$pb.TagNumber(13)
+  ToolCallPart get toolCall => $_getN(5);
+  @$pb.TagNumber(13)
+  set toolCall(ToolCallPart value) => $_setField(13, value);
+  @$pb.TagNumber(13)
+  $core.bool hasToolCall() => $_has(5);
+  @$pb.TagNumber(13)
+  void clearToolCall() => $_clearField(13);
+  @$pb.TagNumber(13)
+  ToolCallPart ensureToolCall() => $_ensure(5);
+
+  @$pb.TagNumber(14)
+  UnsupportedPart get unsupported => $_getN(6);
+  @$pb.TagNumber(14)
+  set unsupported(UnsupportedPart value) => $_setField(14, value);
+  @$pb.TagNumber(14)
+  $core.bool hasUnsupported() => $_has(6);
+  @$pb.TagNumber(14)
+  void clearUnsupported() => $_clearField(14);
+  @$pb.TagNumber(14)
+  UnsupportedPart ensureUnsupported() => $_ensure(6);
+}
+
+enum BoundedTextPart_Content { inlineText, contentReference, notSet }
+
+class BoundedTextPart extends $pb.GeneratedMessage {
+  factory BoundedTextPart({
+    $core.String? inlineText,
+    MessageContentReference? contentReference,
+  }) {
+    final result = create();
+    if (inlineText != null) result.inlineText = inlineText;
+    if (contentReference != null) result.contentReference = contentReference;
+    return result;
+  }
+
+  BoundedTextPart._();
+
+  factory BoundedTextPart.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory BoundedTextPart.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static const $core.Map<$core.int, BoundedTextPart_Content>
+      _BoundedTextPart_ContentByTag = {
+    1: BoundedTextPart_Content.inlineText,
+    2: BoundedTextPart_Content.contentReference,
+    0: BoundedTextPart_Content.notSet
+  };
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'BoundedTextPart',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..oo(0, [1, 2])
+    ..aOS(1, _omitFieldNames ? '' : 'inlineText')
+    ..aOM<MessageContentReference>(2, _omitFieldNames ? '' : 'contentReference',
+        subBuilder: MessageContentReference.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  BoundedTextPart clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  BoundedTextPart copyWith(void Function(BoundedTextPart) updates) =>
+      super.copyWith((message) => updates(message as BoundedTextPart))
+          as BoundedTextPart;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static BoundedTextPart create() => BoundedTextPart._();
+  @$core.override
+  BoundedTextPart createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static BoundedTextPart getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<BoundedTextPart>(create);
+  static BoundedTextPart? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  @$pb.TagNumber(2)
+  BoundedTextPart_Content whichContent() =>
+      _BoundedTextPart_ContentByTag[$_whichOneof(0)]!;
+  @$pb.TagNumber(1)
+  @$pb.TagNumber(2)
+  void clearContent() => $_clearField($_whichOneof(0));
+
+  @$pb.TagNumber(1)
+  $core.String get inlineText => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set inlineText($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasInlineText() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearInlineText() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  MessageContentReference get contentReference => $_getN(1);
+  @$pb.TagNumber(2)
+  set contentReference(MessageContentReference value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasContentReference() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearContentReference() => $_clearField(2);
+  @$pb.TagNumber(2)
+  MessageContentReference ensureContentReference() => $_ensure(1);
+}
+
+enum ThinkingPart_Content { inlineText, contentReference, notSet }
+
+class ThinkingPart extends $pb.GeneratedMessage {
+  factory ThinkingPart({
+    ThinkingVisibility? visibility,
+    $core.String? inlineText,
+    MessageContentReference? contentReference,
+  }) {
+    final result = create();
+    if (visibility != null) result.visibility = visibility;
+    if (inlineText != null) result.inlineText = inlineText;
+    if (contentReference != null) result.contentReference = contentReference;
+    return result;
+  }
+
+  ThinkingPart._();
+
+  factory ThinkingPart.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ThinkingPart.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static const $core.Map<$core.int, ThinkingPart_Content>
+      _ThinkingPart_ContentByTag = {
+    2: ThinkingPart_Content.inlineText,
+    3: ThinkingPart_Content.contentReference,
+    0: ThinkingPart_Content.notSet
+  };
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ThinkingPart',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..oo(0, [2, 3])
+    ..aE<ThinkingVisibility>(1, _omitFieldNames ? '' : 'visibility',
+        enumValues: ThinkingVisibility.values)
+    ..aOS(2, _omitFieldNames ? '' : 'inlineText')
+    ..aOM<MessageContentReference>(3, _omitFieldNames ? '' : 'contentReference',
+        subBuilder: MessageContentReference.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ThinkingPart clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ThinkingPart copyWith(void Function(ThinkingPart) updates) =>
+      super.copyWith((message) => updates(message as ThinkingPart))
+          as ThinkingPart;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ThinkingPart create() => ThinkingPart._();
+  @$core.override
+  ThinkingPart createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ThinkingPart getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ThinkingPart>(create);
+  static ThinkingPart? _defaultInstance;
+
+  @$pb.TagNumber(2)
+  @$pb.TagNumber(3)
+  ThinkingPart_Content whichContent() =>
+      _ThinkingPart_ContentByTag[$_whichOneof(0)]!;
+  @$pb.TagNumber(2)
+  @$pb.TagNumber(3)
+  void clearContent() => $_clearField($_whichOneof(0));
+
+  @$pb.TagNumber(1)
+  ThinkingVisibility get visibility => $_getN(0);
+  @$pb.TagNumber(1)
+  set visibility(ThinkingVisibility value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasVisibility() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearVisibility() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get inlineText => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set inlineText($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasInlineText() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearInlineText() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  MessageContentReference get contentReference => $_getN(2);
+  @$pb.TagNumber(3)
+  set contentReference(MessageContentReference value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasContentReference() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearContentReference() => $_clearField(3);
+  @$pb.TagNumber(3)
+  MessageContentReference ensureContentReference() => $_ensure(2);
+}
+
+class ImagePart extends $pb.GeneratedMessage {
+  factory ImagePart({
+    MessageContentReference? contentReference,
+  }) {
+    final result = create();
+    if (contentReference != null) result.contentReference = contentReference;
+    return result;
+  }
+
+  ImagePart._();
+
+  factory ImagePart.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ImagePart.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ImagePart',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOM<MessageContentReference>(1, _omitFieldNames ? '' : 'contentReference',
+        subBuilder: MessageContentReference.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ImagePart clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ImagePart copyWith(void Function(ImagePart) updates) =>
+      super.copyWith((message) => updates(message as ImagePart)) as ImagePart;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ImagePart create() => ImagePart._();
+  @$core.override
+  ImagePart createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ImagePart getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ImagePart>(create);
+  static ImagePart? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  MessageContentReference get contentReference => $_getN(0);
+  @$pb.TagNumber(1)
+  set contentReference(MessageContentReference value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasContentReference() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearContentReference() => $_clearField(1);
+  @$pb.TagNumber(1)
+  MessageContentReference ensureContentReference() => $_ensure(0);
+}
+
+class ToolCallPart extends $pb.GeneratedMessage {
+  factory ToolCallPart({
+    $core.String? toolCallId,
+    $core.String? toolName,
+    SafeValue? safeArguments,
+  }) {
+    final result = create();
+    if (toolCallId != null) result.toolCallId = toolCallId;
+    if (toolName != null) result.toolName = toolName;
+    if (safeArguments != null) result.safeArguments = safeArguments;
+    return result;
+  }
+
+  ToolCallPart._();
+
+  factory ToolCallPart.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ToolCallPart.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ToolCallPart',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'toolCallId')
+    ..aOS(2, _omitFieldNames ? '' : 'toolName')
+    ..aOM<SafeValue>(3, _omitFieldNames ? '' : 'safeArguments',
+        subBuilder: SafeValue.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ToolCallPart clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ToolCallPart copyWith(void Function(ToolCallPart) updates) =>
+      super.copyWith((message) => updates(message as ToolCallPart))
+          as ToolCallPart;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ToolCallPart create() => ToolCallPart._();
+  @$core.override
+  ToolCallPart createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ToolCallPart getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ToolCallPart>(create);
+  static ToolCallPart? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get toolCallId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set toolCallId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasToolCallId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearToolCallId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get toolName => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set toolName($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasToolName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearToolName() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  SafeValue get safeArguments => $_getN(2);
+  @$pb.TagNumber(3)
+  set safeArguments(SafeValue value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSafeArguments() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSafeArguments() => $_clearField(3);
+  @$pb.TagNumber(3)
+  SafeValue ensureSafeArguments() => $_ensure(2);
+}
+
+class UnsupportedPart extends $pb.GeneratedMessage {
+  factory UnsupportedPart({
+    $core.String? sourceType,
+  }) {
+    final result = create();
+    if (sourceType != null) result.sourceType = sourceType;
+    return result;
+  }
+
+  UnsupportedPart._();
+
+  factory UnsupportedPart.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UnsupportedPart.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UnsupportedPart',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'sourceType')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UnsupportedPart clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UnsupportedPart copyWith(void Function(UnsupportedPart) updates) =>
+      super.copyWith((message) => updates(message as UnsupportedPart))
+          as UnsupportedPart;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UnsupportedPart create() => UnsupportedPart._();
+  @$core.override
+  UnsupportedPart createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UnsupportedPart getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UnsupportedPart>(create);
+  static UnsupportedPart? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get sourceType => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set sourceType($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSourceType() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSourceType() => $_clearField(1);
+}
+
+class MessageContentReference extends $pb.GeneratedMessage {
+  factory MessageContentReference({
+    $core.String? contentId,
+    $core.String? mimeType,
+    $core.String? displayName,
+    $fixnum.Int64? totalBytes,
+    $core.List<$core.int>? sha256,
+  }) {
+    final result = create();
+    if (contentId != null) result.contentId = contentId;
+    if (mimeType != null) result.mimeType = mimeType;
+    if (displayName != null) result.displayName = displayName;
+    if (totalBytes != null) result.totalBytes = totalBytes;
+    if (sha256 != null) result.sha256 = sha256;
+    return result;
+  }
+
+  MessageContentReference._();
+
+  factory MessageContentReference.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory MessageContentReference.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'MessageContentReference',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'contentId')
+    ..aOS(2, _omitFieldNames ? '' : 'mimeType')
+    ..aOS(3, _omitFieldNames ? '' : 'displayName')
+    ..a<$fixnum.Int64>(
+        4, _omitFieldNames ? '' : 'totalBytes', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..a<$core.List<$core.int>>(
+        5, _omitFieldNames ? '' : 'sha256', $pb.PbFieldType.OY)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MessageContentReference clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MessageContentReference copyWith(
+          void Function(MessageContentReference) updates) =>
+      super.copyWith((message) => updates(message as MessageContentReference))
+          as MessageContentReference;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MessageContentReference create() => MessageContentReference._();
+  @$core.override
+  MessageContentReference createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static MessageContentReference getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<MessageContentReference>(create);
+  static MessageContentReference? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get contentId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set contentId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasContentId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearContentId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get mimeType => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set mimeType($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasMimeType() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMimeType() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get displayName => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set displayName($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasDisplayName() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearDisplayName() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $fixnum.Int64 get totalBytes => $_getI64(3);
+  @$pb.TagNumber(4)
+  set totalBytes($fixnum.Int64 value) => $_setInt64(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasTotalBytes() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearTotalBytes() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.List<$core.int> get sha256 => $_getN(4);
+  @$pb.TagNumber(5)
+  set sha256($core.List<$core.int> value) => $_setBytes(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasSha256() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearSha256() => $_clearField(5);
+}
+
+class MessageContentBinding extends $pb.GeneratedMessage {
+  factory MessageContentBinding({
+    $core.String? sessionId,
+    $core.String? entryId,
+    $core.String? partId,
+    $fixnum.Int64? entryRevision,
+    $fixnum.Int64? partRevision,
+    $core.String? contentId,
+  }) {
+    final result = create();
+    if (sessionId != null) result.sessionId = sessionId;
+    if (entryId != null) result.entryId = entryId;
+    if (partId != null) result.partId = partId;
+    if (entryRevision != null) result.entryRevision = entryRevision;
+    if (partRevision != null) result.partRevision = partRevision;
+    if (contentId != null) result.contentId = contentId;
+    return result;
+  }
+
+  MessageContentBinding._();
+
+  factory MessageContentBinding.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory MessageContentBinding.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'MessageContentBinding',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'sessionId')
+    ..aOS(2, _omitFieldNames ? '' : 'entryId')
+    ..aOS(3, _omitFieldNames ? '' : 'partId')
+    ..a<$fixnum.Int64>(
+        4, _omitFieldNames ? '' : 'entryRevision', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..a<$fixnum.Int64>(
+        5, _omitFieldNames ? '' : 'partRevision', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(6, _omitFieldNames ? '' : 'contentId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MessageContentBinding clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MessageContentBinding copyWith(
+          void Function(MessageContentBinding) updates) =>
+      super.copyWith((message) => updates(message as MessageContentBinding))
+          as MessageContentBinding;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MessageContentBinding create() => MessageContentBinding._();
+  @$core.override
+  MessageContentBinding createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static MessageContentBinding getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<MessageContentBinding>(create);
+  static MessageContentBinding? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get sessionId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set sessionId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSessionId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSessionId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get entryId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set entryId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasEntryId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearEntryId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get partId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set partId($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasPartId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearPartId() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $fixnum.Int64 get entryRevision => $_getI64(3);
+  @$pb.TagNumber(4)
+  set entryRevision($fixnum.Int64 value) => $_setInt64(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasEntryRevision() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearEntryRevision() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get partRevision => $_getI64(4);
+  @$pb.TagNumber(5)
+  set partRevision($fixnum.Int64 value) => $_setInt64(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasPartRevision() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearPartRevision() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get contentId => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set contentId($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasContentId() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearContentId() => $_clearField(6);
+}
+
+class GetMessageContentRequest extends $pb.GeneratedMessage {
+  factory GetMessageContentRequest({
+    $fixnum.Int64? requestId,
+    $core.String? projectId,
+    MessageContentBinding? binding,
+    $core.String? expectedMimeType,
+    $fixnum.Int64? expectedTotalBytes,
+    $core.List<$core.int>? expectedSha256,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (projectId != null) result.projectId = projectId;
+    if (binding != null) result.binding = binding;
+    if (expectedMimeType != null) result.expectedMimeType = expectedMimeType;
+    if (expectedTotalBytes != null)
+      result.expectedTotalBytes = expectedTotalBytes;
+    if (expectedSha256 != null) result.expectedSha256 = expectedSha256;
+    return result;
+  }
+
+  GetMessageContentRequest._();
+
+  factory GetMessageContentRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory GetMessageContentRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetMessageContentRequest',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(2, _omitFieldNames ? '' : 'projectId')
+    ..aOM<MessageContentBinding>(3, _omitFieldNames ? '' : 'binding',
+        subBuilder: MessageContentBinding.create)
+    ..aOS(4, _omitFieldNames ? '' : 'expectedMimeType')
+    ..a<$fixnum.Int64>(
+        5, _omitFieldNames ? '' : 'expectedTotalBytes', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..a<$core.List<$core.int>>(
+        6, _omitFieldNames ? '' : 'expectedSha256', $pb.PbFieldType.OY)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetMessageContentRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetMessageContentRequest copyWith(
+          void Function(GetMessageContentRequest) updates) =>
+      super.copyWith((message) => updates(message as GetMessageContentRequest))
+          as GetMessageContentRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GetMessageContentRequest create() => GetMessageContentRequest._();
+  @$core.override
+  GetMessageContentRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static GetMessageContentRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetMessageContentRequest>(create);
+  static GetMessageContentRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get projectId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set projectId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasProjectId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearProjectId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  MessageContentBinding get binding => $_getN(2);
+  @$pb.TagNumber(3)
+  set binding(MessageContentBinding value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasBinding() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearBinding() => $_clearField(3);
+  @$pb.TagNumber(3)
+  MessageContentBinding ensureBinding() => $_ensure(2);
+
+  @$pb.TagNumber(4)
+  $core.String get expectedMimeType => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set expectedMimeType($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasExpectedMimeType() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearExpectedMimeType() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get expectedTotalBytes => $_getI64(4);
+  @$pb.TagNumber(5)
+  set expectedTotalBytes($fixnum.Int64 value) => $_setInt64(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasExpectedTotalBytes() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearExpectedTotalBytes() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.List<$core.int> get expectedSha256 => $_getN(5);
+  @$pb.TagNumber(6)
+  set expectedSha256($core.List<$core.int> value) => $_setBytes(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasExpectedSha256() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearExpectedSha256() => $_clearField(6);
+}
+
+class SafeList extends $pb.GeneratedMessage {
+  factory SafeList({
+    $core.Iterable<SafeValue>? values,
+  }) {
+    final result = create();
+    if (values != null) result.values.addAll(values);
+    return result;
+  }
+
+  SafeList._();
+
+  factory SafeList.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SafeList.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SafeList',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..pPM<SafeValue>(1, _omitFieldNames ? '' : 'values',
+        subBuilder: SafeValue.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SafeList clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SafeList copyWith(void Function(SafeList) updates) =>
+      super.copyWith((message) => updates(message as SafeList)) as SafeList;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SafeList create() => SafeList._();
+  @$core.override
+  SafeList createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SafeList getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SafeList>(create);
+  static SafeList? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<SafeValue> get values => $_getList(0);
+}
+
+class SafeObjectField extends $pb.GeneratedMessage {
+  factory SafeObjectField({
+    $core.String? key,
+    SafeValue? value,
+  }) {
+    final result = create();
+    if (key != null) result.key = key;
+    if (value != null) result.value = value;
+    return result;
+  }
+
+  SafeObjectField._();
+
+  factory SafeObjectField.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SafeObjectField.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SafeObjectField',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'key')
+    ..aOM<SafeValue>(2, _omitFieldNames ? '' : 'value',
+        subBuilder: SafeValue.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SafeObjectField clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SafeObjectField copyWith(void Function(SafeObjectField) updates) =>
+      super.copyWith((message) => updates(message as SafeObjectField))
+          as SafeObjectField;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SafeObjectField create() => SafeObjectField._();
+  @$core.override
+  SafeObjectField createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SafeObjectField getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SafeObjectField>(create);
+  static SafeObjectField? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get key => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set key($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasKey() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearKey() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  SafeValue get value => $_getN(1);
+  @$pb.TagNumber(2)
+  set value(SafeValue value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasValue() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearValue() => $_clearField(2);
+  @$pb.TagNumber(2)
+  SafeValue ensureValue() => $_ensure(1);
+}
+
+class SafeObject extends $pb.GeneratedMessage {
+  factory SafeObject({
+    $core.Iterable<SafeObjectField>? fields,
+  }) {
+    final result = create();
+    if (fields != null) result.fields.addAll(fields);
+    return result;
+  }
+
+  SafeObject._();
+
+  factory SafeObject.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SafeObject.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SafeObject',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..pPM<SafeObjectField>(1, _omitFieldNames ? '' : 'fields',
+        subBuilder: SafeObjectField.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SafeObject clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SafeObject copyWith(void Function(SafeObject) updates) =>
+      super.copyWith((message) => updates(message as SafeObject)) as SafeObject;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SafeObject create() => SafeObject._();
+  @$core.override
+  SafeObject createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SafeObject getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SafeObject>(create);
+  static SafeObject? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<SafeObjectField> get fields => $_getList(0);
+}
+
+enum SafeValue_Value {
+  sentinel,
+  boolValue,
+  intValue,
+  doubleValue,
+  stringValue,
+  listValue,
+  objectValue,
+  notSet
+}
+
+class SafeValue extends $pb.GeneratedMessage {
+  factory SafeValue({
+    SafeValueKind? sentinel,
+    $core.bool? boolValue,
+    $fixnum.Int64? intValue,
+    $core.double? doubleValue,
+    $core.String? stringValue,
+    SafeList? listValue,
+    SafeObject? objectValue,
+  }) {
+    final result = create();
+    if (sentinel != null) result.sentinel = sentinel;
+    if (boolValue != null) result.boolValue = boolValue;
+    if (intValue != null) result.intValue = intValue;
+    if (doubleValue != null) result.doubleValue = doubleValue;
+    if (stringValue != null) result.stringValue = stringValue;
+    if (listValue != null) result.listValue = listValue;
+    if (objectValue != null) result.objectValue = objectValue;
+    return result;
+  }
+
+  SafeValue._();
+
+  factory SafeValue.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SafeValue.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static const $core.Map<$core.int, SafeValue_Value> _SafeValue_ValueByTag = {
+    1: SafeValue_Value.sentinel,
+    2: SafeValue_Value.boolValue,
+    3: SafeValue_Value.intValue,
+    4: SafeValue_Value.doubleValue,
+    5: SafeValue_Value.stringValue,
+    6: SafeValue_Value.listValue,
+    7: SafeValue_Value.objectValue,
+    0: SafeValue_Value.notSet
+  };
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SafeValue',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..oo(0, [1, 2, 3, 4, 5, 6, 7])
+    ..aE<SafeValueKind>(1, _omitFieldNames ? '' : 'sentinel',
+        enumValues: SafeValueKind.values)
+    ..aOB(2, _omitFieldNames ? '' : 'boolValue')
+    ..a<$fixnum.Int64>(
+        3, _omitFieldNames ? '' : 'intValue', $pb.PbFieldType.OS6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aD(4, _omitFieldNames ? '' : 'doubleValue')
+    ..aOS(5, _omitFieldNames ? '' : 'stringValue')
+    ..aOM<SafeList>(6, _omitFieldNames ? '' : 'listValue',
+        subBuilder: SafeList.create)
+    ..aOM<SafeObject>(7, _omitFieldNames ? '' : 'objectValue',
+        subBuilder: SafeObject.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SafeValue clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SafeValue copyWith(void Function(SafeValue) updates) =>
+      super.copyWith((message) => updates(message as SafeValue)) as SafeValue;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SafeValue create() => SafeValue._();
+  @$core.override
+  SafeValue createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SafeValue getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SafeValue>(create);
+  static SafeValue? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  @$pb.TagNumber(2)
+  @$pb.TagNumber(3)
+  @$pb.TagNumber(4)
+  @$pb.TagNumber(5)
+  @$pb.TagNumber(6)
+  @$pb.TagNumber(7)
+  SafeValue_Value whichValue() => _SafeValue_ValueByTag[$_whichOneof(0)]!;
+  @$pb.TagNumber(1)
+  @$pb.TagNumber(2)
+  @$pb.TagNumber(3)
+  @$pb.TagNumber(4)
+  @$pb.TagNumber(5)
+  @$pb.TagNumber(6)
+  @$pb.TagNumber(7)
+  void clearValue() => $_clearField($_whichOneof(0));
+
+  @$pb.TagNumber(1)
+  SafeValueKind get sentinel => $_getN(0);
+  @$pb.TagNumber(1)
+  set sentinel(SafeValueKind value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSentinel() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSentinel() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get boolValue => $_getBF(1);
+  @$pb.TagNumber(2)
+  set boolValue($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasBoolValue() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearBoolValue() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get intValue => $_getI64(2);
+  @$pb.TagNumber(3)
+  set intValue($fixnum.Int64 value) => $_setInt64(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasIntValue() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearIntValue() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.double get doubleValue => $_getN(3);
+  @$pb.TagNumber(4)
+  set doubleValue($core.double value) => $_setDouble(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasDoubleValue() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearDoubleValue() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get stringValue => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set stringValue($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasStringValue() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearStringValue() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  SafeList get listValue => $_getN(5);
+  @$pb.TagNumber(6)
+  set listValue(SafeList value) => $_setField(6, value);
+  @$pb.TagNumber(6)
+  $core.bool hasListValue() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearListValue() => $_clearField(6);
+  @$pb.TagNumber(6)
+  SafeList ensureListValue() => $_ensure(5);
+
+  @$pb.TagNumber(7)
+  SafeObject get objectValue => $_getN(6);
+  @$pb.TagNumber(7)
+  set objectValue(SafeObject value) => $_setField(7, value);
+  @$pb.TagNumber(7)
+  $core.bool hasObjectValue() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearObjectValue() => $_clearField(7);
+  @$pb.TagNumber(7)
+  SafeObject ensureObjectValue() => $_ensure(6);
+}
+
+class ToolActivity extends $pb.GeneratedMessage {
+  factory ToolActivity({
+    $core.String? activityId,
+    $core.String? toolCallId,
+    $core.String? toolName,
+    $core.int? sourceOrdinal,
+    $fixnum.Int64? revision,
+    ToolActivityStatus? status,
+    $core.int? progressBasisPoints,
+    SafeValue? safeDetails,
+  }) {
+    final result = create();
+    if (activityId != null) result.activityId = activityId;
+    if (toolCallId != null) result.toolCallId = toolCallId;
+    if (toolName != null) result.toolName = toolName;
+    if (sourceOrdinal != null) result.sourceOrdinal = sourceOrdinal;
+    if (revision != null) result.revision = revision;
+    if (status != null) result.status = status;
+    if (progressBasisPoints != null)
+      result.progressBasisPoints = progressBasisPoints;
+    if (safeDetails != null) result.safeDetails = safeDetails;
+    return result;
+  }
+
+  ToolActivity._();
+
+  factory ToolActivity.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ToolActivity.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ToolActivity',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'activityId')
+    ..aOS(2, _omitFieldNames ? '' : 'toolCallId')
+    ..aOS(3, _omitFieldNames ? '' : 'toolName')
+    ..aI(4, _omitFieldNames ? '' : 'sourceOrdinal',
+        fieldType: $pb.PbFieldType.OU3)
+    ..a<$fixnum.Int64>(
+        5, _omitFieldNames ? '' : 'revision', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aE<ToolActivityStatus>(6, _omitFieldNames ? '' : 'status',
+        enumValues: ToolActivityStatus.values)
+    ..aI(7, _omitFieldNames ? '' : 'progressBasisPoints',
+        fieldType: $pb.PbFieldType.OU3)
+    ..aOM<SafeValue>(8, _omitFieldNames ? '' : 'safeDetails',
+        subBuilder: SafeValue.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ToolActivity clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ToolActivity copyWith(void Function(ToolActivity) updates) =>
+      super.copyWith((message) => updates(message as ToolActivity))
+          as ToolActivity;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ToolActivity create() => ToolActivity._();
+  @$core.override
+  ToolActivity createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ToolActivity getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ToolActivity>(create);
+  static ToolActivity? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get activityId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set activityId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasActivityId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearActivityId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get toolCallId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set toolCallId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasToolCallId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearToolCallId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get toolName => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set toolName($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasToolName() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearToolName() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get sourceOrdinal => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set sourceOrdinal($core.int value) => $_setUnsignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSourceOrdinal() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSourceOrdinal() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get revision => $_getI64(4);
+  @$pb.TagNumber(5)
+  set revision($fixnum.Int64 value) => $_setInt64(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasRevision() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearRevision() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  ToolActivityStatus get status => $_getN(5);
+  @$pb.TagNumber(6)
+  set status(ToolActivityStatus value) => $_setField(6, value);
+  @$pb.TagNumber(6)
+  $core.bool hasStatus() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearStatus() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.int get progressBasisPoints => $_getIZ(6);
+  @$pb.TagNumber(7)
+  set progressBasisPoints($core.int value) => $_setUnsignedInt32(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasProgressBasisPoints() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearProgressBasisPoints() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  SafeValue get safeDetails => $_getN(7);
+  @$pb.TagNumber(8)
+  set safeDetails(SafeValue value) => $_setField(8, value);
+  @$pb.TagNumber(8)
+  $core.bool hasSafeDetails() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearSafeDetails() => $_clearField(8);
+  @$pb.TagNumber(8)
+  SafeValue ensureSafeDetails() => $_ensure(7);
+}
+
+class UsageMetrics extends $pb.GeneratedMessage {
+  factory UsageMetrics({
+    $fixnum.Int64? inputTokens,
+    $fixnum.Int64? outputTokens,
+    $fixnum.Int64? cacheReadTokens,
+    $fixnum.Int64? cacheWriteTokens,
+    $fixnum.Int64? totalTokens,
+  }) {
+    final result = create();
+    if (inputTokens != null) result.inputTokens = inputTokens;
+    if (outputTokens != null) result.outputTokens = outputTokens;
+    if (cacheReadTokens != null) result.cacheReadTokens = cacheReadTokens;
+    if (cacheWriteTokens != null) result.cacheWriteTokens = cacheWriteTokens;
+    if (totalTokens != null) result.totalTokens = totalTokens;
+    return result;
+  }
+
+  UsageMetrics._();
+
+  factory UsageMetrics.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UsageMetrics.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UsageMetrics',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'inputTokens', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..a<$fixnum.Int64>(
+        2, _omitFieldNames ? '' : 'outputTokens', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..a<$fixnum.Int64>(
+        3, _omitFieldNames ? '' : 'cacheReadTokens', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..a<$fixnum.Int64>(
+        4, _omitFieldNames ? '' : 'cacheWriteTokens', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..a<$fixnum.Int64>(
+        5, _omitFieldNames ? '' : 'totalTokens', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UsageMetrics clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UsageMetrics copyWith(void Function(UsageMetrics) updates) =>
+      super.copyWith((message) => updates(message as UsageMetrics))
+          as UsageMetrics;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UsageMetrics create() => UsageMetrics._();
+  @$core.override
+  UsageMetrics createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UsageMetrics getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UsageMetrics>(create);
+  static UsageMetrics? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get inputTokens => $_getI64(0);
+  @$pb.TagNumber(1)
+  set inputTokens($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasInputTokens() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearInputTokens() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get outputTokens => $_getI64(1);
+  @$pb.TagNumber(2)
+  set outputTokens($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasOutputTokens() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearOutputTokens() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get cacheReadTokens => $_getI64(2);
+  @$pb.TagNumber(3)
+  set cacheReadTokens($fixnum.Int64 value) => $_setInt64(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasCacheReadTokens() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearCacheReadTokens() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $fixnum.Int64 get cacheWriteTokens => $_getI64(3);
+  @$pb.TagNumber(4)
+  set cacheWriteTokens($fixnum.Int64 value) => $_setInt64(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasCacheWriteTokens() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearCacheWriteTokens() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get totalTokens => $_getI64(4);
+  @$pb.TagNumber(5)
+  set totalTokens($fixnum.Int64 value) => $_setInt64(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasTotalTokens() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearTotalTokens() => $_clearField(5);
+}
+
+class MoneyAmount extends $pb.GeneratedMessage {
+  factory MoneyAmount({
+    $core.String? currencyCode,
+    $core.String? decimalAmount,
+  }) {
+    final result = create();
+    if (currencyCode != null) result.currencyCode = currencyCode;
+    if (decimalAmount != null) result.decimalAmount = decimalAmount;
+    return result;
+  }
+
+  MoneyAmount._();
+
+  factory MoneyAmount.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory MoneyAmount.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'MoneyAmount',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'currencyCode')
+    ..aOS(2, _omitFieldNames ? '' : 'decimalAmount')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MoneyAmount clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MoneyAmount copyWith(void Function(MoneyAmount) updates) =>
+      super.copyWith((message) => updates(message as MoneyAmount))
+          as MoneyAmount;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MoneyAmount create() => MoneyAmount._();
+  @$core.override
+  MoneyAmount createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static MoneyAmount getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<MoneyAmount>(create);
+  static MoneyAmount? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get currencyCode => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set currencyCode($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasCurrencyCode() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearCurrencyCode() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get decimalAmount => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set decimalAmount($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDecimalAmount() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDecimalAmount() => $_clearField(2);
+}
+
+class ContextMetrics extends $pb.GeneratedMessage {
+  factory ContextMetrics({
+    $fixnum.Int64? tokens,
+    $fixnum.Int64? contextWindow,
+    $core.String? percentDecimal,
+  }) {
+    final result = create();
+    if (tokens != null) result.tokens = tokens;
+    if (contextWindow != null) result.contextWindow = contextWindow;
+    if (percentDecimal != null) result.percentDecimal = percentDecimal;
+    return result;
+  }
+
+  ContextMetrics._();
+
+  factory ContextMetrics.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ContextMetrics.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ContextMetrics',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(1, _omitFieldNames ? '' : 'tokens', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..a<$fixnum.Int64>(
+        2, _omitFieldNames ? '' : 'contextWindow', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(3, _omitFieldNames ? '' : 'percentDecimal')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ContextMetrics clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ContextMetrics copyWith(void Function(ContextMetrics) updates) =>
+      super.copyWith((message) => updates(message as ContextMetrics))
+          as ContextMetrics;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ContextMetrics create() => ContextMetrics._();
+  @$core.override
+  ContextMetrics createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ContextMetrics getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ContextMetrics>(create);
+  static ContextMetrics? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get tokens => $_getI64(0);
+  @$pb.TagNumber(1)
+  set tokens($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasTokens() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearTokens() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get contextWindow => $_getI64(1);
+  @$pb.TagNumber(2)
+  set contextWindow($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasContextWindow() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearContextWindow() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get percentDecimal => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set percentDecimal($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasPercentDecimal() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearPercentDecimal() => $_clearField(3);
+}
+
+class ConversationMetrics extends $pb.GeneratedMessage {
+  factory ConversationMetrics({
+    UsageMetrics? usage,
+    MoneyAmount? cost,
+    ContextMetrics? context,
+  }) {
+    final result = create();
+    if (usage != null) result.usage = usage;
+    if (cost != null) result.cost = cost;
+    if (context != null) result.context = context;
+    return result;
+  }
+
+  ConversationMetrics._();
+
+  factory ConversationMetrics.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ConversationMetrics.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ConversationMetrics',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOM<UsageMetrics>(1, _omitFieldNames ? '' : 'usage',
+        subBuilder: UsageMetrics.create)
+    ..aOM<MoneyAmount>(2, _omitFieldNames ? '' : 'cost',
+        subBuilder: MoneyAmount.create)
+    ..aOM<ContextMetrics>(3, _omitFieldNames ? '' : 'context',
+        subBuilder: ContextMetrics.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConversationMetrics clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConversationMetrics copyWith(void Function(ConversationMetrics) updates) =>
+      super.copyWith((message) => updates(message as ConversationMetrics))
+          as ConversationMetrics;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ConversationMetrics create() => ConversationMetrics._();
+  @$core.override
+  ConversationMetrics createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ConversationMetrics getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ConversationMetrics>(create);
+  static ConversationMetrics? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  UsageMetrics get usage => $_getN(0);
+  @$pb.TagNumber(1)
+  set usage(UsageMetrics value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasUsage() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearUsage() => $_clearField(1);
+  @$pb.TagNumber(1)
+  UsageMetrics ensureUsage() => $_ensure(0);
+
+  @$pb.TagNumber(2)
+  MoneyAmount get cost => $_getN(1);
+  @$pb.TagNumber(2)
+  set cost(MoneyAmount value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasCost() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCost() => $_clearField(2);
+  @$pb.TagNumber(2)
+  MoneyAmount ensureCost() => $_ensure(1);
+
+  @$pb.TagNumber(3)
+  ContextMetrics get context => $_getN(2);
+  @$pb.TagNumber(3)
+  set context(ContextMetrics value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasContext() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearContext() => $_clearField(3);
+  @$pb.TagNumber(3)
+  ContextMetrics ensureContext() => $_ensure(2);
 }
 
 class GetSessionStatsRequest extends $pb.GeneratedMessage {
@@ -6999,11 +10111,14 @@ class ExportSessionRequest extends $pb.GeneratedMessage {
 }
 
 enum SessionEventStreamEnvelope_Event {
-  messageAdded,
-  messageDelta,
   runningChanged,
   commandCompleted,
   streamClosed,
+  entryUpsert,
+  partDelta,
+  entryFinalized,
+  toolActivity,
+  metrics,
   notSet
 }
 
@@ -7014,21 +10129,27 @@ class SessionEventStreamEnvelope extends $pb.GeneratedMessage {
     $core.String? streamId,
     $core.String? sessionId,
     $fixnum.Int64? eventSequence,
-    MessageAddedEvent? messageAdded,
-    MessageDeltaEvent? messageDelta,
     SessionRunningChangedEvent? runningChanged,
     CommandCompletedEvent? commandCompleted,
     StreamClosedEvent? streamClosed,
+    ConversationEntryUpsertEvent? entryUpsert,
+    ConversationPartDeltaEvent? partDelta,
+    ConversationEntryFinalizedEvent? entryFinalized,
+    ConversationToolActivityEvent? toolActivity,
+    ConversationMetricsEvent? metrics,
   }) {
     final result = create();
     if (streamId != null) result.streamId = streamId;
     if (sessionId != null) result.sessionId = sessionId;
     if (eventSequence != null) result.eventSequence = eventSequence;
-    if (messageAdded != null) result.messageAdded = messageAdded;
-    if (messageDelta != null) result.messageDelta = messageDelta;
     if (runningChanged != null) result.runningChanged = runningChanged;
     if (commandCompleted != null) result.commandCompleted = commandCompleted;
     if (streamClosed != null) result.streamClosed = streamClosed;
+    if (entryUpsert != null) result.entryUpsert = entryUpsert;
+    if (partDelta != null) result.partDelta = partDelta;
+    if (entryFinalized != null) result.entryFinalized = entryFinalized;
+    if (toolActivity != null) result.toolActivity = toolActivity;
+    if (metrics != null) result.metrics = metrics;
     return result;
   }
 
@@ -7043,11 +10164,14 @@ class SessionEventStreamEnvelope extends $pb.GeneratedMessage {
 
   static const $core.Map<$core.int, SessionEventStreamEnvelope_Event>
       _SessionEventStreamEnvelope_EventByTag = {
-    10: SessionEventStreamEnvelope_Event.messageAdded,
-    11: SessionEventStreamEnvelope_Event.messageDelta,
     12: SessionEventStreamEnvelope_Event.runningChanged,
     13: SessionEventStreamEnvelope_Event.commandCompleted,
     14: SessionEventStreamEnvelope_Event.streamClosed,
+    20: SessionEventStreamEnvelope_Event.entryUpsert,
+    21: SessionEventStreamEnvelope_Event.partDelta,
+    22: SessionEventStreamEnvelope_Event.entryFinalized,
+    23: SessionEventStreamEnvelope_Event.toolActivity,
+    24: SessionEventStreamEnvelope_Event.metrics,
     0: SessionEventStreamEnvelope_Event.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -7055,16 +10179,12 @@ class SessionEventStreamEnvelope extends $pb.GeneratedMessage {
       package: const $pb.PackageName(
           _omitMessageNames ? '' : 'pi.client.protocol.v0'),
       createEmptyInstance: create)
-    ..oo(0, [10, 11, 12, 13, 14])
+    ..oo(0, [12, 13, 14, 20, 21, 22, 23, 24])
     ..aOS(1, _omitFieldNames ? '' : 'streamId')
     ..aOS(2, _omitFieldNames ? '' : 'sessionId')
     ..a<$fixnum.Int64>(
         3, _omitFieldNames ? '' : 'eventSequence', $pb.PbFieldType.OU6,
         defaultOrMaker: $fixnum.Int64.ZERO)
-    ..aOM<MessageAddedEvent>(10, _omitFieldNames ? '' : 'messageAdded',
-        subBuilder: MessageAddedEvent.create)
-    ..aOM<MessageDeltaEvent>(11, _omitFieldNames ? '' : 'messageDelta',
-        subBuilder: MessageDeltaEvent.create)
     ..aOM<SessionRunningChangedEvent>(
         12, _omitFieldNames ? '' : 'runningChanged',
         subBuilder: SessionRunningChangedEvent.create)
@@ -7072,6 +10192,19 @@ class SessionEventStreamEnvelope extends $pb.GeneratedMessage {
         subBuilder: CommandCompletedEvent.create)
     ..aOM<StreamClosedEvent>(14, _omitFieldNames ? '' : 'streamClosed',
         subBuilder: StreamClosedEvent.create)
+    ..aOM<ConversationEntryUpsertEvent>(
+        20, _omitFieldNames ? '' : 'entryUpsert',
+        subBuilder: ConversationEntryUpsertEvent.create)
+    ..aOM<ConversationPartDeltaEvent>(21, _omitFieldNames ? '' : 'partDelta',
+        subBuilder: ConversationPartDeltaEvent.create)
+    ..aOM<ConversationEntryFinalizedEvent>(
+        22, _omitFieldNames ? '' : 'entryFinalized',
+        subBuilder: ConversationEntryFinalizedEvent.create)
+    ..aOM<ConversationToolActivityEvent>(
+        23, _omitFieldNames ? '' : 'toolActivity',
+        subBuilder: ConversationToolActivityEvent.create)
+    ..aOM<ConversationMetricsEvent>(24, _omitFieldNames ? '' : 'metrics',
+        subBuilder: ConversationMetricsEvent.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -7095,18 +10228,24 @@ class SessionEventStreamEnvelope extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<SessionEventStreamEnvelope>(create);
   static SessionEventStreamEnvelope? _defaultInstance;
 
-  @$pb.TagNumber(10)
-  @$pb.TagNumber(11)
   @$pb.TagNumber(12)
   @$pb.TagNumber(13)
   @$pb.TagNumber(14)
+  @$pb.TagNumber(20)
+  @$pb.TagNumber(21)
+  @$pb.TagNumber(22)
+  @$pb.TagNumber(23)
+  @$pb.TagNumber(24)
   SessionEventStreamEnvelope_Event whichEvent() =>
       _SessionEventStreamEnvelope_EventByTag[$_whichOneof(0)]!;
-  @$pb.TagNumber(10)
-  @$pb.TagNumber(11)
   @$pb.TagNumber(12)
   @$pb.TagNumber(13)
   @$pb.TagNumber(14)
+  @$pb.TagNumber(20)
+  @$pb.TagNumber(21)
+  @$pb.TagNumber(22)
+  @$pb.TagNumber(23)
+  @$pb.TagNumber(24)
   void clearEvent() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -7136,62 +10275,98 @@ class SessionEventStreamEnvelope extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearEventSequence() => $_clearField(3);
 
-  @$pb.TagNumber(10)
-  MessageAddedEvent get messageAdded => $_getN(3);
-  @$pb.TagNumber(10)
-  set messageAdded(MessageAddedEvent value) => $_setField(10, value);
-  @$pb.TagNumber(10)
-  $core.bool hasMessageAdded() => $_has(3);
-  @$pb.TagNumber(10)
-  void clearMessageAdded() => $_clearField(10);
-  @$pb.TagNumber(10)
-  MessageAddedEvent ensureMessageAdded() => $_ensure(3);
-
-  @$pb.TagNumber(11)
-  MessageDeltaEvent get messageDelta => $_getN(4);
-  @$pb.TagNumber(11)
-  set messageDelta(MessageDeltaEvent value) => $_setField(11, value);
-  @$pb.TagNumber(11)
-  $core.bool hasMessageDelta() => $_has(4);
-  @$pb.TagNumber(11)
-  void clearMessageDelta() => $_clearField(11);
-  @$pb.TagNumber(11)
-  MessageDeltaEvent ensureMessageDelta() => $_ensure(4);
-
   @$pb.TagNumber(12)
-  SessionRunningChangedEvent get runningChanged => $_getN(5);
+  SessionRunningChangedEvent get runningChanged => $_getN(3);
   @$pb.TagNumber(12)
   set runningChanged(SessionRunningChangedEvent value) => $_setField(12, value);
   @$pb.TagNumber(12)
-  $core.bool hasRunningChanged() => $_has(5);
+  $core.bool hasRunningChanged() => $_has(3);
   @$pb.TagNumber(12)
   void clearRunningChanged() => $_clearField(12);
   @$pb.TagNumber(12)
-  SessionRunningChangedEvent ensureRunningChanged() => $_ensure(5);
+  SessionRunningChangedEvent ensureRunningChanged() => $_ensure(3);
 
   @$pb.TagNumber(13)
-  CommandCompletedEvent get commandCompleted => $_getN(6);
+  CommandCompletedEvent get commandCompleted => $_getN(4);
   @$pb.TagNumber(13)
   set commandCompleted(CommandCompletedEvent value) => $_setField(13, value);
   @$pb.TagNumber(13)
-  $core.bool hasCommandCompleted() => $_has(6);
+  $core.bool hasCommandCompleted() => $_has(4);
   @$pb.TagNumber(13)
   void clearCommandCompleted() => $_clearField(13);
   @$pb.TagNumber(13)
-  CommandCompletedEvent ensureCommandCompleted() => $_ensure(6);
+  CommandCompletedEvent ensureCommandCompleted() => $_ensure(4);
 
   @$pb.TagNumber(14)
-  StreamClosedEvent get streamClosed => $_getN(7);
+  StreamClosedEvent get streamClosed => $_getN(5);
   @$pb.TagNumber(14)
   set streamClosed(StreamClosedEvent value) => $_setField(14, value);
   @$pb.TagNumber(14)
-  $core.bool hasStreamClosed() => $_has(7);
+  $core.bool hasStreamClosed() => $_has(5);
   @$pb.TagNumber(14)
   void clearStreamClosed() => $_clearField(14);
   @$pb.TagNumber(14)
-  StreamClosedEvent ensureStreamClosed() => $_ensure(7);
+  StreamClosedEvent ensureStreamClosed() => $_ensure(5);
+
+  @$pb.TagNumber(20)
+  ConversationEntryUpsertEvent get entryUpsert => $_getN(6);
+  @$pb.TagNumber(20)
+  set entryUpsert(ConversationEntryUpsertEvent value) => $_setField(20, value);
+  @$pb.TagNumber(20)
+  $core.bool hasEntryUpsert() => $_has(6);
+  @$pb.TagNumber(20)
+  void clearEntryUpsert() => $_clearField(20);
+  @$pb.TagNumber(20)
+  ConversationEntryUpsertEvent ensureEntryUpsert() => $_ensure(6);
+
+  @$pb.TagNumber(21)
+  ConversationPartDeltaEvent get partDelta => $_getN(7);
+  @$pb.TagNumber(21)
+  set partDelta(ConversationPartDeltaEvent value) => $_setField(21, value);
+  @$pb.TagNumber(21)
+  $core.bool hasPartDelta() => $_has(7);
+  @$pb.TagNumber(21)
+  void clearPartDelta() => $_clearField(21);
+  @$pb.TagNumber(21)
+  ConversationPartDeltaEvent ensurePartDelta() => $_ensure(7);
+
+  @$pb.TagNumber(22)
+  ConversationEntryFinalizedEvent get entryFinalized => $_getN(8);
+  @$pb.TagNumber(22)
+  set entryFinalized(ConversationEntryFinalizedEvent value) =>
+      $_setField(22, value);
+  @$pb.TagNumber(22)
+  $core.bool hasEntryFinalized() => $_has(8);
+  @$pb.TagNumber(22)
+  void clearEntryFinalized() => $_clearField(22);
+  @$pb.TagNumber(22)
+  ConversationEntryFinalizedEvent ensureEntryFinalized() => $_ensure(8);
+
+  @$pb.TagNumber(23)
+  ConversationToolActivityEvent get toolActivity => $_getN(9);
+  @$pb.TagNumber(23)
+  set toolActivity(ConversationToolActivityEvent value) =>
+      $_setField(23, value);
+  @$pb.TagNumber(23)
+  $core.bool hasToolActivity() => $_has(9);
+  @$pb.TagNumber(23)
+  void clearToolActivity() => $_clearField(23);
+  @$pb.TagNumber(23)
+  ConversationToolActivityEvent ensureToolActivity() => $_ensure(9);
+
+  @$pb.TagNumber(24)
+  ConversationMetricsEvent get metrics => $_getN(10);
+  @$pb.TagNumber(24)
+  set metrics(ConversationMetricsEvent value) => $_setField(24, value);
+  @$pb.TagNumber(24)
+  $core.bool hasMetrics() => $_has(10);
+  @$pb.TagNumber(24)
+  void clearMetrics() => $_clearField(24);
+  @$pb.TagNumber(24)
+  ConversationMetricsEvent ensureMetrics() => $_ensure(10);
 }
 
+@$core.Deprecated('This message is deprecated')
 class MessageAddedEvent extends $pb.GeneratedMessage {
   factory MessageAddedEvent({
     MessageSnapshot? message,
@@ -7250,6 +10425,7 @@ class MessageAddedEvent extends $pb.GeneratedMessage {
   MessageSnapshot ensureMessage() => $_ensure(0);
 }
 
+@$core.Deprecated('This message is deprecated')
 class MessageDeltaEvent extends $pb.GeneratedMessage {
   factory MessageDeltaEvent({
     $core.String? messageId,
@@ -7315,6 +10491,504 @@ class MessageDeltaEvent extends $pb.GeneratedMessage {
   $core.bool hasDelta() => $_has(1);
   @$pb.TagNumber(2)
   void clearDelta() => $_clearField(2);
+}
+
+class ConversationEntryUpsertEvent extends $pb.GeneratedMessage {
+  factory ConversationEntryUpsertEvent({
+    ConversationEntry? entry,
+    $fixnum.Int64? expectedPreviousRevision,
+  }) {
+    final result = create();
+    if (entry != null) result.entry = entry;
+    if (expectedPreviousRevision != null)
+      result.expectedPreviousRevision = expectedPreviousRevision;
+    return result;
+  }
+
+  ConversationEntryUpsertEvent._();
+
+  factory ConversationEntryUpsertEvent.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ConversationEntryUpsertEvent.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ConversationEntryUpsertEvent',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOM<ConversationEntry>(1, _omitFieldNames ? '' : 'entry',
+        subBuilder: ConversationEntry.create)
+    ..a<$fixnum.Int64>(2, _omitFieldNames ? '' : 'expectedPreviousRevision',
+        $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConversationEntryUpsertEvent clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConversationEntryUpsertEvent copyWith(
+          void Function(ConversationEntryUpsertEvent) updates) =>
+      super.copyWith(
+              (message) => updates(message as ConversationEntryUpsertEvent))
+          as ConversationEntryUpsertEvent;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ConversationEntryUpsertEvent create() =>
+      ConversationEntryUpsertEvent._();
+  @$core.override
+  ConversationEntryUpsertEvent createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ConversationEntryUpsertEvent getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ConversationEntryUpsertEvent>(create);
+  static ConversationEntryUpsertEvent? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  ConversationEntry get entry => $_getN(0);
+  @$pb.TagNumber(1)
+  set entry(ConversationEntry value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasEntry() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearEntry() => $_clearField(1);
+  @$pb.TagNumber(1)
+  ConversationEntry ensureEntry() => $_ensure(0);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get expectedPreviousRevision => $_getI64(1);
+  @$pb.TagNumber(2)
+  set expectedPreviousRevision($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasExpectedPreviousRevision() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearExpectedPreviousRevision() => $_clearField(2);
+}
+
+class ConversationPartDeltaEvent extends $pb.GeneratedMessage {
+  factory ConversationPartDeltaEvent({
+    $core.String? entryId,
+    $fixnum.Int64? expectedEntryRevision,
+    $fixnum.Int64? resultingEntryRevision,
+    $core.String? partId,
+    $fixnum.Int64? expectedPartRevision,
+    $fixnum.Int64? resultingPartRevision,
+    $core.String? textDelta,
+  }) {
+    final result = create();
+    if (entryId != null) result.entryId = entryId;
+    if (expectedEntryRevision != null)
+      result.expectedEntryRevision = expectedEntryRevision;
+    if (resultingEntryRevision != null)
+      result.resultingEntryRevision = resultingEntryRevision;
+    if (partId != null) result.partId = partId;
+    if (expectedPartRevision != null)
+      result.expectedPartRevision = expectedPartRevision;
+    if (resultingPartRevision != null)
+      result.resultingPartRevision = resultingPartRevision;
+    if (textDelta != null) result.textDelta = textDelta;
+    return result;
+  }
+
+  ConversationPartDeltaEvent._();
+
+  factory ConversationPartDeltaEvent.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ConversationPartDeltaEvent.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ConversationPartDeltaEvent',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'entryId')
+    ..a<$fixnum.Int64>(
+        2, _omitFieldNames ? '' : 'expectedEntryRevision', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..a<$fixnum.Int64>(
+        3, _omitFieldNames ? '' : 'resultingEntryRevision', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(4, _omitFieldNames ? '' : 'partId')
+    ..a<$fixnum.Int64>(
+        5, _omitFieldNames ? '' : 'expectedPartRevision', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..a<$fixnum.Int64>(
+        6, _omitFieldNames ? '' : 'resultingPartRevision', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(7, _omitFieldNames ? '' : 'textDelta')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConversationPartDeltaEvent clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConversationPartDeltaEvent copyWith(
+          void Function(ConversationPartDeltaEvent) updates) =>
+      super.copyWith(
+              (message) => updates(message as ConversationPartDeltaEvent))
+          as ConversationPartDeltaEvent;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ConversationPartDeltaEvent create() => ConversationPartDeltaEvent._();
+  @$core.override
+  ConversationPartDeltaEvent createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ConversationPartDeltaEvent getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ConversationPartDeltaEvent>(create);
+  static ConversationPartDeltaEvent? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get entryId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set entryId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasEntryId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearEntryId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get expectedEntryRevision => $_getI64(1);
+  @$pb.TagNumber(2)
+  set expectedEntryRevision($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasExpectedEntryRevision() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearExpectedEntryRevision() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get resultingEntryRevision => $_getI64(2);
+  @$pb.TagNumber(3)
+  set resultingEntryRevision($fixnum.Int64 value) => $_setInt64(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasResultingEntryRevision() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearResultingEntryRevision() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get partId => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set partId($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasPartId() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearPartId() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get expectedPartRevision => $_getI64(4);
+  @$pb.TagNumber(5)
+  set expectedPartRevision($fixnum.Int64 value) => $_setInt64(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasExpectedPartRevision() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearExpectedPartRevision() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $fixnum.Int64 get resultingPartRevision => $_getI64(5);
+  @$pb.TagNumber(6)
+  set resultingPartRevision($fixnum.Int64 value) => $_setInt64(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasResultingPartRevision() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearResultingPartRevision() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get textDelta => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set textDelta($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasTextDelta() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearTextDelta() => $_clearField(7);
+}
+
+class ConversationEntryFinalizedEvent extends $pb.GeneratedMessage {
+  factory ConversationEntryFinalizedEvent({
+    ConversationEntry? entry,
+    $fixnum.Int64? expectedPreviousRevision,
+  }) {
+    final result = create();
+    if (entry != null) result.entry = entry;
+    if (expectedPreviousRevision != null)
+      result.expectedPreviousRevision = expectedPreviousRevision;
+    return result;
+  }
+
+  ConversationEntryFinalizedEvent._();
+
+  factory ConversationEntryFinalizedEvent.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ConversationEntryFinalizedEvent.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ConversationEntryFinalizedEvent',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOM<ConversationEntry>(1, _omitFieldNames ? '' : 'entry',
+        subBuilder: ConversationEntry.create)
+    ..a<$fixnum.Int64>(2, _omitFieldNames ? '' : 'expectedPreviousRevision',
+        $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConversationEntryFinalizedEvent clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConversationEntryFinalizedEvent copyWith(
+          void Function(ConversationEntryFinalizedEvent) updates) =>
+      super.copyWith(
+              (message) => updates(message as ConversationEntryFinalizedEvent))
+          as ConversationEntryFinalizedEvent;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ConversationEntryFinalizedEvent create() =>
+      ConversationEntryFinalizedEvent._();
+  @$core.override
+  ConversationEntryFinalizedEvent createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ConversationEntryFinalizedEvent getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ConversationEntryFinalizedEvent>(
+          create);
+  static ConversationEntryFinalizedEvent? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  ConversationEntry get entry => $_getN(0);
+  @$pb.TagNumber(1)
+  set entry(ConversationEntry value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasEntry() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearEntry() => $_clearField(1);
+  @$pb.TagNumber(1)
+  ConversationEntry ensureEntry() => $_ensure(0);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get expectedPreviousRevision => $_getI64(1);
+  @$pb.TagNumber(2)
+  set expectedPreviousRevision($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasExpectedPreviousRevision() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearExpectedPreviousRevision() => $_clearField(2);
+}
+
+class ConversationToolActivityEvent extends $pb.GeneratedMessage {
+  factory ConversationToolActivityEvent({
+    $core.String? entryId,
+    $fixnum.Int64? expectedEntryRevision,
+    $fixnum.Int64? resultingEntryRevision,
+    ToolActivity? activity,
+  }) {
+    final result = create();
+    if (entryId != null) result.entryId = entryId;
+    if (expectedEntryRevision != null)
+      result.expectedEntryRevision = expectedEntryRevision;
+    if (resultingEntryRevision != null)
+      result.resultingEntryRevision = resultingEntryRevision;
+    if (activity != null) result.activity = activity;
+    return result;
+  }
+
+  ConversationToolActivityEvent._();
+
+  factory ConversationToolActivityEvent.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ConversationToolActivityEvent.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ConversationToolActivityEvent',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'entryId')
+    ..a<$fixnum.Int64>(
+        2, _omitFieldNames ? '' : 'expectedEntryRevision', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..a<$fixnum.Int64>(
+        3, _omitFieldNames ? '' : 'resultingEntryRevision', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOM<ToolActivity>(4, _omitFieldNames ? '' : 'activity',
+        subBuilder: ToolActivity.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConversationToolActivityEvent clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConversationToolActivityEvent copyWith(
+          void Function(ConversationToolActivityEvent) updates) =>
+      super.copyWith(
+              (message) => updates(message as ConversationToolActivityEvent))
+          as ConversationToolActivityEvent;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ConversationToolActivityEvent create() =>
+      ConversationToolActivityEvent._();
+  @$core.override
+  ConversationToolActivityEvent createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ConversationToolActivityEvent getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ConversationToolActivityEvent>(create);
+  static ConversationToolActivityEvent? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get entryId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set entryId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasEntryId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearEntryId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get expectedEntryRevision => $_getI64(1);
+  @$pb.TagNumber(2)
+  set expectedEntryRevision($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasExpectedEntryRevision() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearExpectedEntryRevision() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get resultingEntryRevision => $_getI64(2);
+  @$pb.TagNumber(3)
+  set resultingEntryRevision($fixnum.Int64 value) => $_setInt64(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasResultingEntryRevision() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearResultingEntryRevision() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  ToolActivity get activity => $_getN(3);
+  @$pb.TagNumber(4)
+  set activity(ToolActivity value) => $_setField(4, value);
+  @$pb.TagNumber(4)
+  $core.bool hasActivity() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearActivity() => $_clearField(4);
+  @$pb.TagNumber(4)
+  ToolActivity ensureActivity() => $_ensure(3);
+}
+
+class ConversationMetricsEvent extends $pb.GeneratedMessage {
+  factory ConversationMetricsEvent({
+    $core.String? entryId,
+    $fixnum.Int64? expectedEntryRevision,
+    $fixnum.Int64? resultingEntryRevision,
+    ConversationMetrics? metrics,
+  }) {
+    final result = create();
+    if (entryId != null) result.entryId = entryId;
+    if (expectedEntryRevision != null)
+      result.expectedEntryRevision = expectedEntryRevision;
+    if (resultingEntryRevision != null)
+      result.resultingEntryRevision = resultingEntryRevision;
+    if (metrics != null) result.metrics = metrics;
+    return result;
+  }
+
+  ConversationMetricsEvent._();
+
+  factory ConversationMetricsEvent.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ConversationMetricsEvent.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ConversationMetricsEvent',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'entryId')
+    ..a<$fixnum.Int64>(
+        2, _omitFieldNames ? '' : 'expectedEntryRevision', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..a<$fixnum.Int64>(
+        3, _omitFieldNames ? '' : 'resultingEntryRevision', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOM<ConversationMetrics>(4, _omitFieldNames ? '' : 'metrics',
+        subBuilder: ConversationMetrics.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConversationMetricsEvent clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConversationMetricsEvent copyWith(
+          void Function(ConversationMetricsEvent) updates) =>
+      super.copyWith((message) => updates(message as ConversationMetricsEvent))
+          as ConversationMetricsEvent;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ConversationMetricsEvent create() => ConversationMetricsEvent._();
+  @$core.override
+  ConversationMetricsEvent createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ConversationMetricsEvent getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ConversationMetricsEvent>(create);
+  static ConversationMetricsEvent? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get entryId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set entryId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasEntryId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearEntryId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get expectedEntryRevision => $_getI64(1);
+  @$pb.TagNumber(2)
+  set expectedEntryRevision($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasExpectedEntryRevision() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearExpectedEntryRevision() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get resultingEntryRevision => $_getI64(2);
+  @$pb.TagNumber(3)
+  set resultingEntryRevision($fixnum.Int64 value) => $_setInt64(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasResultingEntryRevision() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearResultingEntryRevision() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  ConversationMetrics get metrics => $_getN(3);
+  @$pb.TagNumber(4)
+  set metrics(ConversationMetrics value) => $_setField(4, value);
+  @$pb.TagNumber(4)
+  $core.bool hasMetrics() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearMetrics() => $_clearField(4);
+  @$pb.TagNumber(4)
+  ConversationMetrics ensureMetrics() => $_ensure(3);
 }
 
 class SessionRunningChangedEvent extends $pb.GeneratedMessage {
@@ -8030,6 +11704,7 @@ class TransferOpen extends $pb.GeneratedMessage {
     $core.int? chunkBytes,
     $core.List<$core.int>? sha256,
     $fixnum.Int64? requestId,
+    MessageContentBinding? messageContentBinding,
   }) {
     final result = create();
     if (transferId != null) result.transferId = transferId;
@@ -8041,6 +11716,8 @@ class TransferOpen extends $pb.GeneratedMessage {
     if (chunkBytes != null) result.chunkBytes = chunkBytes;
     if (sha256 != null) result.sha256 = sha256;
     if (requestId != null) result.requestId = requestId;
+    if (messageContentBinding != null)
+      result.messageContentBinding = messageContentBinding;
     return result;
   }
 
@@ -8074,6 +11751,9 @@ class TransferOpen extends $pb.GeneratedMessage {
     ..a<$fixnum.Int64>(
         9, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
         defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOM<MessageContentBinding>(
+        10, _omitFieldNames ? '' : 'messageContentBinding',
+        subBuilder: MessageContentBinding.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -8175,6 +11855,18 @@ class TransferOpen extends $pb.GeneratedMessage {
   $core.bool hasRequestId() => $_has(8);
   @$pb.TagNumber(9)
   void clearRequestId() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  MessageContentBinding get messageContentBinding => $_getN(9);
+  @$pb.TagNumber(10)
+  set messageContentBinding(MessageContentBinding value) =>
+      $_setField(10, value);
+  @$pb.TagNumber(10)
+  $core.bool hasMessageContentBinding() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearMessageContentBinding() => $_clearField(10);
+  @$pb.TagNumber(10)
+  MessageContentBinding ensureMessageContentBinding() => $_ensure(9);
 }
 
 class TransferChunk extends $pb.GeneratedMessage {
