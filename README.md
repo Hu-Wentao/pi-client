@@ -2,7 +2,7 @@
 
 Pi Client is a Flutter client for the [pi coding agent](https://github.com/earendil-works/pi). One codebase targets Android, iOS, macOS, Windows, Linux, and Web.
 
-Visit the [Pi Client product page](https://wyattcoder.top/pi-client/) for the bilingual overview, sanitized product screenshot, and current release download.
+Visit the [Pi Client product page](https://pi.wyattcoder.top/) for the bilingual overview, sanitized product screenshot, and current release download.
 
 Pi Client `0.0.2` is an early macOS Preview. Its current workspace connects through [pi-web](https://github.com/agegr/pi-web) `0.8.11` as a transitional compatibility bridge while the project works toward its own versioned, Pi SDK-based transport.
 

@@ -146,7 +146,7 @@ Default review level: L6. Requirements derived directly from the user-provided M
 - Actor and goal: A prospective user can understand Pi Client in English or Simplified Chinese, inspect its current limits, and download the exact current macOS Preview from a stable product page.
 - Constraints: The Landing Page must describe only delivered behavior; pi-web `0.8.11` is identified as transitional; unsigned and unnotarized assets disclose Gatekeeper risk; WebAssembly, signed DMG, and planned Pi SDK/transport features are not presented as available.
 - Source: `DEC-015` and `PLAN-PI-003`.
-- Acceptance: GitHub Pages serves `/pi-client/` and `/pi-client/zh-cn/`; both routes link to the published `v0.0.2/Pi-Client-0.0.2-macOS-universal.zip`; the ZIP and SHA-256 are public; production metadata, responsive behavior, keyboard access, and representative Safari/Chrome rendering are verified.
+- Acceptance: GitHub Pages serves `https://pi.wyattcoder.top/` and `https://pi.wyattcoder.top/zh-cn/`; both routes link to the published `v0.0.2/Pi-Client-0.0.2-macOS-universal.zip`; the ZIP and SHA-256 are public; production canonical metadata and root-relative assets use the `pi.wyattcoder.top` origin; responsive behavior, keyboard access, and representative Safari/Chrome rendering are verified.
 
 ## REQ-PI-013 - Qualify and publish an auditable cross-platform Preview
 

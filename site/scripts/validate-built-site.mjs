@@ -11,12 +11,12 @@ const pages = [
   {
     path: resolve(dist, 'index.html'),
     lang: 'en',
-    canonical: 'https://wyattcoder.top/pi-client/',
+    canonical: 'https://pi.wyattcoder.top/',
   },
   {
     path: resolve(dist, 'zh-cn/index.html'),
     lang: 'zh-CN',
-    canonical: 'https://wyattcoder.top/pi-client/zh-cn/',
+    canonical: 'https://pi.wyattcoder.top/zh-cn/',
   },
 ];
 
@@ -26,8 +26,8 @@ for (const page of pages) {
     [`lang=\"${page.lang}\"`, `html language ${page.lang}`],
     [`href=\"${page.canonical}\"`, `canonical ${page.canonical}`],
     [expectedDownload, 'exact release download'],
-    ['/pi-client/assets/pi-client-mark.svg', 'base-aware product mark'],
-    ['/pi-client/assets/workspace-preview.webp', 'base-aware screenshot'],
+    ['/assets/pi-client-mark.svg', 'root-relative product mark'],
+    ['/assets/workspace-preview.webp', 'root-relative screenshot'],
     ['hreflang=\"en\"', 'English hreflang'],
     ['hreflang=\"zh-CN\"', 'Chinese hreflang'],
     ['<!--email_off-->', 'Cloudflare email-obfuscation exclusion'],
@@ -37,6 +37,9 @@ for (const page of pages) {
     if (!html.includes(needle)) {
       throw new Error(`${page.path} is missing ${label}.`);
     }
+  }
+  if (/(?:href|src)="\/pi-client\//.test(html)) {
+    throw new Error(`${page.path} unexpectedly contains the retired /pi-client/ base path.`);
   }
   if (/<script(?:\s|>)/i.test(html)) {
     throw new Error(`${page.path} unexpectedly contains client JavaScript.`);
