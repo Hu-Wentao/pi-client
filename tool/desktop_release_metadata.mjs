@@ -4,6 +4,8 @@ import { spawnSync } from "node:child_process";
 import { appendFile, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
+import { loadReleaseContract } from "./release_contract.mjs";
+
 const repositoryRoot = resolve(import.meta.dirname, "..");
 const options = parseArguments(process.argv.slice(2));
 const pubspec = await readFile(resolve(repositoryRoot, "pubspec.yaml"), "utf8");
@@ -12,6 +14,17 @@ const versionMatch =
 if (!versionMatch)
   throw new Error("pubspec.yaml must contain MAJOR.MINOR.PATCH+BUILD.");
 const [, version, buildNumber] = versionMatch;
+const releaseContract = await loadReleaseContract(undefined, {
+  requirePublication: options.channel === "stable",
+});
+if (
+  releaseContract.version !== version ||
+  releaseContract.buildNumber !== buildNumber
+) {
+  throw new Error(
+    "Desktop candidate metadata must match the active release contract version.",
+  );
+}
 const sourceCommit = runGit(["rev-parse", "HEAD"]).trim();
 if (!/^[0-9a-f]{40}$/u.test(sourceCommit))
   throw new Error("Source commit is not immutable.");

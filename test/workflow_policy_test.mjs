@@ -141,9 +141,15 @@ test('Capsule-aware macOS and Windows/Linux candidate workflows remain available
     'verify-macos-app-runtime-capsule.mjs',
     'sign-macos-app.mjs',
     'run_macos_bundled_app_e2e.mjs',
+    'release_metadata.mjs --require-profile macos-preview-v1 --require-publication',
   ]) {
     assert.ok(macos.includes(required), `release-macos.yml must contain ${required}`);
   }
+  assert.ok(
+    macos.indexOf('release_metadata.mjs --require-profile macos-preview-v1 --require-publication') <
+      macos.indexOf('Reject existing release identity'),
+    'release-macos.yml must fail closed before any remote release read or write',
+  );
   for (const required of [
     'channel:',
     '- candidate',
@@ -153,9 +159,40 @@ test('Capsule-aware macOS and Windows/Linux candidate workflows remain available
     'install-runtime-capsule-in-desktop-bundle.mjs',
     'run_desktop_bundled_app_e2e.mjs',
     'generate_desktop_artifact_manifest.mjs',
+    'desktop_release_metadata.mjs',
   ]) {
     assert.ok(desktop.includes(required), `release-desktop-candidates.yml must contain ${required}`);
   }
+});
+
+test('desktop candidate metadata matches the active contract and stable fails before packaging', async () => {
+  const script = resolve(repositoryRoot, 'tool/desktop_release_metadata.mjs');
+  const { stdout } = await execFileAsync(process.execPath, [
+    script,
+    '--platform',
+    'windows',
+    '--architecture',
+    'x64',
+    '--channel',
+    'candidate',
+  ]);
+  const metadata = JSON.parse(stdout);
+  assert.equal(metadata.version, '0.1.0');
+  assert.equal(metadata.buildNumber, '3');
+  assert.equal(metadata.channel, 'candidate');
+  await assert.rejects(
+    () =>
+      execFileAsync(process.execPath, [
+        script,
+        '--platform',
+        'windows',
+        '--architecture',
+        'x64',
+        '--channel',
+        'stable',
+      ]),
+    /publication-disabled/,
+  );
 });
 
 test('stable desktop admission fails closed when signing credentials are absent', async () => {
