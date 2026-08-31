@@ -1,14 +1,19 @@
 part of 'workspace.dart';
 
 class WorkspaceView extends StatelessWidget {
-  const WorkspaceView({super.key});
+  const WorkspaceView({this.piNodeApi, super.key});
+
+  final PiNodeApi? piNodeApi;
 
   @override
-  Widget build(BuildContext context) => const _WorkspaceViewBody();
+  Widget build(BuildContext context) =>
+      _WorkspaceViewBody(piNodeApi: piNodeApi);
 }
 
 class _WorkspaceViewBody extends StatefulWidget {
-  const _WorkspaceViewBody();
+  const _WorkspaceViewBody({required this.piNodeApi});
+
+  final PiNodeApi? piNodeApi;
 
   @override
   State<_WorkspaceViewBody> createState() => _WorkspaceViewBodyState();
@@ -128,18 +133,18 @@ class _WorkspaceViewBodyState extends State<_WorkspaceViewBody> {
         creating: model.creatingSession,
         onCreate: () => _requestCreateSession(viewModel, model.selectedProject),
       );
-      final editableMessageIds =
+      final editableEntryIds =
           model.sessionTree?.nodes
               .where((node) => node.canEditFromHere)
-              .map((node) => PiMessageId(node.id.value))
+              .map((node) => node.id)
               .toSet() ??
-          const <PiMessageId>{};
-      final forkableMessageIds =
+          const <PiSessionTreeEntryId>{};
+      final forkableEntryIds =
           model.sessionTree?.nodes
               .where((node) => node.canFork)
-              .map((node) => PiMessageId(node.id.value))
+              .map((node) => node.id)
               .toSet() ??
-          const <PiMessageId>{};
+          const <PiSessionTreeEntryId>{};
       final branchActionsEnabled =
           connected &&
           selectedSession != null &&
@@ -184,7 +189,9 @@ class _WorkspaceViewBodyState extends State<_WorkspaceViewBody> {
                 Expanded(
                   child: ConversationView(
                     session: selectedSession,
-                    messages: model.messages,
+                    entries: model.conversationEntries,
+                    projectId: model.selectedProject?.identity.projectId,
+                    piNodeApi: widget.piNodeApi,
                     isLoading: model.conversationLoading,
                     errorMessage: model.conversationError,
                     canLoadOlder: model.historyHasMore,
@@ -199,17 +206,17 @@ class _WorkspaceViewBodyState extends State<_WorkspaceViewBody> {
                         : () => viewModel.add(
                             WorkspaceSessionSelected(model.selectedSessionId!),
                           ),
-                    editableMessageIds: editableMessageIds,
-                    forkableMessageIds: forkableMessageIds,
+                    editableEntryIds: editableEntryIds,
+                    forkableEntryIds: forkableEntryIds,
                     branchActionsEnabled: branchActionsEnabled,
-                    onEditFromHere: (message) => viewModel.add(
+                    onEditFromHere: (entry) => viewModel.add(
                       WorkspaceSessionTreeNavigated(
-                        PiSessionTreeEntryId(message.id.value),
+                        PiSessionTreeEntryId(entry.identity.entryId),
                       ),
                     ),
-                    onForkFromHere: (message) => viewModel.add(
+                    onForkFromHere: (entry) => viewModel.add(
                       WorkspaceSessionForked(
-                        PiSessionTreeEntryId(message.id.value),
+                        PiSessionTreeEntryId(entry.identity.entryId),
                       ),
                     ),
                   ),

@@ -75,7 +75,7 @@ void main() {
         () =>
             viewModel.state.selectedSessionId == primary.id &&
             !viewModel.state.conversationLoading &&
-            viewModel.state.messages.length == 2,
+            viewModel.state.conversationEntries.length == 2,
       ),
     );
     await tester.pump(const Duration(milliseconds: 100));

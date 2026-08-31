@@ -18,6 +18,6 @@ class WorkspacePage extends GoRouteData with $WorkspacePage {
       service: WorkspaceService(context.read<PiNodeApi>()),
     ),
     onCreated: (context, vm) => vm.add(const WorkspaceStarted()),
-    child: const WorkspaceView(),
+    child: WorkspaceView(piNodeApi: context.read<PiNodeApi>()),
   );
 }

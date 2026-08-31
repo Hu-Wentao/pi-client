@@ -106,7 +106,7 @@ void main() {
         () =>
             viewModel.state.selectedSessionId == primary.id &&
             !viewModel.state.conversationLoading &&
-            viewModel.state.messages.length == 4,
+            viewModel.state.conversationEntries.length == 4,
       ),
     );
     await tester.pumpAndSettle();

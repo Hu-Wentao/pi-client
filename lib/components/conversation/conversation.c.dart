@@ -7,11 +7,17 @@
 /// - none
 /// State Ownership: none
 /// Capabilities:
-/// - Present a responsive first-party Pi conversation timeline with session context, shared message bubbles, accessible edit-from-here and fork actions for eligible user entries, automatic tail following, and loading, empty, and retryable error states.
+/// - Present a virtualized, responsive first-party Pi semantic conversation timeline with entry-specific user, assistant, tool, shell, custom, compaction, branch, marker, and forward-compatible fallback cards.
+/// - Render bounded Markdown, code, math, Mermaid, ANSI, JSON, unified diff, safe structured tool details, verified deferred images, and deferred text previews without network or file access from renderers.
+/// - Group tool calls, progress, and results beneath their originating assistant in source order; preserve pagination anchors, follow live output, throttle live-region announcements, and expose a desktop activity minimap.
+/// - Offer copy-raw/copy-plain actions and accessible edit-from-here/fork actions only for persisted tree-backed user entries.
 /// Public Views:
-/// - [ConversationView] — session conversation timeline driven only by `PiSessionSummary`, `PiMessage`, and callbacks.
+/// - [ConversationView] — semantic conversation timeline driven by `PiConversationEntry`, project/session identity, optional Pi Node content access, and callbacks.
 /// Widget Tree:
-/// - [ConversationView] > [_ConversationHeader], [MaterialBanner] (error), [ListView], [PiMessageBubble] × N, [_MessageBranchActions] (eligible user messages), [_ConversationEmptyState] (empty)
+/// - [ConversationView] > [_ConversationHeader], [MaterialBanner] (error), [ListView] > [_ConversationEntryTile] × visible entries, [_ActivityMinimap] (wide desktop), [_MessageBranchActions] (eligible persisted user entries), [_ConversationEmptyState] (empty)
 /// Theme: material
 
 part of 'conversation.dart';
+
+typedef ConversationEntryRenderObserver =
+    void Function(String entryId, int revision);
