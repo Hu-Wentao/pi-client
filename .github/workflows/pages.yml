@@ -215,6 +215,19 @@ jobs:
         with:
           enablement: true
 
+      - name: Verify canonical Pages domain
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/pages" > "$RUNNER_TEMP/pages-site.json"
+          jq -e '.cname == "pi.wyattcoder.top" and .build_type == "workflow"' \
+            "$RUNNER_TEMP/pages-site.json" >/dev/null || {
+              echo 'GitHub Pages must use the pi.wyattcoder.top custom domain and workflow builds.' >&2
+              exit 1
+            }
+
       - name: Upload Pages artifact
         if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4

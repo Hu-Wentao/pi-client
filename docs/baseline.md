@@ -85,6 +85,7 @@ Default review level: L6.
 - The macOS Preview is a Universal `arm64 + x86_64` ZIP, not a signed, notarized, sandbox-trusted, or DMG distribution. User-facing surfaces must disclose that boundary before download or installation.
 - Unsigned Preview storage uses `fr_storage_unsigned_preview` and a fixed public key that provides no secrecy; standard signed desktop storage remains in `fr_storage` with platform secure storage. Preview preferences do not automatically migrate to the signed channel.
 - The Landing Page uses the Pi Client-owned SVG and sanitized Flutter screenshot. It must not use Flutter/pi-web branding, production paths, credentials, private prompts, or real tool output.
+- The canonical product-site origin is `https://pi.wyattcoder.top/`; English is served at `/` and Simplified Chinese at `/zh-cn/`. The inherited `https://wyattcoder.top/pi-client/` path is not an accepted production target.
 - GitHub Pages may deploy only while its exact current-version GitHub Release asset is public. A passing local site build is not publication evidence.
 - Current pi-web compatibility is transitional and does not authorize a WebAssembly build or weaken the planned independent, versioned Pi SDK/transport boundary.
 

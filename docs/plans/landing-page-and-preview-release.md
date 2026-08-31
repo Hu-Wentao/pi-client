@@ -38,7 +38,7 @@ mdq:
 
 - Status: Partially implemented
 - Review level: L9（目标与范围）/ L6（实现路径）
-- Target: 提供中英文独立 Landing Page、精确 `v0.0.2` 下载入口和可审计的未签名 Universal macOS Preview 发布流程。
+- Target: 在 `https://pi.wyattcoder.top/` 提供中英文独立 Landing Page、精确 `v0.0.2` 下载入口和可审计的未签名 Universal macOS Preview 发布流程。
 
 ### 当前事实
 
@@ -48,12 +48,13 @@ mdq:
 - 当前没有 Developer ID、Notarization 或 DMG 发布证据。
 - WebAssembly Client 依赖尚未冻结的第一方 Pi SDK/transport、Friday Workspace 和浏览器安全边界，本计划不实现它。
 - `PLAN-PI-004` 在不改写当前 `v0.0.2` 的前提下建立未来六平台 CI 和 Preview Artifact Profile；本计划继续只拥有现有 macOS 下载与 Landing Page 事实。
+- 用户已确认 `https://wyattcoder.top/pi-client/` 是错误部署目标；Landing Page 的规范域名为 `https://pi.wyattcoder.top/`，旧路径的历史部署证据不能替代该域名的生产验收。
 
 ### 已实现源码范围
 
 1. `site/` 使用 Astro `7.2.9`、Bun `1.4.0` 和锁文件生成英文根路由及简体中文 `/zh-cn/` 路由。
 2. 页面包含精确 `v0.0.2` Universal ZIP 下载 CTA、当前能力、过渡架构、安全边界、限制、canonical、`hreflang` 和 Open Graph 元数据。
-3. 生产页面不使用客户端 hydration；构建验证拒绝业务 JavaScript、错误子路径资产和漂移的下载 URL。
+3. 生产页面不使用客户端 hydration；构建验证拒绝业务 JavaScript、退役的 `/pi-client/` 子路径资产和漂移的下载 URL。
 4. 原创 SVG 是 App Icon、favicon 和社交分享图的单一品牌来源；确定性脚本生成 macOS PNG 尺寸、分享图和 Landing Page 截图 WebP。
 5. 营销截图由 Flutter Widget 测试使用真实 Roboto 和 Material Icons 字体、合成路径、会话、提示和输出生成；测试拒绝真实用户路径、密码和 token 文本，并将跨宿主字体栅格差异限制在 0.02%。
 6. `unsigned-preview` 分发通道使用独立 `fr_storage_unsigned_preview` 目录和固定公开 32 字节密钥，不访问 Keychain；标准 Release 继续使用 `fr_storage` 和平台安全存储。
@@ -68,14 +69,14 @@ mdq:
 1. `main` 和 annotated `decision/015-landing-page-and-preview-release` 已推送。
 2. annotated `v0.0.2` 固定到 `ac2b492cf595a715fc5e86f7e850ae5bcaf4c942`。
 3. GitHub prerelease 已公开 20,344,765 字节 Universal ZIP 与 102 字节 SHA-256；重新下载后的 checksum、Bundle metadata 和 `arm64 + x86_64` 已复核。
-4. GitHub Pages 已通过 workflow 部署到 `https://wyattcoder.top/pi-client/` 和 `/zh-cn/`；精确 Release CTA、canonical、资源、零客户端 JavaScript和 Cloudflare 命令防改写已在生产 HTML 验证。
-5. Chrome production Lighthouse 为 Performance 94、Accessibility 100、Best Practices 100、SEO 100。
+4. 历史 Pages run `33309764563` 曾把同一站点产物部署到 `https://wyattcoder.top/pi-client/`；该运行只保留为旧路径证据，不满足当前规范域名验收。
+5. 旧路径上的 Chrome production Lighthouse 为 Performance 94、Accessibility 100、Best Practices 100、SEO 100；迁移后仍需在规范域名重新验收。
 
 仍未完成：
 
-1. Safari WebDriver 因宿主未启用 **Allow Remote Automation** 而无法执行；尚无 Safari 渲染验收证据。
-2. VoiceOver 与浏览器 200% 缩放仍需人工验收。
-3. 账户级 Cloudflare 自定义域名可通过 HTTPS 访问，但 GitHub Pages API 无法启用 `https_enforced`，且 HTTP 当前不自动跳转 HTTPS；修复需要独立的共享 Cloudflare/域名治理授权。
+1. `pi.wyattcoder.top` 的 GitHub Pages 自定义域名、Cloudflare DNS、TLS 与规范域名生产部署仍需完成并验收。
+2. Safari WebDriver 因宿主未启用 **Allow Remote Automation** 而无法执行；尚无 Safari 渲染验收证据。
+3. VoiceOver 与浏览器 200% 缩放仍需人工验收。
 
 ### v0.0.2 历史发布准入
 
@@ -101,4 +102,4 @@ mdq:
 
 ### 完成条件
 
-本计划只有在 `VER-PI-013` 取得公开 Release、资产、Pages 和生产人工验收证据后才能改为 Completed。源码和工作流验证只满足 `VER-PI-012`，不能替代外部发布证据。
+本计划只有在 `VER-PI-013` 取得公开 Release、资产、`https://pi.wyattcoder.top/` Pages 部署和生产人工验收证据后才能改为 Completed。源码和工作流验证只满足 `VER-PI-012`，旧 `/pi-client/` 路径的历史部署也不能替代规范域名证据。

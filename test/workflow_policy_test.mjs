@@ -319,6 +319,8 @@ test('Pages binds release dispatch to one annotated tag object and its peeled so
     "github.ref == 'refs/heads/main' || needs.source.outputs.releaseRequest == 'true'",
     'Requested release tag $REQUESTED_TAG does not match frozen metadata $METADATA_TAG',
     'gh api --paginate --slurp',
+    'Verify canonical Pages domain',
+    '.cname == "pi.wyattcoder.top" and .build_type == "workflow"',
     'Duplicate GitHub Releases',
     'exact non-zero asset set',
     'node tool/release_metadata.mjs',
