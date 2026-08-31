@@ -77,17 +77,17 @@ Default review level: L6.
 - `PlatformCapabilities` is the application-wide code authority for this role mapping; feature code must not duplicate ad hoc platform checks.
 - Agent-host capability does not prove that the Pi SDK runtime is implemented or available in the current release.
 
-## BASE-PI-007 - Preview distribution and product-site integrity
+## BASE-PI-007 - Archived Preview and product-site integrity
 
 - Status: Active
 - Review level: L9
-- The current public version target is `0.0.2+2`; the macOS app name is `Pi Client`, and the release asset identity is `v0.0.2/Pi-Client-0.0.2-macOS-universal.zip`.
-- The macOS Preview is a Universal `arm64 + x86_64` ZIP, not a signed, notarized, sandbox-trusted, or DMG distribution. User-facing surfaces must disclose that boundary before download or installation.
-- Unsigned Preview storage uses `fr_storage_unsigned_preview` and a fixed public key that provides no secrecy; standard signed desktop storage remains in `fr_storage` with platform secure storage. Preview preferences do not automatically migrate to the signed channel.
-- The Landing Page uses the Pi Client-owned SVG and sanitized Flutter screenshot. It must not use Flutter/pi-web branding, production paths, credentials, private prompts, or real tool output.
+- The immutable historical release identity remains `0.0.2+2` and `v0.0.2/Pi-Client-0.0.2-macOS-universal.zip`; its Tag, bytes, checksum, signing disclosures, storage boundary, and recorded deployment evidence must not be rewritten.
+- The historical macOS Preview is not the current product entry. The Landing Page must not render its download URL, version, installation flow, signing warning, runtime adapter, or Workspace screenshot.
+- The current product site presents Pi Client as an independent, open-source Flutter client with six platform targets. It may state the verified execution-role contract, but must label undelivered Host runtime and transport work as active development rather than current capability.
+- Product-site visuals use Pi Client-owned brand and platform-role assets only. They must not contain production paths, credentials, private prompts, real tool output, archived runtime branding, or unverified feature claims.
 - The canonical product-site origin is `https://pi.wyattcoder.top/`; English is served at `/` and Simplified Chinese at `/zh-cn/`. The inherited `https://wyattcoder.top/pi-client/` path is not an accepted production target.
-- GitHub Pages may deploy only while its exact current-version GitHub Release asset is public. A passing local site build is not publication evidence.
-- Current pi-web compatibility is transitional and does not authorize a WebAssembly build or weaken the planned independent, versioned Pi SDK/transport boundary.
+- Historical release metadata may remain machine-readable for release verification without being imported by the rendered product page. Existing Pages Release-asset admission remains unchanged until a separate release-workflow decision replaces it.
+- A passing local site build is source evidence only. Current publication requires an exact successful Pages run plus production canonical, content-exclusion, asset, HTTPS, and accessibility evidence.
 
 ## BASE-PI-008 - Cross-platform build and Preview release integrity
 

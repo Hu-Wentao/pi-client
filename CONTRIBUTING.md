@@ -28,8 +28,7 @@ mdq:
 2. Run `fvm install` and `fvm flutter pub get`.
 3. For Landing Page work, run `cd site && bun install`.
 4. Run `fvm flutter devices` and choose a device ID.
-5. For legacy workspace smoke testing, start pi-web `0.8.11` on a URL that the client device can reach.
-6. Run `fvm flutter run -d DEVICE_ID`.
+5. Run `fvm flutter run -d DEVICE_ID`.
 
 Do not commit credentials, local pi sessions, provider data, developer-team identities, signing files, `.agents/` skill copies, `.fvm/`, `.dart_tool/`, build output, CocoaPods output, or captured user prompts.
 
@@ -39,7 +38,7 @@ Do not commit credentials, local pi sessions, provider data, developer-team iden
 
 - Treat `lib/app/workspace/workspace.c.dart` as the current workspace source contract.
 - Keep route ownership in `workspace.page.dart`, state and API work in `workspace.vm.dart`, rendering in `workspace.v.dart`, and transport adaptation in `workspace.srv.dart`.
-- Treat `PiWebGateway` as a legacy adapter. Do not add new product or platform dependencies on pi-web.
+- Do not add product or platform dependencies on legacy external gateway adapters; new behavior belongs behind Pi Client-owned runtime and transport boundaries.
 - Use `PlatformCapabilities` as the only platform execution-role authority. macOS, Windows, and Linux may host an Agent; Android, iOS, and Web remain connect-only.
 - Keep future Pi SDK and Agent host implementations behind a desktop-only host boundary. Mobile and Web builds must not import or package them.
 - Use typed `go_router_builder` routes and keep host filesystem access outside presentation code.
@@ -85,7 +84,7 @@ ASTRO_TELEMETRY_DISABLED=1 bun run build
 bun run validate
 ```
 
-Run `node tool/release_metadata.mjs` whenever the app version, Artifact Profile, release asset, Release Notes, or Landing Page download CTA changes. `pubspec.yaml` owns the version/build number; `release/release.json` only selects the current profile and primary target.
+Run `node tool/release_metadata.mjs` whenever the app version, Artifact Profile, release asset, Release Notes, or the machine-readable Landing Page release block changes. `pubspec.yaml` owns the version/build number; `release/release.json` only selects the current profile and primary target. The independent product page does not render archived release metadata.
 
 When the UI intentionally changes, review the rendered result before running:
 
@@ -99,13 +98,13 @@ fvm flutter test test/workspace_golden_test.dart --update-goldens
 
 Keep changes focused. Update requirements, baselines, comparison scope, tests, generated files, and compatibility notes only when the behavior they own changes. List breaking changes explicitly; Pi Client remains unstable while its version is `0.x`.
 
-## CONTRIB-005 - Brand, screenshot, and release maintenance
+## CONTRIB-005 - Brand and release maintenance
 
 - Status: Active
 
-- Edit `assets/brand/pi-client-mark.svg` as the product-mark source, then run `cd site && bun run brand`. Commit the generated favicon, social card, screenshot WebP, and every macOS App Icon size together.
-- Generate the marketing screenshot with `fvm flutter test test/marketing_screenshot_test.dart --update-goldens`, inspect the final pixels, then run `cd site && bun run brand` to refresh its WebP delivery asset. Use only synthetic paths, sessions, prompts, and output. Its comparator permits at most 0.02% cross-host font raster variance and must still reject structural changes.
-- Keep release metadata synchronized across `pubspec.yaml`, `release/release.json`, `site/package.json`, `site/src/content/copy.ts`, release notes, and workflow-generated asset names.
+- Edit `assets/brand/pi-client-mark.svg` as the product-mark source and `assets/brand/social-card.svg` as the social-card source, then run `cd site && bun run brand`. Commit the generated favicon, social card, and every macOS App Icon size together.
+- The independent product page uses brand and platform-role visuals only. Do not add screenshots or copy that expose legacy adapters, private prompts, credentials, production paths, tool output, archived downloads, or unverified runtime capabilities.
+- Keep release metadata synchronized across `pubspec.yaml`, `release/release.json`, `site/package.json`, the machine-readable release block in `site/src/content/copy.ts`, release notes, and workflow-generated asset names. Historical metadata may remain machine-readable without being rendered by the current product page.
 - Keep `macos-preview-v1` while maintaining the immutable `v0.0.2` release. A later version may select `six-platform-preview-v1` only together with matching site copy and Release Notes; never use a profile change to add new bytes to an old Tag.
 - Run the Release workflow in `qualify` mode before requesting publication. `publish` requires separate current authorization, main, a monotonic version, all six native runner builds, the exact aggregate file set, manifest/checksum verification, and Draft asset readback. The remote identity must be absent or an exact recoverable annotated Tag/Draft/public Release for the same commit. Recovery requires the original qualification `resume_run_id`; it reuses that exact retained bundle, never moves a Tag or overwrites an uploaded asset, and may delete only one revalidated Draft `starter/0-byte` failure before retransmission.
 - Do not manually move, overwrite, or delete a release tag or published asset. The manual Release workflow owns admission, annotated Tag creation, platform checks, aggregate upload, digest readback, and publication.

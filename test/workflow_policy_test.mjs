@@ -354,13 +354,15 @@ test('Pages tag binding policy rejects main dispatch and unpeeled remote commit 
   );
 });
 
-test('site validation derives the download URL from the active release contract', async () => {
+test('site validation derives and rejects the historical release download', async () => {
   const source = await readFile(
     resolve(repositoryRoot, 'site/scripts/validate-built-site.mjs'),
     'utf8',
   );
   assert.ok(source.includes("import { loadReleaseContract } from '../../tool/release_contract.mjs';"));
-  assert.ok(source.includes('(await loadReleaseContract()).downloadUrl'));
+  assert.ok(source.includes('const historicalDownload = (await loadReleaseContract()).downloadUrl;'));
+  assert.ok(source.includes("[historicalDownload, 'historical release download']"));
+  assert.ok(source.includes('must not expose'));
   assert.ok(!source.includes('/releases/download/v0.0.2/'));
 });
 

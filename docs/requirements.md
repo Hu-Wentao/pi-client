@@ -140,13 +140,13 @@ Default review level: L6. Requirements derived directly from the user-provided M
 
 ## REQ-PI-012 - Provide a public product and download entry
 
-- Status: Planned
+- Status: Superseded
 - Priority: Must
 - Review level: L9
-- Actor and goal: A prospective user can understand Pi Client in English or Simplified Chinese, inspect its current limits, and download the exact current macOS Preview from a stable product page.
-- Constraints: The Landing Page must describe only delivered behavior; pi-web `0.8.11` is identified as transitional; unsigned and unnotarized assets disclose Gatekeeper risk; WebAssembly, signed DMG, and planned Pi SDK/transport features are not presented as available.
-- Source: `DEC-015` and `PLAN-PI-003`.
-- Acceptance: GitHub Pages serves `https://pi.wyattcoder.top/` and `https://pi.wyattcoder.top/zh-cn/`; both routes link to the published `v0.0.2/Pi-Client-0.0.2-macOS-universal.zip`; the ZIP and SHA-256 are public; production canonical metadata and root-relative assets use the `pi.wyattcoder.top` origin; responsive behavior, keyboard access, and representative Safari/Chrome rendering are verified.
+- Actor and goal: A prospective user could understand the historical macOS Preview and download its exact immutable asset from the original product page.
+- Constraints: This requirement records the accepted `DEC-015` release boundary and no longer defines the current product-site content or CTA.
+- Source: `DEC-015` and `PLAN-PI-003`; superseded for current product presentation by `DEC-017` and `REQ-PI-014`.
+- Acceptance: Historical `v0.0.2` Tag, Release assets, checksums, and deployment evidence remain immutable and queryable; the current Landing Page is not required or permitted to promote that archived download.
 
 ## REQ-PI-013 - Qualify and publish an auditable cross-platform Preview
 
@@ -157,3 +157,13 @@ Default review level: L6. Requirements derived directly from the user-provided M
 - Constraints: Every platform uses the shared version and an appropriate native runner; current `v0.0.2` remains macOS-only and immutable; unsigned/no-codesign state is explicit; Android Release never falls back to Debug signing; Android, iOS, and Web remain connect-only; no artifact contains Pi SDK or Agent Host runtime until that implementation is separately accepted.
 - Source: `DEC-016` and `PLAN-PI-004`.
 - Acceptance: Shared quality gates and all six platform builds pass for the same full commit; the selected monotonic Artifact Profile yields the exact expected application files, platform-owned stage evidence, deterministic manifest, and checksums; missing, unexpected, duplicate, wrong-source, unsafe Host-name, or zero-byte assets fail qualification; publication creates or resumes only the same annotated Tag/commit, never overwrites an existing asset, and exposes a Draft only after service-side asset and downloaded-digest verification.
+
+## REQ-PI-014 - Present the independent Pi Client product
+
+- Status: Active
+- Priority: Must
+- Review level: L9
+- Actor and goal: A prospective user can understand Pi Client in English or Simplified Chinese as an independent, open-source, cross-platform Flutter client for the pi coding agent.
+- Constraints: The product site may present the six platform projects and verified execution-role contract, but it must separate delivered source facts from runtime work still in development. It must not expose legacy adapter names, archived Preview downloads, retired screenshots, platform-specific installation instructions, or unverified Pi Node, Local Direct, Friday Workspace, Agent Host, signing, or distribution claims.
+- Source: User product-identity correction and `DEC-017`.
+- Acceptance: `https://pi.wyattcoder.top/` and `/zh-cn/` serve canonical bilingual static pages with GitHub and contribution CTAs, name Android, iOS, macOS, Windows, Linux, and Web, explain desktop host-capable versus mobile/Web connect-only roles with a delivery caveat, contain no client JavaScript, and reject legacy runtime text, archived release URLs, retired screenshot assets, and `/pi-client/` paths.
