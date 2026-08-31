@@ -411,7 +411,7 @@ jobs:
               test -s "$EXE"
               file "$EXE" | grep -Eq 'PE32\+.*x86-64'
               powershell -NoProfile -Command \
-                "\$v=(Get-Item -LiteralPath '$EXE').VersionInfo; if (\$v.ProductName -ne 'Pi Client' -or \$v.ProductVersion -ne '$VERSION') { throw 'Windows identity or version mismatch.' }; if ((Get-AuthenticodeSignature -LiteralPath '$EXE').Status -ne 'NotSigned') { throw 'Expected NotSigned Windows executable.' }"
+                "\$v=(Get-Item -LiteralPath '$EXE').VersionInfo; if (\$v.ProductName -ne 'Pi Client') { throw 'Windows product identity mismatch.' }; if (\$v.ProductVersion -ne '$VERSION+$BUILD_NUMBER') { throw 'Windows product version mismatch.' }; if ((Get-AuthenticodeSignature -LiteralPath '$EXE').Status -ne 'NotSigned') { throw 'Expected NotSigned Windows executable.' }"
               WIN_ZIP="$RUNNER_TEMP/Pi-Client-Windows.zip"
               powershell -NoProfile -Command \
                 "Compress-Archive -Path '$BUNDLE/*' -DestinationPath '$WIN_ZIP' -CompressionLevel Optimal"
