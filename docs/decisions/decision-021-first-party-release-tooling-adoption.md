@@ -45,6 +45,6 @@ mdq:
 - 产物边界：macOS、Windows 和 Linux 聚合候选必须记录 `hostRuntimeIncluded: true`，并先通过平台 Capsule verifier、安装布局、manifest、启动或 E2E 门禁；Android、iOS、Web JavaScript 和 WebAssembly 必须记录 `false` 并通过 connect-only 扫描。
 - 签名边界：活动聚合 Profile 只属于 development candidate。稳定 Windows/Linux 候选在缺少 Authenticode/GPG 凭据时失败；macOS ad-hoc 资格不等于 Developer ID 或 Notarization；任何 stable Release 仍需要新的发布授权与完整签名门禁。
 - Homebrew 边界：保留确定性 Cask 工具和测试，但只有 publication-enabled、已公开、精确 Tag/commit/asset/SHA-256 证据和 Universal macOS 资产同时存在时才允许生成。当前产品页、README 和贡献指南不显示未发布 Homebrew 或下载入口。
-- 与既有决策的关系：保留 `DEC-016` 的工具和不可变发布治理，取代其“当前桌面 artifact 不含 Host runtime”和 `six-platform-preview-v1` 活动身份；保留 `DEC-017` 的独立产品站边界；将 `DEC-018` 的即时 `v0.0.3`/Homebrew 发布路径归档为未执行历史授权；`DEC-019` 与 `DEC-020` 的历史快照及项目自有产品权威保持不变。
+- 与既有决策的关系：保留 `DEC-016` 的工具和不可变发布治理，取代其“当前桌面 artifact 不含 Host runtime”和 `six-platform-preview-v1` 活动身份；保留 `DEC-017` 的独立产品站边界；`DEC-018` 后来在 `main` lineage 形成了不可变 transitional `v0.0.3`/Homebrew 历史交付，该执行事实由 `VER-PI-027` 与 `VER-PI-028` 保留，但不恢复为当前产品或发布权威；`DEC-019` 与 `DEC-020` 的历史快照及项目自有产品权威保持不变。
 - 计划关系：跨平台资格与发布工具由 `PLAN-PI-007` 维护；Homebrew 后续入口由 `PLAN-PI-006` 维护；完整产品和 `1.0.0` 继续由 `PLAN-PI-004` 负责。
 - 兼容性：从 `0.0.3+3` transitional Preview 草案切换到未发布 `0.1.0+3` 第一方开发身份，属于未发布发布合同 Breaking correction；不改变已发布 Tag、Release 或远端字节。
