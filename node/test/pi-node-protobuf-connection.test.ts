@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { stat } from "node:fs/promises";
 import test from "node:test";
 
 import { create, type MessageInitShape } from "@bufbuild/protobuf";
@@ -9,6 +11,7 @@ import {
   MAX_TRANSFER_CHUNK_BYTES,
   PiTransportFrameSchema,
   SessionAdminOperation,
+  SessionExportFormat,
   SessionTreeMutationOperation,
   decodeTransportFrame,
   encodeTransportFrame,
@@ -125,6 +128,7 @@ test("handshake selects the first explicitly supported offered v0 version and ca
         patch: 0,
       });
       assert.deepEqual(accepted.operation.value.capabilities, [
+        Capability.TRANSFER,
         Capability.ABORT_COMMAND,
         Capability.SESSION_READ,
         Capability.SESSION_EVENTS,
@@ -635,6 +639,216 @@ test("preserves an uncertain prompt admission as a correlated error", async () =
     }
   } finally {
     await server.dispose();
+  }
+});
+
+test("streams large exports only within byte credit and the 16-chunk ACK window", async () => {
+  const domain = new FakeProtocolDomain();
+  const payload = new Uint8Array(20 * 64 * 1024 + 7);
+  for (let index = 0; index < payload.length; index += 1) payload[index] = index % 251;
+  domain.exportPayload = payload;
+  const { output, server } = connection(domain);
+  try {
+    await handshake(
+      server,
+      protocolOffer(
+        [{ major: 0, minor: 1, patch: 0 }],
+        [
+          Capability.PROJECT_DISCOVERY,
+          Capability.SESSION_EXPORT,
+          Capability.TRANSFER,
+          Capability.FLOW_CONTROL,
+          Capability.CANCELLATION,
+        ],
+      ),
+    );
+    await bootstrapProject(server);
+    await server.receive(
+      clientFrame(3n, {
+        case: "exportSessionRequest",
+        value: {
+          requestId: 1n,
+          projectId: defaultProjectId,
+          sessionId: "session-1",
+          format: SessionExportFormat.JSONL,
+          expectedActiveBranchRevision: "active-revision-session-1-1",
+          expectedTreeRevision: "revision-session-1-1",
+        },
+      }),
+    );
+
+    const opened = output.at(-1);
+    assert.equal(opened?.operation.case, "transferOpen");
+    if (opened?.operation.case !== "transferOpen") return;
+    const transferId = opened.operation.value.transferId;
+    const chunkBytes = opened.operation.value.chunkBytes;
+    assert.equal(chunkBytes, 64 * 1024);
+    assert.equal(opened.operation.value.totalBytes, BigInt(payload.length));
+    assert.deepEqual(
+      Buffer.from(opened.operation.value.sha256),
+      createHash("sha256").update(payload).digest(),
+    );
+    assert.equal(
+      output.some((frame) => frame.operation.case === "transferChunk"),
+      false,
+    );
+    assert.ok(domain.lastExportPath);
+    await stat(domain.lastExportPath);
+
+    await server.receive(
+      clientFrame(4n, {
+        case: "windowUpdate",
+        value: {
+          target: { case: "transferId", value: transferId },
+          creditMessages: 0,
+          creditBytes: BigInt(payload.length),
+        },
+      }),
+    );
+    let chunks = output.filter((frame) => frame.operation.case === "transferChunk");
+    assert.equal(chunks.length, 16);
+    for (let index = 0; index < chunks.length; index += 1) {
+      const frame = chunks[index]!;
+      assert.equal(frame.operation.case, "transferChunk");
+      if (frame.operation.case === "transferChunk") {
+        assert.equal(frame.operation.value.chunkSequence, BigInt(index + 1));
+        assert.equal(frame.operation.value.offset, BigInt(index * chunkBytes));
+      }
+    }
+
+    const sixteenth = chunks[15]!;
+    assert.equal(sixteenth.operation.case, "transferChunk");
+    if (sixteenth.operation.case !== "transferChunk") return;
+    const committedAtSixteen =
+      sixteenth.operation.value.offset + BigInt(sixteenth.operation.value.data.length);
+    await server.receive(
+      clientFrame(5n, {
+        case: "transferAck",
+        value: {
+          transferId,
+          acknowledgedSequence: 16n,
+          committedBytes: committedAtSixteen,
+        },
+      }),
+    );
+    chunks = output.filter((frame) => frame.operation.case === "transferChunk");
+    assert.equal(chunks.length, 21);
+    const last = chunks.at(-1)!;
+    assert.equal(last.operation.case, "transferChunk");
+    if (last.operation.case !== "transferChunk") return;
+    assert.equal(last.operation.value.chunkSequence, 21n);
+    assert.equal(
+      last.operation.value.offset + BigInt(last.operation.value.data.length),
+      BigInt(payload.length),
+    );
+
+    await server.receive(
+      clientFrame(6n, {
+        case: "transferAck",
+        value: {
+          transferId,
+          acknowledgedSequence: 21n,
+          committedBytes: BigInt(payload.length),
+        },
+      }),
+    );
+    const completed = output.at(-1);
+    assert.equal(completed?.operation.case, "transferComplete");
+    if (completed?.operation.case === "transferComplete") {
+      assert.equal(completed.operation.value.totalBytes, BigInt(payload.length));
+      assert.deepEqual(
+        Buffer.from(completed.operation.value.sha256),
+        createHash("sha256").update(payload).digest(),
+      );
+    }
+    await assert.rejects(() => stat(domain.lastExportPath!));
+  } finally {
+    await server.dispose();
+  }
+});
+
+test("aborts invalid export ACKs and explicit cancellation with temp-file cleanup", async () => {
+  for (const mode of ["invalid-ack", "cancel"] as const) {
+    const domain = new FakeProtocolDomain();
+    domain.exportPayload = new Uint8Array(1024).fill(7);
+    const { output, server } = connection(domain);
+    try {
+      await handshake(
+        server,
+        protocolOffer(
+          [{ major: 0, minor: 1, patch: 0 }],
+          [
+            Capability.PROJECT_DISCOVERY,
+            Capability.SESSION_EXPORT,
+            Capability.TRANSFER,
+            Capability.FLOW_CONTROL,
+            Capability.CANCELLATION,
+          ],
+        ),
+      );
+      await bootstrapProject(server);
+      await server.receive(
+        clientFrame(3n, {
+          case: "exportSessionRequest",
+          value: {
+            requestId: 1n,
+            projectId: defaultProjectId,
+            sessionId: "session-1",
+            format: SessionExportFormat.HTML,
+            expectedActiveBranchRevision: "",
+            expectedTreeRevision: "",
+          },
+        }),
+      );
+      const opened = output.at(-1);
+      assert.equal(opened?.operation.case, "transferOpen");
+      if (opened?.operation.case !== "transferOpen") continue;
+      const transferId = opened.operation.value.transferId;
+      assert.ok(domain.lastExportPath);
+      await stat(domain.lastExportPath);
+
+      if (mode === "invalid-ack") {
+        await server.receive(
+          clientFrame(4n, {
+            case: "windowUpdate",
+            value: {
+              target: { case: "transferId", value: transferId },
+              creditMessages: 0,
+              creditBytes: 1024n,
+            },
+          }),
+        );
+        await server.receive(
+          clientFrame(5n, {
+            case: "transferAck",
+            value: {
+              transferId,
+              acknowledgedSequence: 1n,
+              committedBytes: 1000n,
+            },
+          }),
+        );
+      } else {
+        await server.receive(
+          clientFrame(4n, {
+            case: "cancel",
+            value: { target: { case: "transferId", value: transferId } },
+          }),
+        );
+      }
+
+      const aborted = output.at(-1);
+      assert.equal(aborted?.operation.case, "transferAbort");
+      if (aborted?.operation.case === "transferAbort") {
+        assert.equal(
+          aborted.operation.value.error?.code,
+          mode === "invalid-ack" ? ErrorCode.PROTOCOL_VIOLATION : ErrorCode.CANCELLED,
+        );
+      }
+      await assert.rejects(() => stat(domain.lastExportPath!));
+    } finally {
+      await server.dispose();
+    }
   }
 });
 

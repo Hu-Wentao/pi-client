@@ -173,6 +173,22 @@ final class LazyHostedPiNodeApi
   ) => _requireConnectedApi().getSessionTree(projectId, sessionId);
 
   @override
+  Future<PiSessionHistoryPage> getSessionHistory(
+    PiSessionHistoryRequest request,
+  ) => _requireConnectedApi().getSessionHistory(request);
+
+  @override
+  Future<PiSessionStats> getSessionStats(
+    PiProjectId projectId,
+    PiSessionId sessionId,
+  ) => _requireConnectedApi().getSessionStats(projectId, sessionId);
+
+  @override
+  Future<PiSessionExportHandle> exportSession(
+    PiSessionExportRequest request,
+  ) => _requireConnectedApi().exportSession(request);
+
+  @override
   Future<PiSessionTreeMutationResult> navigateSessionTree(
     PiNavigateSessionTreeCommand command,
   ) => _requireConnectedApi().navigateSessionTree(command);
@@ -407,6 +423,22 @@ final class UnavailablePiNodeApi
     PiProjectId projectId,
     PiSessionId sessionId,
   ) => Future<PiSessionTree>.error(_failure);
+
+  @override
+  Future<PiSessionHistoryPage> getSessionHistory(
+    PiSessionHistoryRequest request,
+  ) => Future<PiSessionHistoryPage>.error(_failure);
+
+  @override
+  Future<PiSessionStats> getSessionStats(
+    PiProjectId projectId,
+    PiSessionId sessionId,
+  ) => Future<PiSessionStats>.error(_failure);
+
+  @override
+  Future<PiSessionExportHandle> exportSession(
+    PiSessionExportRequest request,
+  ) => Future<PiSessionExportHandle>.error(_failure);
 
   @override
   Future<PiSessionTreeMutationResult> navigateSessionTree(

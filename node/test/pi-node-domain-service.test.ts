@@ -16,6 +16,9 @@ import {
   type PiNodeSessionBackendEvent,
   type PiNodeSessionBackendMutationResult,
   type PiNodeSessionBackendSnapshot,
+  type PiNodeSessionExportFormat,
+  type PiNodeSessionHistoryPage,
+  type PiNodeSessionStats,
   type PiNodeSessionSummary,
   type PiNodeSessionTreeSnapshot,
 } from "../src/pi-node-domain.js";
@@ -138,6 +141,60 @@ class FakeSessionBackend implements PiNodeDomainSessionBackend {
       persistence: "persistent",
       messages: this.messages,
     };
+  }
+
+  getHistoryPage(input: {
+    readonly cursor?: string;
+    readonly limit: number;
+  }): PiNodeSessionHistoryPage {
+    const end = input.cursor === undefined ? this.messages.length : Number(input.cursor);
+    const start = Math.max(0, end - input.limit);
+    return {
+      summary: this.getSnapshot(),
+      messages: this.messages.slice(start, end),
+      ...(start > 0 ? { nextCursor: String(start) } : {}),
+      hasMore: start > 0,
+      activeBranchRevision: `active-${this.adminRevision}`,
+      treeRevision: this.adminRevision,
+      lastEventSequence: 0,
+    };
+  }
+
+  getStats(input: {
+    readonly project: import("../src/pi-node-domain.js").PiNodeProjectSnapshot;
+  }): PiNodeSessionStats {
+    return {
+      projection: {
+        sessionFileName: `${this.sessionId}.jsonl`,
+        sessionId: this.sessionId,
+        projectId: input.project.identity.projectId,
+        canonicalProjectDirectory: this.cwd,
+        worktreeId: input.project.identity.worktreeId,
+        mainProjectId: input.project.identity.mainProjectId,
+        isLinkedWorktree: input.project.identity.isLinkedWorktree,
+        isDetachedHead: input.project.identity.isDetachedHead,
+      },
+      userMessages: this.messages.filter((item) => item.role === "user").length,
+      assistantMessages: this.messages.filter((item) => item.role === "assistant").length,
+      toolCalls: 0,
+      toolResults: this.messages.filter((item) => item.role === "tool").length,
+      totalMessages: this.messages.length,
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      totalTokens: 0,
+      cost: 0,
+      activeTimeMillis: 0,
+    };
+  }
+
+  async exportToPath(input: {
+    readonly format: PiNodeSessionExportFormat;
+    readonly outputPath: string;
+  }): Promise<void> {
+    const payload = input.format === "html" ? "<html></html>" : '{"type":"session"}\n';
+    await writeFile(input.outputPath, payload, "utf8");
   }
 
   subscribe(listener: (event: PiNodeSessionBackendEvent) => void): () => void {

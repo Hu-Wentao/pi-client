@@ -85,6 +85,49 @@ export interface PiNodeSessionSnapshot extends PiNodeSessionSummary {
   readonly lastEventSequence: number;
 }
 
+export interface PiNodeSessionHistoryPage {
+  readonly summary: PiNodeSessionSummary;
+  readonly messages: readonly PiNodeMessage[];
+  readonly nextCursor?: string;
+  readonly hasMore: boolean;
+  readonly activeBranchRevision: string;
+  readonly treeRevision: string;
+  readonly lastEventSequence: number;
+}
+
+export interface PiNodeSessionSafeProjection {
+  readonly sessionFileName: string;
+  readonly sessionId: string;
+  readonly projectId: string;
+  readonly canonicalProjectDirectory: string;
+  readonly worktreeId: string;
+  readonly mainProjectId: string;
+  readonly branch?: string;
+  readonly isLinkedWorktree: boolean;
+  readonly isDetachedHead: boolean;
+}
+
+export interface PiNodeSessionStats {
+  readonly projection: PiNodeSessionSafeProjection;
+  readonly userMessages: number;
+  readonly assistantMessages: number;
+  readonly toolCalls: number;
+  readonly toolResults: number;
+  readonly totalMessages: number;
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+  readonly cacheReadTokens: number;
+  readonly cacheWriteTokens: number;
+  readonly totalTokens: number;
+  readonly cost: number;
+  readonly contextTokens?: number;
+  readonly contextWindow?: number;
+  readonly contextPercent?: number;
+  readonly activeTimeMillis: number;
+}
+
+export type PiNodeSessionExportFormat = "html" | "jsonl";
+
 export type PiNodeCommandFailureCode =
   | "invalid-prompt"
   | "session-busy"
@@ -291,6 +334,19 @@ export interface PiNodeDomainSessionBackend {
   readonly persistence: "persistent";
   readonly isRunning: boolean;
   getSnapshot(): PiNodeSessionBackendSnapshot;
+  getHistoryPage(input: {
+    readonly cursor?: string;
+    readonly limit: number;
+    readonly expectedActiveBranchRevision?: string;
+    readonly expectedTreeRevision?: string;
+  }): PiNodeSessionHistoryPage;
+  getStats(input: { readonly project: PiNodeProjectSnapshot }): PiNodeSessionStats;
+  exportToPath(input: {
+    readonly format: PiNodeSessionExportFormat;
+    readonly outputPath: string;
+    readonly expectedActiveBranchRevision?: string;
+    readonly expectedTreeRevision?: string;
+  }): Promise<void>;
   subscribe(listener: (event: PiNodeSessionBackendEvent) => void): () => void;
   startPrompt(input: { readonly text: string }): Promise<PiNodePromptExecution>;
   abort(): Promise<boolean>;
@@ -384,6 +440,9 @@ export type PiNodeDomainErrorCode =
   | "session-create-failed"
   | "session-load-failed"
   | "session-dispose-failed"
+  | "session-history-cursor-invalid"
+  | "session-history-conflict"
+  | "session-export-failed"
   | "session-admin-invalid-name"
   | "session-admin-confirmation-required"
   | "session-admin-conflict"

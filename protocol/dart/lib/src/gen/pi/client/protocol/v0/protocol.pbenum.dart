@@ -43,6 +43,12 @@ class Capability extends $pb.ProtobufEnum {
       Capability._(12, _omitEnumNames ? '' : 'CAPABILITY_SESSION_ADMIN');
   static const Capability CAPABILITY_SESSION_TREE =
       Capability._(13, _omitEnumNames ? '' : 'CAPABILITY_SESSION_TREE');
+  static const Capability CAPABILITY_SESSION_HISTORY =
+      Capability._(14, _omitEnumNames ? '' : 'CAPABILITY_SESSION_HISTORY');
+  static const Capability CAPABILITY_SESSION_STATS =
+      Capability._(15, _omitEnumNames ? '' : 'CAPABILITY_SESSION_STATS');
+  static const Capability CAPABILITY_SESSION_EXPORT =
+      Capability._(16, _omitEnumNames ? '' : 'CAPABILITY_SESSION_EXPORT');
 
   static const $core.List<Capability> values = <Capability>[
     CAPABILITY_UNSPECIFIED,
@@ -59,10 +65,13 @@ class Capability extends $pb.ProtobufEnum {
     CAPABILITY_PROJECT_TRUST,
     CAPABILITY_SESSION_ADMIN,
     CAPABILITY_SESSION_TREE,
+    CAPABILITY_SESSION_HISTORY,
+    CAPABILITY_SESSION_STATS,
+    CAPABILITY_SESSION_EXPORT,
   ];
 
   static final $core.List<Capability?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 13);
+      $pb.ProtobufEnum.$_initByValueList(values, 16);
   static Capability? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 
@@ -335,6 +344,31 @@ class SessionTreeEntryKind extends $pb.ProtobufEnum {
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 
   const SessionTreeEntryKind._(super.value, super.name);
+}
+
+class SessionExportFormat extends $pb.ProtobufEnum {
+  static const SessionExportFormat SESSION_EXPORT_FORMAT_UNSPECIFIED =
+      SessionExportFormat._(
+          0, _omitEnumNames ? '' : 'SESSION_EXPORT_FORMAT_UNSPECIFIED');
+  static const SessionExportFormat SESSION_EXPORT_FORMAT_HTML =
+      SessionExportFormat._(
+          1, _omitEnumNames ? '' : 'SESSION_EXPORT_FORMAT_HTML');
+  static const SessionExportFormat SESSION_EXPORT_FORMAT_JSONL =
+      SessionExportFormat._(
+          2, _omitEnumNames ? '' : 'SESSION_EXPORT_FORMAT_JSONL');
+
+  static const $core.List<SessionExportFormat> values = <SessionExportFormat>[
+    SESSION_EXPORT_FORMAT_UNSPECIFIED,
+    SESSION_EXPORT_FORMAT_HTML,
+    SESSION_EXPORT_FORMAT_JSONL,
+  ];
+
+  static final $core.List<SessionExportFormat?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 2);
+  static SessionExportFormat? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const SessionExportFormat._(super.value, super.name);
 }
 
 class TransferDirection extends $pb.ProtobufEnum {

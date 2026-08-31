@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'dart:typed_data';
+
+import 'package:crypto/crypto.dart' as crypto;
 
 import '../../protocol/pi_protocol.dart';
 import '../../transport/pi_transport.dart';
@@ -24,6 +27,8 @@ final class PiNodeClient implements PiNodeApi {
   final Map<PiSessionId, StreamController<PiSessionEvent>> _sessionControllers =
       <PiSessionId, StreamController<PiSessionEvent>>{};
   final Map<PiSessionId, int> _lastSessionSequences = <PiSessionId, int>{};
+  final Map<String, _ClientExportTransfer> _transfers =
+      <String, _ClientExportTransfer>{};
 
   PiNodeConnectionSnapshot _connection =
       const PiNodeConnectionSnapshot.disconnected();
@@ -279,6 +284,94 @@ final class PiNodeClient implements PiNodeApi {
   );
 
   @override
+  Future<PiSessionHistoryPage> getSessionHistory(
+    PiSessionHistoryRequest request,
+  ) => _sendRequest<PiSessionHistoryPage>(
+    (requestId) => PiProtocolGetSessionHistoryRequest(
+      requestId: requestId,
+      projectId: request.projectId.value,
+      sessionId: request.sessionId.value,
+      cursor: request.cursor?.value,
+      limit: request.limit,
+      expectedActiveBranchRevision: request.expectedActiveBranchRevision?.value,
+      expectedTreeRevision: request.expectedTreeRevision?.value,
+    ),
+    (message) => switch (message) {
+      PiProtocolSessionHistoryResponse(
+        :final summary,
+        :final messages,
+        :final nextCursor,
+        :final hasMore,
+        :final activeBranchRevision,
+        :final treeRevision,
+      ) =>
+        PiSessionHistoryPage(
+          summary: _sessionSummaryFromProtocol(summary),
+          messages: messages.map(_messageFromProtocol),
+          nextCursor: nextCursor == null
+              ? null
+              : PiSessionHistoryCursor(nextCursor),
+          hasMore: hasMore,
+          activeBranchRevision: PiSessionBranchRevision(activeBranchRevision),
+          treeRevision: PiSessionTreeRevision(treeRevision),
+        ),
+      PiProtocolRequestRejectedMessage(:final failure) =>
+        throw PiNodeException.fromProtocolFailure(failure),
+      _ => throw const PiNodeException(
+        PiNodeErrorCode.unexpectedResponse,
+        retryable: false,
+      ),
+    },
+  );
+
+  @override
+  Future<PiSessionStats> getSessionStats(
+    PiProjectId projectId,
+    PiSessionId sessionId,
+  ) => _sendRequest<PiSessionStats>(
+    (requestId) => PiProtocolGetSessionStatsRequest(
+      requestId: requestId,
+      projectId: projectId.value,
+      sessionId: sessionId.value,
+    ),
+    (message) => switch (message) {
+      PiProtocolSessionStatsResponse(:final stats) => _statsFromProtocol(stats),
+      PiProtocolRequestRejectedMessage(:final failure) =>
+        throw PiNodeException.fromProtocolFailure(failure),
+      _ => throw const PiNodeException(
+        PiNodeErrorCode.unexpectedResponse,
+        retryable: false,
+      ),
+    },
+  );
+
+  @override
+  Future<PiSessionExportHandle> exportSession(PiSessionExportRequest request) =>
+      _sendRequest<PiSessionExportHandle>(
+        (requestId) => PiProtocolExportSessionRequest(
+          requestId: requestId,
+          projectId: request.projectId.value,
+          sessionId: request.sessionId.value,
+          format: switch (request.format) {
+            PiSessionExportFormat.html => PiProtocolSessionExportFormat.html,
+            PiSessionExportFormat.jsonl => PiProtocolSessionExportFormat.jsonl,
+          },
+          expectedActiveBranchRevision:
+              request.expectedActiveBranchRevision?.value,
+          expectedTreeRevision: request.expectedTreeRevision?.value,
+        ),
+        (message) => switch (message) {
+          PiProtocolTransferOpenMessage() => _openExportTransfer(message),
+          PiProtocolRequestRejectedMessage(:final failure) =>
+            throw PiNodeException.fromProtocolFailure(failure),
+          _ => throw const PiNodeException(
+            PiNodeErrorCode.unexpectedResponse,
+            retryable: false,
+          ),
+        },
+      );
+
+  @override
   Future<PiSessionTreeMutationResult> navigateSessionTree(
     PiNavigateSessionTreeCommand command,
   ) => _sendSessionTreeMutation(
@@ -503,6 +596,12 @@ final class PiNodeClient implements PiNodeApi {
       _handleResponse(message);
     } else if (message is PiProtocolSessionEventMessage) {
       _handleSessionEvent(message);
+    } else if (message is PiProtocolTransferChunkMessage) {
+      _transfers[message.transferId]?.acceptChunk(message);
+    } else if (message is PiProtocolTransferCompleteMessage) {
+      _transfers[message.transferId]?.acceptComplete(message);
+    } else if (message is PiProtocolTransferAbortMessage) {
+      _transfers[message.transferId]?.acceptAbort(message);
     } else {
       _failConnection(
         const PiNodeException(
@@ -567,6 +666,36 @@ final class PiNodeClient implements PiNodeApi {
       return;
     }
     pending.complete(message);
+  }
+
+  PiSessionExportHandle _openExportTransfer(
+    PiProtocolTransferOpenMessage message,
+  ) {
+    if (_transfers.containsKey(message.transferId)) {
+      throw const PiNodeException(
+        PiNodeErrorCode.protocolViolation,
+        retryable: false,
+      );
+    }
+    final transfer = _ClientExportTransfer(
+      metadata: message,
+      send: _sendControl,
+      onFinished: () => _transfers.remove(message.transferId),
+    );
+    _transfers[message.transferId] = transfer;
+    return transfer;
+  }
+
+  Future<void> _sendControl(PiClientProtocolMessage message) async {
+    _ensureConnected();
+    try {
+      await _transport.send(_encode(message));
+    } catch (_) {
+      throw const PiNodeException(
+        PiNodeErrorCode.disconnected,
+        retryable: true,
+      );
+    }
   }
 
   void _handleSessionEvent(PiProtocolSessionEventMessage message) {
@@ -840,6 +969,7 @@ final class PiNodeClient implements PiNodeApi {
       operation.fail(error);
     }
     _failAndCloseSessionStreams(error);
+    _failTransfers(error);
     _emitConnection(const PiNodeConnectionSnapshot.disconnected());
     if (closeTransport) {
       scheduleMicrotask(() {
@@ -865,6 +995,7 @@ final class PiNodeClient implements PiNodeApi {
       operation.fail(error);
     }
     await _closeSessionStreams();
+    _failTransfers(error);
     try {
       await _transport.close();
     } catch (_) {
@@ -895,6 +1026,14 @@ final class PiNodeClient implements PiNodeApi {
     }
   }
 
+  void _failTransfers(PiNodeException error) {
+    final transfers = _transfers.values.toList(growable: false);
+    _transfers.clear();
+    for (final transfer in transfers) {
+      transfer.fail(error, notifyPeer: false);
+    }
+  }
+
   Future<void> _closeSessionStreams() async {
     final controllers = _sessionControllers.values.toList(growable: false);
     _sessionControllers.clear();
@@ -905,6 +1044,238 @@ final class PiNodeClient implements PiNodeApi {
           .map((controller) => controller.close()),
     );
   }
+}
+
+final class _ClientExportTransfer implements PiSessionExportHandle {
+  _ClientExportTransfer({
+    required PiProtocolTransferOpenMessage metadata,
+    required Future<void> Function(PiClientProtocolMessage message) send,
+    required void Function() onFinished,
+  }) : _metadata = metadata,
+       _send = send,
+       _onFinished = onFinished {
+    _bytes = _consume();
+  }
+
+  final PiProtocolTransferOpenMessage _metadata;
+  final Future<void> Function(PiClientProtocolMessage message) _send;
+  final void Function() _onFinished;
+  late final Stream<Uint8List> _bytes;
+  final Completer<void> _done = Completer<void>();
+  final StreamController<_TransferSignal> _signals =
+      StreamController<_TransferSignal>(sync: true);
+  var _nextSequence = 1;
+  var _receivedBytes = 0;
+  var _creditBytes = 0;
+  var _terminal = false;
+  var _cancelSent = false;
+
+  @override
+  String get fileName => _metadata.fileName;
+
+  @override
+  String get contentType => _metadata.contentType;
+
+  @override
+  int get totalBytes => _metadata.totalBytes;
+
+  @override
+  List<int> get sha256 => List<int>.unmodifiable(_metadata.sha256);
+
+  @override
+  Stream<Uint8List> get bytes => _bytes;
+
+  @override
+  Future<void> get done => _done.future;
+
+  void acceptChunk(PiProtocolTransferChunkMessage chunk) {
+    if (_terminal) return;
+    final dataLength = chunk.data.length;
+    if (chunk.sequence != _nextSequence ||
+        chunk.offset != _receivedBytes ||
+        dataLength > _metadata.chunkBytes ||
+        dataLength > _creditBytes ||
+        _receivedBytes + dataLength > _metadata.totalBytes) {
+      fail(
+        const PiNodeException(PiNodeErrorCode.dataLoss, retryable: false),
+        notifyPeer: true,
+      );
+      return;
+    }
+    _nextSequence += 1;
+    _receivedBytes += dataLength;
+    _creditBytes -= dataLength;
+    _signals.add(_TransferChunkSignal(chunk));
+  }
+
+  void acceptComplete(PiProtocolTransferCompleteMessage complete) {
+    if (_terminal) return;
+    if (complete.totalBytes != _metadata.totalBytes ||
+        !_sameBytes(complete.sha256, _metadata.sha256)) {
+      fail(
+        const PiNodeException(PiNodeErrorCode.dataLoss, retryable: false),
+        notifyPeer: true,
+      );
+      return;
+    }
+    _signals.add(_TransferCompleteSignal(complete));
+  }
+
+  void acceptAbort(PiProtocolTransferAbortMessage abort) {
+    if (_terminal) return;
+    fail(PiNodeException.fromProtocolFailure(abort.failure), notifyPeer: false);
+  }
+
+  @override
+  Future<void> cancel() async {
+    if (_terminal) return;
+    if (!_cancelSent) {
+      _cancelSent = true;
+      try {
+        await _send(
+          PiProtocolCancelTransferMessage(transferId: _metadata.transferId),
+        );
+      } catch (_) {
+        // The local cancellation outcome remains definitive even after a disconnect.
+      }
+    }
+    fail(
+      const PiNodeException(PiNodeErrorCode.cancelled, retryable: false),
+      notifyPeer: false,
+    );
+  }
+
+  void fail(PiNodeException error, {required bool notifyPeer}) {
+    if (_terminal) return;
+    if (notifyPeer && !_cancelSent) {
+      _cancelSent = true;
+      unawaited(
+        _send(
+          PiProtocolCancelTransferMessage(transferId: _metadata.transferId),
+        ).catchError((Object _) {}),
+      );
+    }
+    _terminal = true;
+    _onFinished();
+    if (!_done.isCompleted) _done.completeError(error);
+    if (!_signals.isClosed) {
+      _signals.addError(error);
+      unawaited(_signals.close());
+    }
+  }
+
+  Stream<Uint8List> _consume() async* {
+    final metadata = _metadata;
+    final digestSink = _DigestSink();
+    final digestInput = crypto.sha256.startChunkedConversion(digestSink);
+    var committedBytes = 0;
+    var consumedSequence = 0;
+    try {
+      await _grantCredit(_minimum(metadata.chunkBytes, metadata.totalBytes));
+      await for (final signal in _signals.stream) {
+        switch (signal) {
+          case _TransferChunkSignal(:final chunk):
+            digestInput.add(chunk.data);
+            yield Uint8List.fromList(chunk.data);
+            committedBytes += chunk.data.length;
+            consumedSequence = chunk.sequence;
+            await _send(
+              PiProtocolTransferAckMessage(
+                transferId: metadata.transferId,
+                acknowledgedSequence: consumedSequence,
+                committedBytes: committedBytes,
+              ),
+            );
+            if (committedBytes < metadata.totalBytes) {
+              await _grantCredit(
+                _minimum(
+                  metadata.chunkBytes,
+                  metadata.totalBytes - committedBytes,
+                ),
+              );
+            }
+          case _TransferCompleteSignal(:final complete):
+            digestInput.close();
+            final digest = digestSink.value;
+            if (committedBytes != metadata.totalBytes ||
+                complete.totalBytes != metadata.totalBytes ||
+                digest == null ||
+                !_sameBytes(digest.bytes, metadata.sha256)) {
+              throw const PiNodeException(
+                PiNodeErrorCode.dataLoss,
+                retryable: false,
+              );
+            }
+            _terminal = true;
+            _onFinished();
+            if (!_done.isCompleted) _done.complete();
+            unawaited(_signals.close());
+            return;
+        }
+      }
+    } catch (error, stackTrace) {
+      final safeError = error is PiNodeException
+          ? error
+          : const PiNodeException(
+              PiNodeErrorCode.disconnected,
+              retryable: true,
+            );
+      fail(safeError, notifyPeer: true);
+      Error.throwWithStackTrace(safeError, stackTrace);
+    } finally {
+      if (!_terminal) await cancel();
+    }
+  }
+
+  Future<void> _grantCredit(int bytes) async {
+    if (_terminal) {
+      throw const PiNodeException(PiNodeErrorCode.cancelled, retryable: false);
+    }
+    _creditBytes += bytes;
+    await _send(
+      PiProtocolTransferWindowUpdate(
+        transferId: _metadata.transferId,
+        creditBytes: bytes,
+      ),
+    );
+  }
+}
+
+sealed class _TransferSignal {
+  const _TransferSignal();
+}
+
+final class _TransferChunkSignal extends _TransferSignal {
+  const _TransferChunkSignal(this.chunk);
+
+  final PiProtocolTransferChunkMessage chunk;
+}
+
+final class _TransferCompleteSignal extends _TransferSignal {
+  const _TransferCompleteSignal(this.complete);
+
+  final PiProtocolTransferCompleteMessage complete;
+}
+
+final class _DigestSink implements Sink<crypto.Digest> {
+  crypto.Digest? value;
+
+  @override
+  void add(crypto.Digest data) => value = data;
+
+  @override
+  void close() {}
+}
+
+int _minimum(int left, int right) => left < right ? left : right;
+
+bool _sameBytes(List<int> left, List<int> right) {
+  if (left.length != right.length) return false;
+  var difference = 0;
+  for (var index = 0; index < left.length; index += 1) {
+    difference |= left[index] ^ right[index];
+  }
+  return difference == 0;
 }
 
 abstract interface class _PendingOperation {
@@ -1247,6 +1618,36 @@ PiMessage _messageFromProtocol(PiProtocolMessageSnapshot value) => PiMessage(
   createdAt: value.createdAt,
   isStreaming: value.isStreaming,
 );
+
+PiSessionStats _statsFromProtocol(PiProtocolSessionStatsSnapshot value) =>
+    PiSessionStats(
+      projection: PiSessionSafeProjection(
+        sessionFileName: value.projection.sessionFileName,
+        sessionId: PiSessionId(value.projection.sessionId),
+        projectId: PiProjectId(value.projection.projectId),
+        canonicalProjectDirectory: value.projection.canonicalProjectDirectory,
+        worktreeId: PiWorktreeId(value.projection.worktreeId),
+        mainProjectId: PiMainProjectId(value.projection.mainProjectId),
+        branch: value.projection.branch,
+        isLinkedWorktree: value.projection.isLinkedWorktree,
+        isDetachedHead: value.projection.isDetachedHead,
+      ),
+      userMessages: value.userMessages,
+      assistantMessages: value.assistantMessages,
+      toolCalls: value.toolCalls,
+      toolResults: value.toolResults,
+      totalMessages: value.totalMessages,
+      inputTokens: value.inputTokens,
+      outputTokens: value.outputTokens,
+      cacheReadTokens: value.cacheReadTokens,
+      cacheWriteTokens: value.cacheWriteTokens,
+      totalTokens: value.totalTokens,
+      cost: value.cost,
+      contextTokens: value.contextTokens,
+      contextWindow: value.contextWindow,
+      contextPercent: value.contextPercent,
+      activeTime: Duration(milliseconds: value.activeTimeMillis),
+    );
 
 PiSessionTree _sessionTreeFromProtocol(
   PiProtocolSessionTreeSnapshot value,

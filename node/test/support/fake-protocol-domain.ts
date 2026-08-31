@@ -1,3 +1,5 @@
+import { writeFile } from "node:fs/promises";
+
 import type {
   PiNodeAbortResult,
   PiNodeDirectoryListing,
@@ -8,7 +10,10 @@ import type {
   PiNodePromptAdmission,
   PiNodeSessionEvent,
   PiNodeSessionEventListener,
+  PiNodeSessionExportFormat,
+  PiNodeSessionHistoryPage,
   PiNodeSessionSnapshot,
+  PiNodeSessionStats,
   PiNodeSessionSummary,
   PiNodeSessionTreeMutationResult,
   PiNodeSessionTreeSnapshot,
@@ -29,6 +34,8 @@ export class FakeProtocolDomain implements PiNodeProtocolDomain {
   listError: unknown;
   createOrdinal = 0;
   emitOnObserve = false;
+  exportPayload: string | Uint8Array | undefined;
+  lastExportPath: string | undefined;
   promptAdmission: PiNodePromptAdmission["status"] = "accepted";
 
   constructor() {
@@ -82,6 +89,71 @@ export class FakeProtocolDomain implements PiNodeProtocolDomain {
       return Promise.reject(new Error("Missing fake session."));
     }
     return Promise.resolve(copySnapshot(session));
+  }
+
+  getSessionHistory(input: {
+    readonly sessionId: string;
+    readonly cursor?: string;
+    readonly limit: number;
+  }): Promise<PiNodeSessionHistoryPage> {
+    const session = this.requireSession(input.sessionId);
+    const end = input.cursor === undefined ? session.messages.length : Number(input.cursor);
+    const start = Math.max(0, end - input.limit);
+    return Promise.resolve({
+      summary: copySummary(session),
+      messages: structuredClone(session.messages.slice(start, end)),
+      ...(start > 0 ? { nextCursor: String(start) } : {}),
+      hasMore: start > 0,
+      activeBranchRevision: `active-${session.adminRevision}`,
+      treeRevision: session.adminRevision,
+      lastEventSequence: session.lastEventSequence,
+    });
+  }
+
+  getSessionStats(input: { readonly sessionId: string }): Promise<PiNodeSessionStats> {
+    const session = this.requireSession(input.sessionId);
+    return Promise.resolve({
+      projection: {
+        sessionFileName: `${session.sessionId}.jsonl`,
+        sessionId: session.sessionId,
+        projectId: projectSnapshot(session.cwd).identity.projectId,
+        canonicalProjectDirectory: session.cwd,
+        worktreeId: projectSnapshot(session.cwd).identity.worktreeId,
+        mainProjectId: projectSnapshot(session.cwd).identity.mainProjectId,
+        isLinkedWorktree: false,
+        isDetachedHead: false,
+      },
+      userMessages: session.messages.filter((item) => item.role === "user").length,
+      assistantMessages: session.messages.filter((item) => item.role === "assistant").length,
+      toolCalls: 0,
+      toolResults: session.messages.filter((item) => item.role === "tool").length,
+      totalMessages: session.messages.length,
+      inputTokens: 10,
+      outputTokens: 20,
+      cacheReadTokens: 3,
+      cacheWriteTokens: 4,
+      totalTokens: 37,
+      cost: 0.01,
+      contextTokens: 37,
+      contextWindow: 200000,
+      contextPercent: 0.0185,
+      activeTimeMillis: 100,
+    });
+  }
+
+  async exportSession(input: {
+    readonly sessionId: string;
+    readonly format: PiNodeSessionExportFormat;
+    readonly outputPath: string;
+  }): Promise<void> {
+    const session = this.requireSession(input.sessionId);
+    const payload =
+      this.exportPayload ??
+      (input.format === "html"
+        ? `<html><body>${session.messages.length}</body></html>`
+        : `${JSON.stringify({ type: "session", id: session.sessionId })}\n`);
+    this.lastExportPath = input.outputPath;
+    await writeFile(input.outputPath, payload, { mode: 0o600 });
   }
 
   createSession(input: { readonly cwd: string }): Promise<PiNodeSessionSnapshot> {

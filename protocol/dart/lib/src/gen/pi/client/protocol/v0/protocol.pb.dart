@@ -61,8 +61,13 @@ enum PiTransportFrame_Operation {
   forkSessionCommand,
   cloneSessionCommand,
   sessionTreeMutationOutcome,
+  getSessionHistoryRequest,
+  getSessionHistoryResponse,
+  getSessionStatsRequest,
+  getSessionStatsResponse,
   cancel,
   windowUpdate,
+  exportSessionRequest,
   transferOpen,
   transferChunk,
   transferAck,
@@ -117,8 +122,13 @@ class PiTransportFrame extends $pb.GeneratedMessage {
     ForkSessionCommand? forkSessionCommand,
     CloneSessionCommand? cloneSessionCommand,
     SessionTreeMutationOutcome? sessionTreeMutationOutcome,
+    GetSessionHistoryRequest? getSessionHistoryRequest,
+    GetSessionHistoryResponse? getSessionHistoryResponse,
+    GetSessionStatsRequest? getSessionStatsRequest,
+    GetSessionStatsResponse? getSessionStatsResponse,
     Cancel? cancel,
     WindowUpdate? windowUpdate,
+    ExportSessionRequest? exportSessionRequest,
     TransferOpen? transferOpen,
     TransferChunk? transferChunk,
     TransferAck? transferAck,
@@ -197,8 +207,18 @@ class PiTransportFrame extends $pb.GeneratedMessage {
       result.cloneSessionCommand = cloneSessionCommand;
     if (sessionTreeMutationOutcome != null)
       result.sessionTreeMutationOutcome = sessionTreeMutationOutcome;
+    if (getSessionHistoryRequest != null)
+      result.getSessionHistoryRequest = getSessionHistoryRequest;
+    if (getSessionHistoryResponse != null)
+      result.getSessionHistoryResponse = getSessionHistoryResponse;
+    if (getSessionStatsRequest != null)
+      result.getSessionStatsRequest = getSessionStatsRequest;
+    if (getSessionStatsResponse != null)
+      result.getSessionStatsResponse = getSessionStatsResponse;
     if (cancel != null) result.cancel = cancel;
     if (windowUpdate != null) result.windowUpdate = windowUpdate;
+    if (exportSessionRequest != null)
+      result.exportSessionRequest = exportSessionRequest;
     if (transferOpen != null) result.transferOpen = transferOpen;
     if (transferChunk != null) result.transferChunk = transferChunk;
     if (transferAck != null) result.transferAck = transferAck;
@@ -258,8 +278,13 @@ class PiTransportFrame extends $pb.GeneratedMessage {
     53: PiTransportFrame_Operation.forkSessionCommand,
     54: PiTransportFrame_Operation.cloneSessionCommand,
     55: PiTransportFrame_Operation.sessionTreeMutationOutcome,
+    56: PiTransportFrame_Operation.getSessionHistoryRequest,
+    57: PiTransportFrame_Operation.getSessionHistoryResponse,
+    58: PiTransportFrame_Operation.getSessionStatsRequest,
+    59: PiTransportFrame_Operation.getSessionStatsResponse,
     60: PiTransportFrame_Operation.cancel,
     61: PiTransportFrame_Operation.windowUpdate,
+    62: PiTransportFrame_Operation.exportSessionRequest,
     70: PiTransportFrame_Operation.transferOpen,
     71: PiTransportFrame_Operation.transferChunk,
     72: PiTransportFrame_Operation.transferAck,
@@ -313,8 +338,13 @@ class PiTransportFrame extends $pb.GeneratedMessage {
       53,
       54,
       55,
+      56,
+      57,
+      58,
+      59,
       60,
       61,
+      62,
       70,
       71,
       72,
@@ -428,10 +458,25 @@ class PiTransportFrame extends $pb.GeneratedMessage {
     ..aOM<SessionTreeMutationOutcome>(
         55, _omitFieldNames ? '' : 'sessionTreeMutationOutcome',
         subBuilder: SessionTreeMutationOutcome.create)
+    ..aOM<GetSessionHistoryRequest>(
+        56, _omitFieldNames ? '' : 'getSessionHistoryRequest',
+        subBuilder: GetSessionHistoryRequest.create)
+    ..aOM<GetSessionHistoryResponse>(
+        57, _omitFieldNames ? '' : 'getSessionHistoryResponse',
+        subBuilder: GetSessionHistoryResponse.create)
+    ..aOM<GetSessionStatsRequest>(
+        58, _omitFieldNames ? '' : 'getSessionStatsRequest',
+        subBuilder: GetSessionStatsRequest.create)
+    ..aOM<GetSessionStatsResponse>(
+        59, _omitFieldNames ? '' : 'getSessionStatsResponse',
+        subBuilder: GetSessionStatsResponse.create)
     ..aOM<Cancel>(60, _omitFieldNames ? '' : 'cancel',
         subBuilder: Cancel.create)
     ..aOM<WindowUpdate>(61, _omitFieldNames ? '' : 'windowUpdate',
         subBuilder: WindowUpdate.create)
+    ..aOM<ExportSessionRequest>(
+        62, _omitFieldNames ? '' : 'exportSessionRequest',
+        subBuilder: ExportSessionRequest.create)
     ..aOM<TransferOpen>(70, _omitFieldNames ? '' : 'transferOpen',
         subBuilder: TransferOpen.create)
     ..aOM<TransferChunk>(71, _omitFieldNames ? '' : 'transferChunk',
@@ -504,8 +549,13 @@ class PiTransportFrame extends $pb.GeneratedMessage {
   @$pb.TagNumber(53)
   @$pb.TagNumber(54)
   @$pb.TagNumber(55)
+  @$pb.TagNumber(56)
+  @$pb.TagNumber(57)
+  @$pb.TagNumber(58)
+  @$pb.TagNumber(59)
   @$pb.TagNumber(60)
   @$pb.TagNumber(61)
+  @$pb.TagNumber(62)
   @$pb.TagNumber(70)
   @$pb.TagNumber(71)
   @$pb.TagNumber(72)
@@ -553,8 +603,13 @@ class PiTransportFrame extends $pb.GeneratedMessage {
   @$pb.TagNumber(53)
   @$pb.TagNumber(54)
   @$pb.TagNumber(55)
+  @$pb.TagNumber(56)
+  @$pb.TagNumber(57)
+  @$pb.TagNumber(58)
+  @$pb.TagNumber(59)
   @$pb.TagNumber(60)
   @$pb.TagNumber(61)
+  @$pb.TagNumber(62)
   @$pb.TagNumber(70)
   @$pb.TagNumber(71)
   @$pb.TagNumber(72)
@@ -1024,93 +1079,152 @@ class PiTransportFrame extends $pb.GeneratedMessage {
   @$pb.TagNumber(55)
   SessionTreeMutationOutcome ensureSessionTreeMutationOutcome() => $_ensure(39);
 
+  @$pb.TagNumber(56)
+  GetSessionHistoryRequest get getSessionHistoryRequest => $_getN(40);
+  @$pb.TagNumber(56)
+  set getSessionHistoryRequest(GetSessionHistoryRequest value) =>
+      $_setField(56, value);
+  @$pb.TagNumber(56)
+  $core.bool hasGetSessionHistoryRequest() => $_has(40);
+  @$pb.TagNumber(56)
+  void clearGetSessionHistoryRequest() => $_clearField(56);
+  @$pb.TagNumber(56)
+  GetSessionHistoryRequest ensureGetSessionHistoryRequest() => $_ensure(40);
+
+  @$pb.TagNumber(57)
+  GetSessionHistoryResponse get getSessionHistoryResponse => $_getN(41);
+  @$pb.TagNumber(57)
+  set getSessionHistoryResponse(GetSessionHistoryResponse value) =>
+      $_setField(57, value);
+  @$pb.TagNumber(57)
+  $core.bool hasGetSessionHistoryResponse() => $_has(41);
+  @$pb.TagNumber(57)
+  void clearGetSessionHistoryResponse() => $_clearField(57);
+  @$pb.TagNumber(57)
+  GetSessionHistoryResponse ensureGetSessionHistoryResponse() => $_ensure(41);
+
+  @$pb.TagNumber(58)
+  GetSessionStatsRequest get getSessionStatsRequest => $_getN(42);
+  @$pb.TagNumber(58)
+  set getSessionStatsRequest(GetSessionStatsRequest value) =>
+      $_setField(58, value);
+  @$pb.TagNumber(58)
+  $core.bool hasGetSessionStatsRequest() => $_has(42);
+  @$pb.TagNumber(58)
+  void clearGetSessionStatsRequest() => $_clearField(58);
+  @$pb.TagNumber(58)
+  GetSessionStatsRequest ensureGetSessionStatsRequest() => $_ensure(42);
+
+  @$pb.TagNumber(59)
+  GetSessionStatsResponse get getSessionStatsResponse => $_getN(43);
+  @$pb.TagNumber(59)
+  set getSessionStatsResponse(GetSessionStatsResponse value) =>
+      $_setField(59, value);
+  @$pb.TagNumber(59)
+  $core.bool hasGetSessionStatsResponse() => $_has(43);
+  @$pb.TagNumber(59)
+  void clearGetSessionStatsResponse() => $_clearField(59);
+  @$pb.TagNumber(59)
+  GetSessionStatsResponse ensureGetSessionStatsResponse() => $_ensure(43);
+
   @$pb.TagNumber(60)
-  Cancel get cancel => $_getN(40);
+  Cancel get cancel => $_getN(44);
   @$pb.TagNumber(60)
   set cancel(Cancel value) => $_setField(60, value);
   @$pb.TagNumber(60)
-  $core.bool hasCancel() => $_has(40);
+  $core.bool hasCancel() => $_has(44);
   @$pb.TagNumber(60)
   void clearCancel() => $_clearField(60);
   @$pb.TagNumber(60)
-  Cancel ensureCancel() => $_ensure(40);
+  Cancel ensureCancel() => $_ensure(44);
 
   @$pb.TagNumber(61)
-  WindowUpdate get windowUpdate => $_getN(41);
+  WindowUpdate get windowUpdate => $_getN(45);
   @$pb.TagNumber(61)
   set windowUpdate(WindowUpdate value) => $_setField(61, value);
   @$pb.TagNumber(61)
-  $core.bool hasWindowUpdate() => $_has(41);
+  $core.bool hasWindowUpdate() => $_has(45);
   @$pb.TagNumber(61)
   void clearWindowUpdate() => $_clearField(61);
   @$pb.TagNumber(61)
-  WindowUpdate ensureWindowUpdate() => $_ensure(41);
+  WindowUpdate ensureWindowUpdate() => $_ensure(45);
+
+  @$pb.TagNumber(62)
+  ExportSessionRequest get exportSessionRequest => $_getN(46);
+  @$pb.TagNumber(62)
+  set exportSessionRequest(ExportSessionRequest value) => $_setField(62, value);
+  @$pb.TagNumber(62)
+  $core.bool hasExportSessionRequest() => $_has(46);
+  @$pb.TagNumber(62)
+  void clearExportSessionRequest() => $_clearField(62);
+  @$pb.TagNumber(62)
+  ExportSessionRequest ensureExportSessionRequest() => $_ensure(46);
 
   @$pb.TagNumber(70)
-  TransferOpen get transferOpen => $_getN(42);
+  TransferOpen get transferOpen => $_getN(47);
   @$pb.TagNumber(70)
   set transferOpen(TransferOpen value) => $_setField(70, value);
   @$pb.TagNumber(70)
-  $core.bool hasTransferOpen() => $_has(42);
+  $core.bool hasTransferOpen() => $_has(47);
   @$pb.TagNumber(70)
   void clearTransferOpen() => $_clearField(70);
   @$pb.TagNumber(70)
-  TransferOpen ensureTransferOpen() => $_ensure(42);
+  TransferOpen ensureTransferOpen() => $_ensure(47);
 
   @$pb.TagNumber(71)
-  TransferChunk get transferChunk => $_getN(43);
+  TransferChunk get transferChunk => $_getN(48);
   @$pb.TagNumber(71)
   set transferChunk(TransferChunk value) => $_setField(71, value);
   @$pb.TagNumber(71)
-  $core.bool hasTransferChunk() => $_has(43);
+  $core.bool hasTransferChunk() => $_has(48);
   @$pb.TagNumber(71)
   void clearTransferChunk() => $_clearField(71);
   @$pb.TagNumber(71)
-  TransferChunk ensureTransferChunk() => $_ensure(43);
+  TransferChunk ensureTransferChunk() => $_ensure(48);
 
   @$pb.TagNumber(72)
-  TransferAck get transferAck => $_getN(44);
+  TransferAck get transferAck => $_getN(49);
   @$pb.TagNumber(72)
   set transferAck(TransferAck value) => $_setField(72, value);
   @$pb.TagNumber(72)
-  $core.bool hasTransferAck() => $_has(44);
+  $core.bool hasTransferAck() => $_has(49);
   @$pb.TagNumber(72)
   void clearTransferAck() => $_clearField(72);
   @$pb.TagNumber(72)
-  TransferAck ensureTransferAck() => $_ensure(44);
+  TransferAck ensureTransferAck() => $_ensure(49);
 
   @$pb.TagNumber(73)
-  TransferComplete get transferComplete => $_getN(45);
+  TransferComplete get transferComplete => $_getN(50);
   @$pb.TagNumber(73)
   set transferComplete(TransferComplete value) => $_setField(73, value);
   @$pb.TagNumber(73)
-  $core.bool hasTransferComplete() => $_has(45);
+  $core.bool hasTransferComplete() => $_has(50);
   @$pb.TagNumber(73)
   void clearTransferComplete() => $_clearField(73);
   @$pb.TagNumber(73)
-  TransferComplete ensureTransferComplete() => $_ensure(45);
+  TransferComplete ensureTransferComplete() => $_ensure(50);
 
   @$pb.TagNumber(74)
-  TransferAbort get transferAbort => $_getN(46);
+  TransferAbort get transferAbort => $_getN(51);
   @$pb.TagNumber(74)
   set transferAbort(TransferAbort value) => $_setField(74, value);
   @$pb.TagNumber(74)
-  $core.bool hasTransferAbort() => $_has(46);
+  $core.bool hasTransferAbort() => $_has(51);
   @$pb.TagNumber(74)
   void clearTransferAbort() => $_clearField(74);
   @$pb.TagNumber(74)
-  TransferAbort ensureTransferAbort() => $_ensure(46);
+  TransferAbort ensureTransferAbort() => $_ensure(51);
 
   @$pb.TagNumber(80)
-  ErrorEnvelope get error => $_getN(47);
+  ErrorEnvelope get error => $_getN(52);
   @$pb.TagNumber(80)
   set error(ErrorEnvelope value) => $_setField(80, value);
   @$pb.TagNumber(80)
-  $core.bool hasError() => $_has(47);
+  $core.bool hasError() => $_has(52);
   @$pb.TagNumber(80)
   void clearError() => $_clearField(80);
   @$pb.TagNumber(80)
-  ErrorEnvelope ensureError() => $_ensure(47);
+  ErrorEnvelope ensureError() => $_ensure(52);
 }
 
 /// ProtocolVersion is the numeric SemVer core used for exact wire negotiation.
@@ -5904,6 +6018,986 @@ class SessionTreeSnapshot extends $pb.GeneratedMessage {
   void clearAdminRevision() => $_clearField(6);
 }
 
+class GetSessionHistoryRequest extends $pb.GeneratedMessage {
+  factory GetSessionHistoryRequest({
+    $fixnum.Int64? requestId,
+    $core.String? projectId,
+    $core.String? sessionId,
+    $core.String? cursor,
+    $core.int? limit,
+    $core.String? expectedActiveBranchRevision,
+    $core.String? expectedTreeRevision,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (projectId != null) result.projectId = projectId;
+    if (sessionId != null) result.sessionId = sessionId;
+    if (cursor != null) result.cursor = cursor;
+    if (limit != null) result.limit = limit;
+    if (expectedActiveBranchRevision != null)
+      result.expectedActiveBranchRevision = expectedActiveBranchRevision;
+    if (expectedTreeRevision != null)
+      result.expectedTreeRevision = expectedTreeRevision;
+    return result;
+  }
+
+  GetSessionHistoryRequest._();
+
+  factory GetSessionHistoryRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory GetSessionHistoryRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetSessionHistoryRequest',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(2, _omitFieldNames ? '' : 'projectId')
+    ..aOS(3, _omitFieldNames ? '' : 'sessionId')
+    ..aOS(4, _omitFieldNames ? '' : 'cursor')
+    ..aI(5, _omitFieldNames ? '' : 'limit', fieldType: $pb.PbFieldType.OU3)
+    ..aOS(6, _omitFieldNames ? '' : 'expectedActiveBranchRevision')
+    ..aOS(7, _omitFieldNames ? '' : 'expectedTreeRevision')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetSessionHistoryRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetSessionHistoryRequest copyWith(
+          void Function(GetSessionHistoryRequest) updates) =>
+      super.copyWith((message) => updates(message as GetSessionHistoryRequest))
+          as GetSessionHistoryRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GetSessionHistoryRequest create() => GetSessionHistoryRequest._();
+  @$core.override
+  GetSessionHistoryRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static GetSessionHistoryRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetSessionHistoryRequest>(create);
+  static GetSessionHistoryRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get projectId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set projectId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasProjectId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearProjectId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get sessionId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set sessionId($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSessionId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSessionId() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get cursor => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set cursor($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasCursor() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearCursor() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get limit => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set limit($core.int value) => $_setUnsignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasLimit() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearLimit() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get expectedActiveBranchRevision => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set expectedActiveBranchRevision($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasExpectedActiveBranchRevision() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearExpectedActiveBranchRevision() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get expectedTreeRevision => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set expectedTreeRevision($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasExpectedTreeRevision() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearExpectedTreeRevision() => $_clearField(7);
+}
+
+class GetSessionHistoryResponse extends $pb.GeneratedMessage {
+  factory GetSessionHistoryResponse({
+    $fixnum.Int64? requestId,
+    SessionSummarySnapshot? summary,
+    $core.Iterable<MessageSnapshot>? messages,
+    $core.String? nextCursor,
+    $core.bool? hasMore,
+    $core.String? activeBranchRevision,
+    $core.String? treeRevision,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (summary != null) result.summary = summary;
+    if (messages != null) result.messages.addAll(messages);
+    if (nextCursor != null) result.nextCursor = nextCursor;
+    if (hasMore != null) result.hasMore = hasMore;
+    if (activeBranchRevision != null)
+      result.activeBranchRevision = activeBranchRevision;
+    if (treeRevision != null) result.treeRevision = treeRevision;
+    return result;
+  }
+
+  GetSessionHistoryResponse._();
+
+  factory GetSessionHistoryResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory GetSessionHistoryResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetSessionHistoryResponse',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOM<SessionSummarySnapshot>(2, _omitFieldNames ? '' : 'summary',
+        subBuilder: SessionSummarySnapshot.create)
+    ..pPM<MessageSnapshot>(3, _omitFieldNames ? '' : 'messages',
+        subBuilder: MessageSnapshot.create)
+    ..aOS(4, _omitFieldNames ? '' : 'nextCursor')
+    ..aOB(5, _omitFieldNames ? '' : 'hasMore')
+    ..aOS(6, _omitFieldNames ? '' : 'activeBranchRevision')
+    ..aOS(7, _omitFieldNames ? '' : 'treeRevision')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetSessionHistoryResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetSessionHistoryResponse copyWith(
+          void Function(GetSessionHistoryResponse) updates) =>
+      super.copyWith((message) => updates(message as GetSessionHistoryResponse))
+          as GetSessionHistoryResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GetSessionHistoryResponse create() => GetSessionHistoryResponse._();
+  @$core.override
+  GetSessionHistoryResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static GetSessionHistoryResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetSessionHistoryResponse>(create);
+  static GetSessionHistoryResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  SessionSummarySnapshot get summary => $_getN(1);
+  @$pb.TagNumber(2)
+  set summary(SessionSummarySnapshot value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSummary() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSummary() => $_clearField(2);
+  @$pb.TagNumber(2)
+  SessionSummarySnapshot ensureSummary() => $_ensure(1);
+
+  @$pb.TagNumber(3)
+  $pb.PbList<MessageSnapshot> get messages => $_getList(2);
+
+  @$pb.TagNumber(4)
+  $core.String get nextCursor => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set nextCursor($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasNextCursor() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearNextCursor() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.bool get hasMore => $_getBF(4);
+  @$pb.TagNumber(5)
+  set hasMore($core.bool value) => $_setBool(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasHasMore() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearHasMore() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get activeBranchRevision => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set activeBranchRevision($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasActiveBranchRevision() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearActiveBranchRevision() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get treeRevision => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set treeRevision($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasTreeRevision() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearTreeRevision() => $_clearField(7);
+}
+
+class GetSessionStatsRequest extends $pb.GeneratedMessage {
+  factory GetSessionStatsRequest({
+    $fixnum.Int64? requestId,
+    $core.String? projectId,
+    $core.String? sessionId,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (projectId != null) result.projectId = projectId;
+    if (sessionId != null) result.sessionId = sessionId;
+    return result;
+  }
+
+  GetSessionStatsRequest._();
+
+  factory GetSessionStatsRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory GetSessionStatsRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetSessionStatsRequest',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(2, _omitFieldNames ? '' : 'projectId')
+    ..aOS(3, _omitFieldNames ? '' : 'sessionId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetSessionStatsRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetSessionStatsRequest copyWith(
+          void Function(GetSessionStatsRequest) updates) =>
+      super.copyWith((message) => updates(message as GetSessionStatsRequest))
+          as GetSessionStatsRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GetSessionStatsRequest create() => GetSessionStatsRequest._();
+  @$core.override
+  GetSessionStatsRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static GetSessionStatsRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetSessionStatsRequest>(create);
+  static GetSessionStatsRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get projectId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set projectId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasProjectId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearProjectId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get sessionId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set sessionId($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSessionId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSessionId() => $_clearField(3);
+}
+
+class SessionSafeProjectionSnapshot extends $pb.GeneratedMessage {
+  factory SessionSafeProjectionSnapshot({
+    $core.String? sessionFileName,
+    $core.String? sessionId,
+    $core.String? projectId,
+    $core.String? canonicalProjectDirectory,
+    $core.String? worktreeId,
+    $core.String? mainProjectId,
+    $core.String? branch,
+    $core.bool? isLinkedWorktree,
+    $core.bool? isDetachedHead,
+  }) {
+    final result = create();
+    if (sessionFileName != null) result.sessionFileName = sessionFileName;
+    if (sessionId != null) result.sessionId = sessionId;
+    if (projectId != null) result.projectId = projectId;
+    if (canonicalProjectDirectory != null)
+      result.canonicalProjectDirectory = canonicalProjectDirectory;
+    if (worktreeId != null) result.worktreeId = worktreeId;
+    if (mainProjectId != null) result.mainProjectId = mainProjectId;
+    if (branch != null) result.branch = branch;
+    if (isLinkedWorktree != null) result.isLinkedWorktree = isLinkedWorktree;
+    if (isDetachedHead != null) result.isDetachedHead = isDetachedHead;
+    return result;
+  }
+
+  SessionSafeProjectionSnapshot._();
+
+  factory SessionSafeProjectionSnapshot.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SessionSafeProjectionSnapshot.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SessionSafeProjectionSnapshot',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'sessionFileName')
+    ..aOS(2, _omitFieldNames ? '' : 'sessionId')
+    ..aOS(3, _omitFieldNames ? '' : 'projectId')
+    ..aOS(4, _omitFieldNames ? '' : 'canonicalProjectDirectory')
+    ..aOS(5, _omitFieldNames ? '' : 'worktreeId')
+    ..aOS(6, _omitFieldNames ? '' : 'mainProjectId')
+    ..aOS(7, _omitFieldNames ? '' : 'branch')
+    ..aOB(8, _omitFieldNames ? '' : 'isLinkedWorktree')
+    ..aOB(9, _omitFieldNames ? '' : 'isDetachedHead')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SessionSafeProjectionSnapshot clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SessionSafeProjectionSnapshot copyWith(
+          void Function(SessionSafeProjectionSnapshot) updates) =>
+      super.copyWith(
+              (message) => updates(message as SessionSafeProjectionSnapshot))
+          as SessionSafeProjectionSnapshot;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SessionSafeProjectionSnapshot create() =>
+      SessionSafeProjectionSnapshot._();
+  @$core.override
+  SessionSafeProjectionSnapshot createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SessionSafeProjectionSnapshot getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SessionSafeProjectionSnapshot>(create);
+  static SessionSafeProjectionSnapshot? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get sessionFileName => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set sessionFileName($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSessionFileName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSessionFileName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get sessionId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set sessionId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSessionId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSessionId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get projectId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set projectId($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasProjectId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearProjectId() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get canonicalProjectDirectory => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set canonicalProjectDirectory($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasCanonicalProjectDirectory() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearCanonicalProjectDirectory() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get worktreeId => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set worktreeId($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasWorktreeId() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearWorktreeId() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get mainProjectId => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set mainProjectId($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasMainProjectId() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearMainProjectId() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get branch => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set branch($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasBranch() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearBranch() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.bool get isLinkedWorktree => $_getBF(7);
+  @$pb.TagNumber(8)
+  set isLinkedWorktree($core.bool value) => $_setBool(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasIsLinkedWorktree() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearIsLinkedWorktree() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.bool get isDetachedHead => $_getBF(8);
+  @$pb.TagNumber(9)
+  set isDetachedHead($core.bool value) => $_setBool(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasIsDetachedHead() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearIsDetachedHead() => $_clearField(9);
+}
+
+class SessionStatsSnapshot extends $pb.GeneratedMessage {
+  factory SessionStatsSnapshot({
+    SessionSafeProjectionSnapshot? projection,
+    $fixnum.Int64? userMessages,
+    $fixnum.Int64? assistantMessages,
+    $fixnum.Int64? toolCalls,
+    $fixnum.Int64? toolResults,
+    $fixnum.Int64? totalMessages,
+    $fixnum.Int64? inputTokens,
+    $fixnum.Int64? outputTokens,
+    $fixnum.Int64? cacheReadTokens,
+    $fixnum.Int64? cacheWriteTokens,
+    $fixnum.Int64? totalTokens,
+    $core.double? cost,
+    $core.bool? hasContextUsage,
+    $fixnum.Int64? contextTokens,
+    $fixnum.Int64? contextWindow,
+    $core.double? contextPercent,
+    $fixnum.Int64? activeTimeMillis,
+    $core.bool? contextTokensKnown,
+  }) {
+    final result = create();
+    if (projection != null) result.projection = projection;
+    if (userMessages != null) result.userMessages = userMessages;
+    if (assistantMessages != null) result.assistantMessages = assistantMessages;
+    if (toolCalls != null) result.toolCalls = toolCalls;
+    if (toolResults != null) result.toolResults = toolResults;
+    if (totalMessages != null) result.totalMessages = totalMessages;
+    if (inputTokens != null) result.inputTokens = inputTokens;
+    if (outputTokens != null) result.outputTokens = outputTokens;
+    if (cacheReadTokens != null) result.cacheReadTokens = cacheReadTokens;
+    if (cacheWriteTokens != null) result.cacheWriteTokens = cacheWriteTokens;
+    if (totalTokens != null) result.totalTokens = totalTokens;
+    if (cost != null) result.cost = cost;
+    if (hasContextUsage != null) result.hasContextUsage = hasContextUsage;
+    if (contextTokens != null) result.contextTokens = contextTokens;
+    if (contextWindow != null) result.contextWindow = contextWindow;
+    if (contextPercent != null) result.contextPercent = contextPercent;
+    if (activeTimeMillis != null) result.activeTimeMillis = activeTimeMillis;
+    if (contextTokensKnown != null)
+      result.contextTokensKnown = contextTokensKnown;
+    return result;
+  }
+
+  SessionStatsSnapshot._();
+
+  factory SessionStatsSnapshot.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SessionStatsSnapshot.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SessionStatsSnapshot',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..aOM<SessionSafeProjectionSnapshot>(1, _omitFieldNames ? '' : 'projection',
+        subBuilder: SessionSafeProjectionSnapshot.create)
+    ..a<$fixnum.Int64>(
+        2, _omitFieldNames ? '' : 'userMessages', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..a<$fixnum.Int64>(
+        3, _omitFieldNames ? '' : 'assistantMessages', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..a<$fixnum.Int64>(
+        4, _omitFieldNames ? '' : 'toolCalls', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..a<$fixnum.Int64>(
+        5, _omitFieldNames ? '' : 'toolResults', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..a<$fixnum.Int64>(
+        6, _omitFieldNames ? '' : 'totalMessages', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..a<$fixnum.Int64>(
+        7, _omitFieldNames ? '' : 'inputTokens', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..a<$fixnum.Int64>(
+        8, _omitFieldNames ? '' : 'outputTokens', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..a<$fixnum.Int64>(
+        9, _omitFieldNames ? '' : 'cacheReadTokens', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..a<$fixnum.Int64>(
+        10, _omitFieldNames ? '' : 'cacheWriteTokens', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..a<$fixnum.Int64>(
+        11, _omitFieldNames ? '' : 'totalTokens', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aD(12, _omitFieldNames ? '' : 'cost')
+    ..aOB(13, _omitFieldNames ? '' : 'hasContextUsage')
+    ..a<$fixnum.Int64>(
+        14, _omitFieldNames ? '' : 'contextTokens', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..a<$fixnum.Int64>(
+        15, _omitFieldNames ? '' : 'contextWindow', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aD(16, _omitFieldNames ? '' : 'contextPercent')
+    ..a<$fixnum.Int64>(
+        17, _omitFieldNames ? '' : 'activeTimeMillis', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOB(18, _omitFieldNames ? '' : 'contextTokensKnown')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SessionStatsSnapshot clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SessionStatsSnapshot copyWith(void Function(SessionStatsSnapshot) updates) =>
+      super.copyWith((message) => updates(message as SessionStatsSnapshot))
+          as SessionStatsSnapshot;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SessionStatsSnapshot create() => SessionStatsSnapshot._();
+  @$core.override
+  SessionStatsSnapshot createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SessionStatsSnapshot getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SessionStatsSnapshot>(create);
+  static SessionStatsSnapshot? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  SessionSafeProjectionSnapshot get projection => $_getN(0);
+  @$pb.TagNumber(1)
+  set projection(SessionSafeProjectionSnapshot value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasProjection() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearProjection() => $_clearField(1);
+  @$pb.TagNumber(1)
+  SessionSafeProjectionSnapshot ensureProjection() => $_ensure(0);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get userMessages => $_getI64(1);
+  @$pb.TagNumber(2)
+  set userMessages($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasUserMessages() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearUserMessages() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get assistantMessages => $_getI64(2);
+  @$pb.TagNumber(3)
+  set assistantMessages($fixnum.Int64 value) => $_setInt64(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasAssistantMessages() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearAssistantMessages() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $fixnum.Int64 get toolCalls => $_getI64(3);
+  @$pb.TagNumber(4)
+  set toolCalls($fixnum.Int64 value) => $_setInt64(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasToolCalls() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearToolCalls() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get toolResults => $_getI64(4);
+  @$pb.TagNumber(5)
+  set toolResults($fixnum.Int64 value) => $_setInt64(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasToolResults() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearToolResults() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $fixnum.Int64 get totalMessages => $_getI64(5);
+  @$pb.TagNumber(6)
+  set totalMessages($fixnum.Int64 value) => $_setInt64(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasTotalMessages() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearTotalMessages() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $fixnum.Int64 get inputTokens => $_getI64(6);
+  @$pb.TagNumber(7)
+  set inputTokens($fixnum.Int64 value) => $_setInt64(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasInputTokens() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearInputTokens() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $fixnum.Int64 get outputTokens => $_getI64(7);
+  @$pb.TagNumber(8)
+  set outputTokens($fixnum.Int64 value) => $_setInt64(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasOutputTokens() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearOutputTokens() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $fixnum.Int64 get cacheReadTokens => $_getI64(8);
+  @$pb.TagNumber(9)
+  set cacheReadTokens($fixnum.Int64 value) => $_setInt64(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasCacheReadTokens() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearCacheReadTokens() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $fixnum.Int64 get cacheWriteTokens => $_getI64(9);
+  @$pb.TagNumber(10)
+  set cacheWriteTokens($fixnum.Int64 value) => $_setInt64(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasCacheWriteTokens() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearCacheWriteTokens() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $fixnum.Int64 get totalTokens => $_getI64(10);
+  @$pb.TagNumber(11)
+  set totalTokens($fixnum.Int64 value) => $_setInt64(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasTotalTokens() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearTotalTokens() => $_clearField(11);
+
+  @$pb.TagNumber(12)
+  $core.double get cost => $_getN(11);
+  @$pb.TagNumber(12)
+  set cost($core.double value) => $_setDouble(11, value);
+  @$pb.TagNumber(12)
+  $core.bool hasCost() => $_has(11);
+  @$pb.TagNumber(12)
+  void clearCost() => $_clearField(12);
+
+  @$pb.TagNumber(13)
+  $core.bool get hasContextUsage => $_getBF(12);
+  @$pb.TagNumber(13)
+  set hasContextUsage($core.bool value) => $_setBool(12, value);
+  @$pb.TagNumber(13)
+  $core.bool hasHasContextUsage() => $_has(12);
+  @$pb.TagNumber(13)
+  void clearHasContextUsage() => $_clearField(13);
+
+  @$pb.TagNumber(14)
+  $fixnum.Int64 get contextTokens => $_getI64(13);
+  @$pb.TagNumber(14)
+  set contextTokens($fixnum.Int64 value) => $_setInt64(13, value);
+  @$pb.TagNumber(14)
+  $core.bool hasContextTokens() => $_has(13);
+  @$pb.TagNumber(14)
+  void clearContextTokens() => $_clearField(14);
+
+  @$pb.TagNumber(15)
+  $fixnum.Int64 get contextWindow => $_getI64(14);
+  @$pb.TagNumber(15)
+  set contextWindow($fixnum.Int64 value) => $_setInt64(14, value);
+  @$pb.TagNumber(15)
+  $core.bool hasContextWindow() => $_has(14);
+  @$pb.TagNumber(15)
+  void clearContextWindow() => $_clearField(15);
+
+  @$pb.TagNumber(16)
+  $core.double get contextPercent => $_getN(15);
+  @$pb.TagNumber(16)
+  set contextPercent($core.double value) => $_setDouble(15, value);
+  @$pb.TagNumber(16)
+  $core.bool hasContextPercent() => $_has(15);
+  @$pb.TagNumber(16)
+  void clearContextPercent() => $_clearField(16);
+
+  @$pb.TagNumber(17)
+  $fixnum.Int64 get activeTimeMillis => $_getI64(16);
+  @$pb.TagNumber(17)
+  set activeTimeMillis($fixnum.Int64 value) => $_setInt64(16, value);
+  @$pb.TagNumber(17)
+  $core.bool hasActiveTimeMillis() => $_has(16);
+  @$pb.TagNumber(17)
+  void clearActiveTimeMillis() => $_clearField(17);
+
+  @$pb.TagNumber(18)
+  $core.bool get contextTokensKnown => $_getBF(17);
+  @$pb.TagNumber(18)
+  set contextTokensKnown($core.bool value) => $_setBool(17, value);
+  @$pb.TagNumber(18)
+  $core.bool hasContextTokensKnown() => $_has(17);
+  @$pb.TagNumber(18)
+  void clearContextTokensKnown() => $_clearField(18);
+}
+
+class GetSessionStatsResponse extends $pb.GeneratedMessage {
+  factory GetSessionStatsResponse({
+    $fixnum.Int64? requestId,
+    SessionStatsSnapshot? stats,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (stats != null) result.stats = stats;
+    return result;
+  }
+
+  GetSessionStatsResponse._();
+
+  factory GetSessionStatsResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory GetSessionStatsResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetSessionStatsResponse',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOM<SessionStatsSnapshot>(2, _omitFieldNames ? '' : 'stats',
+        subBuilder: SessionStatsSnapshot.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetSessionStatsResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetSessionStatsResponse copyWith(
+          void Function(GetSessionStatsResponse) updates) =>
+      super.copyWith((message) => updates(message as GetSessionStatsResponse))
+          as GetSessionStatsResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GetSessionStatsResponse create() => GetSessionStatsResponse._();
+  @$core.override
+  GetSessionStatsResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static GetSessionStatsResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetSessionStatsResponse>(create);
+  static GetSessionStatsResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  SessionStatsSnapshot get stats => $_getN(1);
+  @$pb.TagNumber(2)
+  set stats(SessionStatsSnapshot value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasStats() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearStats() => $_clearField(2);
+  @$pb.TagNumber(2)
+  SessionStatsSnapshot ensureStats() => $_ensure(1);
+}
+
+class ExportSessionRequest extends $pb.GeneratedMessage {
+  factory ExportSessionRequest({
+    $fixnum.Int64? requestId,
+    $core.String? projectId,
+    $core.String? sessionId,
+    SessionExportFormat? format,
+    $core.String? expectedActiveBranchRevision,
+    $core.String? expectedTreeRevision,
+  }) {
+    final result = create();
+    if (requestId != null) result.requestId = requestId;
+    if (projectId != null) result.projectId = projectId;
+    if (sessionId != null) result.sessionId = sessionId;
+    if (format != null) result.format = format;
+    if (expectedActiveBranchRevision != null)
+      result.expectedActiveBranchRevision = expectedActiveBranchRevision;
+    if (expectedTreeRevision != null)
+      result.expectedTreeRevision = expectedTreeRevision;
+    return result;
+  }
+
+  ExportSessionRequest._();
+
+  factory ExportSessionRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ExportSessionRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ExportSessionRequest',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'pi.client.protocol.v0'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(2, _omitFieldNames ? '' : 'projectId')
+    ..aOS(3, _omitFieldNames ? '' : 'sessionId')
+    ..aE<SessionExportFormat>(4, _omitFieldNames ? '' : 'format',
+        enumValues: SessionExportFormat.values)
+    ..aOS(5, _omitFieldNames ? '' : 'expectedActiveBranchRevision')
+    ..aOS(6, _omitFieldNames ? '' : 'expectedTreeRevision')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ExportSessionRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ExportSessionRequest copyWith(void Function(ExportSessionRequest) updates) =>
+      super.copyWith((message) => updates(message as ExportSessionRequest))
+          as ExportSessionRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ExportSessionRequest create() => ExportSessionRequest._();
+  @$core.override
+  ExportSessionRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ExportSessionRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ExportSessionRequest>(create);
+  static ExportSessionRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get requestId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set requestId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRequestId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRequestId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get projectId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set projectId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasProjectId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearProjectId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get sessionId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set sessionId($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSessionId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSessionId() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  SessionExportFormat get format => $_getN(3);
+  @$pb.TagNumber(4)
+  set format(SessionExportFormat value) => $_setField(4, value);
+  @$pb.TagNumber(4)
+  $core.bool hasFormat() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearFormat() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get expectedActiveBranchRevision => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set expectedActiveBranchRevision($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasExpectedActiveBranchRevision() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearExpectedActiveBranchRevision() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get expectedTreeRevision => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set expectedTreeRevision($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasExpectedTreeRevision() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearExpectedTreeRevision() => $_clearField(6);
+}
+
 enum SessionEventStreamEnvelope_Event {
   messageAdded,
   messageDelta,
@@ -6935,6 +8029,7 @@ class TransferOpen extends $pb.GeneratedMessage {
     $fixnum.Int64? totalBytes,
     $core.int? chunkBytes,
     $core.List<$core.int>? sha256,
+    $fixnum.Int64? requestId,
   }) {
     final result = create();
     if (transferId != null) result.transferId = transferId;
@@ -6945,6 +8040,7 @@ class TransferOpen extends $pb.GeneratedMessage {
     if (totalBytes != null) result.totalBytes = totalBytes;
     if (chunkBytes != null) result.chunkBytes = chunkBytes;
     if (sha256 != null) result.sha256 = sha256;
+    if (requestId != null) result.requestId = requestId;
     return result;
   }
 
@@ -6975,6 +8071,9 @@ class TransferOpen extends $pb.GeneratedMessage {
     ..aI(7, _omitFieldNames ? '' : 'chunkBytes', fieldType: $pb.PbFieldType.OU3)
     ..a<$core.List<$core.int>>(
         8, _omitFieldNames ? '' : 'sha256', $pb.PbFieldType.OY)
+    ..a<$fixnum.Int64>(
+        9, _omitFieldNames ? '' : 'requestId', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -7067,6 +8166,15 @@ class TransferOpen extends $pb.GeneratedMessage {
   $core.bool hasSha256() => $_has(7);
   @$pb.TagNumber(8)
   void clearSha256() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $fixnum.Int64 get requestId => $_getI64(8);
+  @$pb.TagNumber(9)
+  set requestId($fixnum.Int64 value) => $_setInt64(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasRequestId() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearRequestId() => $_clearField(9);
 }
 
 class TransferChunk extends $pb.GeneratedMessage {

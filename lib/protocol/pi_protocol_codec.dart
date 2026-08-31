@@ -136,6 +136,120 @@ final class PiProtocolGetSessionTreeRequest extends PiProtocolRequestMessage {
   final String sessionId;
 }
 
+final class PiProtocolGetSessionHistoryRequest
+    extends PiProtocolRequestMessage {
+  PiProtocolGetSessionHistoryRequest({
+    required super.requestId,
+    required String projectId,
+    required String sessionId,
+    String? cursor,
+    required int limit,
+    String? expectedActiveBranchRevision,
+    String? expectedTreeRevision,
+  }) : projectId = _validatedOpaqueId(projectId, 'projectId'),
+       sessionId = _validatedOpaqueId(sessionId, 'sessionId'),
+       cursor = cursor == null ? null : _validatedShortText(cursor, 'cursor'),
+       limit = _validatedBoundedCount(limit, 'limit', 200),
+       expectedActiveBranchRevision = expectedActiveBranchRevision == null
+           ? null
+           : _validatedOpaqueId(
+               expectedActiveBranchRevision,
+               'expectedActiveBranchRevision',
+             ),
+       expectedTreeRevision = expectedTreeRevision == null
+           ? null
+           : _validatedOpaqueId(expectedTreeRevision, 'expectedTreeRevision') {
+    if (limit < 1) throw ArgumentError('limit must be positive.');
+  }
+
+  final String projectId;
+  final String sessionId;
+  final String? cursor;
+  final int limit;
+  final String? expectedActiveBranchRevision;
+  final String? expectedTreeRevision;
+}
+
+final class PiProtocolGetSessionStatsRequest extends PiProtocolRequestMessage {
+  PiProtocolGetSessionStatsRequest({
+    required super.requestId,
+    required String projectId,
+    required String sessionId,
+  }) : projectId = _validatedOpaqueId(projectId, 'projectId'),
+       sessionId = _validatedOpaqueId(sessionId, 'sessionId');
+
+  final String projectId;
+  final String sessionId;
+}
+
+enum PiProtocolSessionExportFormat { html, jsonl }
+
+final class PiProtocolExportSessionRequest extends PiProtocolRequestMessage {
+  PiProtocolExportSessionRequest({
+    required super.requestId,
+    required String projectId,
+    required String sessionId,
+    required this.format,
+    String? expectedActiveBranchRevision,
+    String? expectedTreeRevision,
+  }) : projectId = _validatedOpaqueId(projectId, 'projectId'),
+       sessionId = _validatedOpaqueId(sessionId, 'sessionId'),
+       expectedActiveBranchRevision = expectedActiveBranchRevision == null
+           ? null
+           : _validatedOpaqueId(
+               expectedActiveBranchRevision,
+               'expectedActiveBranchRevision',
+             ),
+       expectedTreeRevision = expectedTreeRevision == null
+           ? null
+           : _validatedOpaqueId(expectedTreeRevision, 'expectedTreeRevision');
+
+  final String projectId;
+  final String sessionId;
+  final PiProtocolSessionExportFormat format;
+  final String? expectedActiveBranchRevision;
+  final String? expectedTreeRevision;
+}
+
+final class PiProtocolTransferWindowUpdate extends PiClientProtocolMessage {
+  PiProtocolTransferWindowUpdate({
+    required String transferId,
+    required int creditBytes,
+  }) : transferId = _validatedOpaqueId(transferId, 'transferId'),
+       creditBytes = _validatedPositiveInt(creditBytes, 'creditBytes') {
+    if (creditBytes > 8 * 1024 * 1024) {
+      throw ArgumentError('creditBytes is outside the supported range.');
+    }
+  }
+
+  final String transferId;
+  final int creditBytes;
+}
+
+final class PiProtocolTransferAckMessage extends PiClientProtocolMessage {
+  PiProtocolTransferAckMessage({
+    required String transferId,
+    required int acknowledgedSequence,
+    required int committedBytes,
+  }) : transferId = _validatedOpaqueId(transferId, 'transferId'),
+       acknowledgedSequence = _validatedPositiveInt(
+         acknowledgedSequence,
+         'acknowledgedSequence',
+       ),
+       committedBytes = _validatedPositiveInt(committedBytes, 'committedBytes');
+
+  final String transferId;
+  final int acknowledgedSequence;
+  final int committedBytes;
+}
+
+final class PiProtocolCancelTransferMessage extends PiClientProtocolMessage {
+  PiProtocolCancelTransferMessage({required String transferId})
+    : transferId = _validatedOpaqueId(transferId, 'transferId');
+
+  final String transferId;
+}
+
 sealed class PiProtocolCommandRequest extends PiProtocolRequestMessage {
   PiProtocolCommandRequest({
     required super.requestId,
@@ -335,10 +449,16 @@ enum PiProtocolCapability {
   promptCommand,
   abortCommand,
   sessionEvents,
+  cancellation,
+  flowControl,
+  transfer,
   projectDiscovery,
   projectTrust,
   sessionAdmin,
   sessionTree,
+  sessionHistory,
+  sessionStats,
+  sessionExport,
 }
 
 final class PiProtocolHandshakeAcceptedMessage extends PiServerProtocolMessage {
@@ -443,6 +563,236 @@ final class PiProtocolSessionTreeResponse extends PiProtocolResponseMessage {
   PiProtocolSessionTreeResponse({required super.requestId, required this.tree});
 
   final PiProtocolSessionTreeSnapshot tree;
+}
+
+final class PiProtocolSessionHistoryResponse extends PiProtocolResponseMessage {
+  PiProtocolSessionHistoryResponse({
+    required super.requestId,
+    required this.summary,
+    required Iterable<PiProtocolMessageSnapshot> messages,
+    this.nextCursor,
+    required this.hasMore,
+    required String activeBranchRevision,
+    required String treeRevision,
+  }) : messages = List<PiProtocolMessageSnapshot>.unmodifiable(messages),
+       activeBranchRevision = _validatedOpaqueId(
+         activeBranchRevision,
+         'activeBranchRevision',
+       ),
+       treeRevision = _validatedOpaqueId(treeRevision, 'treeRevision') {
+    if (this.messages.length > 200) {
+      throw ArgumentError('Session history page is too large.');
+    }
+    if (nextCursor != null) _validatedShortText(nextCursor!, 'nextCursor');
+    if (hasMore != (nextCursor != null)) {
+      throw ArgumentError('hasMore and nextCursor must agree.');
+    }
+  }
+
+  final PiProtocolSessionSummary summary;
+  final List<PiProtocolMessageSnapshot> messages;
+  final String? nextCursor;
+  final bool hasMore;
+  final String activeBranchRevision;
+  final String treeRevision;
+}
+
+final class PiProtocolSessionSafeProjection {
+  PiProtocolSessionSafeProjection({
+    required String sessionFileName,
+    required String sessionId,
+    required String projectId,
+    required String canonicalProjectDirectory,
+    required String worktreeId,
+    required String mainProjectId,
+    String? branch,
+    required this.isLinkedWorktree,
+    required this.isDetachedHead,
+  }) : sessionFileName = _validatedShortText(
+         sessionFileName,
+         'sessionFileName',
+       ),
+       sessionId = _validatedOpaqueId(sessionId, 'sessionId'),
+       projectId = _validatedOpaqueId(projectId, 'projectId'),
+       canonicalProjectDirectory = _validatedPath(canonicalProjectDirectory),
+       worktreeId = _validatedOpaqueId(worktreeId, 'worktreeId'),
+       mainProjectId = _validatedOpaqueId(mainProjectId, 'mainProjectId'),
+       branch = branch == null ? null : _validatedShortText(branch, 'branch') {
+    if (isDetachedHead && this.branch != null) {
+      throw ArgumentError('Detached stats projection must not contain branch.');
+    }
+  }
+
+  final String sessionFileName;
+  final String sessionId;
+  final String projectId;
+  final String canonicalProjectDirectory;
+  final String worktreeId;
+  final String mainProjectId;
+  final String? branch;
+  final bool isLinkedWorktree;
+  final bool isDetachedHead;
+}
+
+final class PiProtocolSessionStatsSnapshot {
+  PiProtocolSessionStatsSnapshot({
+    required this.projection,
+    required int userMessages,
+    required int assistantMessages,
+    required int toolCalls,
+    required int toolResults,
+    required int totalMessages,
+    required int inputTokens,
+    required int outputTokens,
+    required int cacheReadTokens,
+    required int cacheWriteTokens,
+    required int totalTokens,
+    required double cost,
+    this.contextTokens,
+    this.contextWindow,
+    this.contextPercent,
+    required int activeTimeMillis,
+  }) : userMessages = _validatedNonNegativeInt(userMessages, 'userMessages'),
+       assistantMessages = _validatedNonNegativeInt(
+         assistantMessages,
+         'assistantMessages',
+       ),
+       toolCalls = _validatedNonNegativeInt(toolCalls, 'toolCalls'),
+       toolResults = _validatedNonNegativeInt(toolResults, 'toolResults'),
+       totalMessages = _validatedNonNegativeInt(totalMessages, 'totalMessages'),
+       inputTokens = _validatedNonNegativeInt(inputTokens, 'inputTokens'),
+       outputTokens = _validatedNonNegativeInt(outputTokens, 'outputTokens'),
+       cacheReadTokens = _validatedNonNegativeInt(
+         cacheReadTokens,
+         'cacheReadTokens',
+       ),
+       cacheWriteTokens = _validatedNonNegativeInt(
+         cacheWriteTokens,
+         'cacheWriteTokens',
+       ),
+       totalTokens = _validatedNonNegativeInt(totalTokens, 'totalTokens'),
+       cost = _validatedNonNegativeDouble(cost, 'cost'),
+       activeTimeMillis = _validatedNonNegativeInt(
+         activeTimeMillis,
+         'activeTimeMillis',
+       ) {
+    if (contextTokens != null) {
+      _validatedNonNegativeInt(contextTokens!, 'contextTokens');
+    }
+    if (contextWindow != null) {
+      _validatedPositiveInt(contextWindow!, 'contextWindow');
+    }
+    if (contextPercent != null) {
+      _validatedNonNegativeDouble(contextPercent!, 'contextPercent');
+    }
+    if (contextWindow == null &&
+        (contextTokens != null || contextPercent != null)) {
+      throw ArgumentError('Context values require a context window.');
+    }
+  }
+
+  final PiProtocolSessionSafeProjection projection;
+  final int userMessages;
+  final int assistantMessages;
+  final int toolCalls;
+  final int toolResults;
+  final int totalMessages;
+  final int inputTokens;
+  final int outputTokens;
+  final int cacheReadTokens;
+  final int cacheWriteTokens;
+  final int totalTokens;
+  final double cost;
+  final int? contextTokens;
+  final int? contextWindow;
+  final double? contextPercent;
+  final int activeTimeMillis;
+}
+
+final class PiProtocolSessionStatsResponse extends PiProtocolResponseMessage {
+  PiProtocolSessionStatsResponse({
+    required super.requestId,
+    required this.stats,
+  });
+
+  final PiProtocolSessionStatsSnapshot stats;
+}
+
+final class PiProtocolTransferOpenMessage extends PiProtocolResponseMessage {
+  PiProtocolTransferOpenMessage({
+    required super.requestId,
+    required String transferId,
+    required String contentType,
+    required String fileName,
+    required int totalBytes,
+    required int chunkBytes,
+    required Iterable<int> sha256,
+  }) : transferId = _validatedOpaqueId(transferId, 'transferId'),
+       contentType = _validatedShortText(contentType, 'contentType'),
+       fileName = _validatedShortText(fileName, 'fileName'),
+       totalBytes = _validatedPositiveInt(totalBytes, 'totalBytes'),
+       chunkBytes = _validatedPositiveInt(chunkBytes, 'chunkBytes'),
+       sha256 = List<int>.unmodifiable(sha256) {
+    if (chunkBytes > 1024 * 1024 || this.sha256.length != 32) {
+      throw ArgumentError('Invalid transfer metadata.');
+    }
+  }
+
+  final String transferId;
+  final String contentType;
+  final String fileName;
+  final int totalBytes;
+  final int chunkBytes;
+  final List<int> sha256;
+}
+
+final class PiProtocolTransferChunkMessage extends PiServerProtocolMessage {
+  PiProtocolTransferChunkMessage({
+    required String transferId,
+    required int sequence,
+    required int offset,
+    required Iterable<int> data,
+  }) : transferId = _validatedOpaqueId(transferId, 'transferId'),
+       sequence = _validatedPositiveInt(sequence, 'sequence'),
+       offset = _validatedNonNegativeInt(offset, 'offset'),
+       data = List<int>.unmodifiable(data) {
+    if (this.data.isEmpty || this.data.length > 1024 * 1024) {
+      throw ArgumentError('Invalid transfer chunk.');
+    }
+  }
+
+  final String transferId;
+  final int sequence;
+  final int offset;
+  final List<int> data;
+}
+
+final class PiProtocolTransferCompleteMessage extends PiServerProtocolMessage {
+  PiProtocolTransferCompleteMessage({
+    required String transferId,
+    required int totalBytes,
+    required Iterable<int> sha256,
+  }) : transferId = _validatedOpaqueId(transferId, 'transferId'),
+       totalBytes = _validatedPositiveInt(totalBytes, 'totalBytes'),
+       sha256 = List<int>.unmodifiable(sha256) {
+    if (this.sha256.length != 32) {
+      throw ArgumentError('Invalid transfer digest.');
+    }
+  }
+
+  final String transferId;
+  final int totalBytes;
+  final List<int> sha256;
+}
+
+final class PiProtocolTransferAbortMessage extends PiServerProtocolMessage {
+  PiProtocolTransferAbortMessage({
+    required String transferId,
+    required this.failure,
+  }) : transferId = _validatedOpaqueId(transferId, 'transferId');
+
+  final String transferId;
+  final PiProtocolFailure failure;
 }
 
 sealed class PiProtocolSessionAdminOutcome {
@@ -978,8 +1328,27 @@ int _validatedBoundedCount(int value, String name, int maximum) {
   return value;
 }
 
+int _validatedNonNegativeInt(int value, String name) {
+  if (value < 0) throw ArgumentError('$name must be non-negative.');
+  return value;
+}
+
 int _validatedPositiveInt(int value, String name) {
   if (value <= 0) throw ArgumentError('$name must be positive.');
+  return value;
+}
+
+String _validatedShortText(String value, String name) {
+  if (value.isEmpty || value.length > 1024 || value.contains('\u0000')) {
+    throw ArgumentError('Invalid $name.');
+  }
+  return value;
+}
+
+double _validatedNonNegativeDouble(double value, String name) {
+  if (!value.isFinite || value < 0) {
+    throw ArgumentError('$name must be finite and non-negative.');
+  }
   return value;
 }
 

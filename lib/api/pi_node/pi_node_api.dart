@@ -31,6 +31,17 @@ abstract interface class PiNodeApi {
     PiSessionId sessionId,
   );
 
+  Future<PiSessionHistoryPage> getSessionHistory(
+    PiSessionHistoryRequest request,
+  );
+
+  Future<PiSessionStats> getSessionStats(
+    PiProjectId projectId,
+    PiSessionId sessionId,
+  );
+
+  Future<PiSessionExportHandle> exportSession(PiSessionExportRequest request);
+
   Future<PiSessionTreeMutationResult> navigateSessionTree(
     PiNavigateSessionTreeCommand command,
   );

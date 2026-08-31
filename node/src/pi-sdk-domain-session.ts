@@ -1,6 +1,6 @@
-import { createHash } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { basename, resolve } from "node:path";
 
 import {
   type AgentSession,
@@ -30,6 +30,9 @@ import {
   type PiNodeSessionBackendEvent,
   type PiNodeSessionBackendMutationResult,
   type PiNodeSessionBackendSnapshot,
+  type PiNodeSessionExportFormat,
+  type PiNodeSessionHistoryPage,
+  type PiNodeSessionStats,
   type PiNodeSessionSummary,
   type PiNodeSessionTreeEntryKind,
   type PiNodeSessionTreeNode,
@@ -57,7 +60,10 @@ export type PiSdkDomainAdapterErrorCode =
   | "session-mutation-conflict"
   | "session-mutation-locked"
   | "session-mutation-cancelled"
-  | "session-mutation-failed";
+  | "session-mutation-failed"
+  | "session-history-cursor-invalid"
+  | "session-history-conflict"
+  | "session-export-failed";
 
 export class PiSdkDomainAdapterError extends Error {
   constructor(
@@ -259,6 +265,7 @@ class PublicPiSdkDomainSession implements PiNodeDomainSessionBackend {
   readonly #initialSessionInfo: SessionInfo | undefined;
   readonly #clock: () => number;
   readonly #listeners = new Set<(event: PiNodeSessionBackendEvent) => void>();
+  readonly #historyCursorKey = randomBytes(32);
 
   #parentSessionId: string | undefined;
   #messageIds = new WeakMap<object, string>();
@@ -301,35 +308,278 @@ class PublicPiSdkDomainSession implements PiNodeDomainSessionBackend {
   }
 
   getSnapshot(): PiNodeSessionBackendSnapshot {
+    const { summary, branchEntries } = this.#summaryAndBranch();
+    return Object.freeze({
+      ...summary,
+      persistence: "persistent",
+      messages: Object.freeze(
+        branchEntries.flatMap((entry) => normalizeSessionEntry(entry, this.#clock)),
+      ),
+    });
+  }
+
+  getHistoryPage(input: {
+    readonly cursor?: string;
+    readonly limit: number;
+    readonly expectedActiveBranchRevision?: string;
+    readonly expectedTreeRevision?: string;
+  }): PiNodeSessionHistoryPage {
+    this.#assertNotDisposed();
+    if (!Number.isSafeInteger(input.limit) || input.limit < 1 || input.limit > 200) {
+      throw new PiSdkDomainAdapterError(
+        "session-history-cursor-invalid",
+        "The session history limit is outside the supported bounds.",
+      );
+    }
+    const { summary, branchEntries } = this.#summaryAndBranch();
+    const revisions = this.#currentRevisions(summary);
+    this.#assertExpectedRevisions(input, revisions);
+    const messageEntries = branchEntries.filter(
+      (entry) => entry.type === "message" || entry.type === "custom_message",
+    );
+    const endExclusive =
+      input.cursor === undefined
+        ? messageEntries.length
+        : this.#decodeHistoryCursor(input.cursor, revisions, messageEntries.length);
+    const start = Math.max(0, endExclusive - input.limit);
+    const messages = messageEntries
+      .slice(start, endExclusive)
+      .flatMap((entry) => normalizeSessionEntry(entry, this.#clock));
+    const hasMore = start > 0;
+    return Object.freeze({
+      summary,
+      messages: Object.freeze(messages),
+      ...(hasMore ? { nextCursor: this.#encodeHistoryCursor(start, revisions) } : {}),
+      hasMore,
+      activeBranchRevision: revisions.activeBranchRevision,
+      treeRevision: revisions.treeRevision,
+      lastEventSequence: 0,
+    });
+  }
+
+  getStats(input: {
+    readonly project: import("./pi-node-domain.js").PiNodeProjectSnapshot;
+  }): PiNodeSessionStats {
+    this.#assertNotDisposed();
+    const stats = this.#session.getSessionStats();
+    const contextUsage = stats.contextUsage;
+    const contextTokens = contextUsage?.tokens ?? undefined;
+    return Object.freeze({
+      projection: Object.freeze({
+        sessionFileName: basename(stats.sessionFile ?? `${stats.sessionId}.jsonl`),
+        sessionId: stats.sessionId,
+        projectId: input.project.identity.projectId,
+        canonicalProjectDirectory: input.project.identity.canonicalCwd,
+        worktreeId: input.project.identity.worktreeId,
+        mainProjectId: input.project.identity.mainProjectId,
+        ...(input.project.identity.branch === undefined
+          ? {}
+          : { branch: input.project.identity.branch }),
+        isLinkedWorktree: input.project.identity.isLinkedWorktree,
+        isDetachedHead: input.project.identity.isDetachedHead,
+      }),
+      userMessages: stats.userMessages,
+      assistantMessages: stats.assistantMessages,
+      toolCalls: stats.toolCalls,
+      toolResults: stats.toolResults,
+      totalMessages: stats.totalMessages,
+      inputTokens: stats.tokens.input,
+      outputTokens: stats.tokens.output,
+      cacheReadTokens: stats.tokens.cacheRead,
+      cacheWriteTokens: stats.tokens.cacheWrite,
+      totalTokens: stats.tokens.total,
+      cost: stats.cost,
+      ...(contextUsage === undefined ? {} : { contextWindow: contextUsage.contextWindow }),
+      ...(contextTokens === undefined ? {} : { contextTokens }),
+      ...(contextUsage?.percent == null ? {} : { contextPercent: contextUsage.percent }),
+      activeTimeMillis: calculateSessionActiveTimeMillis(this.#session.sessionManager.getEntries()),
+    });
+  }
+
+  async exportToPath(input: {
+    readonly format: PiNodeSessionExportFormat;
+    readonly outputPath: string;
+    readonly expectedActiveBranchRevision?: string;
+    readonly expectedTreeRevision?: string;
+  }): Promise<void> {
+    this.#assertNotDisposed();
+    if (this.isRunning || this.#mutationInFlight) {
+      throw new PiSdkDomainAdapterError(
+        "session-history-conflict",
+        "The session must be idle before export.",
+      );
+    }
+    const before = this.#summaryAndBranch().summary;
+    const revisions = this.#currentRevisions(before);
+    this.#assertExpectedRevisions(input, revisions);
+    try {
+      if (input.format === "html") {
+        await this.#session.exportToHtml(input.outputPath);
+      } else {
+        this.#session.exportToJsonl(input.outputPath);
+      }
+    } catch (error) {
+      throw new PiSdkDomainAdapterError(
+        "session-export-failed",
+        "The public Pi SDK session export failed.",
+        { cause: error },
+      );
+    }
+    const after = this.#summaryAndBranch().summary;
+    const afterRevisions = this.#currentRevisions(after);
+    if (
+      afterRevisions.activeBranchRevision !== revisions.activeBranchRevision ||
+      afterRevisions.treeRevision !== revisions.treeRevision
+    ) {
+      throw new PiSdkDomainAdapterError(
+        "session-history-conflict",
+        "The session changed during export.",
+      );
+    }
+  }
+
+  #summaryAndBranch(): {
+    readonly summary: PiNodeSessionSummary;
+    readonly branchEntries: SessionEntry[];
+  } {
     const manager = this.#session.sessionManager;
     const header = manager.getHeader();
-    const entries = manager.getBranch();
-    const messages = entries.flatMap((entry) => normalizeSessionEntry(entry, this.#clock));
+    const branchEntries = manager.getBranch();
     const sessionInfo =
       this.#initialSessionInfo?.id === this.sessionId ? this.#initialSessionInfo : undefined;
     const createdAtMs =
       sessionInfo?.created.getTime() ?? parseTimestamp(header?.timestamp, this.#clock());
     const modifiedAtMs =
       sessionInfo?.modified.getTime() ??
-      parseTimestamp(entries.at(-1)?.timestamp ?? header?.timestamp, createdAtMs);
-
-    const summary = {
+      parseTimestamp(branchEntries.at(-1)?.timestamp ?? header?.timestamp, createdAtMs);
+    const messageEntries = branchEntries.filter(
+      (entry) => entry.type === "message" || entry.type === "custom_message",
+    );
+    const firstUserEntry = messageEntries.find(
+      (entry) => entry.type === "message" && entry.message.role === "user",
+    );
+    const firstMessage =
+      firstUserEntry?.type === "message" ? messageContentText(firstUserEntry.message) : "";
+    const base = {
       sessionId: this.sessionId,
       cwd: this.cwd,
       ...(this.#session.sessionName === undefined ? {} : { name: this.#session.sessionName }),
       ...(this.#parentSessionId === undefined ? {} : { parentSessionId: this.#parentSessionId }),
       createdAtMs,
       modifiedAtMs,
-      messageCount: messages.length,
-      firstMessage: firstUserText(messages),
+      messageCount: messageEntries.length,
+      firstMessage,
       running: this.isRunning,
     };
     return Object.freeze({
-      ...summary,
-      adminRevision: createSessionAdminRevision(summary),
-      persistence: "persistent",
-      messages: Object.freeze(messages),
+      summary: Object.freeze({
+        ...base,
+        adminRevision: createSessionAdminRevision(base),
+      }),
+      branchEntries,
     });
+  }
+
+  #currentRevisions(summary: PiNodeSessionSummary): SessionHistoryRevisions {
+    const tree = sessionManagerToTreeSnapshot(this.#session.sessionManager, summary);
+    return Object.freeze({
+      treeRevision: tree.adminRevision,
+      activeBranchRevision: createHash("sha256")
+        .update(JSON.stringify([tree.adminRevision, tree.activePathEntryIds]))
+        .digest("hex"),
+    });
+  }
+
+  #assertExpectedRevisions(
+    input: {
+      readonly expectedActiveBranchRevision?: string;
+      readonly expectedTreeRevision?: string;
+    },
+    revisions: SessionHistoryRevisions,
+  ): void {
+    if (
+      (input.expectedActiveBranchRevision !== undefined &&
+        input.expectedActiveBranchRevision !== revisions.activeBranchRevision) ||
+      (input.expectedTreeRevision !== undefined &&
+        input.expectedTreeRevision !== revisions.treeRevision)
+    ) {
+      throw new PiSdkDomainAdapterError(
+        "session-history-conflict",
+        "The active session branch changed.",
+      );
+    }
+  }
+
+  #encodeHistoryCursor(endExclusive: number, revisions: SessionHistoryRevisions): string {
+    const payload = Buffer.from(
+      JSON.stringify({
+        version: 1,
+        sessionId: this.sessionId,
+        endExclusive,
+        activeBranchRevision: revisions.activeBranchRevision,
+        treeRevision: revisions.treeRevision,
+      }),
+      "utf8",
+    ).toString("base64url");
+    const signature = createHmac("sha256", this.#historyCursorKey)
+      .update(payload)
+      .digest("base64url");
+    return `${payload}.${signature}`;
+  }
+
+  #decodeHistoryCursor(
+    cursor: string,
+    revisions: SessionHistoryRevisions,
+    messageCount: number,
+  ): number {
+    const [payload, signature, extra] = cursor.split(".");
+    if (!payload || !signature || extra !== undefined) {
+      throw new PiSdkDomainAdapterError(
+        "session-history-cursor-invalid",
+        "The session history cursor is malformed.",
+      );
+    }
+    const expected = createHmac("sha256", this.#historyCursorKey).update(payload).digest();
+    let supplied: Buffer;
+    try {
+      supplied = Buffer.from(signature, "base64url");
+    } catch {
+      throw new PiSdkDomainAdapterError(
+        "session-history-cursor-invalid",
+        "The session history cursor signature is malformed.",
+      );
+    }
+    if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) {
+      throw new PiSdkDomainAdapterError(
+        "session-history-cursor-invalid",
+        "The session history cursor signature is invalid.",
+      );
+    }
+    let decoded: unknown;
+    try {
+      decoded = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    } catch {
+      throw new PiSdkDomainAdapterError(
+        "session-history-cursor-invalid",
+        "The session history cursor payload is invalid.",
+      );
+    }
+    if (
+      !isRecord(decoded) ||
+      decoded.version !== 1 ||
+      decoded.sessionId !== this.sessionId ||
+      decoded.activeBranchRevision !== revisions.activeBranchRevision ||
+      decoded.treeRevision !== revisions.treeRevision ||
+      !Number.isSafeInteger(decoded.endExclusive) ||
+      (decoded.endExclusive as number) < 1 ||
+      (decoded.endExclusive as number) > messageCount
+    ) {
+      throw new PiSdkDomainAdapterError(
+        "session-history-cursor-invalid",
+        "The session history cursor no longer matches this branch.",
+      );
+    }
+    return decoded.endExclusive as number;
   }
 
   subscribe(listener: (event: PiNodeSessionBackendEvent) => void): () => void {
@@ -1110,15 +1360,35 @@ function classifySdkFailure(error: unknown): PiNodeCommandFailure {
   });
 }
 
-function firstUserText(messages: readonly PiNodeMessage[]): string {
-  const message = messages.find((candidate) => candidate.role === "user");
-  if (!message) {
-    return "";
+interface SessionHistoryRevisions {
+  readonly activeBranchRevision: string;
+  readonly treeRevision: string;
+}
+
+function calculateSessionActiveTimeMillis(entries: readonly SessionEntry[]): number {
+  let activeStart: number | undefined;
+  let lastActivity: number | undefined;
+  let total = 0;
+  for (const entry of entries) {
+    if (entry.type !== "message") continue;
+    const timestamp = parseTimestamp(entry.timestamp, Number.NaN);
+    if (!Number.isFinite(timestamp)) continue;
+    if (entry.message.role === "user") {
+      if (activeStart !== undefined && lastActivity !== undefined) {
+        total += Math.max(0, lastActivity - activeStart);
+      }
+      activeStart = timestamp;
+      lastActivity = timestamp;
+      continue;
+    }
+    if (activeStart !== undefined) {
+      lastActivity = Math.max(lastActivity ?? timestamp, timestamp);
+    }
   }
-  return message.parts
-    .filter((part): part is Extract<PiNodeMessagePart, { type: "text" }> => part.type === "text")
-    .map((part) => part.text)
-    .join("");
+  if (activeStart !== undefined && lastActivity !== undefined) {
+    total += Math.max(0, lastActivity - activeStart);
+  }
+  return Math.max(0, Math.floor(total));
 }
 
 function parseTimestamp(value: unknown, fallback: number): number {

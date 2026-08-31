@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../../protocol/pi_protocol.dart';
 import 'pi_node_errors.dart';
 
@@ -48,6 +50,51 @@ final class PiSessionTreeEntryId {
 
   @override
   String toString() => 'PiSessionTreeEntryId(<redacted>)';
+}
+
+final class PiSessionHistoryCursor {
+  PiSessionHistoryCursor(String value)
+    : value = _validatedShortOpaqueText(value, 'historyCursor');
+
+  final String value;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PiSessionHistoryCursor && value == other.value;
+
+  @override
+  int get hashCode => value.hashCode;
+
+  @override
+  String toString() => 'PiSessionHistoryCursor(<redacted>)';
+}
+
+final class PiSessionBranchRevision {
+  PiSessionBranchRevision(String value)
+    : value = _validatedOpaqueId(value, 'activeBranchRevision');
+
+  final String value;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PiSessionBranchRevision && value == other.value;
+
+  @override
+  int get hashCode => value.hashCode;
+}
+
+final class PiSessionTreeRevision {
+  PiSessionTreeRevision(String value)
+    : value = _validatedOpaqueId(value, 'treeRevision');
+
+  final String value;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PiSessionTreeRevision && value == other.value;
+
+  @override
+  int get hashCode => value.hashCode;
 }
 
 final class PiSessionAdminRevision {
@@ -606,6 +653,191 @@ final class PiSessionSummary {
   String toString() => 'PiSessionSummary(<redacted>)';
 }
 
+final class PiSessionHistoryPage {
+  PiSessionHistoryPage({
+    required this.summary,
+    required Iterable<PiMessage> messages,
+    this.nextCursor,
+    required this.hasMore,
+    required this.activeBranchRevision,
+    required this.treeRevision,
+  }) : messages = List<PiMessage>.unmodifiable(messages) {
+    if (hasMore != (nextCursor != null)) {
+      throw ArgumentError('hasMore and nextCursor must agree.');
+    }
+    if (this.messages.length > 200) {
+      throw ArgumentError('Session history page is too large.');
+    }
+  }
+
+  final PiSessionSummary summary;
+  final List<PiMessage> messages;
+  final PiSessionHistoryCursor? nextCursor;
+  final bool hasMore;
+  final PiSessionBranchRevision activeBranchRevision;
+  final PiSessionTreeRevision treeRevision;
+}
+
+final class PiSessionHistoryRequest {
+  PiSessionHistoryRequest({
+    required this.projectId,
+    required this.sessionId,
+    this.cursor,
+    this.limit = 50,
+    this.expectedActiveBranchRevision,
+    this.expectedTreeRevision,
+  }) {
+    if (limit < 1 || limit > 200) {
+      throw ArgumentError('limit is outside the supported range.');
+    }
+  }
+
+  final PiProjectId projectId;
+  final PiSessionId sessionId;
+  final PiSessionHistoryCursor? cursor;
+  final int limit;
+  final PiSessionBranchRevision? expectedActiveBranchRevision;
+  final PiSessionTreeRevision? expectedTreeRevision;
+}
+
+final class PiSessionSafeProjection {
+  PiSessionSafeProjection({
+    required String sessionFileName,
+    required this.sessionId,
+    required this.projectId,
+    required String canonicalProjectDirectory,
+    required this.worktreeId,
+    required this.mainProjectId,
+    String? branch,
+    required this.isLinkedWorktree,
+    required this.isDetachedHead,
+  }) : sessionFileName = _validatedText(
+         sessionFileName,
+         'sessionFileName',
+         allowEmpty: false,
+       ),
+       canonicalProjectDirectory = _validatedPath(canonicalProjectDirectory),
+       branch = branch == null
+           ? null
+           : _validatedText(branch, 'branch', allowEmpty: false) {
+    if (isDetachedHead && this.branch != null) {
+      throw ArgumentError('Detached projection must not contain branch.');
+    }
+  }
+
+  final String sessionFileName;
+  final PiSessionId sessionId;
+  final PiProjectId projectId;
+  final String canonicalProjectDirectory;
+  final PiWorktreeId worktreeId;
+  final PiMainProjectId mainProjectId;
+  final String? branch;
+  final bool isLinkedWorktree;
+  final bool isDetachedHead;
+}
+
+final class PiSessionStats {
+  PiSessionStats({
+    required this.projection,
+    required int userMessages,
+    required int assistantMessages,
+    required int toolCalls,
+    required int toolResults,
+    required int totalMessages,
+    required int inputTokens,
+    required int outputTokens,
+    required int cacheReadTokens,
+    required int cacheWriteTokens,
+    required int totalTokens,
+    required double cost,
+    int? contextTokens,
+    int? contextWindow,
+    double? contextPercent,
+    required this.activeTime,
+  }) : userMessages = _validatedNonNegativeInt(userMessages, 'userMessages'),
+       assistantMessages = _validatedNonNegativeInt(
+         assistantMessages,
+         'assistantMessages',
+       ),
+       toolCalls = _validatedNonNegativeInt(toolCalls, 'toolCalls'),
+       toolResults = _validatedNonNegativeInt(toolResults, 'toolResults'),
+       totalMessages = _validatedNonNegativeInt(totalMessages, 'totalMessages'),
+       inputTokens = _validatedNonNegativeInt(inputTokens, 'inputTokens'),
+       outputTokens = _validatedNonNegativeInt(outputTokens, 'outputTokens'),
+       cacheReadTokens = _validatedNonNegativeInt(
+         cacheReadTokens,
+         'cacheReadTokens',
+       ),
+       cacheWriteTokens = _validatedNonNegativeInt(
+         cacheWriteTokens,
+         'cacheWriteTokens',
+       ),
+       totalTokens = _validatedNonNegativeInt(totalTokens, 'totalTokens'),
+       cost = _validatedNonNegativeDouble(cost, 'cost'),
+       contextTokens = contextTokens == null
+           ? null
+           : _validatedNonNegativeInt(contextTokens, 'contextTokens'),
+       contextWindow = contextWindow == null
+           ? null
+           : _validatedPositiveInt(contextWindow, 'contextWindow'),
+       contextPercent = contextPercent == null
+           ? null
+           : _validatedNonNegativeDouble(contextPercent, 'contextPercent') {
+    if (activeTime.isNegative) {
+      throw ArgumentError('activeTime must be non-negative.');
+    }
+    if (this.contextWindow == null &&
+        (this.contextTokens != null || this.contextPercent != null)) {
+      throw ArgumentError('Context values require a context window.');
+    }
+  }
+
+  final PiSessionSafeProjection projection;
+  final int userMessages;
+  final int assistantMessages;
+  final int toolCalls;
+  final int toolResults;
+  final int totalMessages;
+  final int inputTokens;
+  final int outputTokens;
+  final int cacheReadTokens;
+  final int cacheWriteTokens;
+  final int totalTokens;
+  final double cost;
+  final int? contextTokens;
+  final int? contextWindow;
+  final double? contextPercent;
+  final Duration activeTime;
+}
+
+enum PiSessionExportFormat { html, jsonl }
+
+final class PiSessionExportRequest {
+  const PiSessionExportRequest({
+    required this.projectId,
+    required this.sessionId,
+    required this.format,
+    this.expectedActiveBranchRevision,
+    this.expectedTreeRevision,
+  });
+
+  final PiProjectId projectId;
+  final PiSessionId sessionId;
+  final PiSessionExportFormat format;
+  final PiSessionBranchRevision? expectedActiveBranchRevision;
+  final PiSessionTreeRevision? expectedTreeRevision;
+}
+
+abstract interface class PiSessionExportHandle {
+  String get fileName;
+  String get contentType;
+  int get totalBytes;
+  List<int> get sha256;
+  Stream<Uint8List> get bytes;
+  Future<void> get done;
+  Future<void> cancel();
+}
+
 final class PiSessionDetail {
   PiSessionDetail({
     required this.summary,
@@ -1152,6 +1384,18 @@ bool _sameList<T>(List<T> left, List<T> right) {
   return true;
 }
 
+int _validatedNonNegativeInt(int value, String name) {
+  if (value < 0) throw ArgumentError('$name must be non-negative.');
+  return value;
+}
+
+double _validatedNonNegativeDouble(double value, String name) {
+  if (!value.isFinite || value < 0) {
+    throw ArgumentError('$name must be finite and non-negative.');
+  }
+  return value;
+}
+
 int _validatedBoundedCount(int value, String name, int maximum) {
   if (value < 0 || value > maximum) {
     throw ArgumentError('$name is outside the supported range.');
@@ -1161,6 +1405,16 @@ int _validatedBoundedCount(int value, String name, int maximum) {
 
 int _validatedPositiveInt(int value, String name) {
   if (value <= 0) throw ArgumentError('$name must be positive.');
+  return value;
+}
+
+String _validatedShortOpaqueText(String value, String name) {
+  if (value.isEmpty ||
+      value.length > 1024 ||
+      value.trim() != value ||
+      _containsForbiddenControl(value)) {
+    throw ArgumentError('Invalid $name.');
+  }
   return value;
 }
 

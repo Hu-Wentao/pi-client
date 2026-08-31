@@ -11,4 +11,6 @@ const maxSessionsPerResponse = 4096;
 const maxDirectoryChildren = 128;
 const maxKnownProjects = 64;
 const maxMessagesPerSessionSnapshot = 16384;
+const maxSessionHistoryPageMessages = 200;
+const maxTransferCreditBytes = 8 * 1024 * 1024;
 const sha256Bytes = 32;

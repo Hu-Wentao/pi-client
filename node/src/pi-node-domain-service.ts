@@ -17,9 +17,12 @@ import {
   type PiNodeSessionBackendMutationResult,
   type PiNodeSessionEvent,
   type PiNodeSessionEventListener,
+  type PiNodeSessionExportFormat,
+  type PiNodeSessionHistoryPage,
   type PiNodeSessionDeleteConfirmation,
   type PiNodeSessionDeleteResult,
   type PiNodeSessionSnapshot,
+  type PiNodeSessionStats,
   type PiNodeSessionSummary,
   type PiNodeSessionTreeMutationResult,
   type PiNodeSessionTreeSnapshot,
@@ -347,6 +350,91 @@ export class PiNodeDomainService {
     const entry = this.#requireLoadedSession(requireIdentifier(sessionId, "sessionId"));
     this.#touch(entry);
     return this.#snapshot(entry);
+  }
+
+  getLoadedSessionHistory(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+    readonly cursor?: string;
+    readonly limit: number;
+    readonly expectedActiveBranchRevision?: string;
+    readonly expectedTreeRevision?: string;
+  }): Promise<PiNodeSessionHistoryPage> {
+    return this.#executor.run(async () => {
+      this.#assertAvailable();
+      const authorization = await this.#authorizeMetadata(input.cwd);
+      const entry = this.#requireLoadedSession(requireIdentifier(input.sessionId, "sessionId"));
+      this.#assertSessionProject(entry, authorization);
+      this.#touch(entry);
+      try {
+        const page = entry.backend.getHistoryPage({
+          ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
+          limit: input.limit,
+          ...(input.expectedActiveBranchRevision === undefined
+            ? {}
+            : { expectedActiveBranchRevision: input.expectedActiveBranchRevision }),
+          ...(input.expectedTreeRevision === undefined
+            ? {}
+            : { expectedTreeRevision: input.expectedTreeRevision }),
+        });
+        return Object.freeze({
+          ...page,
+          lastEventSequence: this.#lastSequenceBySession.get(entry.backend.sessionId) ?? 0,
+        });
+      } catch (error) {
+        throw wrapSessionHistoryError(error);
+      }
+    });
+  }
+
+  getLoadedSessionStats(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+  }): Promise<PiNodeSessionStats> {
+    return this.#executor.run(async () => {
+      this.#assertAvailable();
+      const authorization = await this.#authorizeMetadata(input.cwd);
+      const entry = this.#requireLoadedSession(requireIdentifier(input.sessionId, "sessionId"));
+      this.#assertSessionProject(entry, authorization);
+      this.#touch(entry);
+      try {
+        const project = await this.#projectService.validateProject(authorization.cwd);
+        return entry.backend.getStats({ project });
+      } catch (error) {
+        throw wrapSessionHistoryError(error);
+      }
+    });
+  }
+
+  exportLoadedSession(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+    readonly format: PiNodeSessionExportFormat;
+    readonly outputPath: string;
+    readonly expectedActiveBranchRevision?: string;
+    readonly expectedTreeRevision?: string;
+  }): Promise<void> {
+    return this.#executor.run(async () => {
+      this.#assertAvailable();
+      const authorization = await this.#authorizeMetadata(input.cwd);
+      const entry = this.#requireLoadedSession(requireIdentifier(input.sessionId, "sessionId"));
+      this.#assertSessionProject(entry, authorization);
+      this.#touch(entry);
+      try {
+        await entry.backend.exportToPath({
+          format: input.format,
+          outputPath: input.outputPath,
+          ...(input.expectedActiveBranchRevision === undefined
+            ? {}
+            : { expectedActiveBranchRevision: input.expectedActiveBranchRevision }),
+          ...(input.expectedTreeRevision === undefined
+            ? {}
+            : { expectedTreeRevision: input.expectedTreeRevision }),
+        });
+      } catch (error) {
+        throw wrapSessionExportError(error);
+      }
+    });
   }
 
   getLoadedSessionTree(input: {
@@ -1220,6 +1308,49 @@ function hasErrorCode(error: unknown, code: string): boolean {
   return typeof error === "object" && error !== null && "code" in error && error.code === code;
 }
 
+function wrapSessionHistoryError(error: unknown): PiNodeDomainError {
+  if (error instanceof PiNodeDomainError) return error;
+  if (!(error instanceof PiSdkDomainAdapterError)) {
+    return new PiNodeDomainError(
+      "session-load-failed",
+      "The Pi Node session history operation failed.",
+      { cause: error },
+    );
+  }
+  switch (error.code) {
+    case "session-history-cursor-invalid":
+      return new PiNodeDomainError(
+        "session-history-cursor-invalid",
+        "The session history cursor is invalid.",
+        { cause: error },
+      );
+    case "session-history-conflict":
+      return new PiNodeDomainError(
+        "session-history-conflict",
+        "The active session branch changed.",
+        { cause: error },
+      );
+    default:
+      return wrapSessionMutationError(error);
+  }
+}
+
+function wrapSessionExportError(error: unknown): PiNodeDomainError {
+  if (error instanceof PiNodeDomainError) return error;
+  if (error instanceof PiSdkDomainAdapterError) {
+    if (error.code === "session-history-conflict") {
+      return new PiNodeDomainError(
+        "session-history-conflict",
+        "The active session branch changed.",
+        { cause: error },
+      );
+    }
+  }
+  return new PiNodeDomainError("session-export-failed", "The Pi Node session export failed.", {
+    cause: error,
+  });
+}
+
 function wrapSessionMutationError(error: unknown): PiNodeDomainError {
   if (error instanceof PiNodeDomainError) return error;
   if (!(error instanceof PiSdkDomainAdapterError)) {
@@ -1255,6 +1386,9 @@ function switchSessionMutationErrorCode(
     case "session-creation-failed":
     case "session-disposal-failed":
     case "session-mutation-failed":
+    case "session-history-cursor-invalid":
+    case "session-history-conflict":
+    case "session-export-failed":
       return "session-mutation-failed";
   }
 }

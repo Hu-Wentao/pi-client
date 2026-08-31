@@ -52,6 +52,12 @@ void main() {
           wire.Capability.CAPABILITY_PROJECT_TRUST,
           wire.Capability.CAPABILITY_SESSION_ADMIN,
           wire.Capability.CAPABILITY_SESSION_TREE,
+          wire.Capability.CAPABILITY_SESSION_HISTORY,
+          wire.Capability.CAPABILITY_SESSION_STATS,
+          wire.Capability.CAPABILITY_SESSION_EXPORT,
+          wire.Capability.CAPABILITY_CANCELLATION,
+          wire.Capability.CAPABILITY_FLOW_CONTROL,
+          wire.Capability.CAPABILITY_TRANSFER,
         ]),
       );
 
@@ -141,6 +147,60 @@ void main() {
           ),
         ),
       );
+      final history = wire.decodeTransportFrame(
+        codec.encode(
+          PiProtocolGetSessionHistoryRequest(
+            requestId: 10,
+            projectId: 'project-1',
+            sessionId: 'session-1',
+            cursor: 'opaque-cursor',
+            limit: 50,
+            expectedActiveBranchRevision: 'active-1',
+            expectedTreeRevision: 'tree-1',
+          ),
+        ),
+      );
+      final stats = wire.decodeTransportFrame(
+        codec.encode(
+          PiProtocolGetSessionStatsRequest(
+            requestId: 11,
+            projectId: 'project-1',
+            sessionId: 'session-1',
+          ),
+        ),
+      );
+      final export = wire.decodeTransportFrame(
+        codec.encode(
+          PiProtocolExportSessionRequest(
+            requestId: 12,
+            projectId: 'project-1',
+            sessionId: 'session-1',
+            format: PiProtocolSessionExportFormat.jsonl,
+            expectedActiveBranchRevision: 'active-1',
+            expectedTreeRevision: 'tree-1',
+          ),
+        ),
+      );
+      final window = wire.decodeTransportFrame(
+        codec.encode(
+          PiProtocolTransferWindowUpdate(
+            transferId: 'transfer-1',
+            creditBytes: 65536,
+          ),
+        ),
+      );
+      final ack = wire.decodeTransportFrame(
+        codec.encode(
+          PiProtocolTransferAckMessage(
+            transferId: 'transfer-1',
+            acknowledgedSequence: 2,
+            committedBytes: 8,
+          ),
+        ),
+      );
+      final cancel = wire.decodeTransportFrame(
+        codec.encode(PiProtocolCancelTransferMessage(transferId: 'transfer-1')),
+      );
 
       expect(
         list.whichOperation(),
@@ -179,6 +239,38 @@ void main() {
         'revision-session-1',
       );
       expect(
+        history.whichOperation(),
+        wire.PiTransportFrame_Operation.getSessionHistoryRequest,
+      );
+      expect(history.getSessionHistoryRequest.cursor, 'opaque-cursor');
+      expect(history.getSessionHistoryRequest.limit, 50);
+      expect(
+        history.getSessionHistoryRequest.expectedActiveBranchRevision,
+        'active-1',
+      );
+      expect(
+        stats.whichOperation(),
+        wire.PiTransportFrame_Operation.getSessionStatsRequest,
+      );
+      expect(
+        export.whichOperation(),
+        wire.PiTransportFrame_Operation.exportSessionRequest,
+      );
+      expect(
+        export.exportSessionRequest.format,
+        wire.SessionExportFormat.SESSION_EXPORT_FORMAT_JSONL,
+      );
+      expect(
+        window.whichOperation(),
+        wire.PiTransportFrame_Operation.windowUpdate,
+      );
+      expect(window.windowUpdate.transferId, 'transfer-1');
+      expect(window.windowUpdate.creditBytes.toInt(), 65536);
+      expect(ack.whichOperation(), wire.PiTransportFrame_Operation.transferAck);
+      expect(ack.transferAck.acknowledgedSequence.toInt(), 2);
+      expect(cancel.whichOperation(), wire.PiTransportFrame_Operation.cancel);
+      expect(cancel.cancel.transferId, 'transfer-1');
+      expect(
         <int>[
           handshake.frameSequence.toInt(),
           list.frameSequence.toInt(),
@@ -190,8 +282,14 @@ void main() {
           clearName.frameSequence.toInt(),
           autoName.frameSequence.toInt(),
           delete.frameSequence.toInt(),
+          history.frameSequence.toInt(),
+          stats.frameSequence.toInt(),
+          export.frameSequence.toInt(),
+          window.frameSequence.toInt(),
+          ack.frameSequence.toInt(),
+          cancel.frameSequence.toInt(),
         ],
-        <int>[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        <int>[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
       );
     });
 
@@ -598,6 +696,161 @@ void main() {
               as PiProtocolSessionAdminOutcomeMessage;
       expect(adminOutcome.operation, PiProtocolSessionAdminOperation.autoName);
       expect(adminOutcome.outcome, isA<PiProtocolSessionAdminUpdated>());
+    });
+
+    test('decodes history statistics and transfer integrity operations', () {
+      codec.encode(
+        PiProtocolGetSessionHistoryRequest(
+          requestId: 30,
+          projectId: 'project-1',
+          sessionId: 'session-1',
+          limit: 50,
+        ),
+      );
+      final history =
+          codec.decode(
+                server.encode(
+                  wire.PiTransportFrame(
+                    getSessionHistoryResponse: wire.GetSessionHistoryResponse(
+                      requestId: Int64(30),
+                      summary: _summary('session-1'),
+                      messages: <wire.MessageSnapshot>[
+                        _message('history-message'),
+                      ],
+                      nextCursor: 'opaque-next',
+                      hasMore: true,
+                      activeBranchRevision: 'active-1',
+                      treeRevision: 'tree-1',
+                    ),
+                  ),
+                ),
+              )
+              as PiProtocolSessionHistoryResponse;
+      expect(history.messages.single.id, 'history-message');
+      expect(history.nextCursor, 'opaque-next');
+      expect(history.hasMore, isTrue);
+      expect(history.activeBranchRevision, 'active-1');
+
+      codec.encode(
+        PiProtocolGetSessionStatsRequest(
+          requestId: 31,
+          projectId: 'project-1',
+          sessionId: 'session-1',
+        ),
+      );
+      final stats =
+          codec.decode(
+                server.encode(
+                  wire.PiTransportFrame(
+                    getSessionStatsResponse: wire.GetSessionStatsResponse(
+                      requestId: Int64(31),
+                      stats: wire.SessionStatsSnapshot(
+                        projection: wire.SessionSafeProjectionSnapshot(
+                          sessionFileName: 'session-1.jsonl',
+                          sessionId: 'session-1',
+                          projectId: 'project-1',
+                          canonicalProjectDirectory: '/safe/project',
+                          worktreeId: 'worktree-1',
+                          mainProjectId: 'main-project-1',
+                        ),
+                        userMessages: Int64(2),
+                        assistantMessages: Int64(1),
+                        totalMessages: Int64(3),
+                        inputTokens: Int64(5),
+                        outputTokens: Int64(7),
+                        totalTokens: Int64(12),
+                        activeTimeMillis: Int64(900),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+              as PiProtocolSessionStatsResponse;
+      expect(stats.stats.totalMessages, 3);
+      expect(stats.stats.totalTokens, 12);
+      expect(stats.stats.activeTimeMillis, 900);
+      expect(stats.stats.projection.sessionFileName, 'session-1.jsonl');
+
+      codec.encode(
+        PiProtocolExportSessionRequest(
+          requestId: 32,
+          projectId: 'project-1',
+          sessionId: 'session-1',
+          format: PiProtocolSessionExportFormat.jsonl,
+        ),
+      );
+      final digest = List<int>.generate(32, (index) => index);
+      final opened =
+          codec.decode(
+                server.encode(
+                  wire.PiTransportFrame(
+                    transferOpen: wire.TransferOpen(
+                      requestId: Int64(32),
+                      transferId: 'transfer-1',
+                      direction:
+                          wire.TransferDirection.TRANSFER_DIRECTION_DOWNLOAD,
+                      purpose: wire.TransferPurpose.TRANSFER_PURPOSE_EXPORT,
+                      contentType: 'application/x-ndjson',
+                      fileName: 'session.jsonl',
+                      totalBytes: Int64(4),
+                      chunkBytes: 4,
+                      sha256: digest,
+                    ),
+                  ),
+                ),
+              )
+              as PiProtocolTransferOpenMessage;
+      expect(opened.requestId, 32);
+      expect(opened.totalBytes, 4);
+      expect(opened.sha256, digest);
+
+      final chunk =
+          codec.decode(
+                server.encode(
+                  wire.PiTransportFrame(
+                    transferChunk: wire.TransferChunk(
+                      transferId: 'transfer-1',
+                      chunkSequence: Int64(1),
+                      offset: Int64.ZERO,
+                      data: <int>[1, 2, 3, 4],
+                    ),
+                  ),
+                ),
+              )
+              as PiProtocolTransferChunkMessage;
+      expect(chunk.sequence, 1);
+      expect(chunk.offset, 0);
+      expect(chunk.data, <int>[1, 2, 3, 4]);
+
+      final complete =
+          codec.decode(
+                server.encode(
+                  wire.PiTransportFrame(
+                    transferComplete: wire.TransferComplete(
+                      transferId: 'transfer-1',
+                      totalBytes: Int64(4),
+                      sha256: digest,
+                    ),
+                  ),
+                ),
+              )
+              as PiProtocolTransferCompleteMessage;
+      expect(complete.totalBytes, 4);
+      expect(complete.sha256, digest);
+
+      final abort =
+          codec.decode(
+                server.encode(
+                  wire.PiTransportFrame(
+                    transferAbort: wire.TransferAbort(
+                      transferId: 'transfer-2',
+                      error: _stableError(wire.ErrorCode.ERROR_CODE_CANCELLED),
+                    ),
+                  ),
+                ),
+              )
+              as PiProtocolTransferAbortMessage;
+      expect(abort.failure.code, 'cancelled');
     });
 
     test('maps correlated error envelopes to command uncertainty', () {

@@ -9,7 +9,10 @@ import type {
   PiNodeSessionDeleteResult,
   PiNodeSessionEvent,
   PiNodeSessionEventListener,
+  PiNodeSessionExportFormat,
+  PiNodeSessionHistoryPage,
   PiNodeSessionSnapshot,
+  PiNodeSessionStats,
   PiNodeSessionSummary,
   PiNodeSessionTreeMutationResult,
   PiNodeSessionTreeSnapshot,
@@ -36,6 +39,26 @@ export interface PiNodeProtocolDomain {
     readonly sessionId: string;
   }): Promise<PiNodeSessionSnapshot>;
   createSession(input: { readonly cwd: string }): Promise<PiNodeSessionSnapshot>;
+  getSessionHistory(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+    readonly cursor?: string;
+    readonly limit: number;
+    readonly expectedActiveBranchRevision?: string;
+    readonly expectedTreeRevision?: string;
+  }): Promise<PiNodeSessionHistoryPage>;
+  getSessionStats(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+  }): Promise<PiNodeSessionStats>;
+  exportSession(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+    readonly format: PiNodeSessionExportFormat;
+    readonly outputPath: string;
+    readonly expectedActiveBranchRevision?: string;
+    readonly expectedTreeRevision?: string;
+  }): Promise<void>;
   getSessionTree(input: {
     readonly cwd: string;
     readonly sessionId: string;
@@ -131,6 +154,38 @@ export class PiNodeDomainServiceProtocolAdapter implements PiNodeProtocolDomain 
 
   createSession(input: { readonly cwd: string }): Promise<PiNodeSessionSnapshot> {
     return this.domainService.createPersistentSession(input);
+  }
+
+  async getSessionHistory(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+    readonly cursor?: string;
+    readonly limit: number;
+    readonly expectedActiveBranchRevision?: string;
+    readonly expectedTreeRevision?: string;
+  }): Promise<PiNodeSessionHistoryPage> {
+    await this.domainService.loadSessionSnapshot(input);
+    return this.domainService.getLoadedSessionHistory(input);
+  }
+
+  async getSessionStats(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+  }): Promise<PiNodeSessionStats> {
+    await this.domainService.loadSessionSnapshot(input);
+    return this.domainService.getLoadedSessionStats(input);
+  }
+
+  async exportSession(input: {
+    readonly cwd: string;
+    readonly sessionId: string;
+    readonly format: PiNodeSessionExportFormat;
+    readonly outputPath: string;
+    readonly expectedActiveBranchRevision?: string;
+    readonly expectedTreeRevision?: string;
+  }): Promise<void> {
+    await this.domainService.loadSessionSnapshot(input);
+    await this.domainService.exportLoadedSession(input);
   }
 
   getSessionTree(input: {

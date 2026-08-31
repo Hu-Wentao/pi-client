@@ -15,8 +15,11 @@ import type {
   PiNodeProtocolDomain,
   PiNodeSessionEvent,
   PiNodeSessionEventListener,
+  PiNodeSessionExportFormat,
+  PiNodeSessionHistoryPage,
   PiNodeSessionObservation,
   PiNodeSessionSnapshot,
+  PiNodeSessionStats,
   PiNodeSessionSummary,
   PiNodeSessionTreeMutationResult,
   PiNodeSessionTreeSnapshot,
@@ -25,7 +28,7 @@ import type {
 interface FixtureOptions {
   readonly cwd: string;
   readonly evidenceFile?: string;
-  readonly mode: "normal" | "exit-on-prompt";
+  readonly mode: "normal" | "exit-on-prompt" | "large-export";
 }
 
 interface FramingEvidence {
@@ -143,6 +146,72 @@ class FixtureProtocolDomain implements PiNodeProtocolDomain {
 
   getSession(input: { readonly sessionId: string }): Promise<PiNodeSessionSnapshot> {
     return Promise.resolve(copySnapshot(this.#requireSession(input.sessionId)));
+  }
+
+  getSessionHistory(input: {
+    readonly sessionId: string;
+    readonly cursor?: string;
+    readonly limit: number;
+  }): Promise<PiNodeSessionHistoryPage> {
+    const session = this.#requireSession(input.sessionId);
+    const end = input.cursor === undefined ? session.messages.length : Number(input.cursor);
+    const start = Math.max(0, end - input.limit);
+    return Promise.resolve({
+      summary: copySummary(session),
+      messages: structuredClone(session.messages.slice(start, end)),
+      ...(start > 0 ? { nextCursor: String(start) } : {}),
+      hasMore: start > 0,
+      activeBranchRevision: `active-${session.adminRevision}`,
+      treeRevision: session.adminRevision,
+      lastEventSequence: session.lastEventSequence,
+    });
+  }
+
+  getSessionStats(input: { readonly sessionId: string }): Promise<PiNodeSessionStats> {
+    const session = this.#requireSession(input.sessionId);
+    const project = projectSnapshot(session.cwd);
+    return Promise.resolve({
+      projection: {
+        sessionFileName: `${session.sessionId}.jsonl`,
+        sessionId: session.sessionId,
+        projectId: project.identity.projectId,
+        canonicalProjectDirectory: session.cwd,
+        worktreeId: project.identity.worktreeId,
+        mainProjectId: project.identity.mainProjectId,
+        isLinkedWorktree: false,
+        isDetachedHead: false,
+      },
+      userMessages: session.messages.filter((item) => item.role === "user").length,
+      assistantMessages: session.messages.filter((item) => item.role === "assistant").length,
+      toolCalls: 0,
+      toolResults: session.messages.filter((item) => item.role === "tool").length,
+      totalMessages: session.messages.length,
+      inputTokens: 1,
+      outputTokens: 2,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      totalTokens: 3,
+      cost: 0,
+      contextTokens: 3,
+      contextWindow: 200000,
+      contextPercent: 0.0015,
+      activeTimeMillis: 100,
+    });
+  }
+
+  async exportSession(input: {
+    readonly sessionId: string;
+    readonly format: PiNodeSessionExportFormat;
+    readonly outputPath: string;
+  }): Promise<void> {
+    const session = this.#requireSession(input.sessionId);
+    const payload =
+      this.#mode === "large-export"
+        ? Buffer.alloc(2 * 1024 * 1024 + 17, input.format === "html" ? 0x68 : 0x6a)
+        : input.format === "html"
+          ? `<html><body>${session.messages.length}</body></html>`
+          : `${JSON.stringify({ type: "session", id: session.sessionId })}\n`;
+    await writeFile(input.outputPath, payload, { mode: 0o600 });
   }
 
   createSession(input: { readonly cwd: string }): Promise<PiNodeSessionSnapshot> {
@@ -483,7 +552,7 @@ function parseOptions(arguments_: readonly string[]): FixtureOptions {
     }
     if (argument === "--mode") {
       const value = requireValue(arguments_, ++index);
-      if (value !== "normal" && value !== "exit-on-prompt") {
+      if (value !== "normal" && value !== "exit-on-prompt" && value !== "large-export") {
         throw new Error("Unsupported fixture mode.");
       }
       mode = value;

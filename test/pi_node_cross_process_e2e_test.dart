@@ -19,6 +19,12 @@ const _expectedCapabilities = <PiProtocolCapability>{
   PiProtocolCapability.projectTrust,
   PiProtocolCapability.sessionAdmin,
   PiProtocolCapability.sessionTree,
+  PiProtocolCapability.sessionHistory,
+  PiProtocolCapability.sessionStats,
+  PiProtocolCapability.sessionExport,
+  PiProtocolCapability.cancellation,
+  PiProtocolCapability.flowControl,
+  PiProtocolCapability.transfer,
 };
 
 void main() {
@@ -364,6 +370,103 @@ void main() {
           await cwd.resolveSymbolicLinks(),
         );
         expect(viewModel.state.messages, isEmpty);
+      },
+      timeout: const Timeout(Duration(seconds: 60)),
+    );
+
+    test(
+      'streams large exports with slow-consumer backpressure and cancellation',
+      () async {
+        final root = await Directory.systemTemp.createTemp(
+          'pi-client-large-export-e2e-',
+        );
+        addTearDown(() => root.delete(recursive: true));
+        final harness = await _startFixtureNode(
+          cwd: root.path,
+          mode: 'large-export',
+        );
+        addTearDown(harness.client.close);
+        _expectSupportedHandshake(await harness.client.connect());
+
+        final projectId = (await harness.client.getProjectBootstrap())
+            .defaultProject
+            .identity
+            .projectId;
+        final sessionId = (await harness.client.listSessions(
+          projectId,
+        )).single.id;
+        final history = await harness.client.getSessionHistory(
+          PiSessionHistoryRequest(
+            projectId: projectId,
+            sessionId: sessionId,
+            limit: 50,
+          ),
+        );
+        expect(history.messages, hasLength(1));
+        expect(history.hasMore, isFalse);
+        final stats = await harness.client.getSessionStats(
+          projectId,
+          sessionId,
+        );
+        expect(stats.totalMessages, 1);
+        expect(stats.totalTokens, 3);
+
+        final handle = await harness.client.exportSession(
+          PiSessionExportRequest(
+            projectId: projectId,
+            sessionId: sessionId,
+            format: PiSessionExportFormat.jsonl,
+            expectedActiveBranchRevision: history.activeBranchRevision,
+            expectedTreeRevision: history.treeRevision,
+          ),
+        );
+        var receivedBytes = 0;
+        var chunkCount = 0;
+        await for (final chunk in handle.bytes) {
+          chunkCount += 1;
+          receivedBytes += chunk.length;
+          if (chunkCount == 1) {
+            await Future<void>.delayed(const Duration(milliseconds: 100));
+          }
+        }
+        await handle.done;
+        expect(receivedBytes, 2 * 1024 * 1024 + 17);
+        expect(chunkCount, greaterThan(16));
+
+        final cancelled = await harness.client.exportSession(
+          PiSessionExportRequest(
+            projectId: projectId,
+            sessionId: sessionId,
+            format: PiSessionExportFormat.html,
+            expectedActiveBranchRevision: history.activeBranchRevision,
+            expectedTreeRevision: history.treeRevision,
+          ),
+        );
+        final doneFailure = expectLater(
+          cancelled.done,
+          throwsA(
+            isA<PiNodeException>().having(
+              (error) => error.code,
+              'code',
+              PiNodeErrorCode.cancelled,
+            ),
+          ),
+        );
+        final iterator = StreamIterator(cancelled.bytes);
+        expect(await iterator.moveNext(), isTrue);
+        await cancelled.cancel();
+        await doneFailure;
+        await expectLater(
+          iterator.moveNext(),
+          throwsA(
+            isA<PiNodeException>().having(
+              (error) => error.code,
+              'code',
+              PiNodeErrorCode.cancelled,
+            ),
+          ),
+        );
+        await iterator.cancel();
       },
       timeout: const Timeout(Duration(seconds: 60)),
     );
