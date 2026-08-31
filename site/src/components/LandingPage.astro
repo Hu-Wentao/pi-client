@@ -1,6 +1,5 @@
 ---
 import type { LandingCopy } from '../content/copy';
-import { release } from '../content/copy';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import FeatureIcon from './FeatureIcon.astro';
 
@@ -17,7 +16,7 @@ const screenshotUrl = withBase('assets/workspace-preview.webp');
 const languageUrl = withBase(copy.languageHref);
 const repositoryUrl = 'https://github.com/Hu-Wentao/pi-client';
 const issuesUrl = `${repositoryUrl}/issues`;
-const readmeUrl = `${repositoryUrl}#start-pi-client`;
+const readmeUrl = `${repositoryUrl}#set-up-the-repository`;
 const contributingUrl = `${repositoryUrl}/blob/main/CONTRIBUTING.md`;
 const licenseUrl = `${repositoryUrl}/blob/main/LICENSE`;
 const skipLabel = copy.locale === 'zh-cn' ? '跳到主要内容' : 'Skip to content';
@@ -58,20 +57,20 @@ const skipLabel = copy.locale === 'zh-cn' ? '跳到主要内容' : 'Skip to cont
           <p class="eyebrow">{copy.hero.eyebrow}</p>
           <h1>{copy.hero.title}</h1>
           <p class="hero-description">{copy.hero.description}</p>
-          <ul class="badge-list" aria-label={copy.releaseDetailsLabel}>
+          <ul class="badge-list" aria-label={copy.statusDetailsLabel}>
             {copy.hero.badges.map((badge) => <li>{badge}</li>)}
           </ul>
           <div class="cta-row">
-            <a class="button button-primary" href={release.downloadUrl}>
-              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 20h14" /></svg>
-              {copy.hero.download}
+            <a class="button button-primary" href={repositoryUrl}>
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7" /></svg>
+              {copy.hero.primaryAction}
             </a>
-            <a class="button button-secondary" href={repositoryUrl}>
+            <a class="button button-secondary" href={readmeUrl}>
               {copy.hero.source}
               <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7" /></svg>
             </a>
           </div>
-          <p class="release-note">{copy.hero.releaseNote}</p>
+          <p class="release-note">{copy.hero.statusNote}</p>
         </div>
         <div class="hero-brand" aria-hidden="true">
           <img src={markUrl} alt="" width="360" height="360" />
@@ -128,29 +127,29 @@ const skipLabel = copy.locale === 'zh-cn' ? '跳到主要内容' : 'Skip to cont
           <p class="eyebrow">{copy.workflow.eyebrow}</p>
           <h2>{copy.workflow.title}</h2>
           <p>{copy.workflow.description}</p>
-          <p class="transition-note">{copy.workflow.transitional}</p>
+          <p class="transition-note">{copy.workflow.architectureNote}</p>
         </div>
         <div class="architecture-card" role="img" aria-label={`${copy.workflow.client}, ${copy.workflow.bridge}, ${copy.workflow.runtime}`}>
           <div class="architecture-node node-client">
             <img src={markUrl} alt="" width="44" height="44" />
             <span>{copy.workflow.client}</span>
-            <small>macOS</small>
+            <small>Flutter · six platforms</small>
           </div>
           <div class="architecture-connector">
-            <span>HTTP / SSE</span>
+            <span>Local Direct</span>
             <svg aria-hidden="true" viewBox="0 0 120 16"><path d="M2 8h112m-7-6 7 6-7 6" /></svg>
           </div>
           <div class="architecture-node">
             <span>{copy.workflow.bridge}</span>
-            <small>transitional</small>
+            <small>Protobuf · Pi Protocol</small>
           </div>
           <div class="architecture-connector">
-            <span>runtime</span>
+            <span>runtime Capsule</span>
             <svg aria-hidden="true" viewBox="0 0 120 16"><path d="M2 8h112m-7-6 7 6-7 6" /></svg>
           </div>
           <div class="architecture-node">
             <span>{copy.workflow.runtime}</span>
-            <small>sessions · models · tools</small>
+            <small>first-party Pi Node</small>
           </div>
         </div>
       </div>
@@ -214,7 +213,7 @@ const skipLabel = copy.locale === 'zh-cn' ? '跳到主要内容' : 'Skip to cont
           <p>{copy.closing.description}</p>
         </div>
         <div class="cta-row">
-          <a class="button button-primary" href={release.downloadUrl}>{copy.closing.download}</a>
+          <a class="button button-primary" href={repositoryUrl}>{copy.closing.source}</a>
           <a class="button button-secondary" href={issuesUrl}>{copy.closing.issues}</a>
         </div>
       </div>

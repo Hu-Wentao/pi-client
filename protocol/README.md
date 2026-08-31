@@ -25,7 +25,7 @@ The spike deliberately does not use:
 
 - gRPC or Connect as the core wire;
 - CBOR;
-- pi-web routes, SSE payloads, names, or types;
+- routes, payloads, names, or types inherited from any consulted client implementation;
 - Pi SDK DTOs;
 - a parallel JSON wire or JSON test-vector format;
 - an upstream experimental Pi protocol.

@@ -27,12 +27,12 @@ mdq:
 
 Reference snapshot: [`agegr/pi-web`](https://github.com/agegr/pi-web) `v0.8.11`, commit `28bab3c25f5f6770c9b0b745ebbfec1c27f7b948`, MIT.
 
-This inventory is bounded to user-visible capabilities that are reachable in the fixed snapshot. It supports completeness review under `DEC-016`; it does not define Pi Client routes, DTOs, events, protocol, implementation, deployment, or acceptance semantics. `docs/requirements.md` is the semantic authority.
+This inventory is bounded to user-visible capabilities that are reachable in the fixed snapshot. It was created as initial completeness-review evidence under `DEC-016`. The inventory and every `Strict parity`, `Partial strict parity`, or `Native adaptation` disposition below are now archived historical evidence: they do not define or expand the current Pi Client `1.0` scope, and they authorize no route, DTO, event, protocol, implementation, deployment, requirement, or acceptance criterion. Current scope must come from `DEC-017`, the active baseline, requirements, and `docs/plans/pi-client-1.0.md`; later upstream changes and this snapshot itself have no current product authority.
 
 ## BENCH-PI-001 - Snapshot and independence boundary
 
-- Status: Frozen
-- Disposition: Governance baseline
+- Status: Archived
+- Disposition: Historical exploration baseline (superseded for current scope)
 - Observed capability: The fixed product presents a local coding-agent workspace with project, session, Agent, file, Git, model, resource, and settings surfaces.
 - Pi Client treatment: Every reachable domain is represented below and mapped to project-owned requirements; no moving pi-web branch can change the `1.0.0` scope automatically.
 - Excluded evidence: Internal routes, schemas, event names, test-only behavior, hidden controls, implementation bugs, build scripts, branding, and deployment mechanics.

@@ -10,7 +10,7 @@ const [nodePackage, protocolPackage] = await Promise.all([
   readPackage("node/package.json"),
   readPackage("protocol/package.json"),
 ]);
-const expectedDevelopmentVersion = "0.1.0-dev.0";
+const expectedDevelopmentVersion = "0.2.0-dev.0";
 if (
   nodePackage.version !== expectedDevelopmentVersion ||
   protocolPackage.version !== expectedDevelopmentVersion

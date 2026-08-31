@@ -34,6 +34,7 @@ mdq:
 ## DEC-015 - 独立 Landing Page 与未签名 macOS 预览发布
 
 - 状态：Accepted
+- 生命周期：不可变的 `v0.0.2` 历史发布决策；仅对该版本及其发布证据有效，不定义或扩大当前 Pi Client `1.0` 产品范围。
 - 评审级别：L9
 - 问题：开源仓库如何提供独立产品入口和首个可下载的 macOS 产物，同时不把尚未交付的 WebAssembly 或长期 Pi transport 描述成当前能力。
 - 选项 A：仅维护 README，不建立独立网站或可下载产物。

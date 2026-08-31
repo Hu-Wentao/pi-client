@@ -22,7 +22,7 @@ export type LandingCopy = {
   languageName: string;
   homeLabel: string;
   navigationLabel: string;
-  releaseDetailsLabel: string;
+  statusDetailsLabel: string;
   projectLinksLabel: string;
   socialImageAlt: string;
   nav: {
@@ -36,9 +36,9 @@ export type LandingCopy = {
     title: string;
     description: string;
     badges: string[];
-    download: string;
+    primaryAction: string;
     source: string;
-    releaseNote: string;
+    statusNote: string;
   };
   screenshotAlt: string;
   screenshotCaption: string;
@@ -59,7 +59,7 @@ export type LandingCopy = {
     client: string;
     bridge: string;
     runtime: string;
-    transitional: string;
+    architectureNote: string;
   };
   start: {
     eyebrow: string;
@@ -81,7 +81,7 @@ export type LandingCopy = {
   closing: {
     title: string;
     description: string;
-    download: string;
+    source: string;
     issues: string;
   };
   footer: {
@@ -94,30 +94,21 @@ export type LandingCopy = {
   };
 };
 
-export const release = {
-  version: '0.0.2',
-  tag: 'v0.0.2',
-  asset: 'Pi-Client-0.0.2-macOS-universal.zip',
-  downloadUrl:
-    'https://github.com/Hu-Wentao/pi-client/releases/download/v0.0.2/Pi-Client-0.0.2-macOS-universal.zip',
-  releaseUrl: 'https://github.com/Hu-Wentao/pi-client/releases/tag/v0.0.2',
-} as const;
-
 export const copy: Record<Locale, LandingCopy> = {
   en: {
     locale: 'en',
     htmlLang: 'en',
-    metaTitle: 'Pi Client — Native macOS workspace for pi',
+    metaTitle: 'Pi Client — Independent cross-platform client for pi',
     metaDescription:
-      'Browse pi sessions, send prompts, and follow live agent output in an early native macOS client.',
+      'Explore the independent Pi Client source, first-party Pi Node architecture, and current development status.',
     languageLabel: 'Language',
     languageHref: '/zh-cn/',
     languageName: '简体中文',
     homeLabel: 'Pi Client home',
     navigationLabel: 'Primary navigation',
-    releaseDetailsLabel: 'Release details',
+    statusDetailsLabel: 'Source status',
     projectLinksLabel: 'Project links',
-    socialImageAlt: 'Pi Client product mark and native macOS workspace',
+    socialImageAlt: 'Pi Client product mark and independent Flutter workspace',
     nav: {
       features: 'Features',
       workflow: 'How it works',
@@ -125,29 +116,29 @@ export const copy: Record<Locale, LandingCopy> = {
       github: 'GitHub',
     },
     hero: {
-      eyebrow: 'Native workspace for pi',
+      eyebrow: 'Independent workspace for pi',
       title: 'Stay focused on the session, not the terminal plumbing.',
       description:
-        'Pi Client brings session browsing, prompts, live output, and run control into an early native macOS workspace.',
-      badges: ['macOS 11+', 'Universal app', 'Version 0.0.2'],
-      download: 'Download unsigned preview',
-      source: 'View on GitHub',
-      releaseNote: 'Universal ZIP for Apple silicon and Intel Macs',
+        'Pi Client brings session browsing, prompts, live output, and run control into an independent Flutter workspace. Current source targets six platforms, with Local Direct hosting on desktop.',
+      badges: ['Six-platform source', 'Desktop Local Direct', 'First-party Pi Node'],
+      primaryAction: 'View source repository',
+      source: 'Read setup guide',
+      statusNote: 'Current source is under development and is not a supported public release.',
     },
     screenshotAlt:
       'Pi Client window showing synthetic sessions and a sanitized coding-agent conversation.',
     screenshotCaption:
       'A real Flutter render with synthetic project paths, sessions, prompts, and agent output.',
     warning: {
-      title: 'This download is an unsigned preview.',
+      title: 'No supported public release is available.',
       body:
-        'The app is not signed with an Apple Developer ID and is not notarized. macOS Gatekeeper will warn before opening it. Install it only if you trust this repository. A signed, notarized DMG is not available yet.',
+        'The repository contains development source, not a supported binary release. Build it locally only if you are prepared to use development tooling and evaluate the current source yourself.',
     },
     features: {
       eyebrow: 'Current capabilities',
       title: 'The essential session loop in one window.',
       description:
-        'The preview focuses on the actions already supported by the current macOS MVP.',
+        'The current source implements the core session loop through project-owned APIs and runtime boundaries.',
       items: [
         {
           icon: 'sessions',
@@ -177,68 +168,67 @@ export const copy: Record<Locale, LandingCopy> = {
     },
     workflow: {
       eyebrow: 'How it works today',
-      title: 'A native client over a transitional compatibility bridge.',
+      title: 'A native client with a first-party runtime boundary.',
       description:
-        'The current preview uses pi-web 0.8.11 for session and runtime access. Pi Client does not read pi session files directly.',
+        'Desktop Pi Client uses Local Direct and the project-owned protocol to reach the first-party Pi Node.',
       client: 'Pi Client',
-      bridge: 'pi-web 0.8.11',
-      runtime: 'pi runtime',
-      transitional:
-        'Pi-web compatibility is an early bridge, not Pi Client’s long-term product identity. A future versioned, Pi SDK-based transport remains planned; this release does not include WebAssembly support.',
+      bridge: 'Project-owned protocol',
+      runtime: 'Pi Node runtime Capsule',
+      architectureNote:
+        'Release packages must bundle and verify the runtime Capsule. Source development uses explicitly configured local process paths; Web and mobile remain connect-only.',
     },
     start: {
       eyebrow: 'Get started',
-      title: 'Run the preview with your existing pi setup.',
+      title: 'Build the current source for development.',
       description:
-        'You need macOS 11 or newer, pi-web 0.8.11, and a working pi model-provider configuration.',
+        'You need macOS 11 or newer, FVM, Bun, the native macOS toolchain, and a working pi model-provider configuration.',
       steps: [
         {
           number: '01',
-          title: 'Start pi-web',
-          description: 'Run `npx @agegr/pi-web@0.8.11 --no-open` and keep it available.',
+          title: 'Clone and inspect the source',
+          description: 'Clone the repository, then review its README and contributing guidance.',
         },
         {
           number: '02',
-          title: 'Download Pi Client',
-          description:
-            'Download the Universal ZIP, extract `Pi Client.app`, and review the unsigned-preview warning.',
+          title: 'Install all development dependencies',
+          description: 'Install the Flutter, Protocol, and Pi Node dependencies with the pinned toolchains.',
         },
         {
           number: '03',
-          title: 'Connect and work',
+          title: 'Run the documented development command',
           description:
-            'Open the app, enter the pi-web URL and optional password, then select Connect.',
+            'Use the README command that supplies explicit local Pi Node process paths; ordinary source builds do not contain a runtime Capsule.',
         },
       ],
       fullGuide: 'Read the complete setup guide',
     },
     security: {
       eyebrow: 'Security boundary',
-      title: 'Keep the agent endpoint private.',
+      title: 'Keep execution local and explicit.',
       description:
-        'Pi-web can expose an agent with the host process’s project and tool permissions. Treat the endpoint as privileged infrastructure.',
+        'Local Direct connects desktop Pi Client to Pi Node, which runs with the host process’s project and tool permissions.',
       points: [
-        'Keep pi-web on loopback unless remote access is intentional.',
-        'For remote access, use HTTPS through a trusted reverse proxy or a VPN.',
-        'Use a strong PI_WEB_PASSWORD, but do not rely on Basic Authentication to encrypt traffic.',
-        'Pi Client keeps the password in memory and excludes it from workspace state, URLs, and payload logs.',
+        'Packaged desktop applications must verify the runtime Capsule before Pi Node starts.',
+        'Local Direct does not require a separately installed network gateway.',
+        'The project-owned protocol defines the complete client-to-node boundary.',
+        'Pi Client excludes credentials, provider data, prompts, and tool data from transport logs.',
       ],
     },
     limitations: {
-      title: 'Preview limitations',
+      title: 'Current source limitations',
       points: [
-        'macOS only; no browser or WebAssembly client is included.',
-        'Unsigned and unnotarized; Gatekeeper warnings are expected.',
-        'Compatible with observed pi-web 0.8.11 behavior, which is not a declared stable API.',
-        'No model, provider, skill, plugin, file, Git, or worktree management.',
-        'No session rename, deletion, export, branching, rich Markdown, or media rendering.',
+        'No supported public binary release is available.',
+        'The project-owned protocol remains pre-1.0 and may change during development.',
+        'Mobile and Web remote transport is not implemented.',
+        'Provider-backed production recovery and complete desktop packaging are not yet accepted.',
+        'The remaining project-owned requirements for 1.0 are incomplete.',
       ],
     },
     closing: {
-      title: 'Try the macOS preview or follow the project in public.',
+      title: 'Explore the source and follow development in public.',
       description:
-        'Pi Client is open source and early. Use GitHub Issues for bugs, compatibility reports, and feature requests.',
-      download: 'Download version 0.0.2',
+        'Pi Client is open source and early. No supported public release is currently available; use GitHub Issues for bugs and development feedback.',
+      source: 'View source repository',
       issues: 'Open GitHub Issues',
     },
     footer: {
@@ -248,23 +238,23 @@ export const copy: Record<Locale, LandingCopy> = {
       license: 'MIT License',
       issues: 'Issues',
       attribution:
-        'Current compatibility is based on observable pi-web 0.8.11 behavior. Pi Client is not an official pi or pi-web product.',
+        'Pi Client ships its first-party Pi Node through a project-owned protocol and is an independent open-source project.',
     },
   },
   'zh-cn': {
     locale: 'zh-cn',
     htmlLang: 'zh-CN',
-    metaTitle: 'Pi Client — 面向 pi 的原生 macOS 工作区',
+    metaTitle: 'Pi Client — 面向 pi 的独立跨平台客户端',
     metaDescription:
-      '在早期原生 macOS 客户端中浏览 pi 会话、发送提示词并查看实时 Agent 输出。',
+      '了解独立 Pi Client 源代码、第一方 Pi Node 架构和当前开发状态。',
     languageLabel: '语言',
     languageHref: '/',
     languageName: 'English',
     homeLabel: 'Pi Client 首页',
     navigationLabel: '主要导航',
-    releaseDetailsLabel: '发布信息',
+    statusDetailsLabel: '源代码状态',
     projectLinksLabel: '项目链接',
-    socialImageAlt: 'Pi Client 产品标识和原生 macOS 工作区',
+    socialImageAlt: 'Pi Client 产品标识和独立 Flutter 工作区',
     nav: {
       features: '功能',
       workflow: '工作方式',
@@ -272,26 +262,26 @@ export const copy: Record<Locale, LandingCopy> = {
       github: 'GitHub',
     },
     hero: {
-      eyebrow: '面向 pi 的原生工作区',
+      eyebrow: '面向 pi 的独立工作区',
       title: '专注于会话，而不是终端连接细节。',
       description:
-        'Pi Client 将会话浏览、提示词、实时输出和运行控制集中到一个早期原生 macOS 工作区中。',
-      badges: ['macOS 11+', 'Universal 应用', '版本 0.0.2'],
-      download: '下载未签名预览版',
-      source: '在 GitHub 查看',
-      releaseNote: '同时支持 Apple 芯片和 Intel Mac 的 Universal ZIP',
+        'Pi Client 将会话浏览、提示词、实时输出和运行控制集中到独立 Flutter 工作区。当前源代码面向六个平台，桌面端通过 Local Direct 承载运行时。',
+      badges: ['六平台源代码', '桌面 Local Direct', '第一方 Pi Node'],
+      primaryAction: '查看源代码仓库',
+      source: '阅读设置指南',
+      statusNote: '当前源代码仍在开发中，不是受支持的公开发布版本。',
     },
     screenshotAlt: 'Pi Client 窗口，其中显示合成会话和经过脱敏的编码 Agent 对话。',
     screenshotCaption: '真实 Flutter 渲染；项目路径、会话、提示词和 Agent 输出均为合成数据。',
     warning: {
-      title: '此下载是未签名预览版。',
+      title: '当前没有受支持的公开发布版本。',
       body:
-        '应用没有 Apple Developer ID 签名，也没有经过公证。macOS Gatekeeper 会在打开前发出警告。仅在你信任此仓库时安装。当前尚未提供已签名、已公证的 DMG。',
+        '仓库提供的是开发中源代码，而不是受支持的二进制发布版本。仅在你能够使用开发工具并自行评估当前源代码时进行本地构建。',
     },
     features: {
       eyebrow: '当前能力',
       title: '在一个窗口中完成核心会话循环。',
-      description: '预览版聚焦于当前 macOS MVP 已支持的操作。',
+      description: '当前源代码通过项目自有 API 和运行时边界实现核心会话循环。',
       items: [
         {
           icon: 'sessions',
@@ -317,65 +307,65 @@ export const copy: Record<Locale, LandingCopy> = {
     },
     workflow: {
       eyebrow: '当前工作方式',
-      title: '通过过渡兼容桥接工作的原生客户端。',
+      title: '采用第一方运行时边界的原生客户端。',
       description:
-        '当前预览版使用 pi-web 0.8.11 访问会话和运行时。Pi Client 不会直接读取 pi 会话文件。',
+        '桌面 Pi Client 通过 Local Direct 和项目自有协议连接第一方 Pi Node。',
       client: 'Pi Client',
-      bridge: 'pi-web 0.8.11',
-      runtime: 'pi runtime',
-      transitional:
-        'Pi-web 兼容层只是早期桥接，并非 Pi Client 的长期产品身份。未来版本化、基于 Pi SDK 的传输仍处于规划阶段；本次发布不包含 WebAssembly 支持。'
+      bridge: '项目自有协议',
+      runtime: 'Pi Node 运行时 Capsule',
+      architectureNote:
+        '发布包必须内置并验证运行时 Capsule；源码开发使用显式配置的本地进程路径。Web 和移动端仍仅支持连接。',
     },
     start: {
       eyebrow: '开始使用',
-      title: '通过现有 pi 环境运行预览版。',
+      title: '从当前源代码进行开发构建。',
       description:
-        '你需要 macOS 11 或更高版本、pi-web 0.8.11，以及可用的 pi 模型 Provider 配置。',
+        '你需要 macOS 11 或更高版本、FVM、Bun、macOS 原生工具链以及可用的 pi 模型 Provider 配置。',
       steps: [
         {
           number: '01',
-          title: '启动 pi-web',
-          description: '运行 `npx @agegr/pi-web@0.8.11 --no-open` 并保持服务可用。',
+          title: '克隆并检查源代码',
+          description: '克隆仓库，然后阅读 README 和贡献指南。',
         },
         {
           number: '02',
-          title: '下载 Pi Client',
-          description: '下载 Universal ZIP，解压 `Pi Client.app`，并阅读未签名预览版警告。',
+          title: '安装全部开发依赖',
+          description: '使用锁定的工具链安装 Flutter、Protocol 和 Pi Node 依赖。',
         },
         {
           number: '03',
-          title: '连接并开始工作',
-          description: '打开应用，输入 pi-web 地址和可选密码，然后选择 Connect。',
+          title: '运行文档中的开发命令',
+          description: '使用 README 中显式提供本地 Pi Node 进程路径的命令；普通源码构建不包含运行时 Capsule。',
         },
       ],
       fullGuide: '阅读完整设置指南',
     },
     security: {
       eyebrow: '安全边界',
-      title: '保持 Agent 端点私有。',
+      title: '保持本地执行边界明确。',
       description:
-        'Pi-web 可以暴露具有宿主进程项目与工具权限的 Agent。请将该端点视为特权基础设施。',
+        'Local Direct 将桌面 Pi Client 连接到 Pi Node；Pi Node 具有宿主进程的项目与工具权限。',
       points: [
-        '除非明确需要远程访问，否则让 pi-web 仅监听回环地址。',
-        '远程访问时，通过可信反向代理使用 HTTPS，或使用 VPN。',
-        '设置高强度 PI_WEB_PASSWORD，但不要依赖 Basic Authentication 加密流量。',
-        'Pi Client 仅在内存中保留密码，并将其排除在工作区状态、URL 和 Payload 日志之外。',
+        '打包后的桌面应用必须在 Pi Node 启动前验证运行时 Capsule。',
+        'Local Direct 不需要单独安装网络网关。',
+        '项目自有协议定义完整的客户端到节点边界。',
+        'Pi Client 不会将凭据、Provider 数据、提示词或工具数据写入传输日志。',
       ],
     },
     limitations: {
-      title: '预览版限制',
+      title: '当前源代码限制',
       points: [
-        '仅支持 macOS；不包含浏览器或 WebAssembly 客户端。',
-        '未签名且未公证；出现 Gatekeeper 警告属于预期行为。',
-        '兼容观测到的 pi-web 0.8.11 行为；该行为并非已声明的稳定 API。',
-        '不提供模型、Provider、Skill、插件、文件、Git 或 worktree 管理。',
-        '不提供会话重命名、删除、导出、分支、富 Markdown 或媒体渲染。',
+        '当前没有受支持的公开二进制发布版本。',
+        '项目自有协议仍处于 1.0 之前，可能在开发期间发生变化。',
+        '移动端和 Web 远程传输尚未实现。',
+        'Provider 支持的生产恢复流程和完整桌面打包尚未通过验收。',
+        '其余项目自有 1.0 需求仍未完成。',
       ],
     },
     closing: {
-      title: '试用 macOS 预览版，或在公开仓库关注项目。',
-      description: 'Pi Client 是早期开放源代码项目。请通过 GitHub Issues 报告缺陷、兼容问题和功能建议。',
-      download: '下载 0.0.2 版本',
+      title: '浏览源代码并公开关注开发进展。',
+      description: 'Pi Client 是早期开放源代码项目，当前没有受支持的公开发布版本。请通过 GitHub Issues 报告缺陷和开发反馈。',
+      source: '查看源代码仓库',
       issues: '打开 GitHub Issues',
     },
     footer: {
@@ -385,7 +375,7 @@ export const copy: Record<Locale, LandingCopy> = {
       license: 'MIT License',
       issues: 'Issues',
       attribution:
-        '当前兼容性基于对 pi-web 0.8.11 行为的观测。Pi Client 不是 pi 或 pi-web 的官方产品。',
+        'Pi Client 通过项目自有协议交付第一方 Pi Node，是独立的开放源代码项目。'
     },
   },
 };

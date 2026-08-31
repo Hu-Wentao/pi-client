@@ -38,28 +38,25 @@ mdq:
 
 - Status: Active
 - Review level: L9（目标与边界）/ L3（阶段与实现路径）
-- Target: 独立于 pi-web 的 Pi Client 在 `1.0.0` 前完成固定 pi-web `v0.8.11` 可见功能基线，并提供受支持的六平台客户端与桌面 Agent 宿主交付。
+- Target: 项目自有的 Pi Client 在 `1.0.0` 前完成所有 release-scoped Must requirements，并提供受支持的六平台客户端与桌面 Agent 宿主交付。
 
 ### 权威与计划关系
 
-- `DEC-012` 禁止把 pi-web 变成运行时、源码、协议或部署依赖。
-- `DEC-016` 固定 pi-web `v0.8.11`、commit `28bab3c25f5f6770c9b0b745ebbfec1c27f7b948` 的用户可见能力为 completeness baseline。
-- `docs/requirements.md` 拥有产品语义、约束和可观察验收；`docs/benchmark.md` 只负责证明范围没有遗漏。
+- `DEC-017` 建立项目自有产品权威；`docs/requirements.md` 独立拥有产品语义、约束、完整性和可观察验收。
 - `PLAN-PI-001` 继续保持 Superseded，并且不授权任何实现。
 - `PLAN-PI-002` 是 Friday Workspace、Native OIDC、E2EE 和 WebAssembly 的并行轨道；它不得阻塞 Local Direct 功能完整性。
-- `PLAN-PI-003` 继续拥有 `v0.0.2` Landing Page 与历史 Preview 的剩余验收，不定义 `1.0.0` 运行架构。
+- `PLAN-PI-003` 仅保留为 `v0.0.2` Landing Page 与 Preview 的历史记录，不拥有当前 `1.0.0` 范围或验收权威。
+- 初始探索资料仅作为历史记录，不参与当前需求、完整性、架构、协议、实现、兼容性、运行时、构建、部署或发布判断。
 
 ### 完整性定义
 
 `1.0.0` 功能完整性要求：
 
-1. `BENCH-PI-002` 至 `BENCH-PI-012` 的 Strict parity 项全部由 Active requirements 和完整证据覆盖。
-2. `BENCH-PI-014` 和 `BENCH-PI-015` 的 Native adaptation 项取得平台等价证据。
-3. `BENCH-PI-013` 只要求已有 child/subagent session 的识别、状态和打开；built-in 创建与隐藏配置不是严格对等项。
-4. 用户不安装、不启动、不配置 pi-web，也能完成全部受支持流程。
-5. 代码、依赖、构建、协议、发布和运行时中不存在 pi-web artifact 或兼容 API。
-6. Android、iOS 和 Web 保持 connect-only；macOS、Windows 和 Linux 可以运行第一方 Pi Node。
-7. Friday Workspace 完成前，Local Direct 仍可独立达到全部桌面功能完整性。
+1. 每个 release-scoped Must requirement 均为 Active，且所有验收条款具有适当、可追溯的验证证据。
+2. 所有平台适配均满足项目需求定义的等价结果与平台安全边界。
+3. 代码、依赖、构建、协议、发布和运行时仅依赖项目批准并拥有的合同与组件。
+4. Android、iOS 和 Web 保持 connect-only；macOS、Windows 和 Linux 可以运行项目自有 Pi Node。
+5. Friday Workspace 完成前，Local Direct 仍可独立达到全部桌面功能完整性。
 
 ### 目标系统边界
 
@@ -83,9 +80,9 @@ Flutter Pi Client
 
 | Phase | Status | Primary scope | Exit gate |
 | --- | --- | --- | --- |
-| P0 | Complete | Governance, parity inventory, requirement and verification ownership | Scope is fully classified; dependencies and architecture spikes have recorded decisions |
-| P1 | Source substantially complete | Protocol, Pi Node skeleton, desktop host controller | One typed prompt round trip works without pi-web; crash/restart/version gates pass |
-| P2 | Source substantially complete | Local Direct migration and legacy adapter removal | Existing MVP works without pi-web; legacy URL/password path is removed with migration notes |
+| P0 | Complete | Governance, project-owned scope, requirement and verification ownership | Scope is fully classified; dependencies and architecture spikes have recorded decisions |
+| P1 | Source substantially complete | Protocol, Pi Node skeleton, desktop host controller | One typed prompt round trip works through project-owned runtime; crash/restart/version gates pass |
+| P2 | Source substantially complete | Local Direct migration and legacy adapter removal | Existing MVP uses only project-owned runtime; obsolete configuration paths remain absent |
 | P3 | Planned | Project, session, history, branch, and app shell | `REQ-PI-014` through `REQ-PI-016` and `REQ-PI-030` have complete evidence |
 | P4 | Planned | Agent, composer, shell, and rich messages | `REQ-PI-017` through `REQ-PI-020` have complete evidence |
 | P5 | Planned | Files, Git, and worktrees | `REQ-PI-021` through `REQ-PI-023` and applicable security clauses have complete evidence |
@@ -98,17 +95,17 @@ Flutter Pi Client
 
 ### P0-P2 progress at `c10178c`
 
-- P0 is complete: `DEC-016`, `BASE-PI-008`, `BENCH-PI-001` through `BENCH-PI-015`, `REQ-PI-001` through `REQ-PI-034`, and `VER-PI-014` freeze the parity scope, independent boundary, lifecycle semantics, and verification ownership.
+- P0 is complete: `BASE-PI-008`, `REQ-PI-001` through `REQ-PI-034`, and their verification records establish project-owned scope, lifecycle semantics, and verification ownership.
 - P1 source is substantially complete: the repository contains a first-party Pi SDK domain, fail-closed project-trust coordinator, private Protobuf `0.1.0-dev.0` package with Dart/TypeScript codecs and vectors, stdio protocol server, Flutter codec/client, desktop host controller, Local Direct process transport, cross-process fixtures, and a reproducible host-targeted runtime Capsule builder.
-- P2 source is substantially complete: application composition owns `PiNodeApi`; Workspace list/load/create/prompt/abort/event behavior uses typed first-party APIs; and current source contains no `PiWebGateway`, pi-web URL/password configuration, Dio HTTP/SSE runtime, gateway compatibility test, or pi-web smoke tool.
+- P2 source is substantially complete: application composition owns `PiNodeApi`; Workspace list/load/create/prompt/abort/event behavior uses typed first-party APIs; and current source contains no obsolete compatibility adapter, endpoint credential UI, legacy HTTP streaming runtime, compatibility test, or smoke tool.
 - These statuses describe source implementation only. They do not activate `REQ-PI-006`, `REQ-PI-009`, or `REQ-PI-013`, publish Protocol 1.0, prove a provider-backed production prompt, bundle a Capsule into supported desktop packages, qualify project-trust UX, or establish an independent public release.
 
 ### P0 - Freeze governance and technical preflight
 
 Deliverables:
 
-- Accept `DEC-016` and preserve `DEC-012` through `DEC-015`.
-- Replace the coarse comparison with the bounded `BENCH-PI-001` through `BENCH-PI-015` inventory.
+- Preserve accepted project decisions and keep requirements as the current semantic authority.
+- Retain initial exploration records as historical evidence without using them as current scope input.
 - Deprecate `REQ-PI-001` through `REQ-PI-003` for post-`v0.0.2` work while retaining immutable release evidence.
 - Establish Planned requirements and verification owners for every accepted domain.
 - Complete bounded dependency evaluations and spikes for Pi SDK entry points, Node runtime, protocol codec/code generation, Local IPC/WebSocket, sidecar packaging, secure storage, rich previews, and standard E2EE.
@@ -116,9 +113,9 @@ Deliverables:
 
 Exit conditions:
 
-- Every benchmark record maps to a requirement, native adaptation, or explicit exclusion.
+- Every release-scoped capability maps to a project-owned requirement and verification owner.
 - Every Planned requirement has a primary verification owner and known gap.
-- No plan or baseline treats pi-web code as an implementation input.
+- No plan or baseline treats an exploratory external implementation as current semantic or implementation input.
 - Pi SDK lifecycle, project-trust-before-resource-load, process boundary, protocol encoding, and packaging choices are accepted or explicitly blocked.
 
 ### P1 - Establish Protocol, Pi Node, and desktop host
@@ -137,19 +134,19 @@ Exit conditions:
 - Dart and TypeScript encode/decode the same valid, unknown-field, invalid, oversized, cancelled, and incompatible-version vectors.
 - Pi Node restart and host shutdown do not corrupt sessions or leak secrets.
 
-### P2 - Complete Local Direct and remove pi-web
+### P2 - Complete Local Direct and remove obsolete compatibility paths
 
 Deliverables:
 
 - Migrate session list/detail, new session, prompt, stream, and abort to `PiNodeClient`.
 - Replace raw maps and legacy reducers with project-owned DTOs and state machines.
-- Remove `PiWebApi`, `PiWebGateway`, pi-web URL/password UI, pi-web smoke tooling, and new build/runtime references.
+- Keep obsolete compatibility adapters, endpoint credential UI, smoke tooling, and legacy build/runtime references absent.
 - Update README, Landing Page, support, migration, and rollback guidance.
 
 Exit conditions:
 
-- `REQ-PI-006`, `REQ-PI-009`, and `REQ-PI-013` pass Local Direct evidence with pi-web absent.
-- Repository and produced artifacts contain no pi-web runtime, source, route, schema, event, or protocol dependency.
+- `REQ-PI-006`, `REQ-PI-009`, and `REQ-PI-013` pass Local Direct evidence through project-owned runtime.
+- Repository and produced artifacts contain no unapproved external runtime, source, route, schema, event, or protocol dependency.
 - Release as the first independent architecture milestone; recommended identity is `0.1.0` because the legacy configuration is removed.
 
 ### P3 - Deliver projects and sessions
@@ -159,7 +156,7 @@ Deliverables:
 - Split the current workspace into app shell, node connection, project browser, session browser, conversation, and composer ownership.
 - Implement project selection, recent/default project, identity, trust, allowed roots, and workspace restore.
 - Implement session family, running/unread, lazy creation, rename/auto-name, delete/reparent, export, pagination, deferred content, branch navigation, edit-from-here, and independent session creation.
-- Preserve existing child/subagent session visibility without adding unreachable built-in creation to the parity gate.
+- Preserve existing child/subagent session visibility without adding unaccepted built-in creation to the release gate.
 
 Exit conditions:
 
@@ -265,12 +262,12 @@ Deliverables:
 - Freeze supported protocol and migration promises for major version 1.
 - Produce immutable source tag, artifact manifest, checksums, SBOM, license inventory, signatures, notarization where applicable, and rollback instructions.
 - Complete requirements status review and the full verification matrix.
-- Publish user documentation that no longer presents pi-web as a prerequisite or product runtime.
+- Publish user documentation that presents only the supported project-owned runtime and prerequisites.
 
 Exit conditions:
 
 - Every Must requirement is Active and every acceptance clause has appropriate evidence.
-- Every benchmark item has a final requirement, native adaptation, or accepted exclusion disposition.
+- Every release-scoped Must requirement has complete acceptance evidence.
 - Known gaps, blocked external evidence, and unsupported platforms are zero for the declared `1.0.0` support matrix.
 - Pi Client, Pi Node, Pi Protocol, and exact Pi SDK identities are bound to the released artifacts.
 
@@ -278,14 +275,14 @@ Exit conditions:
 
 | Version | Minimum product milestone |
 | --- | --- |
-| `0.1.0` | P1-P2: first-party Pi Node, Local Direct, and removal of pi-web runtime dependence |
+| `0.1.0` | P1-P2: project-owned Pi Node, Local Direct, and removal of obsolete runtime dependence |
 | `0.2.0` | P3: projects, sessions, history, branches, and existing child-session visibility |
 | `0.3.0` | P4: Agent, composer, shell, and rich messages |
 | `0.4.0` | P5: files, Git, and worktrees |
 | `0.5.0` | P6-P7: models, providers, settings, skills, packages, and extension UI |
 | `0.6.0` | P8-P9: complete product UX and six-platform execution-role qualification |
 | `0.7.0` | P10: Friday Workspace and WebAssembly, when cross-project gates pass |
-| `1.0.0` | P11: complete parity, security, compatibility, signed distribution, and production acceptance |
+| `1.0.0` | P11: project-owned completeness, security, compatibility, signed distribution, and production acceptance |
 
 Milestone numbers are planning identities, not release authorization. A release occurs only from an exact validated commit under current release governance.
 
@@ -300,17 +297,17 @@ Milestone numbers are planning identities, not release authorization. A release 
 
 ### Compatibility and rollback
 
-- `v0.0.2` remains an immutable historical pi-web compatibility Preview. It is not rewritten or republished.
-- Removing pi-web URL/password configuration is an intentional `0.x` Breaking Change with release notes and rollback by reinstalling the historical Preview.
+- `v0.0.2` remains an immutable historical compatibility Preview. It is not rewritten or republished.
+- The removed legacy endpoint credential configuration is an intentional `0.x` Breaking Change documented by historical release notes; current source and releases must not claim that configuration still exists.
 - Pi Client, Pi Node, and Pi Protocol use separate SemVer identities; handshake rejects incompatible majors and never downgrades authentication or encryption.
 - At `1.0.0`, APIs, protocol, configuration, persisted state, deep links, and release channels follow same-major compatibility and deprecation rules.
-- A failed phase does not restore `PiWebGateway`; repair proceeds on the first-party architecture or rolls back to the last immutable release.
+- A failed phase does not restore obsolete compatibility adapters; repair proceeds on the project-owned architecture or rolls back to the last immutable release.
 
 ### Current gaps
 
-- The Protobuf `0.1.0-dev.0` package is private and unpublished. Stream open/resume/close, reconnect cursors, replay retention, stateful backpressure, authentication, pairing, LAN Direct, Friday transport equivalence, and Protocol 1.0 compatibility policy remain incomplete.
+- The Protobuf `0.2.0-dev.0` package is private and unpublished. Stream open/resume/close, reconnect cursors, replay retention, stateful backpressure, authentication, pairing, LAN Direct, Friday transport equivalence, and Protocol 1.0 compatibility policy remain incomplete.
 - The production cross-process SDK evidence covers offline handshake, session list/create/get, and Workspace creation. Prompt/abort ordering, uncertain admission, framing pressure, incompatible versions, and process-exit behavior are cross-process fixture evidence; a real provider-backed production prompt, cancellation, restart, and session recovery are not yet proven.
 - The fail-closed project-trust coordinator and focused tests exist, but the production app has no complete trust-decision UX or operational evidence for protected project resources. Provider authentication and secure credential lifecycle remain unimplemented.
 - The runtime Capsule builder verifies a host-targeted Node/Pi Node payload, manifest, checksums, and forbidden-artifact scan, but no supported desktop application currently bundles and qualifies that Capsule. Windows/Linux packaging, signed/notarized desktop distribution, and the first independent public release remain incomplete.
-- README, Landing Page, and public `v0.0.2` Release continue to describe the immutable historical Preview until a separately authorized independent release updates public delivery surfaces.
+- README and Landing Page describe current source-only development and provide no binary CTA. The public `v0.0.2` Release remains immutable historical evidence outside current delivery surfaces.
 - Friday Workspace contracts remain blocked as recorded by `VER-PI-008` and `VER-PI-009`; rich previews, E2EE, mobile store identity, WebAssembly compatibility, and production accessibility evidence remain Planned.

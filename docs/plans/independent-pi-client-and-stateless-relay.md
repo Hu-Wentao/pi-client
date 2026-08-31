@@ -38,7 +38,7 @@ mdq:
 
 - Status: Superseded
 - Superseded by: `PLAN-PI-002` in `docs/plans/friday-relay-workspace-service.md`.
-- Supersession scope: This entire document is historical and authorizes no implementation, including its candidate capability lists, phases, decisions, and acceptance conditions. Only an item explicitly reaccepted by a current requirement, decision, or `PLAN-PI-002` remains in scope under that current authority.
+- Supersession scope: This entire document is archived historical exploration and authorizes no implementation, including its benchmark-derived candidate capability lists, phases, decisions, and acceptance conditions. It is detached from the current Pi Client `1.0` scope. Only an item explicitly reaccepted by a current baseline, requirement, decision, or `docs/plans/pi-client-1.0.md` remains in scope under that current authority; `PLAN-PI-002` governs only its own Friday Relay/Workspace track.
 - Review level: L9（产品目标与数据约束）/ L3（技术方案）
 - Target: 独立 Flutter Pi 客户端通过 Passkey 与中心化中转服务安全访问用户自己的 Pi
 - 当前项目基线：`pi-client` `0.0.1+1`，`main` 上已经交付的 MVP 仍通过 `PiWebGateway` 验证基础交互
@@ -690,7 +690,7 @@ P0 必须把用户接受的能力转换成项目自己的 requirements、interac
 - Pi Runtime：实施前必须选择并固定经过依赖评估的官方 Pi SDK、RPC 或 CLI 边界。
 - W3C Web Authentication Level 3：Passkey/WebAuthn Relying Party registration 和 authentication operations。
 - Google Server-side passkey authentication：认证需要一次性 challenge、用户/credential 查找和 credential public key verification。
-- 当前项目治理来源：`docs/requirements.md`、`docs/baseline.md`、`docs/benchmark.md`、`docs/verification.md` 和 `docs/decisions/`。
+- 历史治理来源：本文形成时参考了 `docs/requirements.md`、`docs/baseline.md`、`docs/benchmark.md`、`docs/verification.md` 和 `docs/decisions/`；此清单只记录当时依据，不使本文或已归档 benchmark 获得当前产品权威。
 
 ### 20. Breaking changes
 

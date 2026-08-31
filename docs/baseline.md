@@ -28,16 +28,16 @@ Default review level: L6.
 - Status: Active
 - Review level: L9
 - Pi Client presentation and transport code must not read or rewrite Pi runtime directories directly.
-- The current desktop source routes Workspace behavior through the app-owned `PiNodeApi`, a first-party Protobuf transport, and a first-party Pi Node that owns reviewed Pi SDK lifecycle, sessions, tools, project trust, and host operations.
+- The current desktop source routes Workspace behavior through the app-owned `PiNodeApi`, a project-owned Protobuf transport, and a project-owned Pi Node that owns reviewed Pi SDK lifecycle, sessions, tools, project trust, and host operations.
 - Connect-only clients consume a Pi Node transport and must not execute host operations locally.
-- Current source contains no `PiWebGateway`, pi-web HTTP/SSE runtime, or pi-web smoke tool. The immutable public `v0.0.2` Preview remains historical compatibility evidence only and is not a current-source adapter or an independent-release claim.
+- Current source contains only the project-owned runtime path. The immutable public `v0.0.2` Preview remains historical compatibility evidence only and is not a current-source adapter or an independent-release claim.
 
 ## BASE-PI-002 - Credential and payload handling
 
 - Status: Active
 - Review level: L6
-- Current source has no pi-web URL/password configuration and no Dio HTTP/SSE client or interceptor path. The historical `v0.0.2` Basic Auth handling remains release-scoped evidence and must not be reintroduced into first-party runtime state.
-- Flutter serializable state must not contain reusable provider, Node, or Friday credentials. First-party Provider credentials remain Pi Node-owned when provider flows are implemented.
+- Current source has no user-configured runtime endpoint credential path or legacy HTTP streaming client path. Historical `v0.0.2` transport credentials remain release-scoped evidence and must not be reintroduced into current runtime state.
+- Flutter serializable state must not contain reusable provider, Node, or Friday credentials. Project-owned Provider credentials remain Pi Node-owned when provider flows are implemented.
 - Local Direct reserves stdout for bounded binary protocol frames; transport stderr is drained without decoding or application logging, and Pi Node diagnostics emit only stable redacted codes.
 - Prompts, messages, tool output, project paths, credentials, and raw provider failures must not enter transport diagnostics, Relay payload logs, screenshots, or generated public evidence.
 
@@ -60,15 +60,14 @@ Default review level: L6.
 - Android delegates its minimum SDK to the pinned Flutter toolchain; other minimum platform versions remain owned by generated platform configuration and require an explicit compatibility decision before they change.
 - Project versioning starts at `0.0.1`; public compatibility surfaces remain unstable during `0.x`.
 
-## BASE-PI-005 - Legacy upstream compatibility
+## BASE-PI-005 - Project-owned product boundary
 
 - Status: Active
 - Review level: L6
-- Historical `v0.0.2` compatibility evidence and the bounded completeness snapshot remain pinned to `agegr/pi-web` commit `28bab3c25f5f6770c9b0b745ebbfec1c27f7b948` (`v0.8.11`, MIT).
-- The current source tree has removed the legacy gateway, its URL/password UI, Dio HTTP/SSE runtime, compatibility tests, and smoke tool. Published `v0.0.2` artifacts and their evidence remain immutable historical facts.
-- Pi-web is not the target runtime, semantic requirement authority, protocol authority, or cross-platform host. No platform may copy its implementation or promote routes, schemas, events, or internal types into first-party contracts.
-- Post-`v0.0.2` work uses the project-owned Pi Node domain, typed `PiNodeApi`, and unpublished first-party protocol; this source cutover does not by itself prove a packaged or published independent release.
-- Pi-web branding, screenshots, icons, substantial implementation, and deployment artifacts are not treated as Pi Client-owned assets.
+- Historical `v0.0.2` artifacts and their release-scoped evidence remain immutable historical facts, but exploratory comparisons have no ongoing authority.
+- Current requirements, completeness, architecture, protocol, implementation, compatibility, runtime, build, deployment, and release are owned by this project.
+- No platform may import an exploratory source's implementation or promote its routes, schemas, events, internal types, branding, screenshots, icons, or deployment artifacts into project-owned contracts or assets.
+- Current work uses the project-owned Pi Node domain, typed `PiNodeApi`, and project-owned protocol; source cutover does not by itself prove a packaged or published release.
 
 ## BASE-PI-006 - Platform execution roles
 
@@ -79,24 +78,23 @@ Default review level: L6.
 - `PlatformCapabilities` is the application-wide code authority for this role mapping; feature code must not duplicate ad hoc platform checks.
 - A reproducible host-targeted runtime Capsule builder exists, but Agent-host capability and source composition do not prove that a Capsule is bundled into every desktop app, that Windows/Linux packages are qualified, or that an independent public release exists.
 
-## BASE-PI-007 - Preview distribution and product-site integrity
+## BASE-PI-007 - Distribution and product-site integrity
 
 - Status: Active
 - Review level: L9
-- The current public version target is `0.0.2+2`; the macOS app name is `Pi Client`, and the release asset identity is `v0.0.2/Pi-Client-0.0.2-macOS-universal.zip`.
-- The macOS Preview is a Universal `arm64 + x86_64` ZIP, not a signed, notarized, sandbox-trusted, or DMG distribution. User-facing surfaces must disclose that boundary before download or installation.
-- Unsigned Preview storage uses `fr_storage_unsigned_preview` and a fixed public key that provides no secrecy; standard signed desktop storage remains in `fr_storage` with platform secure storage. Preview preferences do not automatically migrate to the signed channel.
-- The Landing Page uses the Pi Client-owned SVG and sanitized Flutter screenshot. It must not use Flutter/pi-web branding, production paths, credentials, private prompts, or real tool output.
-- GitHub Pages may deploy only while its exact current-version GitHub Release asset is public. A passing local site build is not publication evidence.
-- Current pi-web compatibility is transitional and does not authorize a WebAssembly build or weaken the planned independent, versioned Pi SDK/transport boundary.
+- The source version remains `0.0.2+2` during development, but no supported independent public release currently exists. Version metadata alone is not a release claim.
+- The immutable public `v0.0.2` artifact is historical evidence only. The current Landing Page must not present it as the current product or offer a binary download.
+- Historical unsigned-Preview storage and trust limitations remain release-scoped facts. Future packages must disclose their own exact signing, notarization, sandbox, storage, migration, platform, and architecture state.
+- The Landing Page uses the Pi Client-owned SVG and sanitized Flutter screenshot. It must not use third-party product branding, production paths, credentials, private prompts, or real tool output.
+- GitHub Pages may publish a source-only project status page. A release CTA may appear only after the exact supported artifact is authorized, public, and verified.
+- A passing site build, release workflow, or source version does not prove publication, installation, or production acceptance.
 
 ## BASE-PI-008 - Product authority and 1.0 completeness
 
 - Status: Active
 - Review level: L9
-- The user-approved `1.0.0` completeness baseline is the user-visible and reachable capability set observed in pi-web `v0.8.11` at commit `28bab3c25f5f6770c9b0b745ebbfec1c27f7b948`.
-- `docs/requirements.md` is the semantic authority for Pi Client outcomes, constraints, platform adaptations, and acceptance; `docs/benchmark.md` is a bounded omission check only.
-- Hidden, disabled, test-only, or unreachable behavior is not strict parity. Built-in subagent creation is excluded because the fixed snapshot hard-disables runtime creation and exposes no ordinary Settings path to its configuration; existing child-session visibility remains in scope.
-- A later pi-web release does not change Pi Client scope without a new project decision and requirement change.
-- Completeness never authorizes importing, copying, calling, deploying, or requiring pi-web runtime, source, routes, schemas, events, protocol, components, or artifacts.
+- `DEC-017` establishes project-owned product authority; `docs/requirements.md` is the semantic authority for Pi Client outcomes, constraints, platform adaptations, and acceptance.
+- `1.0.0` completeness requires every project-owned Must requirement in release scope to be Active and every acceptance clause to have appropriate verification evidence.
+- Independently accepted requirements remain in scope until superseded through project governance; exploratory comparisons do not add, remove, or reinterpret product scope.
+- Completeness never authorizes importing, copying, calling, deploying, or requiring an external runtime, source, route, schema, event, protocol, component, or artifact.
 - `PLAN-PI-004` owns the P0-P11 implementation path; `PLAN-PI-002` remains the Friday Workspace parallel track, and `PLAN-PI-001` remains Superseded.

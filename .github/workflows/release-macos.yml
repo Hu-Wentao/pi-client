@@ -266,7 +266,7 @@ jobs:
         run: |
           NOTES="$RUNNER_TEMP/release-notes.md"
           cat > "$NOTES" <<EOF
-          This is the first independent Pi Client preview. It bundles the verified first-party Pi Node runtime capsule and does not require pi-web or a system Node.js installation.
+          This independent Pi Client preview bundles the verified first-party Pi Node runtime Capsule. It uses the project-owned protocol over Local Direct and requires neither a separately installed gateway nor a system Node.js installation.
 
           This ${ARCHITECTURE} app is ad-hoc signed with Hardened Runtime but has no Developer ID identity and is not notarized. Verify the published SHA-256 checksum and expect Gatekeeper to reject ordinary launch until you explicitly approve the app. The unsigned-preview storage directory and public non-secret storage key remain isolated from future Developer ID releases.
 

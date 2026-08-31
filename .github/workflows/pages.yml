@@ -4,16 +4,12 @@ on:
   pull_request:
     paths:
       - 'site/**'
-      - 'tool/release_metadata.mjs'
       - '.github/workflows/pages.yml'
-      - 'pubspec.yaml'
   push:
     branches: [main]
     paths:
       - 'site/**'
-      - 'tool/release_metadata.mjs'
       - '.github/workflows/pages.yml'
-      - 'pubspec.yaml'
   workflow_dispatch:
 
 permissions:
@@ -40,9 +36,6 @@ jobs:
       - name: Install site dependencies
         working-directory: site
         run: bun install --frozen-lockfile
-
-      - name: Validate release metadata
-        run: node tool/release_metadata.mjs
 
       - name: Check Astro source
         working-directory: site
@@ -72,38 +65,9 @@ jobs:
         with:
           path: site/dist
 
-  release-asset:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-24.04
-    outputs:
-      exists: ${{ steps.asset.outputs.exists }}
-    steps:
-      - name: Check out source
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-
-      - name: Resolve release metadata
-        id: metadata
-        run: node tool/release_metadata.mjs --github-output "$GITHUB_OUTPUT"
-
-      - name: Check published release asset
-        id: asset
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.metadata.outputs.tag }}
-          ASSET: ${{ steps.metadata.outputs.asset }}
-        run: |
-          if RELEASE_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" 2>/dev/null)" && \
-            [[ "$(jq -r '.draft' <<<"$RELEASE_JSON")" == 'false' ]] && \
-            [[ "$(jq --arg name "$ASSET" '[.assets[] | select(.name == $name and .size > 0)] | length' <<<"$RELEASE_JSON")" == '1' ]]; then
-            echo 'exists=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'exists=false' >> "$GITHUB_OUTPUT"
-            echo "Skipping deployment until published ${TAG}/${ASSET} exists with non-zero bytes."
-          fi
-
   deploy:
-    if: needs.release-asset.outputs.exists == 'true'
-    needs: [build, release-asset]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
     runs-on: ubuntu-24.04
     environment:
       name: github-pages

@@ -24,12 +24,13 @@ mdq:
 
 - Status: Active
 
-1. Install FVM, Bun `1.4.0`, and the native toolchain for your target platform.
+1. Install FVM, Bun `1.4.0`, Node.js `22.19.0`, and the native toolchain for your target platform.
 2. Run `fvm install` and `fvm flutter pub get`.
-3. For Landing Page work, run `cd site && bun install`.
-4. Run `fvm flutter devices` and choose a device ID.
-5. For legacy workspace smoke testing, start pi-web `0.8.11` on a URL that the client device can reach.
-6. Run `fvm flutter run -d DEVICE_ID`.
+3. Run `(cd protocol && bun install --frozen-lockfile)`.
+4. Run `(cd node && bun install --frozen-lockfile && bun run build)`.
+5. For Landing Page work, run `(cd site && bun install --frozen-lockfile)`.
+6. Run `fvm flutter devices` and choose a desktop device ID.
+7. Follow [Run a desktop development build](README.md#run-a-desktop-development-build). A normal source build contains no runtime Capsule, so development requires the documented explicit local process configuration.
 
 Do not commit credentials, local pi sessions, provider data, developer-team identities, signing files, `.agents/` skill copies, `.fvm/`, `.dart_tool/`, build output, CocoaPods output, or captured user prompts.
 
@@ -39,9 +40,9 @@ Do not commit credentials, local pi sessions, provider data, developer-team iden
 
 - Treat `lib/app/workspace/workspace.c.dart` as the current workspace source contract.
 - Keep route ownership in `workspace.page.dart`, state and API work in `workspace.vm.dart`, rendering in `workspace.v.dart`, and transport adaptation in `workspace.srv.dart`.
-- Treat `PiWebGateway` as a legacy adapter. Do not add new product or platform dependencies on pi-web.
-- Use `PlatformCapabilities` as the only platform execution-role authority. macOS, Windows, and Linux may host an Agent; Android, iOS, and Web remain connect-only.
-- Keep future Pi SDK and Agent host implementations behind a desktop-only host boundary. Mobile and Web builds must not import or package them.
+- Keep Pi Client transport on the project-owned protocol. Do not inherit routes, payloads, names, or types from consulted clients.
+- Use `PlatformCapabilities` as the only platform execution-role authority. macOS, Windows, and Linux may host the first-party Pi Node; Android, iOS, and Web remain connect-only.
+- Keep Pi Node and runtime Capsule implementations behind a desktop-only host boundary. Mobile and Web builds must not import or package them.
 - Use typed `go_router_builder` routes and keep host filesystem access outside presentation code.
 - Add a separate queryable decision document and immutable decision tag when an implementation problem requires choosing among alternatives.
 
@@ -81,8 +82,6 @@ ASTRO_TELEMETRY_DISABLED=1 bun run build
 bun run validate
 ```
 
-Run `node tool/release_metadata.mjs` whenever the app version, release asset, or Landing Page download CTA changes.
-
 When the UI intentionally changes, review the rendered result before running:
 
 ```bash
@@ -101,7 +100,7 @@ Keep changes focused. Update requirements, baselines, comparison scope, tests, g
 
 - Edit `assets/brand/pi-client-mark.svg` as the product-mark source, then run `cd site && bun run brand`. Commit the generated favicon, social card, screenshot WebP, and every macOS App Icon size together.
 - Generate the marketing screenshot with `fvm flutter test test/marketing_screenshot_test.dart --update-goldens`, inspect the final pixels, then run `cd site && bun run brand` to refresh its WebP delivery asset. Use only synthetic paths, sessions, prompts, and output. Its comparator permits at most 0.02% cross-host font raster variance and must still reject structural changes.
-- Keep release metadata synchronized across `pubspec.yaml`, `site/package.json`, `site/src/content/copy.ts`, release notes, and workflow-generated asset names.
+- Keep release metadata synchronized across `pubspec.yaml`, `site/package.json`, release notes, and workflow-generated asset names. Keep the Landing Page source-only until a supported public release exists.
 - Do not manually move, overwrite, or delete a release tag or published asset. The manual Release workflow owns admission, Universal build checks, ZIP/checksum upload, and publication.
 - The `unsigned-preview` channel is not signed, notarized, or effectively sandboxed. Do not remove its Gatekeeper disclosure, claim that its public fixed key is secret, or merge its preferences directory with the future signed channel.
 - Publishing a Release, dispatching Pages, enabling Pages, pushing tags, and creating decision tags require explicit current authorization.

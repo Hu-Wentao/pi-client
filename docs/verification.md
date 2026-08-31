@@ -60,13 +60,13 @@ mdq:
 - Release scope: Session behavior in this record remains historical `v0.0.2` evidence; the reusable geometry evidence may continue only while the rendered contract remains applicable.
 - Scope limit: Flutter's deterministic test font validates geometry rather than production glyph rasterization; the native app build and launch own real-font startup evidence.
 
-## VER-PI-005 - Contract, generation, analysis, tests, and macOS build
+## VER-PI-005 - Contract, generation, analysis, tests, and macOS source build
 
-- Status: PASS
-- Requirements: REQ-PI-004, REQ-PI-005
+- Status: PARTIAL
+- Requirements: REQ-PI-004
 - Owner: fr-mvvm-contract validator, build_runner, Flutter analyzer/test/build
 - Evidence: `workspace.page.dart` passes contract and final phases; generated Freezed/JSON/typed-route files are current; analysis has no issues; all Flutter tests pass; macOS Debug `.app` builds and launches.
-- Scope limit: Release signing, Apple Team identity, notarization, and distribution are outside MVP.
+- Gap: This source-build evidence does not prove runtime Capsule installation, bundled-app end-to-end execution, artifact inspection, release signing, notarization, or supported distribution required by current `REQ-PI-004`.
 
 ## VER-PI-006 - PLAN-PI-002 R0 client contract surface
 
@@ -87,8 +87,8 @@ mdq:
 - Flutter evidence: `PiNodeApi`, `PiNodeClient`, `ProtobufPiProtocolCodec`, stdio `LocalDirectPiTransport`, desktop `PiNodeHostController`, and app-owned provider composition exist; Workspace has cut over to typed first-party list/load/create/prompt/abort/session-event behavior with stale-load and sequence-gap recovery tests.
 - Cross-process evidence: The built production Node passes offline public-SDK handshake, session list/create/get, missing-session error, and production Workspace creation. A built fixture proves accepted/rejected/uncertain commands, abort, ordered session events, split/coalesced framing, 512 KiB stderr pressure, incompatible-version rejection, process-exit uncertainty, and idempotent close.
 - Capsule evidence: The repository contains a reproducible host-targeted runtime Capsule builder and verifier for pinned Node, Pi Node, Protocol, Pi SDK, manifests, checksums, read-only payloads, and forbidden artifacts; the Capsule is not yet integrated into an application release.
-- Absence evidence: Current tracked source contains no `PiWebGateway`, `PiWebApi`, pi-web URL/password path, Dio HTTP/SSE runtime, gateway compatibility test, or `tool/pi_web_smoke.dart`. Immutable `v0.0.2` historical evidence remains owned by `VER-PI-001` through `VER-PI-003`.
-- Gaps: Protocol v0 remains unpublished and lacks production authentication/pairing, LAN and Friday transports, reconnect/replay completion, and a frozen v1 policy. A real provider-backed production prompt/abort, protected-project trust-decision UX, Node crash restart/session recovery, Capsule bundling on supported desktops, artifact-level pi-web absence, and a public independent release are not yet evidenced.
+- Absence evidence: Current tracked source and runtime composition contain only project-owned transport and Node paths; legacy endpoint credentials, compatibility adapters, and HTTP streaming tools are absent. Immutable `v0.0.2` historical evidence remains owned by `VER-PI-001` through `VER-PI-003`.
+- Gaps: Protocol v0 remains unpublished and lacks production authentication/pairing, LAN and Friday transports, reconnect/replay completion, and a frozen v1 policy. A real provider-backed production prompt/abort, protected-project trust-decision UX, Node crash restart/session recovery, Capsule bundling on supported desktops, artifact-level external-runtime absence, and a public project-owned release are not yet evidenced.
 - Lifecycle decision: `REQ-PI-006`, `REQ-PI-009`, and `REQ-PI-013` remain Planned because their complete Direct/remote equivalence, authorization, restart, packaging, operational, and release acceptance clauses are not satisfied.
 
 ## VER-PI-008 - Friday Workspace and private tunnel runtime
@@ -121,31 +121,31 @@ mdq:
 - Requirements: REQ-PI-010, REQ-PI-011
 - Owner: Flutter platform directories, `.metadata`, shared analyzer/tests, and per-platform Flutter build commands
 - Evidence: `.metadata` tracks Android, iOS, Linux, macOS, Web, and Windows; shared analysis and all tests pass; macOS Debug, Android Debug APK, iOS Debug without code signing, and standard JavaScript Web builds succeed. iOS is fixed at 15.0 because ObjectBox requires it.
-- Gap: Windows and Linux native builds require their respective operating systems. Dart WebAssembly is blocked by `flutter_secure_storage_web 1.2.1`, which still imports unsupported `dart:html` and `dart:js` libraries. Signing, store identity, production icons, and distribution remain unverified or missing for the general platform matrix; the bounded unsigned macOS Preview is tracked separately by `VER-PI-012` and `VER-PI-013`.
+- Gap: Windows and Linux native builds require their respective operating systems. Dart WebAssembly is blocked by `flutter_secure_storage_web 1.2.1`, which still imports unsupported `dart:html` and `dart:js` libraries. Signing, store identity, production icons, and supported distribution remain unverified or missing for the general platform matrix; historical release evidence is scoped separately by `VER-PI-012` and `VER-PI-013`.
 
-## VER-PI-012 - Landing Page and unsigned Preview source qualification
+## VER-PI-012 - Historical Landing Page and unsigned Preview source qualification
 
-- Status: PASS
+- Status: HISTORICAL PASS
 - Requirements: REQ-PI-004, REQ-PI-012
-- Owner: `test/app_storage_test.dart`, `test/marketing_screenshot_test.dart`, `site/scripts/validate-built-site.mjs`, Astro checks, Flutter checks, and local macOS build inspection
-- Evidence: Distribution-channel tests prove standard/Preview directory and key selection without changing Windows/Linux debug storage; the committed 1280 × 800 screenshot renders synthetic data with real Flutter fonts and icons, with cross-host raster variance bounded to 0.02%; brand generation is source-controlled; English and Chinese static routes build with exact metadata, base-aware assets, exact `v0.0.2` CTA, and no client JavaScript; Flutter analysis/tests and macOS build gates qualify the source.
-- Scope limit: This PASS proves committed source and locally executable workflow logic only. It does not prove a pushed tag, public GitHub Release asset, GitHub-hosted workflow run, Pages deployment, notarization, Gatekeeper trust, or production-browser acceptance.
+- Owner: immutable `v0.0.2` source and release evidence
+- Evidence: At the historical release commit, distribution-channel tests, the sanitized screenshot, brand generation, bilingual static routes, exact release CTA, Flutter checks, and macOS build gates passed within the recorded scope.
+- Scope limit: This result applies only to immutable `v0.0.2` evidence. The current Landing Page is source-only, has no download CTA, and requires its own current site validation; this historical PASS does not satisfy current `REQ-PI-004` or `REQ-PI-012`.
 
-## VER-PI-013 - Public Release and GitHub Pages acceptance
+## VER-PI-013 - Historical public Release and GitHub Pages acceptance
 
-- Status: PARTIAL
+- Status: HISTORICAL PARTIAL
 - Requirements: REQ-PI-012
-- Owner: `.github/workflows/release-macos.yml`, `.github/workflows/pages.yml`, GitHub Release evidence, and production manual accessibility/browser verification
-- Evidence: Annotated `v0.0.2` resolves to `ac2b492cf595a715fc5e86f7e850ae5bcaf4c942`; Release build run `33308958703` passed generation, analysis, 35 tests, Debug build, unsigned Universal build, bundle/architecture/Gatekeeper checks, launch without Keychain `-34018`, packaging, tag creation, and Draft upload. Draft release `379262752` was reconciled after the workflow's tag lookup returned 404; the exact uploaded ZIP and SHA-256 were downloaded, checksum-verified, unpacked, and inspected before publication. Pages run `33309764563` deployed both locales from `c6318263fd4309460d392697eef84eee24c96058`; production HTML, canonical URLs, assets, direct download, Cloudflare command integrity, responsive Chrome rendering, and Lighthouse 94/100/100/100 were verified.
-- Gap: Safari WebDriver is blocked until **Allow Remote Automation** is enabled. VoiceOver and 200% zoom still require manual acceptance. HTTPS works through Cloudflare, but GitHub Pages cannot enforce HTTPS for the inherited custom domain and HTTP does not currently redirect; changing that shared domain behavior requires separate Cloudflare governance authority.
+- Owner: immutable `v0.0.2` tag, GitHub Release, workflow, and Pages evidence
+- Evidence: Annotated `v0.0.2` resolves to `ac2b492cf595a715fc5e86f7e850ae5bcaf4c942`; recorded workflow, artifact, checksum, publication, production HTML, responsive Chrome, and Lighthouse checks passed within that release scope.
+- Gap: The historical Safari, VoiceOver, zoom, HTTPS-enforcement, signing, notarization, and trust gaps remain unresolved for `v0.0.2`. They neither describe nor satisfy a future supported release.
 
-## VER-PI-014 - 1.0 parity governance integrity
+## VER-PI-014 - Historical exploration governance integrity
 
-- Status: PASS
+- Status: SUPERSEDED
 - Requirements: REQ-PI-005
-- Owner: persistent mdq contracts, exact/negative queries, link checks, and source review of the fixed pi-web snapshot
-- Evidence: `DEC-016`, `PLAN-PI-004`, `BENCH-PI-001` through `BENCH-PI-015`, and `REQ-PI-001` through `REQ-PI-034` are uniquely queryable; every observed domain maps to project-owned requirements, native adaptation, or explicit exclusion.
-- Scope limit: This PASS proves P0 governance structure and bounded source classification only. It does not prove any Planned runtime feature or `1.0.0` completeness.
+- Owner: persistent mdq contracts, exact/negative queries, link checks, and historical source review
+- Evidence: The initial exploratory classification and its project-owned requirement mappings were uniquely queryable when this check passed.
+- Scope limit: This record is retained as historical governance evidence only; it does not define current scope or prove any Planned runtime feature or `1.0.0` completeness.
 
 ## VER-PI-015 - Project, session, history, and child-session behavior
 
@@ -206,7 +206,7 @@ mdq:
 ## VER-PI-022 - 1.0 completeness and release audit
 
 - Status: PLANNED
-- Requirements: REQ-PI-005, REQ-PI-034
-- Owner: final requirement status review, benchmark-to-requirement audit, release manifest verification, installation matrix, and production operational acceptance
-- Planned evidence: Prove every Must requirement is Active with complete clauses, every benchmark record has a final disposition, all release identities and artifacts are immutable and verified, and no pi-web dependency or unsupported host runtime remains.
-- Gap: P0 governance is complete and P1/P2 source implementation is substantially complete as scoped by `VER-PI-007`, but their full acceptance and independent release evidence remain incomplete. P3 through P11 are not complete, so this audit cannot pass from documentation, source foundations, or partial platform builds alone.
+- Requirements: REQ-PI-034
+- Owner: final project-owned requirement status review, release manifest verification, installation matrix, and production operational acceptance
+- Planned evidence: Prove every release-scoped Must requirement is Active with complete acceptance evidence, all release identities and artifacts are immutable and verified, no external runtime or compatibility dependency remains, and no unsupported host runtime is present.
+- Gap: P0 governance is complete and P1/P2 source implementation is substantially complete as scoped by `VER-PI-007`, but their full acceptance and project-owned release evidence remain incomplete. P3 through P11 are not complete, so this audit cannot pass from documentation, source foundations, or partial platform builds alone.

@@ -45,4 +45,4 @@ mdq:
 - 与历史决策的关系：本决策替代 `DEC-002` 的未来目标平台范围；`DEC-002` 继续作为已交付 macOS MVP 的历史决策和验证依据。
 - 实施边界：本次只建立六平台工程和可测试的平台能力合同，不实现真实 Pi SDK、Agent 宿主生命周期或远程 Tunnel。
 - 应用标识：Android 使用 `io.github.huwentao.pi_client`；iOS 和 macOS 使用现有 `io.github.huwentao.piClient`；可见应用名为 `Pi Client`。
-- 兼容性：平台范围是加法性变更，不移除现有 macOS MVP 行为；未来移除遗留 `PiWebGateway` 仍按独立 `0.x` Breaking Change 治理。
+- 兼容性：平台范围是加法性变更；历史兼容路径已在后续 `0.x` 工作中移除，当前平台角色只适用于项目自有 Pi Node 和 transport。

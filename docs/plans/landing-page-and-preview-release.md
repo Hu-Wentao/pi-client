@@ -36,7 +36,9 @@ mdq:
 
 ## PLAN-PI-003 - Landing Page 与 macOS Preview 发布
 
-- Status: Partially implemented
+- Status: Historical release record
+- Lifecycle: Archived for current product scope; retained as immutable `v0.0.2` release and publication evidence.
+- Authority boundary: This plan does not define, expand, or verify the current Pi Client `1.0` product scope. Its remaining external acceptance gaps remain honest historical gaps and are not current `1.0` work unless reaccepted by a current authority.
 - Review level: L9（目标与范围）/ L6（实现路径）
 - Target: 提供中英文独立 Landing Page、精确 `v0.0.2` 下载入口和可审计的未签名 Universal macOS Preview 发布流程。
 
