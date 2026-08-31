@@ -65,6 +65,7 @@ test('CI provides quality and all-platform native-runner smoke builds', async ()
     'flutter analyze',
     'flutter test',
     'node --test',
+    'test/homebrew_cask_test.mjs',
     'bun run validate',
     'target: android',
     'target: ios',
@@ -261,6 +262,7 @@ test('preview release remains profile-gated, aggregated, and publish-last', asyn
   const source = await workflow('release-preview.yml');
   for (const required of [
     '--require-profile six-platform-preview-v1',
+    'test/homebrew_cask_test.mjs',
     "inputs.mode == 'publish'",
     'refs/heads/main',
     '--split-per-abi',
@@ -354,16 +356,19 @@ test('Pages tag binding policy rejects main dispatch and unpeeled remote commit 
   );
 });
 
-test('site validation derives and rejects the historical release download', async () => {
+test('site validation derives and rejects the active Preview and Homebrew install flow', async () => {
   const source = await readFile(
     resolve(repositoryRoot, 'site/scripts/validate-built-site.mjs'),
     'utf8',
   );
-  assert.ok(source.includes("import { loadReleaseContract } from '../../tool/release_contract.mjs';"));
-  assert.ok(source.includes('const historicalDownload = (await loadReleaseContract()).downloadUrl;'));
-  assert.ok(source.includes("[historicalDownload, 'historical release download']"));
+  assert.ok(source.includes('homebrewInstallCommand'));
+  assert.ok(source.includes('const activeRelease = await loadReleaseContract();'));
+  assert.ok(source.includes("[activeRelease.downloadUrl, 'current Preview download']"));
+  assert.ok(source.includes("[activeRelease.tag, 'current Preview version']"));
+  assert.ok(source.includes("[homebrewInstallCommand, 'Homebrew installation flow']"));
   assert.ok(source.includes('must not expose'));
   assert.ok(!source.includes('/releases/download/v0.0.2/'));
+  assert.ok(!source.includes('/releases/download/v0.0.3/'));
 });
 
 test('composite Flutter setup does not depend on a Unix pub-cache executable path', async () => {

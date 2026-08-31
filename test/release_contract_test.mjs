@@ -11,6 +11,9 @@ import {
   compareSemVer,
   expectedReleaseNotes,
   getArtifactProfile,
+  homebrewCask,
+  homebrewInstallCommand,
+  homebrewTap,
   inspectRemoteCandidateTag,
   legacyPreviewBuildNumber,
   legacyPreviewVersion,
@@ -341,7 +344,7 @@ test('future six-platform profile defines exact roles, baselines, and artifacts'
   ].sort());
 });
 
-test('future profile fixture uses synchronized 0.0.3+3 site and notes metadata', async () => {
+test('future profile fixture uses synchronized 0.0.3+3 site, notes, and Homebrew metadata', async () => {
   const { root, metadata: fixtureMetadataValue } = await futureReleaseFixture();
   const metadata = await loadReleaseContract(root, {
     requireProfile: futureFixtureSpec.profileId,
@@ -352,10 +355,12 @@ test('future profile fixture uses synchronized 0.0.3+3 site and notes metadata',
   assert.equal(metadata.releaseNotesPath, fixtureMetadataValue.releaseNotesPath);
   assert.equal(metadata.artifacts.length, 8);
   assert.equal(metadata.expectedAssets.length, 11);
-  assert.match(
-    await readFile(resolve(root, metadata.releaseNotesPath), 'utf8'),
-    /Linux archive is not self-contained/,
-  );
+  const notes = await readFile(resolve(root, metadata.releaseNotesPath), 'utf8');
+  assert.match(notes, /Linux archive is not self-contained/);
+  assert.match(notes, new RegExp(homebrewInstallCommand));
+  assert.match(notes, /Do not remove quarantine metadata or disable Gatekeeper/);
+  assert.equal(homebrewTap, 'Hu-Wentao/homebrew-tap');
+  assert.equal(homebrewCask, 'pi-client');
 });
 
 test('strict contract drift tests target explicit fixture metadata and notes paths', async (t) => {

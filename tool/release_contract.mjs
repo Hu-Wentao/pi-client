@@ -3,6 +3,9 @@ import { resolve } from 'node:path';
 
 export const repositoryRoot = resolve(import.meta.dirname, '..');
 export const repositorySlug = 'Hu-Wentao/pi-client';
+export const homebrewTap = 'Hu-Wentao/homebrew-tap';
+export const homebrewCask = 'pi-client';
+export const homebrewInstallCommand = 'brew install --cask hu-wentao/tap/pi-client';
 export const requiredFlutterVersion = '3.41.6';
 export const legacyPreviewVersion = '0.0.2';
 export const legacyPreviewBuildNumber = '2';
@@ -368,6 +371,16 @@ This prerelease contains unsigned preview artifacts for Android, iOS, macOS, Win
 - No artifact includes the planned Pi SDK Agent Host runtime. This is package filename-boundary evidence, not proof about arbitrary embedded file contents.
 
 Use these artifacts only for evaluation. Verify \`SHA256SUMS\` and \`artifact-manifest.json\` before use.
+
+### Install the macOS Preview with Homebrew
+
+\`\`\`bash
+${homebrewInstallCommand}
+\`\`\`
+
+The Homebrew Cask installs \`Pi Client.app\` into \`/Applications\`. The app is unsigned and not notarized, so macOS Gatekeeper will reject a normal first launch. In Finder, Control-click \`Pi Client.app\`, select **Open**, then confirm **Open**. Do not remove quarantine metadata or disable Gatekeeper.
+
+The current Preview still uses the transitional pi-web compatibility boundary. The first-party Pi host runtime and transport remain under development.
 `;
 }
 

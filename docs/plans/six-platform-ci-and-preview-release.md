@@ -55,7 +55,7 @@ mdq:
 3. PR、main push 和手动 CI 先运行 generation、format、analysis、Flutter tests、Node release tests 和 Astro checks，再在对应原生 runner 构建六平台 Debug 门禁。
 4. 手动 Preview workflow 分为 `qualify` 与 `publish`。二者都从精确 `GITHUB_SHA` 构建六平台 Release Preview；只有 `publish` 在 main、身份未占用且全部回读校验通过后创建 annotated Tag 和 Prerelease。
 5. 每个平台 Job 只上传独立命名空间中的标准化 Actions Artifact 和 stage evidence；聚合 Job 校验六个来源目录及平台归属，拒绝缺失、多余、错源、重名或零字节文件，并生成确定性的 manifest 与 checksum。
-6. 正式签名、安装器、商店上传、Homebrew/F-Droid、真实 Pi SDK Host 和 WASM 均为后续独立目标。
+6. 正式签名、原生安装器、商店上传、F-Droid、真实 Pi SDK Host 和 WASM 均为后续独立目标；unsigned macOS Homebrew Cask 由 `PLAN-PI-006` 独立约束。
 
 ### Preview 产物契约
 
@@ -84,8 +84,8 @@ mdq:
 1. **源代码自动化**：实现 Release contract、打包/聚合工具、Node tests、六平台 CI、Preview workflow、Pages profile gate 和 Android fail-closed Release signing。
 2. **本地资格验证**：在 macOS 宿主运行 Node、Flutter、Astro、actionlint，以及 Android/iOS/macOS/Web 可用构建。
 3. **远端 CI 证据**：合并并在 GitHub-hosted runner 完成六平台 CI，补齐 Windows/Linux 和原生 runner 证据。
-4. **下一版本资格运行**：准备高于 `0.0.2` 的版本、Release Notes、站点文案和 `six-platform-preview-v1` 后运行 `qualify`，检查聚合 bundle。
-5. **发布与正式签名**：另行授权 `publish`；正式签名、商店和安装器继续使用独立计划。
+4. **下一版本资格运行**：以 `0.0.3+3`、Release Notes、非渲染站点 Release 元数据和 `six-platform-preview-v1` 运行资格检查，检查聚合 bundle。
+5. **发布与分发**：按当前授权运行 `publish`；unsigned macOS Homebrew Cask 由 `PLAN-PI-006` 绑定公开资产，正式签名、商店和原生安装器继续使用独立计划。
 
 ### 兼容与回滚
 
