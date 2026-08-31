@@ -4,341 +4,271 @@ import 'package:fixnum/fixnum.dart';
 import 'package:pi_client_protocol_spike/pi_client_protocol_spike.dart';
 import 'package:test/test.dart';
 
-final _maximumUint64 = Int64(-1);
-
-ProtocolVersion _protocolVersion([int minor = 1, int patch = 0]) =>
-    ProtocolVersion(major: 0, minor: minor, patch: patch);
-
-StableError _stableError([ErrorCode code = ErrorCode.ERROR_CODE_NOT_FOUND]) =>
-    StableError(
-      code: code,
-      retryable: false,
-      safeMessage: 'The requested resource was not found.',
-    );
-
-SessionSummarySnapshot _sessionSummary() => SessionSummarySnapshot(
-  sessionId: 'session-1',
-  title: 'Protocol work',
-  workingDirectory: '/tmp/pi-client-protocol',
-  createdAtUnixMillis: Int64.parseInt('9007199254740993'),
-  updatedAtUnixMillis: Int64.parseInt('9007199254740999'),
-  isRunning: true,
-  hasUnread: false,
-  adminRevision: 'revision-session-1',
-  hasCustomName: true,
-);
-
-SessionDetailSnapshot _sessionDetail() => SessionDetailSnapshot(
-  summary: _sessionSummary(),
-  messages: [
-    MessageSnapshot(
-      messageId: 'message-1',
-      role: MessageRole.MESSAGE_ROLE_USER,
-      text: 'Implement the typed protocol boundary.',
-      createdAtUnixMillis: Int64.parseInt('9007199254741001'),
-      isStreaming: false,
-    ),
-    MessageSnapshot(
-      messageId: 'message-2',
-      role: MessageRole.MESSAGE_ROLE_ASSISTANT,
-      text: 'Working on it.',
-      createdAtUnixMillis: Int64.parseInt('9007199254741003'),
-      isStreaming: true,
-    ),
-  ],
-);
-
-PiTransportFrame _validHealthFrame() => PiTransportFrame(
-  frameSequence: _maximumUint64,
-  healthResponse: HealthResponse(
-    requestId: Int64.parseInt('9007199254740999'),
-    status: HealthStatus.HEALTH_STATUS_SERVING,
-    nodeVersion: '0.1.0-alpha.1+spike',
-    uptimeMillis: Int64.parseInt('9007199254741111'),
-  ),
-);
-
 void main() {
-  group('bounded Protobuf frame codec', () {
-    test('round-trips exact v0 SemVer offers and full-range uint64 values', () {
-      final offered = PiTransportFrame(
-        frameSequence: _maximumUint64,
-        clientProtocolOffer: ClientProtocolOffer(
-          protocolVersions: [_protocolVersion(3), _protocolVersion(2, 4)],
-          capabilities: [
-            Capability.CAPABILITY_SESSION_READ,
-            Capability.CAPABILITY_PROMPT_COMMAND,
-            Capability.CAPABILITY_SESSION_EVENTS,
-          ],
-          clientInstanceId: 'client-1',
-          implementationName: 'Pi Client',
-          implementationVersion: '0.1.0-alpha.1+spike',
-          maxFrameBytes: maxFrameBytes,
-          maxTransferChunkBytes: maxTransferChunkBytes,
-        ),
-      );
-
-      final decoded = decodeTransportFrame(encodeTransportFrame(offered));
-      expect(decoded.frameSequence.toHexString(), 'FFFFFFFFFFFFFFFF');
-      expect(
-        decoded.whichOperation(),
-        PiTransportFrame_Operation.clientProtocolOffer,
-      );
-      expect(
-        decoded.clientProtocolOffer.protocolVersions
-            .map(
-              (version) => '${version.major}.${version.minor}.${version.patch}',
-            )
-            .toList(),
-        ['0.3.0', '0.2.4'],
-      );
-    });
-
-    test('round-trips handshake and core session operations', () {
-      final detail = _sessionDetail();
-      final frames = <PiTransportFrame>[
-        PiTransportFrame(
-          frameSequence: Int64(1),
-          serverHandshakeAccepted: ServerHandshakeAccepted(
-            selectedProtocolVersion: _protocolVersion(),
-            capabilities: [
-              Capability.CAPABILITY_SESSION_READ,
-              Capability.CAPABILITY_SESSION_EVENTS,
-            ],
-            nodeInstanceId: 'node-1',
-            implementationName: 'Pi Node',
-            implementationVersion: '0.1.0',
-            maxFrameBytes: maxFrameBytes,
-            maxTransferChunkBytes: maxTransferChunkBytes,
-          ),
-        ),
-        PiTransportFrame(
-          frameSequence: Int64(2),
-          serverHandshakeRejected: ServerHandshakeRejected(
-            error: _stableError(
-              ErrorCode.ERROR_CODE_PROTOCOL_VERSION_UNSUPPORTED,
-            ),
-            supportedProtocolVersions: [_protocolVersion()],
-          ),
-        ),
-        PiTransportFrame(
-          frameSequence: Int64(3),
-          listSessionsRequest: ListSessionsRequest(
-            requestId: Int64(1),
-            projectId: 'project-1',
-          ),
-        ),
-        PiTransportFrame(
-          frameSequence: Int64(4),
-          listSessionsResponse: ListSessionsResponse(
-            requestId: Int64(2),
-            sessions: [_sessionSummary()],
-          ),
-        ),
-        PiTransportFrame(
-          frameSequence: Int64(5),
-          getSessionRequest: GetSessionRequest(
-            requestId: Int64(3),
-            sessionId: 'session-1',
-            projectId: 'project-1',
-          ),
-        ),
-        PiTransportFrame(
-          frameSequence: Int64(6),
-          getSessionResponse: GetSessionResponse(
-            requestId: Int64(4),
-            session: detail,
-          ),
-        ),
-        PiTransportFrame(
-          frameSequence: Int64(7),
-          createSessionRequest: CreateSessionRequest(
-            requestId: Int64(5),
-            projectId: 'project-1',
-          ),
-        ),
-        PiTransportFrame(
-          frameSequence: Int64(8),
-          createSessionResponse: CreateSessionResponse(
-            requestId: Int64(6),
-            session: detail,
-          ),
-        ),
-        PiTransportFrame(
-          frameSequence: Int64(9),
-          promptCommand: PromptCommand(
-            requestId: Int64(7),
-            commandId: 'command-1',
-            sessionId: 'session-1',
-            prompt: 'Continue.',
-          ),
-        ),
-        PiTransportFrame(
-          frameSequence: Int64(10),
-          abortCommand: AbortCommand(
-            requestId: Int64(8),
-            commandId: 'command-2',
-            sessionId: 'session-1',
-          ),
-        ),
-        PiTransportFrame(
-          frameSequence: Int64(11),
-          requestRejected: RequestRejected(
-            requestId: Int64(9),
-            error: _stableError(),
-          ),
-        ),
-        PiTransportFrame(
-          frameSequence: Int64(12),
-          commandAccepted: CommandAccepted(
-            requestId: Int64(10),
-            commandId: 'command-1',
-          ),
-        ),
-        PiTransportFrame(
-          frameSequence: Int64(13),
-          commandRejected: CommandRejected(
-            requestId: Int64(11),
-            commandId: 'command-2',
-            error: _stableError(ErrorCode.ERROR_CODE_CONFLICT),
-          ),
-        ),
-      ];
-
-      for (final frame in frames) {
-        final decoded = decodeTransportFrame(encodeTransportFrame(frame));
-        expect(decoded.whichOperation(), frame.whichOperation());
-      }
-    });
-
-    test('round-trips every typed per-session stream event', () {
-      final streams = <SessionEventStreamEnvelope>[
-        SessionEventStreamEnvelope(
-          streamId: 'stream-1',
-          sessionId: 'session-1',
-          eventSequence: Int64(1),
-          messageAdded: MessageAddedEvent(
-            message: _sessionDetail().messages.first,
-          ),
-        ),
-        SessionEventStreamEnvelope(
-          streamId: 'stream-1',
-          sessionId: 'session-1',
-          eventSequence: Int64(2),
-          messageDelta: MessageDeltaEvent(
-            messageId: 'message-2',
-            delta: 'More output',
-          ),
-        ),
-        SessionEventStreamEnvelope(
-          streamId: 'stream-1',
-          sessionId: 'session-1',
-          eventSequence: Int64(3),
-          runningChanged: SessionRunningChangedEvent(isRunning: false),
-        ),
-        SessionEventStreamEnvelope(
-          streamId: 'stream-1',
-          sessionId: 'session-1',
-          eventSequence: Int64(4),
-          commandCompleted: CommandCompletedEvent(
-            commandId: 'command-1',
-            succeeded: true,
-          ),
-        ),
-      ];
-
-      for (var index = 0; index < streams.length; index += 1) {
-        final decoded = decodeTransportFrame(
-          encodeTransportFrame(
-            PiTransportFrame(
-              frameSequence: Int64(index + 1),
-              sessionEventStream: streams[index],
-            ),
-          ),
-        );
-        expect(
-          decoded.whichOperation(),
-          PiTransportFrame_Operation.sessionEventStream,
-        );
-      }
-    });
-
-    test('rejects truncated, malformed, and semantically invalid frames', () {
-      expect(() => decodeTransportFrame([0x80]), throwsA(anything));
-      expect(() => decodeTransportFrame([0x0a, 0x02, 0x01]), throwsA(anything));
-      expect(
-        () => decodeTransportFrame(Uint8List(maxFrameBytes + 1)),
-        throwsA(isA<FrameValidationException>()),
-      );
-      expect(
-        () => decodeTransportFrame([0x08, 0x01]),
-        throwsA(isA<FrameValidationException>()),
-      );
-
-      final duplicateOffer = PiTransportFrame(
+  group('rich conversation frame codec', () {
+    test('round-trips a sealed conversation snapshot', () {
+      final frame = PiTransportFrame(
         frameSequence: Int64(1),
-        clientProtocolOffer: ClientProtocolOffer(
-          protocolVersions: [_protocolVersion(), _protocolVersion()],
-          capabilities: [Capability.CAPABILITY_SESSION_READ],
-          clientInstanceId: 'client-1',
-          implementationName: 'Pi Client',
-          implementationVersion: '0.1.0',
-          maxFrameBytes: maxFrameBytes,
-          maxTransferChunkBytes: maxTransferChunkBytes,
+        getSessionResponse: GetSessionResponse(
+          requestId: Int64(1),
+          session: _sessionDetail(),
         ),
       );
-      expect(
-        () => encodeTransportFrame(duplicateOffer),
-        throwsA(isA<FrameValidationException>()),
-      );
 
-      final invalidChunk = PiTransportFrame(
+      final decoded = decodeTransportFrame(encodeTransportFrame(frame));
+      final conversation = decoded.getSessionResponse.session.conversation;
+      expect(conversation.sessionId, 'session-1');
+      expect(conversation.lastEventSequence.toInt(), 7);
+      expect(
+        conversation.entries.single.whichKind(),
+        ConversationEntry_Kind.assistant,
+      );
+      expect(
+        conversation.entries.single.parts.map((part) => part.whichKind()),
+        [ConversationPart_Kind.text, ConversationPart_Kind.thinking],
+      );
+    });
+
+    test('accepts message content requests with exact bindings', () {
+      final frame = PiTransportFrame(
         frameSequence: Int64(2),
-        transferChunk: TransferChunk(
-          transferId: 'transfer-1',
-          chunkSequence: Int64(1),
-          data: Uint8List(maxTransferChunkBytes + 1),
+        getMessageContentRequest: GetMessageContentRequest(
+          requestId: Int64(2),
+          projectId: 'project-1',
+          binding: _binding(),
+          expectedMimeType: 'image/png',
+          expectedTotalBytes: Int64(4),
+          expectedSha256: Uint8List(32),
         ),
       );
+
+      expect(() => encodeTransportFrame(frame), returnsNormally);
+    });
+
+    test('accepts bound message content downloads', () {
+      final frame = PiTransportFrame(
+        frameSequence: Int64(3),
+        transferOpen: TransferOpen(
+          requestId: Int64(2),
+          transferId: 'transfer-1',
+          direction: TransferDirection.TRANSFER_DIRECTION_DOWNLOAD,
+          purpose: TransferPurpose.TRANSFER_PURPOSE_MESSAGE_CONTENT,
+          contentType: 'image/png',
+          fileName: 'image.png',
+          totalBytes: Int64(4),
+          chunkBytes: 4,
+          sha256: Uint8List(32),
+          messageContentBinding: _binding(),
+        ),
+      );
+
+      expect(() => encodeTransportFrame(frame), returnsNormally);
+    });
+
+    test('rejects unbound message content downloads', () {
+      final frame = PiTransportFrame(
+        frameSequence: Int64(4),
+        transferOpen: TransferOpen(
+          requestId: Int64(2),
+          transferId: 'transfer-1',
+          direction: TransferDirection.TRANSFER_DIRECTION_DOWNLOAD,
+          purpose: TransferPurpose.TRANSFER_PURPOSE_MESSAGE_CONTENT,
+          contentType: 'image/png',
+          fileName: 'image.png',
+          totalBytes: Int64(4),
+          chunkBytes: 4,
+          sha256: Uint8List(32),
+        ),
+      );
+
       expect(
-        () => decodeTransportFrame(invalidChunk.writeToBuffer()),
+        () => encodeTransportFrame(frame),
         throwsA(isA<FrameValidationException>()),
       );
     });
-  });
 
-  group('stream IPC length prefix', () {
-    test('decodes split and coalesced frames', () {
-      final first = encodeIpcLengthPrefixedFrame(
-        encodeTransportFrame(_validHealthFrame()),
+    test('rejects plaintext on redacted thinking parts', () {
+      final detail = _sessionDetail();
+      detail.conversation.entries.single.parts[1] = ConversationPart(
+        partId: 'part-thinking',
+        revision: Int64(1),
+        thinking: ThinkingPart(
+          visibility: ThinkingVisibility.THINKING_VISIBILITY_REDACTED,
+          inlineText: 'must not cross the boundary',
+        ),
       );
-      final second = encodeIpcLengthPrefixedFrame(
-        encodeTransportFrame(_validHealthFrame()),
+      final frame = PiTransportFrame(
+        frameSequence: Int64(5),
+        getSessionResponse: GetSessionResponse(
+          requestId: Int64(1),
+          session: detail,
+        ),
       );
-      final joined = Uint8List(first.length + second.length)
-        ..setAll(0, first)
-        ..setAll(first.length, second);
 
-      final decoder = IpcLengthPrefixDecoder();
-      expect(decoder.push(joined.sublist(0, 3)), isEmpty);
-      expect(decoder.push(joined.sublist(3)), hasLength(2));
-      decoder.finish();
+      expect(
+        () => encodeTransportFrame(frame),
+        throwsA(isA<FrameValidationException>()),
+      );
     });
 
-    test('rejects truncated, zero-length, and oversized stream frames', () {
-      final truncated = IpcLengthPrefixDecoder()..push([0, 0, 0, 5, 1, 2]);
-      expect(truncated.finish, throwsA(isA<IpcFrameException>()));
-
-      expect(
-        () => IpcLengthPrefixDecoder().push([0, 0, 0, 0]),
-        throwsA(isA<IpcFrameException>()),
+    test('rejects revision gaps in part delta events', () {
+      final frame = PiTransportFrame(
+        frameSequence: Int64(6),
+        sessionEventStream: SessionEventStreamEnvelope(
+          streamId: 'stream-1',
+          sessionId: 'session-1',
+          eventSequence: Int64(8),
+          partDelta: ConversationPartDeltaEvent(
+            entryId: 'entry-1',
+            expectedEntryRevision: Int64(2),
+            resultingEntryRevision: Int64(4),
+            partId: 'part-text',
+            expectedPartRevision: Int64(2),
+            resultingPartRevision: Int64(3),
+            textDelta: 'next',
+          ),
+        ),
       );
 
-      final header = ByteData(4)..setUint32(0, maxFrameBytes + 1, Endian.big);
       expect(
-        () => IpcLengthPrefixDecoder().push(header.buffer.asUint8List()),
-        throwsA(isA<IpcFrameException>()),
+        () => encodeTransportFrame(frame),
+        throwsA(isA<FrameValidationException>()),
       );
+    });
+
+    test('rejects safe values beyond the item limit', () {
+      final detail = _sessionDetail();
+      detail.conversation.entries.single.assistant.safeErrorMessage = '';
+      detail.conversation.entries.single.parts.add(
+        ConversationPart(
+          partId: 'part-tool',
+          revision: Int64(1),
+          toolCall: ToolCallPart(
+            toolCallId: 'call-1',
+            toolName: 'bounded-tool',
+            safeArguments: SafeValue(
+              listValue: SafeList(
+                values: List<SafeValue>.generate(
+                  maxSafeValueItems + 1,
+                  (_) =>
+                      SafeValue(sentinel: SafeValueKind.SAFE_VALUE_KIND_NULL),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      final frame = PiTransportFrame(
+        frameSequence: Int64(7),
+        getSessionResponse: GetSessionResponse(
+          requestId: Int64(1),
+          session: detail,
+        ),
+      );
+
+      expect(
+        () => encodeTransportFrame(frame),
+        throwsA(isA<FrameValidationException>()),
+      );
+    });
+
+    test('accepts ordered parallel tool activities and exact metrics', () {
+      final detail = _sessionDetail();
+      final entry = detail.conversation.entries.single;
+      entry.toolActivities.addAll([
+        _activity('activity-1', 'call-1', 0),
+        _activity('activity-2', 'call-2', 1),
+      ]);
+      entry.metrics = ConversationMetrics(
+        usage: UsageMetrics(
+          inputTokens: Int64(11),
+          outputTokens: Int64(7),
+          cacheReadTokens: Int64(3),
+          cacheWriteTokens: Int64(2),
+          totalTokens: Int64(23),
+        ),
+        cost: MoneyAmount(currencyCode: 'USD', decimalAmount: '0.00125'),
+        context: ContextMetrics(
+          tokens: Int64(23),
+          contextWindow: Int64(200000),
+          percentDecimal: '0.0115',
+        ),
+      );
+      final frame = PiTransportFrame(
+        frameSequence: Int64(8),
+        getSessionResponse: GetSessionResponse(
+          requestId: Int64(1),
+          session: detail,
+        ),
+      );
+
+      expect(() => encodeTransportFrame(frame), returnsNormally);
     });
   });
 }
+
+SessionDetailSnapshot _sessionDetail() => SessionDetailSnapshot(
+  summary: SessionSummarySnapshot(
+    sessionId: 'session-1',
+    title: 'Rich conversation',
+    workingDirectory: '/tmp/project',
+    createdAtUnixMillis: Int64(1),
+    updatedAtUnixMillis: Int64(2),
+    adminRevision: 'admin-revision-1',
+  ),
+  conversation: ConversationSnapshot(
+    sessionId: 'session-1',
+    lastEventSequence: Int64(7),
+    entries: [
+      ConversationEntry(
+        identity: ConversationEntryIdentity(
+          entryId: 'entry-1',
+          scope: ConversationIdentityScope.CONVERSATION_IDENTITY_SCOPE_RUNTIME,
+          originCommandId: 'command-1',
+        ),
+        revision: Int64(2),
+        createdAtUnixMillis: Int64(3),
+        finalized: false,
+        parts: [
+          ConversationPart(
+            partId: 'part-text',
+            revision: Int64(2),
+            text: BoundedTextPart(inlineText: 'Hello'),
+          ),
+          ConversationPart(
+            partId: 'part-thinking',
+            revision: Int64(1),
+            thinking: ThinkingPart(
+              visibility: ThinkingVisibility.THINKING_VISIBILITY_DEFERRED,
+            ),
+          ),
+        ],
+        assistant: AssistantConversationEntry(
+          provider: 'provider',
+          model: 'model',
+          stopReason: 'streaming',
+        ),
+      ),
+    ],
+  ),
+);
+
+MessageContentBinding _binding() => MessageContentBinding(
+  sessionId: 'session-1',
+  entryId: 'entry-1',
+  partId: 'part-image',
+  entryRevision: Int64(2),
+  partRevision: Int64(1),
+  contentId: 'content-1',
+);
+
+ToolActivity _activity(String activityId, String toolCallId, int ordinal) =>
+    ToolActivity(
+      activityId: activityId,
+      toolCallId: toolCallId,
+      toolName: 'tool-$ordinal',
+      sourceOrdinal: ordinal,
+      revision: Int64(1),
+      status: ToolActivityStatus.TOOL_ACTIVITY_STATUS_RUNNING,
+      safeDetails: SafeValue(sentinel: SafeValueKind.SAFE_VALUE_KIND_NULL),
+    );

@@ -1,8 +1,10 @@
 import { fromBinary, toBinary } from "@bufbuild/protobuf";
 import {
   Capability,
+  ConversationIdentityScope,
   ErrorCode,
   HealthStatus,
+  MarkerKind,
   MessageRole,
   PiTransportFrameSchema,
   ProjectTrustReason,
@@ -11,17 +13,29 @@ import {
   SessionExportFormat,
   SessionTreeEntryKind,
   SessionTreeMutationOperation,
+  SafeValueKind,
+  ThinkingVisibility,
+  ToolActivityStatus,
   TransferDirection,
   TransferPurpose,
+  type ConversationEntry,
+  type ConversationMetrics,
+  type ConversationPage,
+  type ConversationPart,
+  type ConversationSnapshot,
   type DirectoryListingSnapshot,
+  type MessageContentBinding,
+  type MessageContentReference,
   type MessageSnapshot,
   type PiTransportFrame,
   type ProjectSnapshot,
   type ProtocolVersion,
   type SessionDetailSnapshot,
+  type SafeValue,
   type SessionSummarySnapshot,
   type SessionTreeSnapshot,
   type StableError,
+  type ToolActivity,
   type StreamClosedEvent,
 } from "../gen/ts/pi/client/protocol/v0/protocol_pb.ts";
 import {
@@ -29,15 +43,22 @@ import {
   MAX_CONTENT_TEXT_BYTES,
   MAX_DIRECTORY_CHILDREN,
   MAX_ERROR_MESSAGE_BYTES,
+  MAX_CONVERSATION_PARTS,
   MAX_FRAME_BYTES,
   MAX_IDENTIFIER_BYTES,
+  MAX_INLINE_CONVERSATION_TEXT_BYTES,
   MAX_KNOWN_PROJECTS,
+  MAX_MESSAGE_CONTENT_BYTES,
   MAX_MESSAGES_PER_SESSION_SNAPSHOT,
   MAX_PATH_BYTES,
   MAX_SESSION_HISTORY_PAGE_MESSAGES,
   MAX_PROTOCOL_VERSIONS,
+  MAX_SAFE_VALUE_BYTES,
+  MAX_SAFE_VALUE_DEPTH,
+  MAX_SAFE_VALUE_ITEMS,
   MAX_SESSIONS_PER_RESPONSE,
   MAX_SHORT_TEXT_BYTES,
+  MAX_TOOL_ACTIVITIES,
   MAX_TRANSFER_CHUNK_BYTES,
   MAX_TRANSFER_CREDIT_BYTES,
   SHA256_BYTES,
@@ -65,6 +86,8 @@ const knownCapabilities = new Set<Capability>([
   Capability.SESSION_HISTORY,
   Capability.SESSION_STATS,
   Capability.SESSION_EXPORT,
+  Capability.RICH_CONVERSATION,
+  Capability.MESSAGE_CONTENT,
 ]);
 const knownHealthStatuses = new Set<HealthStatus>([
   HealthStatus.STARTING,
@@ -126,6 +149,7 @@ const knownTransferPurposes = new Set<TransferPurpose>([
   TransferPurpose.FILE,
   TransferPurpose.ATTACHMENT,
   TransferPurpose.EXPORT,
+  TransferPurpose.MESSAGE_CONTENT,
 ]);
 const knownErrorCodes = new Set<ErrorCode>([
   ErrorCode.AUTHENTICATION_REQUIRED,
@@ -431,30 +455,14 @@ export function validateTransportFrame(frame: PiTransportFrame): void {
     case "getSessionHistoryResponse": {
       const response = operation.value;
       validateRequestId(response.requestId);
-      if (response.summary === undefined) {
-        fail("session history response must contain a summary");
+      if (response.summary === undefined || response.conversation === undefined) {
+        fail("session history response must contain a summary and conversation page");
       }
       validateSessionSummary(response.summary);
-      if (response.messages.length > MAX_SESSION_HISTORY_PAGE_MESSAGES) {
-        fail("session history page exceeds the local hard limit");
+      validateConversationPage(response.conversation);
+      if (response.conversation.sessionId !== response.summary.sessionId) {
+        fail("session history conversation must match its summary session_id");
       }
-      const messageIds = new Set<string>();
-      for (const message of response.messages) {
-        validateMessageSnapshot(message);
-        if (messageIds.has(message.messageId)) {
-          fail("session history page contains a duplicate message_id");
-        }
-        messageIds.add(message.messageId);
-      }
-      validateShortText("next_cursor", response.nextCursor, false);
-      if (response.hasMore !== response.nextCursor.length > 0) {
-        fail("session history cursor and has_more must agree");
-      }
-      validateIdentifier(
-        "active_branch_revision",
-        response.activeBranchRevision,
-      );
-      validateIdentifier("tree_revision", response.treeRevision);
       return;
     }
     case "getSessionStatsRequest":
@@ -618,15 +626,68 @@ export function validateTransportFrame(frame: PiTransportFrame): void {
       validateIdentifier("session_id", stream.sessionId);
       validatePositiveUint64("event_sequence", stream.eventSequence);
       switch (stream.event.case) {
-        case "messageAdded":
-          if (stream.event.value.message === undefined) {
-            fail("message added event must contain a message snapshot");
+        case "entryUpsert":
+          if (stream.event.value.entry === undefined) {
+            fail("entry upsert event must contain an entry");
           }
-          validateMessageSnapshot(stream.event.value.message);
+          validateConversationEntry(stream.event.value.entry);
+          if (stream.event.value.expectedPreviousRevision !== undefined) {
+            validatePositiveUint64(
+              "expected_previous_revision",
+              stream.event.value.expectedPreviousRevision,
+            );
+          }
           return;
-        case "messageDelta":
-          validateIdentifier("message_id", stream.event.value.messageId);
-          validateContentText("message delta", stream.event.value.delta, true);
+        case "partDelta": {
+          const delta = stream.event.value;
+          validateIdentifier("entry_id", delta.entryId);
+          validateIdentifier("part_id", delta.partId);
+          validateRevisionTransition(
+            delta.expectedEntryRevision,
+            delta.resultingEntryRevision,
+            "entry",
+          );
+          validateRevisionTransition(
+            delta.expectedPartRevision,
+            delta.resultingPartRevision,
+            "part",
+          );
+          validateInlineConversationText("part delta", delta.textDelta, true);
+          return;
+        }
+        case "entryFinalized":
+          if (stream.event.value.entry === undefined || !stream.event.value.entry.finalized) {
+            fail("entry finalized event must contain a finalized entry");
+          }
+          validateConversationEntry(stream.event.value.entry);
+          validatePositiveUint64(
+            "expected_previous_revision",
+            stream.event.value.expectedPreviousRevision,
+          );
+          return;
+        case "toolActivity":
+          validateIdentifier("entry_id", stream.event.value.entryId);
+          validateRevisionTransition(
+            stream.event.value.expectedEntryRevision,
+            stream.event.value.resultingEntryRevision,
+            "entry",
+          );
+          if (stream.event.value.activity === undefined) {
+            fail("tool activity event must contain an activity");
+          }
+          validateToolActivity(stream.event.value.activity);
+          return;
+        case "metrics":
+          validateIdentifier("entry_id", stream.event.value.entryId);
+          validateRevisionTransition(
+            stream.event.value.expectedEntryRevision,
+            stream.event.value.resultingEntryRevision,
+            "entry",
+          );
+          if (stream.event.value.metrics === undefined) {
+            fail("metrics event must contain metrics");
+          }
+          validateConversationMetrics(stream.event.value.metrics);
           return;
         case "runningChanged":
           return;
@@ -729,6 +790,22 @@ export function validateTransportFrame(frame: PiTransportFrame): void {
       );
       return;
     }
+    case "getMessageContentRequest": {
+      const request = operation.value;
+      validateRequestId(request.requestId);
+      validateIdentifier("project_id", request.projectId);
+      if (request.binding === undefined) {
+        fail("message content request must contain a binding");
+      }
+      validateMessageContentBinding(request.binding);
+      validateRequiredShortText("expected_mime_type", request.expectedMimeType);
+      validatePositiveUint64("expected_total_bytes", request.expectedTotalBytes);
+      if (request.expectedTotalBytes > BigInt(MAX_MESSAGE_CONTENT_BYTES)) {
+        fail("message content request exceeds the local hard limit");
+      }
+      validateRequiredDigest(request.expectedSha256);
+      return;
+    }
     case "transferOpen": {
       const transfer = operation.value;
       validateIdentifier("transfer_id", transfer.transferId);
@@ -753,6 +830,20 @@ export function validateTransportFrame(frame: PiTransportFrame): void {
         fail("transfer chunk_bytes is outside the local hard limit");
       }
       validateRequiredDigest(transfer.sha256);
+      if (transfer.purpose === TransferPurpose.MESSAGE_CONTENT) {
+        if (
+          transfer.direction !== TransferDirection.DOWNLOAD ||
+          transfer.messageContentBinding === undefined
+        ) {
+          fail("message content transfers must be bound downloads");
+        }
+        if (transfer.totalBytes > BigInt(MAX_MESSAGE_CONTENT_BYTES)) {
+          fail("message content transfer exceeds the local hard limit");
+        }
+        validateMessageContentBinding(transfer.messageContentBinding);
+      } else if (transfer.messageContentBinding !== undefined) {
+        fail("only message content transfers may contain a message binding");
+      }
       return;
     }
     case "transferChunk":
@@ -965,21 +1056,345 @@ function requireSessionDetail(
 }
 
 function validateSessionDetail(detail: SessionDetailSnapshot): void {
-  if (detail.summary === undefined) {
-    fail("session detail must contain a summary snapshot");
+  if (detail.summary === undefined || detail.conversation === undefined) {
+    fail("session detail must contain a summary and conversation snapshot");
   }
   validateSessionSummary(detail.summary);
-  if (detail.messages.length > MAX_MESSAGES_PER_SESSION_SNAPSHOT) {
-    fail("session message count exceeds the local hard limit");
+  validateConversationSnapshot(detail.conversation);
+  if (detail.conversation.sessionId !== detail.summary.sessionId) {
+    fail("session detail conversation must match its summary session_id");
   }
-  const messageIds = new Set<string>();
-  for (const message of detail.messages) {
-    validateMessageSnapshot(message);
-    if (messageIds.has(message.messageId)) {
-      fail("session detail contains a duplicate message_id");
+}
+
+function validateConversationSnapshot(snapshot: ConversationSnapshot): void {
+  validateIdentifier("conversation session_id", snapshot.sessionId);
+  if (snapshot.entries.length > MAX_MESSAGES_PER_SESSION_SNAPSHOT) {
+    fail("conversation entry count exceeds the local hard limit");
+  }
+  validateConversationEntries(snapshot.entries);
+  validateNonNegativeUint64("last_event_sequence", snapshot.lastEventSequence);
+}
+
+function validateConversationPage(page: ConversationPage): void {
+  validateIdentifier("conversation page session_id", page.sessionId);
+  if (page.entries.length > MAX_SESSION_HISTORY_PAGE_MESSAGES) {
+    fail("conversation page exceeds the local hard limit");
+  }
+  validateConversationEntries(page.entries);
+  validateShortText("next_cursor", page.nextCursor, false);
+  if (page.hasMore !== (page.nextCursor.length > 0)) {
+    fail("conversation page cursor and has_more must agree");
+  }
+  validateIdentifier("active_branch_revision", page.activeBranchRevision);
+  validateIdentifier("tree_revision", page.treeRevision);
+  validateNonNegativeUint64("last_event_sequence", page.lastEventSequence);
+}
+
+function validateConversationEntries(entries: readonly ConversationEntry[]): void {
+  const entryIds = new Set<string>();
+  for (const entry of entries) {
+    validateConversationEntry(entry);
+    const entryId = entry.identity!.entryId;
+    if (entryIds.has(entryId)) fail("conversation contains a duplicate entry_id");
+    entryIds.add(entryId);
+  }
+}
+
+function validateConversationEntry(entry: ConversationEntry): void {
+  const identity = entry.identity;
+  if (identity === undefined) fail("conversation entry must contain an identity");
+  validateIdentifier("entry_id", identity.entryId);
+  if (
+    identity.scope !== ConversationIdentityScope.PERSISTENT &&
+    identity.scope !== ConversationIdentityScope.RUNTIME
+  ) {
+    fail("conversation entry identity scope is unknown");
+  }
+  validateOptionalIdentifier("origin_command_id", identity.originCommandId);
+  validatePositiveUint64("entry revision", entry.revision);
+  validatePositiveUint64("entry created_at_unix_millis", entry.createdAtUnixMillis);
+  if (entry.parts.length > MAX_CONVERSATION_PARTS) {
+    fail("conversation entry part count exceeds the local hard limit");
+  }
+  if (entry.toolActivities.length > MAX_TOOL_ACTIVITIES) {
+    fail("conversation tool activity count exceeds the local hard limit");
+  }
+  const partIds = new Set<string>();
+  for (const part of entry.parts) {
+    validateConversationPart(part);
+    if (partIds.has(part.partId)) fail("conversation entry contains a duplicate part_id");
+    partIds.add(part.partId);
+  }
+  const activityIds = new Set<string>();
+  const toolCallIds = new Set<string>();
+  let priorOrdinal = -1;
+  for (const activity of entry.toolActivities) {
+    validateToolActivity(activity);
+    if (activityIds.has(activity.activityId) || toolCallIds.has(activity.toolCallId)) {
+      fail("conversation entry contains a duplicate tool activity identity");
     }
-    messageIds.add(message.messageId);
+    if (activity.sourceOrdinal < priorOrdinal) {
+      fail("conversation tool activities must preserve source ordinal order");
+    }
+    priorOrdinal = activity.sourceOrdinal;
+    activityIds.add(activity.activityId);
+    toolCallIds.add(activity.toolCallId);
   }
+  if (entry.metrics !== undefined) validateConversationMetrics(entry.metrics);
+
+  switch (entry.kind.case) {
+    case "user":
+      break;
+    case "assistant":
+      validateRequiredShortText("assistant provider", entry.kind.value.provider);
+      validateRequiredShortText("assistant model", entry.kind.value.model);
+      validateRequiredShortText("assistant stop_reason", entry.kind.value.stopReason);
+      validateShortText("assistant safe_error_message", entry.kind.value.safeErrorMessage, false);
+      break;
+    case "toolResult":
+      validateIdentifier("tool result call_id", entry.kind.value.toolCallId);
+      validateRequiredShortText("tool result name", entry.kind.value.toolName);
+      requireSafeValue("tool result details", entry.kind.value.safeDetails);
+      break;
+    case "bash":
+      validateInlineConversationText("bash command", entry.kind.value.command, true);
+      break;
+    case "custom":
+      validateRequiredShortText("custom type", entry.kind.value.customType);
+      requireSafeValue("custom details", entry.kind.value.safeDetails);
+      break;
+    case "compaction":
+      validateIdentifier("first_kept_entry_id", entry.kind.value.firstKeptEntryId);
+      requireSafeValue("compaction details", entry.kind.value.safeDetails);
+      break;
+    case "branchSummary":
+      validateIdentifier("branch summary from_entry_id", entry.kind.value.fromEntryId);
+      requireSafeValue("branch summary details", entry.kind.value.safeDetails);
+      break;
+    case "marker": {
+      const marker = entry.kind.value;
+      if (
+        marker.markerKind !== MarkerKind.THINKING_LEVEL &&
+        marker.markerKind !== MarkerKind.MODEL_CHANGE &&
+        marker.markerKind !== MarkerKind.LABEL &&
+        marker.markerKind !== MarkerKind.SESSION_INFO
+      ) {
+        fail("conversation marker kind is unknown");
+      }
+      validateOptionalIdentifier("marker target_entry_id", marker.targetEntryId);
+      validateShortText("marker label", marker.label, false);
+      validateShortText("marker provider", marker.provider, false);
+      validateShortText("marker model", marker.model, false);
+      validateShortText("marker thinking_level", marker.thinkingLevel, false);
+      break;
+    }
+    case "unknown":
+      validateRequiredShortText("unknown entry source_type", entry.kind.value.sourceType);
+      break;
+    case undefined:
+      fail("conversation entry must contain a typed kind");
+  }
+}
+
+function validateConversationPart(part: ConversationPart): void {
+  validateIdentifier("part_id", part.partId);
+  validatePositiveUint64("part revision", part.revision);
+  switch (part.kind.case) {
+    case "text":
+      validateBoundedPartContent("text part", part.kind.value.content, false);
+      return;
+    case "thinking": {
+      const thinking = part.kind.value;
+      if (
+        thinking.visibility !== ThinkingVisibility.VISIBLE &&
+        thinking.visibility !== ThinkingVisibility.REDACTED &&
+        thinking.visibility !== ThinkingVisibility.DEFERRED
+      ) {
+        fail("thinking visibility is unknown");
+      }
+      if (thinking.visibility === ThinkingVisibility.VISIBLE) {
+        validateBoundedPartContent("thinking part", thinking.content, false);
+      } else if (thinking.content.case !== undefined) {
+        fail("redacted or deferred thinking must not contain content");
+      }
+      return;
+    }
+    case "image":
+      if (part.kind.value.contentReference === undefined) {
+        fail("image part must contain a content reference");
+      }
+      validateMessageContentReference(part.kind.value.contentReference);
+      if (!part.kind.value.contentReference.mimeType.startsWith("image/")) {
+        fail("image part content reference must use an image MIME type");
+      }
+      return;
+    case "toolCall":
+      validateIdentifier("tool_call_id", part.kind.value.toolCallId);
+      validateRequiredShortText("tool name", part.kind.value.toolName);
+      requireSafeValue("tool arguments", part.kind.value.safeArguments);
+      return;
+    case "unsupported":
+      validateRequiredShortText("unsupported source_type", part.kind.value.sourceType);
+      return;
+    case undefined:
+      fail("conversation part must contain a typed kind");
+  }
+}
+
+function validateBoundedPartContent(
+  label: string,
+  content:
+    | { readonly case: "inlineText"; readonly value: string }
+    | { readonly case: "contentReference"; readonly value: MessageContentReference }
+    | { readonly case: undefined; readonly value?: undefined },
+  allowEmpty: boolean,
+): void {
+  switch (content.case) {
+    case "inlineText":
+      validateInlineConversationText(label, content.value, allowEmpty);
+      return;
+    case "contentReference":
+      validateMessageContentReference(content.value);
+      return;
+    case undefined:
+      fail(`${label} must contain inline text or a content reference`);
+  }
+}
+
+function validateInlineConversationText(label: string, value: string, allowEmpty: boolean): void {
+  const length = textEncoder.encode(value).length;
+  if ((!allowEmpty && length === 0) || length > MAX_INLINE_CONVERSATION_TEXT_BYTES) {
+    fail(`${label} is outside the inline conversation text limit`);
+  }
+}
+
+function validateMessageContentReference(reference: MessageContentReference): void {
+  validateIdentifier("content_id", reference.contentId);
+  validateRequiredShortText("content mime_type", reference.mimeType);
+  validateRequiredShortText("content display_name", reference.displayName);
+  validatePositiveUint64("content total_bytes", reference.totalBytes);
+  if (reference.totalBytes > BigInt(MAX_MESSAGE_CONTENT_BYTES)) {
+    fail("message content reference exceeds the local hard limit");
+  }
+  validateRequiredDigest(reference.sha256);
+}
+
+function validateMessageContentBinding(binding: MessageContentBinding): void {
+  validateIdentifier("content binding session_id", binding.sessionId);
+  validateIdentifier("content binding entry_id", binding.entryId);
+  validateIdentifier("content binding part_id", binding.partId);
+  validatePositiveUint64("content binding entry_revision", binding.entryRevision);
+  validatePositiveUint64("content binding part_revision", binding.partRevision);
+  validateIdentifier("content binding content_id", binding.contentId);
+}
+
+function requireSafeValue(label: string, value: SafeValue | undefined): void {
+  if (value === undefined) fail(`${label} must contain a safe value`);
+  const bytes = validateSafeValue(value, 0);
+  if (bytes > MAX_SAFE_VALUE_BYTES) fail(`${label} exceeds the safe value byte limit`);
+}
+
+function validateSafeValue(value: SafeValue, depth: number): number {
+  if (depth > MAX_SAFE_VALUE_DEPTH) fail("safe value exceeds the depth limit");
+  switch (value.value.case) {
+    case "sentinel":
+      if (
+        value.value.value !== SafeValueKind.NULL &&
+        value.value.value !== SafeValueKind.REDACTED
+      ) {
+        fail("safe value sentinel is unknown");
+      }
+      return 1;
+    case "boolValue":
+    case "intValue":
+      return 8;
+    case "doubleValue":
+      if (!Number.isFinite(value.value.value)) fail("safe double must be finite");
+      return 8;
+    case "stringValue":
+      return textEncoder.encode(value.value.value).length;
+    case "listValue": {
+      if (value.value.value.values.length > MAX_SAFE_VALUE_ITEMS) {
+        fail("safe list exceeds the item limit");
+      }
+      return value.value.value.values.reduce(
+        (total, child) => total + validateSafeValue(child, depth + 1),
+        0,
+      );
+    }
+    case "objectValue": {
+      if (value.value.value.fields.length > MAX_SAFE_VALUE_ITEMS) {
+        fail("safe object exceeds the item limit");
+      }
+      const keys = new Set<string>();
+      let total = 0;
+      for (const field of value.value.value.fields) {
+        validateRequiredShortText("safe object key", field.key);
+        if (keys.has(field.key)) fail("safe object contains a duplicate key");
+        keys.add(field.key);
+        if (field.value === undefined) fail("safe object field must contain a value");
+        total += textEncoder.encode(field.key).length + validateSafeValue(field.value, depth + 1);
+      }
+      return total;
+    }
+    case undefined:
+      fail("safe value must contain a typed value");
+  }
+}
+
+function validateToolActivity(activity: ToolActivity): void {
+  validateIdentifier("activity_id", activity.activityId);
+  validateIdentifier("activity tool_call_id", activity.toolCallId);
+  validateRequiredShortText("activity tool_name", activity.toolName);
+  validatePositiveUint64("activity revision", activity.revision);
+  if (
+    activity.status !== ToolActivityStatus.PENDING &&
+    activity.status !== ToolActivityStatus.RUNNING &&
+    activity.status !== ToolActivityStatus.SUCCEEDED &&
+    activity.status !== ToolActivityStatus.FAILED &&
+    activity.status !== ToolActivityStatus.CANCELLED
+  ) {
+    fail("tool activity status is unknown");
+  }
+  if (activity.progressBasisPoints !== undefined && activity.progressBasisPoints > 10_000) {
+    fail("tool activity progress exceeds 10000 basis points");
+  }
+  requireSafeValue("tool activity details", activity.safeDetails);
+}
+
+function validateConversationMetrics(metrics: ConversationMetrics): void {
+  if (metrics.usage === undefined || metrics.cost === undefined) {
+    fail("conversation metrics must contain usage and cost");
+  }
+  validateRequiredShortText("money currency_code", metrics.cost.currencyCode);
+  if (!/^[A-Z]{3}$/u.test(metrics.cost.currencyCode)) {
+    fail("money currency_code must be an ISO-style three-letter code");
+  }
+  validateDecimal("money decimal_amount", metrics.cost.decimalAmount);
+  if (metrics.context !== undefined) {
+    validatePositiveUint64("context window", metrics.context.contextWindow);
+    if (metrics.context.tokens !== undefined) {
+      validateNonNegativeUint64("context tokens", metrics.context.tokens);
+      if (metrics.context.tokens > metrics.context.contextWindow) {
+        fail("context tokens exceed context window");
+      }
+    }
+    if (metrics.context.percentDecimal !== undefined) {
+      validateDecimal("context percent", metrics.context.percentDecimal);
+    }
+  }
+}
+
+function validateDecimal(label: string, value: string): void {
+  if (!/^(?:0|[1-9]\d*)(?:\.\d+)?$/u.test(value) || textEncoder.encode(value).length > MAX_SHORT_TEXT_BYTES) {
+    fail(`${label} must be a non-negative canonical decimal`);
+  }
+}
+
+function validateRevisionTransition(expected: bigint, resulting: bigint, label: string): void {
+  validatePositiveUint64(`${label} expected revision`, expected);
+  validatePositiveUint64(`${label} resulting revision`, resulting);
+  if (resulting !== expected + 1n) fail(`${label} revision transition must advance by one`);
 }
 
 function validateSessionTreeMutationCommand(command: {

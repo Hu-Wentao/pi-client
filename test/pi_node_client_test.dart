@@ -191,6 +191,79 @@ void main() {
       },
     );
 
+    test(
+      'maps rich protocol entries into handwritten sealed API models',
+      () async {
+        final fixture = await _connectedFixture(
+          capabilities: const <PiProtocolCapability>{
+            PiProtocolCapability.richConversation,
+          },
+        );
+        addTearDown(fixture.client.close);
+        final future = fixture.client.getSession(
+          PiProjectId('project-1'),
+          PiSessionId('rich-session'),
+        );
+        final request = fixture.take<PiProtocolGetSessionRequest>();
+        await fixture.send(
+          PiProtocolSessionResponse(
+            requestId: request.requestId,
+            session: _richProtocolSession(),
+          ),
+        );
+
+        final detail = await future;
+        expect(detail.conversation.lastEventSequence, 41);
+        expect(
+          detail.conversation.entries.map((entry) => entry.runtimeType),
+          <Type>[
+            PiUserConversationEntry,
+            PiAssistantConversationEntry,
+            PiToolResultConversationEntry,
+            PiBashConversationEntry,
+            PiCustomConversationEntry,
+            PiCompactionConversationEntry,
+            PiBranchSummaryConversationEntry,
+            PiMarkerConversationEntry,
+            PiUnknownConversationEntry,
+          ],
+        );
+        final assistant =
+            detail.conversation.entries[1] as PiAssistantConversationEntry;
+        expect(assistant.identity.originCommandId, PiCommandId('command-rich'));
+        expect(assistant.revision, 3);
+        expect(assistant.parts.map((part) => part.runtimeType), <Type>[
+          PiTextConversationPart,
+          PiThinkingConversationPart,
+          PiThinkingConversationPart,
+          PiThinkingConversationPart,
+          PiImageConversationPart,
+          PiToolCallConversationPart,
+          PiUnsupportedConversationPart,
+        ]);
+        final visible = assistant.parts[1] as PiThinkingConversationPart;
+        final redacted = assistant.parts[2] as PiThinkingConversationPart;
+        final deferred = assistant.parts[3] as PiThinkingConversationPart;
+        expect(visible.visibility, PiThinkingVisibility.visible);
+        expect(visible.text, 'visible reasoning');
+        expect(redacted.visibility, PiThinkingVisibility.redacted);
+        expect(redacted.text, isNull);
+        expect(redacted.contentReference, isNull);
+        expect(deferred.visibility, PiThinkingVisibility.deferred);
+        expect(deferred.text, isNull);
+        expect(
+          assistant.toolActivities.map((item) => item.sourceOrdinal),
+          <int>[0, 1],
+        );
+        expect(assistant.metrics?.usage.totalTokens, 23);
+        expect(assistant.metrics?.cost.decimalAmount, '0.00125');
+        final image = assistant.parts[4] as PiImageConversationPart;
+        expect(image.contentReference.mimeType, 'image/png');
+        expect(image.contentReference.totalBytes, 4);
+        expect(detail.toString(), isNot(contains('visible reasoning')));
+      },
+    );
+
     test('maps typed session administration requests and outcomes', () async {
       final fixture = await _connectedFixture();
       addTearDown(fixture.client.close);
@@ -461,6 +534,39 @@ void main() {
     );
 
     test(
+      'seeds event sequence baselines from authoritative conversations',
+      () async {
+        final fixture = await _connectedFixture();
+        addTearDown(fixture.client.close);
+        final sessionId = PiSessionId('rich-session');
+        final detailFuture = fixture.client.getSession(
+          PiProjectId('project-1'),
+          sessionId,
+        );
+        final request = fixture.take<PiProtocolGetSessionRequest>();
+        await fixture.send(
+          PiProtocolSessionResponse(
+            requestId: request.requestId,
+            session: _richProtocolSession(),
+          ),
+        );
+        expect((await detailFuture).conversation.lastEventSequence, 41);
+
+        final eventFuture = fixture.client.sessionEvents(sessionId).first;
+        await fixture.send(
+          PiProtocolSessionEventMessage(
+            sessionId: sessionId.value,
+            sequence: 42,
+            event: const PiProtocolSessionRunningChangedEvent(isRunning: true),
+          ),
+        );
+        final event = await eventFuture;
+        expect(event, isA<PiSessionRunningChangedEvent>());
+        expect(event.sequence, 42);
+      },
+    );
+
+    test(
       'fails queries and makes in-flight commands uncertain on disconnect',
       () async {
         final fixture = await _connectedFixture();
@@ -650,6 +756,7 @@ void main() {
           PiProtocolTransferOpenMessage(
             requestId: request.requestId,
             transferId: 'transfer-1',
+            purpose: PiProtocolTransferPurpose.export,
             contentType: 'application/x-ndjson',
             fileName: 'session.jsonl',
             totalBytes: payload.length,
@@ -741,6 +848,7 @@ void main() {
         PiProtocolTransferOpenMessage(
           requestId: request.requestId,
           transferId: 'transfer-corrupt',
+          purpose: PiProtocolTransferPurpose.export,
           contentType: 'text/html; charset=utf-8',
           fileName: 'session.html',
           totalBytes: corrupted.length,
@@ -818,6 +926,7 @@ void main() {
           PiProtocolTransferOpenMessage(
             requestId: request.requestId,
             transferId: 'transfer-sequence',
+            purpose: PiProtocolTransferPurpose.export,
             contentType: 'application/x-ndjson',
             fileName: 'session.jsonl',
             totalBytes: payload.length,
@@ -862,6 +971,178 @@ void main() {
     );
 
     test(
+      'downloads exactly bound message content through the transfer engine',
+      () async {
+        final fixture = await _connectedFixture(
+          capabilities: _messageContentCapabilities,
+        );
+        addTearDown(fixture.client.close);
+        final payload = Uint8List.fromList('large message content'.codeUnits);
+        final digest = Uint8List.fromList(crypto.sha256.convert(payload).bytes);
+        final binding = PiMessageContentBinding(
+          sessionId: PiSessionId('session-1'),
+          entryId: 'entry-1',
+          partId: 'part-1',
+          entryRevision: 4,
+          partRevision: 3,
+          contentId: 'content-1',
+        );
+        final reference = PiMessageContentReference(
+          contentId: 'content-1',
+          mimeType: 'text/plain; charset=utf-8',
+          displayName: 'message.txt',
+          totalBytes: payload.length,
+          sha256: digest,
+        );
+        final contentFuture = fixture.client.getMessageContent(
+          PiMessageContentRequest(
+            projectId: PiProjectId('project-1'),
+            binding: binding,
+            reference: reference,
+          ),
+        );
+        final request = await _waitTake<PiProtocolGetMessageContentRequest>(
+          fixture,
+        );
+        expect(request.binding.sessionId, 'session-1');
+        expect(request.binding.entryRevision, 4);
+        expect(request.expectedMimeType, reference.mimeType);
+        expect(request.expectedTotalBytes, payload.length);
+        expect(request.expectedSha256, digest);
+        await fixture.send(
+          PiProtocolTransferOpenMessage(
+            requestId: request.requestId,
+            transferId: 'message-content-transfer',
+            purpose: PiProtocolTransferPurpose.messageContent,
+            contentType: reference.mimeType,
+            fileName: reference.displayName,
+            totalBytes: payload.length,
+            chunkBytes: payload.length,
+            sha256: digest,
+            messageContentBinding: _protocolContentBinding(binding),
+          ),
+        );
+        final handle = await contentFuture;
+        expect(handle.binding.sessionId, binding.sessionId);
+        expect(handle.binding.entryId, binding.entryId);
+        expect(handle.reference.contentId, reference.contentId);
+        expect(handle.reference.mimeType, reference.mimeType);
+        final bytesFuture = handle.bytes.expand((chunk) => chunk).toList();
+        await _waitTake<PiProtocolTransferWindowUpdate>(fixture);
+        await fixture.send(
+          PiProtocolTransferChunkMessage(
+            transferId: 'message-content-transfer',
+            sequence: 1,
+            offset: 0,
+            data: payload,
+          ),
+        );
+        await _waitTake<PiProtocolTransferAckMessage>(fixture);
+        await fixture.send(
+          PiProtocolTransferCompleteMessage(
+            transferId: 'message-content-transfer',
+            totalBytes: payload.length,
+            sha256: digest,
+          ),
+        );
+        expect(await bytesFuture, payload);
+        await handle.done;
+      },
+    );
+
+    test(
+      'rejects stale binding, MIME, length, and digest content metadata',
+      () async {
+        final fixture = await _connectedFixture(
+          capabilities: _messageContentCapabilities,
+        );
+        addTearDown(fixture.client.close);
+        final payload = Uint8List.fromList('content'.codeUnits);
+        final digest = Uint8List.fromList(crypto.sha256.convert(payload).bytes);
+        final binding = PiMessageContentBinding(
+          sessionId: PiSessionId('session-1'),
+          entryId: 'entry-1',
+          partId: 'part-1',
+          entryRevision: 2,
+          partRevision: 1,
+          contentId: 'content-1',
+        );
+        final reference = PiMessageContentReference(
+          contentId: 'content-1',
+          mimeType: 'image/png',
+          displayName: 'image.png',
+          totalBytes: payload.length,
+          sha256: digest,
+        );
+
+        Future<void> expectRejected({
+          required String transferId,
+          PiProtocolMessageContentBinding? responseBinding,
+          String? mimeType,
+          int? totalBytes,
+          List<int>? sha256,
+        }) async {
+          final future = fixture.client.getMessageContent(
+            PiMessageContentRequest(
+              projectId: PiProjectId('project-1'),
+              binding: binding,
+              reference: reference,
+            ),
+          );
+          final request = await _waitTake<PiProtocolGetMessageContentRequest>(
+            fixture,
+          );
+          final rejection = expectLater(
+            future,
+            throwsA(
+              isA<PiNodeException>().having(
+                (error) => error.code,
+                'code',
+                PiNodeErrorCode.dataLoss,
+              ),
+            ),
+          );
+          await fixture.send(
+            PiProtocolTransferOpenMessage(
+              requestId: request.requestId,
+              transferId: transferId,
+              purpose: PiProtocolTransferPurpose.messageContent,
+              contentType: mimeType ?? reference.mimeType,
+              fileName: reference.displayName,
+              totalBytes: totalBytes ?? reference.totalBytes,
+              chunkBytes: payload.length,
+              sha256: sha256 ?? digest,
+              messageContentBinding:
+                  responseBinding ?? _protocolContentBinding(binding),
+            ),
+          );
+          await rejection;
+        }
+
+        await expectRejected(
+          transferId: 'stale-binding',
+          responseBinding: PiProtocolMessageContentBinding(
+            sessionId: binding.sessionId.value,
+            entryId: binding.entryId,
+            partId: binding.partId,
+            entryRevision: binding.entryRevision,
+            partRevision: binding.partRevision + 1,
+            contentId: binding.contentId,
+          ),
+        );
+        await expectRejected(transferId: 'wrong-mime', mimeType: 'image/jpeg');
+        await expectRejected(
+          transferId: 'wrong-length',
+          totalBytes: payload.length + 1,
+        );
+        await expectRejected(
+          transferId: 'wrong-digest',
+          sha256: List<int>.filled(32, 7),
+        );
+      },
+    );
+
+    test(
       'fails pending requests with a redacted malformed-frame error',
       () async {
         final fixture = await _connectedFixture();
@@ -899,6 +1180,14 @@ void main() {
 
 const _exportCapabilities = <PiProtocolCapability>{
   PiProtocolCapability.sessionExport,
+  PiProtocolCapability.transfer,
+  PiProtocolCapability.flowControl,
+  PiProtocolCapability.cancellation,
+};
+
+const _messageContentCapabilities = <PiProtocolCapability>{
+  PiProtocolCapability.richConversation,
+  PiProtocolCapability.messageContent,
   PiProtocolCapability.transfer,
   PiProtocolCapability.flowControl,
   PiProtocolCapability.cancellation,
@@ -1016,6 +1305,17 @@ final class _MemoryProtocolCodec implements PiProtocolCodec {
   }
 }
 
+PiProtocolMessageContentBinding _protocolContentBinding(
+  PiMessageContentBinding binding,
+) => PiProtocolMessageContentBinding(
+  sessionId: binding.sessionId.value,
+  entryId: binding.entryId,
+  partId: binding.partId,
+  entryRevision: binding.entryRevision,
+  partRevision: binding.partRevision,
+  contentId: binding.contentId,
+);
+
 PiProtocolProjectSnapshot _protocolProject(
   String canonicalWorkingDirectory, {
   PiProtocolProjectTrustStatus trustStatus =
@@ -1058,15 +1358,278 @@ PiProtocolSessionDetail _protocolSession(String id, {String? parentSessionId}) {
       hasCustomName: true,
       parentSessionId: parentSessionId,
     ),
-    messages: <PiProtocolMessageSnapshot>[
-      PiProtocolMessageSnapshot(
-        id: 'message-1',
-        role: PiProtocolMessageRole.user,
-        text: 'Hello',
-        createdAt: createdAt,
-        isStreaming: false,
-      ),
-    ],
+    conversation: PiProtocolConversationSnapshot(
+      sessionId: id,
+      lastEventSequence: 0,
+      entries: <PiProtocolConversationEntry>[
+        PiProtocolConversationEntry(
+          entryId: 'message-1',
+          scope: PiProtocolConversationIdentityScope.persistent,
+          revision: 1,
+          createdAt: createdAt,
+          finalized: true,
+          parts: const <PiProtocolConversationPart>[
+            PiProtocolConversationPart(
+              partId: 'message-1-part-1',
+              revision: 1,
+              type: PiProtocolConversationPartType.text,
+              text: 'Hello',
+            ),
+          ],
+          toolActivities: const <PiProtocolToolActivity>[],
+          type: PiProtocolConversationEntryType.user,
+        ),
+      ],
+    ),
+  );
+}
+
+PiProtocolSessionDetail _richProtocolSession() {
+  final createdAt = DateTime.utc(2026, 1, 2, 12);
+  PiProtocolConversationPart textPart(String id, String text) =>
+      PiProtocolConversationPart(
+        partId: '$id-part-1',
+        revision: 1,
+        type: PiProtocolConversationPartType.text,
+        text: text,
+      );
+  final safeDetails = PiProtocolSafeObject(<PiProtocolSafeObjectField>[
+    const PiProtocolSafeObjectField(
+      key: 'visible',
+      value: PiProtocolSafeString('safe'),
+    ),
+    const PiProtocolSafeObjectField(
+      key: 'secret',
+      value: PiProtocolSafeRedacted(),
+    ),
+  ]);
+  return PiProtocolSessionDetail(
+    summary: PiProtocolSessionSummary(
+      id: 'rich-session',
+      title: 'Rich session',
+      workingDirectory: '/safe/project',
+      createdAt: createdAt,
+      updatedAt: createdAt,
+      isRunning: true,
+      hasUnread: false,
+      adminRevision: 'revision-rich-1',
+      hasCustomName: true,
+    ),
+    conversation: PiProtocolConversationSnapshot(
+      sessionId: 'rich-session',
+      lastEventSequence: 41,
+      entries: <PiProtocolConversationEntry>[
+        PiProtocolConversationEntry(
+          entryId: 'user-rich',
+          scope: PiProtocolConversationIdentityScope.persistent,
+          revision: 1,
+          createdAt: createdAt,
+          finalized: true,
+          parts: <PiProtocolConversationPart>[textPart('user-rich', 'User')],
+          toolActivities: const <PiProtocolToolActivity>[],
+          type: PiProtocolConversationEntryType.user,
+        ),
+        PiProtocolConversationEntry(
+          entryId: 'assistant-rich',
+          scope: PiProtocolConversationIdentityScope.runtime,
+          originCommandId: 'command-rich',
+          revision: 3,
+          createdAt: createdAt,
+          finalized: false,
+          parts: <PiProtocolConversationPart>[
+            textPart('assistant-rich', 'Answer'),
+            const PiProtocolConversationPart(
+              partId: 'thinking-visible',
+              revision: 3,
+              type: PiProtocolConversationPartType.thinking,
+              thinkingVisibility: PiProtocolThinkingVisibility.visible,
+              text: 'visible reasoning',
+            ),
+            const PiProtocolConversationPart(
+              partId: 'thinking-redacted',
+              revision: 3,
+              type: PiProtocolConversationPartType.thinking,
+              thinkingVisibility: PiProtocolThinkingVisibility.redacted,
+            ),
+            const PiProtocolConversationPart(
+              partId: 'thinking-deferred',
+              revision: 3,
+              type: PiProtocolConversationPartType.thinking,
+              thinkingVisibility: PiProtocolThinkingVisibility.deferred,
+            ),
+            PiProtocolConversationPart(
+              partId: 'image-rich',
+              revision: 3,
+              type: PiProtocolConversationPartType.image,
+              contentReference: PiProtocolMessageContentReference(
+                contentId: 'image-content-rich',
+                mimeType: 'image/png',
+                displayName: 'image.png',
+                totalBytes: 4,
+                sha256: Uint8List(32),
+              ),
+            ),
+            PiProtocolConversationPart(
+              partId: 'tool-call-rich',
+              revision: 3,
+              type: PiProtocolConversationPartType.toolCall,
+              toolCallId: 'call-rich',
+              toolName: 'search',
+              safeArguments: safeDetails,
+            ),
+            const PiProtocolConversationPart(
+              partId: 'unsupported-rich',
+              revision: 3,
+              type: PiProtocolConversationPartType.unsupported,
+              sourceType: 'future-part',
+            ),
+          ],
+          toolActivities: <PiProtocolToolActivity>[
+            PiProtocolToolActivity(
+              activityId: 'activity-1',
+              toolCallId: 'call-rich',
+              toolName: 'search',
+              sourceOrdinal: 0,
+              revision: 1,
+              status: PiProtocolToolActivityStatus.running,
+              safeDetails: safeDetails,
+            ),
+            PiProtocolToolActivity(
+              activityId: 'activity-2',
+              toolCallId: 'call-parallel',
+              toolName: 'read',
+              sourceOrdinal: 1,
+              revision: 2,
+              status: PiProtocolToolActivityStatus.succeeded,
+              safeDetails: safeDetails,
+            ),
+          ],
+          metrics: const PiProtocolConversationMetrics(
+            usage: PiProtocolUsageMetrics(
+              inputTokens: 11,
+              outputTokens: 7,
+              cacheReadTokens: 3,
+              cacheWriteTokens: 2,
+              totalTokens: 23,
+            ),
+            cost: PiProtocolMoneyAmount(
+              currencyCode: 'USD',
+              decimalAmount: '0.00125',
+            ),
+            context: PiProtocolContextMetrics(
+              tokens: 23,
+              contextWindow: 200000,
+              percentDecimal: '0.0115',
+            ),
+          ),
+          type: PiProtocolConversationEntryType.assistant,
+          provider: 'provider',
+          model: 'model',
+          stopReason: 'streaming',
+        ),
+        PiProtocolConversationEntry(
+          entryId: 'tool-result-rich',
+          scope: PiProtocolConversationIdentityScope.runtime,
+          revision: 1,
+          createdAt: createdAt,
+          finalized: true,
+          parts: <PiProtocolConversationPart>[
+            textPart('tool-result-rich', 'Result'),
+          ],
+          toolActivities: const <PiProtocolToolActivity>[],
+          type: PiProtocolConversationEntryType.toolResult,
+          toolCallId: 'call-rich',
+          toolName: 'search',
+          isError: false,
+          safeDetails: safeDetails,
+        ),
+        PiProtocolConversationEntry(
+          entryId: 'bash-rich',
+          scope: PiProtocolConversationIdentityScope.persistent,
+          revision: 1,
+          createdAt: createdAt,
+          finalized: true,
+          parts: <PiProtocolConversationPart>[textPart('bash-rich', 'output')],
+          toolActivities: const <PiProtocolToolActivity>[],
+          type: PiProtocolConversationEntryType.bash,
+          command: 'printf output',
+          exitCode: 0,
+          cancelled: false,
+          truncated: false,
+          excludedFromContext: false,
+        ),
+        PiProtocolConversationEntry(
+          entryId: 'custom-rich',
+          scope: PiProtocolConversationIdentityScope.persistent,
+          revision: 1,
+          createdAt: createdAt,
+          finalized: true,
+          parts: <PiProtocolConversationPart>[
+            textPart('custom-rich', 'Custom'),
+          ],
+          toolActivities: const <PiProtocolToolActivity>[],
+          type: PiProtocolConversationEntryType.custom,
+          customType: 'notice',
+          display: true,
+          safeDetails: safeDetails,
+        ),
+        PiProtocolConversationEntry(
+          entryId: 'compaction-rich',
+          scope: PiProtocolConversationIdentityScope.persistent,
+          revision: 1,
+          createdAt: createdAt,
+          finalized: true,
+          parts: <PiProtocolConversationPart>[
+            textPart('compaction-rich', 'Summary'),
+          ],
+          toolActivities: const <PiProtocolToolActivity>[],
+          type: PiProtocolConversationEntryType.compaction,
+          firstKeptEntryId: 'user-rich',
+          tokensBefore: 100,
+          fromHook: false,
+          safeDetails: safeDetails,
+        ),
+        PiProtocolConversationEntry(
+          entryId: 'branch-rich',
+          scope: PiProtocolConversationIdentityScope.persistent,
+          revision: 1,
+          createdAt: createdAt,
+          finalized: true,
+          parts: <PiProtocolConversationPart>[
+            textPart('branch-rich', 'Branch'),
+          ],
+          toolActivities: const <PiProtocolToolActivity>[],
+          type: PiProtocolConversationEntryType.branchSummary,
+          fromEntryId: 'assistant-rich',
+          fromHook: true,
+          safeDetails: safeDetails,
+        ),
+        PiProtocolConversationEntry(
+          entryId: 'marker-rich',
+          scope: PiProtocolConversationIdentityScope.persistent,
+          revision: 1,
+          createdAt: createdAt,
+          finalized: true,
+          parts: const <PiProtocolConversationPart>[],
+          toolActivities: const <PiProtocolToolActivity>[],
+          type: PiProtocolConversationEntryType.marker,
+          markerKind: PiProtocolConversationMarkerKind.modelChange,
+          provider: 'provider-2',
+          model: 'model-2',
+        ),
+        PiProtocolConversationEntry(
+          entryId: 'unknown-rich',
+          scope: PiProtocolConversationIdentityScope.persistent,
+          revision: 1,
+          createdAt: createdAt,
+          finalized: true,
+          parts: const <PiProtocolConversationPart>[],
+          toolActivities: const <PiProtocolToolActivity>[],
+          type: PiProtocolConversationEntryType.unknown,
+          sourceType: 'future-entry',
+        ),
+      ],
+    ),
   );
 }
 

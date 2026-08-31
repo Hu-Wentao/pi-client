@@ -2,9 +2,11 @@ import { writeFile } from "node:fs/promises";
 
 import type {
   PiNodeAbortResult,
+  PiNodeConversationEntry,
   PiNodeDirectoryListing,
   PiNodeKnownProjectSnapshot,
-  PiNodeMessage,
+  PiNodeMessageContent,
+  PiNodeMessageContentRequest,
   PiNodeProjectBootstrap,
   PiNodeProjectSnapshot,
   PiNodePromptAdmission,
@@ -64,11 +66,7 @@ export class FakeProtocolDomain implements PiNodeProtocolDomain {
 
   listKnownProjects(): Promise<readonly PiNodeKnownProjectSnapshot[]> {
     return Promise.resolve([
-      {
-        project: projectSnapshot(defaultCwd),
-        lastSessionAtMs: 200,
-        sessionCount: 1,
-      },
+      { project: projectSnapshot(defaultCwd), lastSessionAtMs: 200, sessionCount: 1 },
     ]);
   }
 
@@ -77,18 +75,12 @@ export class FakeProtocolDomain implements PiNodeProtocolDomain {
   }
 
   listSessions(): Promise<readonly PiNodeSessionSummary[]> {
-    if (this.listError !== undefined) {
-      return Promise.reject(this.listError);
-    }
+    if (this.listError !== undefined) return Promise.reject(this.listError);
     return Promise.resolve([...this.sessions.values()].map(copySummary));
   }
 
   getSession(input: { readonly sessionId: string }): Promise<PiNodeSessionSnapshot> {
-    const session = this.sessions.get(input.sessionId);
-    if (!session) {
-      return Promise.reject(new Error("Missing fake session."));
-    }
-    return Promise.resolve(copySnapshot(session));
+    return Promise.resolve(copySnapshot(this.requireSession(input.sessionId)));
   }
 
   getSessionHistory(input: {
@@ -97,21 +89,33 @@ export class FakeProtocolDomain implements PiNodeProtocolDomain {
     readonly limit: number;
   }): Promise<PiNodeSessionHistoryPage> {
     const session = this.requireSession(input.sessionId);
-    const end = input.cursor === undefined ? session.messages.length : Number(input.cursor);
+    const all = session.conversation.entries;
+    const end = input.cursor === undefined ? all.length : Number(input.cursor);
     const start = Math.max(0, end - input.limit);
     return Promise.resolve({
       summary: copySummary(session),
-      messages: structuredClone(session.messages.slice(start, end)),
-      ...(start > 0 ? { nextCursor: String(start) } : {}),
-      hasMore: start > 0,
-      activeBranchRevision: `active-${session.adminRevision}`,
-      treeRevision: session.adminRevision,
-      lastEventSequence: session.lastEventSequence,
+      conversation: {
+        sessionId: session.sessionId,
+        entries: structuredClone(all.slice(start, end)),
+        ...(start > 0 ? { nextCursor: String(start) } : {}),
+        hasMore: start > 0,
+        activeBranchRevision: `active-${session.adminRevision}`,
+        treeRevision: session.adminRevision,
+        lastEventSequence: session.conversation.lastEventSequence,
+      },
     });
+  }
+
+  getMessageContent(_input: {
+    readonly cwd: string;
+    readonly request: PiNodeMessageContentRequest;
+  }): Promise<PiNodeMessageContent> {
+    return Promise.reject(new Error("The fake session does not contain referenced content."));
   }
 
   getSessionStats(input: { readonly sessionId: string }): Promise<PiNodeSessionStats> {
     const session = this.requireSession(input.sessionId);
+    const entries = session.conversation.entries;
     return Promise.resolve({
       projection: {
         sessionFileName: `${session.sessionId}.jsonl`,
@@ -123,11 +127,12 @@ export class FakeProtocolDomain implements PiNodeProtocolDomain {
         isLinkedWorktree: false,
         isDetachedHead: false,
       },
-      userMessages: session.messages.filter((item) => item.role === "user").length,
-      assistantMessages: session.messages.filter((item) => item.role === "assistant").length,
-      toolCalls: 0,
-      toolResults: session.messages.filter((item) => item.role === "tool").length,
-      totalMessages: session.messages.length,
+      userMessages: entries.filter((item) => item.type === "user").length,
+      assistantMessages: entries.filter((item) => item.type === "assistant").length,
+      toolCalls: entries.flatMap((item) => item.parts).filter((part) => part.type === "tool-call")
+        .length,
+      toolResults: entries.filter((item) => item.type === "tool-result").length,
+      totalMessages: entries.length,
       inputTokens: 10,
       outputTokens: 20,
       cacheReadTokens: 3,
@@ -150,7 +155,7 @@ export class FakeProtocolDomain implements PiNodeProtocolDomain {
     const payload =
       this.exportPayload ??
       (input.format === "html"
-        ? `<html><body>${session.messages.length}</body></html>`
+        ? `<html><body>${session.conversation.entries.length}</body></html>`
         : `${JSON.stringify({ type: "session", id: session.sessionId })}\n`);
     this.lastExportPath = input.outputPath;
     await writeFile(input.outputPath, payload, { mode: 0o600 });
@@ -193,8 +198,7 @@ export class FakeProtocolDomain implements PiNodeProtocolDomain {
     readonly userEntryId: string;
   }): Promise<PiNodeSessionTreeMutationResult> {
     const source = this.requireSession(input.sessionId);
-    const sourceTree = treeSnapshot(source);
-    const selected = sourceTree.nodes.find(
+    const selected = treeSnapshot(source).nodes.find(
       (node) => node.entryId === input.userEntryId && node.canFork,
     );
     if (!selected) return Promise.reject(new Error("Missing fake fork entry."));
@@ -202,7 +206,7 @@ export class FakeProtocolDomain implements PiNodeProtocolDomain {
       `forked-${++this.createOrdinal}`,
       source.cwd,
       `Forked ${this.createOrdinal}`,
-      source.messages.filter((message) => message.id !== selected.entryId),
+      source.conversation.entries.filter((entry) => entry.identity.entryId !== selected.entryId),
       source.sessionId,
     );
     this.sessions.set(forked.sessionId, forked);
@@ -220,7 +224,7 @@ export class FakeProtocolDomain implements PiNodeProtocolDomain {
       `cloned-${++this.createOrdinal}`,
       source.cwd,
       `Cloned ${this.createOrdinal}`,
-      source.messages,
+      source.conversation.entries,
       source.sessionId,
     );
     this.sessions.set(cloned.sessionId, cloned);
@@ -240,17 +244,12 @@ export class FakeProtocolDomain implements PiNodeProtocolDomain {
     listeners.add(listener);
     this.listeners.set(sessionId, listeners);
     this.observedCount.set(sessionId, (this.observedCount.get(sessionId) ?? 0) + 1);
-    if (this.emitOnObserve) {
-      this.emit(sessionId, { type: "running", running: false });
-    }
-
+    if (this.emitOnObserve) this.emit(sessionId, { type: "running", running: false });
     let subscribed = true;
     return {
       snapshot: copySnapshot(session),
       unsubscribe: () => {
-        if (!subscribed) {
-          return;
-        }
+        if (!subscribed) return;
         subscribed = false;
         listeners.delete(listener);
         this.unsubscribedCount.set(sessionId, (this.unsubscribedCount.get(sessionId) ?? 0) + 1);
@@ -276,24 +275,26 @@ export class FakeProtocolDomain implements PiNodeProtocolDomain {
       };
     }
     this.activeCommands.set(input.sessionId, input.commandId);
-    this.emit(input.sessionId, {
-      type: "running",
-      running: true,
-      commandId: input.commandId,
+    this.emit(input.sessionId, { type: "running", running: true, commandId: input.commandId });
+    const started = message(`${input.commandId}:assistant`, "Working", "assistant", {
+      scope: "runtime",
+      originCommandId: input.commandId,
+      revision: 1,
+      finalized: false,
     });
-    const started = message(`${input.commandId}:assistant`, "Working", "assistant");
-    this.emit(input.sessionId, { type: "message", phase: "started", message: started });
+    this.emit(input.sessionId, { type: "entry-upsert", entry: started });
     this.emit(input.sessionId, {
-      type: "message",
-      phase: "updated",
-      message: message(started.id, "Working now", "assistant"),
+      type: "part-delta",
+      entryId: started.identity.entryId,
+      expectedEntryRevision: 1,
+      resultingEntryRevision: 2,
+      partId: started.parts[0]!.partId,
+      expectedPartRevision: 1,
+      resultingPartRevision: 2,
+      textDelta: " now",
     });
     this.sessions.set(input.sessionId, { ...session, running: true });
-    return {
-      sessionId: input.sessionId,
-      commandId: input.commandId,
-      status: "accepted",
-    };
+    return { sessionId: input.sessionId, commandId: input.commandId, status: "accepted" };
   }
 
   renameSession(input: {
@@ -343,15 +344,9 @@ export class FakeProtocolDomain implements PiNodeProtocolDomain {
   async abort(input: { readonly sessionId: string }): Promise<PiNodeAbortResult> {
     this.requireSession(input.sessionId);
     const activeCommand = this.activeCommands.get(input.sessionId);
-    if (!activeCommand) {
-      return { status: "not-running", sessionId: input.sessionId };
-    }
+    if (!activeCommand) return { status: "not-running", sessionId: input.sessionId };
     this.activeCommands.delete(input.sessionId);
-    this.emit(input.sessionId, {
-      type: "running",
-      running: false,
-      commandId: activeCommand,
-    });
+    this.emit(input.sessionId, { type: "running", running: false, commandId: activeCommand });
     this.emit(input.sessionId, {
       type: "command-completed",
       commandId: activeCommand,
@@ -381,16 +376,12 @@ export class FakeProtocolDomain implements PiNodeProtocolDomain {
       sequence,
       emittedAtMs: 1_000 + sequence,
     } as PiNodeSessionEvent;
-    for (const listener of [...(this.listeners.get(sessionId) ?? [])]) {
-      listener(event);
-    }
+    for (const listener of [...(this.listeners.get(sessionId) ?? [])]) listener(event);
   }
 
   requireSession(sessionId: string): PiNodeSessionSnapshot {
     const session = this.sessions.get(sessionId);
-    if (!session) {
-      throw new Error("Missing fake session.");
-    }
+    if (!session) throw new Error("Missing fake session.");
     return session;
   }
 }
@@ -399,7 +390,7 @@ export function sessionSnapshot(
   sessionId: string,
   cwd = defaultCwd,
   title = "Session",
-  messages: readonly PiNodeMessage[] = [message(`${sessionId}:user`, "Hello", "user")],
+  entries: readonly PiNodeConversationEntry[] = [message(`${sessionId}:user`, "Hello", "user")],
   parentSessionId?: string,
 ): PiNodeSessionSnapshot {
   return {
@@ -409,24 +400,56 @@ export function sessionSnapshot(
     ...(parentSessionId === undefined ? {} : { parentSessionId }),
     createdAtMs: 100,
     modifiedAtMs: 200,
-    messageCount: messages.length,
-    firstMessage: messages[0]?.parts[0]?.type === "text" ? messages[0].parts[0].text : title,
+    messageCount: entries.length,
+    firstMessage: entryText(entries[0]) || title,
     running: false,
     adminRevision: `revision-${sessionId}-1`,
     persistence: "persistent",
-    messages,
-    lastEventSequence: 0,
+    conversation: { sessionId, entries, lastEventSequence: 0 },
   };
 }
 
-export function message(id: string, text: string, role: PiNodeMessage["role"]): PiNodeMessage {
-  return {
-    id,
-    role,
-    sourceRole: role,
-    timestampMs: 100,
-    parts: [{ type: "text", text }],
+export function message(
+  entryId: string,
+  text: string,
+  role: "user" | "assistant" = "assistant",
+  options: {
+    readonly scope?: "persistent" | "runtime";
+    readonly originCommandId?: string;
+    readonly revision?: number;
+    readonly finalized?: boolean;
+  } = {},
+): PiNodeConversationEntry {
+  const common = {
+    identity: {
+      entryId,
+      scope: options.scope ?? ("persistent" as const),
+      ...(options.originCommandId === undefined
+        ? {}
+        : { originCommandId: options.originCommandId }),
+    },
+    revision: options.revision ?? 1,
+    createdAtMs: 100,
+    finalized: options.finalized ?? true,
+    parts: [
+      {
+        type: "text" as const,
+        partId: `part-${entryId.replaceAll(/[^A-Za-z0-9-]/gu, "-")}`,
+        revision: options.revision ?? 1,
+        text,
+      },
+    ],
+    toolActivities: [],
   };
+  return role === "user"
+    ? { ...common, type: "user" }
+    : {
+        ...common,
+        type: "assistant",
+        provider: "fake-provider",
+        model: "fake-model",
+        stopReason: options.finalized === false ? "streaming" : "stop",
+      };
 }
 
 export function projectSnapshot(
@@ -488,17 +511,18 @@ function updatedSession(
 }
 
 function treeSnapshot(session: PiNodeSessionSnapshot): PiNodeSessionTreeSnapshot {
-  const nodes = session.messages.map((item, index) => ({
-    entryId: item.id,
-    ...(index === 0 ? {} : { parentEntryId: session.messages[index - 1]!.id }),
-    kind: item.role === "user" ? ("user-message" as const) : ("assistant-message" as const),
-    text: item.parts[0]?.type === "text" ? item.parts[0].text : "",
-    createdAtMs: item.timestampMs,
+  const entries = session.conversation.entries;
+  const nodes = entries.map((item, index) => ({
+    entryId: item.identity.entryId,
+    ...(index === 0 ? {} : { parentEntryId: entries[index - 1]!.identity.entryId }),
+    kind: item.type === "user" ? ("user-message" as const) : ("assistant-message" as const),
+    text: entryText(item),
+    createdAtMs: item.createdAtMs,
     depth: index,
     isOnActivePath: true,
-    hasChildren: index + 1 < session.messages.length,
-    canEditFromHere: item.role === "user",
-    canFork: item.role === "user",
+    hasChildren: index + 1 < entries.length,
+    canEditFromHere: item.type === "user",
+    canFork: item.type === "user",
   }));
   return {
     sessionId: session.sessionId,
@@ -508,6 +532,14 @@ function treeSnapshot(session: PiNodeSessionSnapshot): PiNodeSessionTreeSnapshot
     canCloneActiveBranch: nodes.some((node) => node.canFork),
     adminRevision: session.adminRevision,
   };
+}
+
+function entryText(entry: PiNodeConversationEntry | undefined): string {
+  if (entry === undefined) return "";
+  return entry.parts
+    .filter((part) => part.type === "text" && part.text !== undefined)
+    .map((part) => (part.type === "text" ? (part.text ?? "") : ""))
+    .join("");
 }
 
 function copySnapshot(snapshot: PiNodeSessionSnapshot): PiNodeSessionSnapshot {

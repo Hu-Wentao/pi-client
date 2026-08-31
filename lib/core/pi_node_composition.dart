@@ -178,15 +178,19 @@ final class LazyHostedPiNodeApi
   ) => _requireConnectedApi().getSessionHistory(request);
 
   @override
+  Future<PiMessageContentHandle> getMessageContent(
+    PiMessageContentRequest request,
+  ) => _requireConnectedApi().getMessageContent(request);
+
+  @override
   Future<PiSessionStats> getSessionStats(
     PiProjectId projectId,
     PiSessionId sessionId,
   ) => _requireConnectedApi().getSessionStats(projectId, sessionId);
 
   @override
-  Future<PiSessionExportHandle> exportSession(
-    PiSessionExportRequest request,
-  ) => _requireConnectedApi().exportSession(request);
+  Future<PiSessionExportHandle> exportSession(PiSessionExportRequest request) =>
+      _requireConnectedApi().exportSession(request);
 
   @override
   Future<PiSessionTreeMutationResult> navigateSessionTree(
@@ -430,15 +434,19 @@ final class UnavailablePiNodeApi
   ) => Future<PiSessionHistoryPage>.error(_failure);
 
   @override
+  Future<PiMessageContentHandle> getMessageContent(
+    PiMessageContentRequest request,
+  ) => Future<PiMessageContentHandle>.error(_failure);
+
+  @override
   Future<PiSessionStats> getSessionStats(
     PiProjectId projectId,
     PiSessionId sessionId,
   ) => Future<PiSessionStats>.error(_failure);
 
   @override
-  Future<PiSessionExportHandle> exportSession(
-    PiSessionExportRequest request,
-  ) => Future<PiSessionExportHandle>.error(_failure);
+  Future<PiSessionExportHandle> exportSession(PiSessionExportRequest request) =>
+      Future<PiSessionExportHandle>.error(_failure);
 
   @override
   Future<PiSessionTreeMutationResult> navigateSessionTree(
@@ -508,10 +516,10 @@ PiNodeApi _createProductionPiNodeClient(PiTransport transport) => PiNodeClient(
         'pi-client-${DateTime.now().toUtc().microsecondsSinceEpoch}',
     implementationVersion: const String.fromEnvironment(
       'PI_CLIENT_IMPLEMENTATION_VERSION',
-      defaultValue: '0.1.0-dev.0',
+      defaultValue: '0.2.0-dev.0',
     ),
   ),
   protocolOffer: PiProtocolOffer(<PiProtocolVersion>[
-    PiProtocolVersion(0, 1, 0),
+    PiProtocolVersion(0, 2, 0),
   ]),
 );

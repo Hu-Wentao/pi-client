@@ -10,6 +10,8 @@ import {
   type PiNodeEventBase,
   type PiNodeDirectoryListing,
   type PiNodeKnownProjectSnapshot,
+  type PiNodeMessageContent,
+  type PiNodeMessageContentRequest,
   type PiNodeProjectBootstrap,
   type PiNodeProjectSnapshot,
   type PiNodePromptAdmission,
@@ -379,12 +381,32 @@ export class PiNodeDomainService {
         });
         return Object.freeze({
           ...page,
-          lastEventSequence: this.#lastSequenceBySession.get(entry.backend.sessionId) ?? 0,
+          conversation: Object.freeze({
+            ...page.conversation,
+            entries: structuredClone(page.conversation.entries),
+            lastEventSequence: this.#lastSequenceBySession.get(entry.backend.sessionId) ?? 0,
+          }),
         });
       } catch (error) {
         throw wrapSessionHistoryError(error);
       }
     });
+  }
+
+  getLoadedMessageContent(input: PiNodeMessageContentRequest): PiNodeMessageContent {
+    this.#assertAvailable();
+    const sessionId = requireIdentifier(input.binding.sessionId, "sessionId");
+    const entry = this.#requireLoadedSession(sessionId);
+    this.#touch(entry);
+    try {
+      return entry.backend.getMessageContent(input);
+    } catch (error) {
+      throw new PiNodeDomainError(
+        "session-content-invalid",
+        "The message content reference is invalid.",
+        { cause: error },
+      );
+    }
   }
 
   getLoadedSessionStats(input: {
@@ -559,7 +581,10 @@ export class PiNodeDomainService {
 
       let execution;
       try {
-        execution = await entry.backend.startPrompt({ text: input.text });
+        execution = await entry.backend.startPrompt({
+          commandId,
+          text: input.text,
+        });
       } catch (error) {
         entry.activeCommand = undefined;
         return this.#rejectCommand(entry, commandId, safeRuntimeFailure(error));
@@ -1037,11 +1062,7 @@ export class PiNodeDomainService {
       return;
     }
 
-    this.#emit(entry, {
-      type: "message",
-      phase: event.phase,
-      message: event.message,
-    });
+    this.#emit(entry, event);
   }
 
   #settleCommand(
@@ -1107,8 +1128,11 @@ export class PiNodeDomainService {
     return Object.freeze({
       ...copySummary(snapshot, entry.running),
       persistence: "persistent",
-      messages: Object.freeze(snapshot.messages.map(copyMessage)),
-      lastEventSequence: this.#lastSequenceBySession.get(entry.backend.sessionId) ?? 0,
+      conversation: Object.freeze({
+        ...snapshot.conversation,
+        entries: structuredClone(snapshot.conversation.entries),
+        lastEventSequence: this.#lastSequenceBySession.get(entry.backend.sessionId) ?? 0,
+      }),
     });
   }
 
@@ -1237,12 +1261,6 @@ function copySummary(summary: PiNodeSessionSummary, running: boolean): PiNodeSes
     running,
     adminRevision: summary.adminRevision,
   });
-}
-
-function copyMessage(
-  message: import("./pi-node-domain.js").PiNodeMessage,
-): import("./pi-node-domain.js").PiNodeMessage {
-  return structuredClone(message);
 }
 
 function copyTree(tree: PiNodeSessionTreeSnapshot): PiNodeSessionTreeSnapshot {
@@ -1389,7 +1407,8 @@ function switchSessionMutationErrorCode(
     case "session-history-cursor-invalid":
     case "session-history-conflict":
     case "session-export-failed":
-      return "session-mutation-failed";
+    case "session-content-invalid":
+      return "session-content-invalid";
   }
 }
 

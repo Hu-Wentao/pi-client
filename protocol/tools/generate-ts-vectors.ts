@@ -3,8 +3,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  ConversationIdentityScope,
   HealthStatus,
-  MessageRole,
   PiTransportFrameSchema,
   ProjectTrustReason,
   ProjectTrustStatus,
@@ -36,15 +36,45 @@ const sessionResponse = create(PiTransportFrameSchema, {
           adminRevision: "revision-session-ts-1",
           hasCustomName: true,
         },
-        messages: [
-          {
-            messageId: "message-ts-1",
-            role: MessageRole.ASSISTANT,
-            text: "Typed Protobuf response",
-            createdAtUnixMillis: 9_007_199_254_741_001n,
-            isStreaming: true,
-          },
-        ],
+        conversation: {
+          sessionId: "session-ts-1",
+          lastEventSequence: 9_007_199_254_741_003n,
+          entries: [
+            {
+              identity: {
+                entryId: "entry-ts-1",
+                scope: ConversationIdentityScope.RUNTIME,
+                originCommandId: "command-ts-1",
+              },
+              revision: 2n,
+              createdAtUnixMillis: 9_007_199_254_741_001n,
+              finalized: false,
+              parts: [
+                {
+                  partId: "part-ts-1",
+                  revision: 2n,
+                  kind: {
+                    case: "text",
+                    value: {
+                      content: {
+                        case: "inlineText",
+                        value: "Typed Protobuf response",
+                      },
+                    },
+                  },
+                },
+              ],
+              kind: {
+                case: "assistant",
+                value: {
+                  provider: "provider-ts",
+                  model: "model-ts",
+                  stopReason: "stop",
+                },
+              },
+            },
+          ],
+        },
       },
     },
   },
@@ -143,7 +173,11 @@ const sessionTreeMutation = create(PiTransportFrameSchema, {
               hasCustomName: false,
               parentSessionId: "session-ts-parent-1",
             },
-            messages: [],
+            conversation: {
+              sessionId: "session-ts-fork-1",
+              entries: [],
+              lastEventSequence: 0n,
+            },
           },
           tree: {
             sessionId: "session-ts-fork-1",

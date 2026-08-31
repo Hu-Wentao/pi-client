@@ -49,6 +49,10 @@ class Capability extends $pb.ProtobufEnum {
       Capability._(15, _omitEnumNames ? '' : 'CAPABILITY_SESSION_STATS');
   static const Capability CAPABILITY_SESSION_EXPORT =
       Capability._(16, _omitEnumNames ? '' : 'CAPABILITY_SESSION_EXPORT');
+  static const Capability CAPABILITY_RICH_CONVERSATION =
+      Capability._(17, _omitEnumNames ? '' : 'CAPABILITY_RICH_CONVERSATION');
+  static const Capability CAPABILITY_MESSAGE_CONTENT =
+      Capability._(18, _omitEnumNames ? '' : 'CAPABILITY_MESSAGE_CONTENT');
 
   static const $core.List<Capability> values = <Capability>[
     CAPABILITY_UNSPECIFIED,
@@ -68,10 +72,12 @@ class Capability extends $pb.ProtobufEnum {
     CAPABILITY_SESSION_HISTORY,
     CAPABILITY_SESSION_STATS,
     CAPABILITY_SESSION_EXPORT,
+    CAPABILITY_RICH_CONVERSATION,
+    CAPABILITY_MESSAGE_CONTENT,
   ];
 
   static final $core.List<Capability?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 16);
+      $pb.ProtobufEnum.$_initByValueList(values, 18);
   static Capability? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 
@@ -346,6 +352,148 @@ class SessionTreeEntryKind extends $pb.ProtobufEnum {
   const SessionTreeEntryKind._(super.value, super.name);
 }
 
+class ConversationIdentityScope extends $pb.ProtobufEnum {
+  static const ConversationIdentityScope
+      CONVERSATION_IDENTITY_SCOPE_UNSPECIFIED = ConversationIdentityScope._(
+          0, _omitEnumNames ? '' : 'CONVERSATION_IDENTITY_SCOPE_UNSPECIFIED');
+  static const ConversationIdentityScope
+      CONVERSATION_IDENTITY_SCOPE_PERSISTENT = ConversationIdentityScope._(
+          1, _omitEnumNames ? '' : 'CONVERSATION_IDENTITY_SCOPE_PERSISTENT');
+  static const ConversationIdentityScope CONVERSATION_IDENTITY_SCOPE_RUNTIME =
+      ConversationIdentityScope._(
+          2, _omitEnumNames ? '' : 'CONVERSATION_IDENTITY_SCOPE_RUNTIME');
+
+  static const $core.List<ConversationIdentityScope> values =
+      <ConversationIdentityScope>[
+    CONVERSATION_IDENTITY_SCOPE_UNSPECIFIED,
+    CONVERSATION_IDENTITY_SCOPE_PERSISTENT,
+    CONVERSATION_IDENTITY_SCOPE_RUNTIME,
+  ];
+
+  static final $core.List<ConversationIdentityScope?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 2);
+  static ConversationIdentityScope? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const ConversationIdentityScope._(super.value, super.name);
+}
+
+class MarkerKind extends $pb.ProtobufEnum {
+  static const MarkerKind MARKER_KIND_UNSPECIFIED =
+      MarkerKind._(0, _omitEnumNames ? '' : 'MARKER_KIND_UNSPECIFIED');
+  static const MarkerKind MARKER_KIND_THINKING_LEVEL =
+      MarkerKind._(1, _omitEnumNames ? '' : 'MARKER_KIND_THINKING_LEVEL');
+  static const MarkerKind MARKER_KIND_MODEL_CHANGE =
+      MarkerKind._(2, _omitEnumNames ? '' : 'MARKER_KIND_MODEL_CHANGE');
+  static const MarkerKind MARKER_KIND_LABEL =
+      MarkerKind._(3, _omitEnumNames ? '' : 'MARKER_KIND_LABEL');
+  static const MarkerKind MARKER_KIND_SESSION_INFO =
+      MarkerKind._(4, _omitEnumNames ? '' : 'MARKER_KIND_SESSION_INFO');
+
+  static const $core.List<MarkerKind> values = <MarkerKind>[
+    MARKER_KIND_UNSPECIFIED,
+    MARKER_KIND_THINKING_LEVEL,
+    MARKER_KIND_MODEL_CHANGE,
+    MARKER_KIND_LABEL,
+    MARKER_KIND_SESSION_INFO,
+  ];
+
+  static final $core.List<MarkerKind?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 4);
+  static MarkerKind? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const MarkerKind._(super.value, super.name);
+}
+
+class ThinkingVisibility extends $pb.ProtobufEnum {
+  static const ThinkingVisibility THINKING_VISIBILITY_UNSPECIFIED =
+      ThinkingVisibility._(
+          0, _omitEnumNames ? '' : 'THINKING_VISIBILITY_UNSPECIFIED');
+  static const ThinkingVisibility THINKING_VISIBILITY_VISIBLE =
+      ThinkingVisibility._(
+          1, _omitEnumNames ? '' : 'THINKING_VISIBILITY_VISIBLE');
+  static const ThinkingVisibility THINKING_VISIBILITY_REDACTED =
+      ThinkingVisibility._(
+          2, _omitEnumNames ? '' : 'THINKING_VISIBILITY_REDACTED');
+  static const ThinkingVisibility THINKING_VISIBILITY_DEFERRED =
+      ThinkingVisibility._(
+          3, _omitEnumNames ? '' : 'THINKING_VISIBILITY_DEFERRED');
+
+  static const $core.List<ThinkingVisibility> values = <ThinkingVisibility>[
+    THINKING_VISIBILITY_UNSPECIFIED,
+    THINKING_VISIBILITY_VISIBLE,
+    THINKING_VISIBILITY_REDACTED,
+    THINKING_VISIBILITY_DEFERRED,
+  ];
+
+  static final $core.List<ThinkingVisibility?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 3);
+  static ThinkingVisibility? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const ThinkingVisibility._(super.value, super.name);
+}
+
+class SafeValueKind extends $pb.ProtobufEnum {
+  static const SafeValueKind SAFE_VALUE_KIND_UNSPECIFIED =
+      SafeValueKind._(0, _omitEnumNames ? '' : 'SAFE_VALUE_KIND_UNSPECIFIED');
+  static const SafeValueKind SAFE_VALUE_KIND_NULL =
+      SafeValueKind._(1, _omitEnumNames ? '' : 'SAFE_VALUE_KIND_NULL');
+  static const SafeValueKind SAFE_VALUE_KIND_REDACTED =
+      SafeValueKind._(2, _omitEnumNames ? '' : 'SAFE_VALUE_KIND_REDACTED');
+
+  static const $core.List<SafeValueKind> values = <SafeValueKind>[
+    SAFE_VALUE_KIND_UNSPECIFIED,
+    SAFE_VALUE_KIND_NULL,
+    SAFE_VALUE_KIND_REDACTED,
+  ];
+
+  static final $core.List<SafeValueKind?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 2);
+  static SafeValueKind? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const SafeValueKind._(super.value, super.name);
+}
+
+class ToolActivityStatus extends $pb.ProtobufEnum {
+  static const ToolActivityStatus TOOL_ACTIVITY_STATUS_UNSPECIFIED =
+      ToolActivityStatus._(
+          0, _omitEnumNames ? '' : 'TOOL_ACTIVITY_STATUS_UNSPECIFIED');
+  static const ToolActivityStatus TOOL_ACTIVITY_STATUS_PENDING =
+      ToolActivityStatus._(
+          1, _omitEnumNames ? '' : 'TOOL_ACTIVITY_STATUS_PENDING');
+  static const ToolActivityStatus TOOL_ACTIVITY_STATUS_RUNNING =
+      ToolActivityStatus._(
+          2, _omitEnumNames ? '' : 'TOOL_ACTIVITY_STATUS_RUNNING');
+  static const ToolActivityStatus TOOL_ACTIVITY_STATUS_SUCCEEDED =
+      ToolActivityStatus._(
+          3, _omitEnumNames ? '' : 'TOOL_ACTIVITY_STATUS_SUCCEEDED');
+  static const ToolActivityStatus TOOL_ACTIVITY_STATUS_FAILED =
+      ToolActivityStatus._(
+          4, _omitEnumNames ? '' : 'TOOL_ACTIVITY_STATUS_FAILED');
+  static const ToolActivityStatus TOOL_ACTIVITY_STATUS_CANCELLED =
+      ToolActivityStatus._(
+          5, _omitEnumNames ? '' : 'TOOL_ACTIVITY_STATUS_CANCELLED');
+
+  static const $core.List<ToolActivityStatus> values = <ToolActivityStatus>[
+    TOOL_ACTIVITY_STATUS_UNSPECIFIED,
+    TOOL_ACTIVITY_STATUS_PENDING,
+    TOOL_ACTIVITY_STATUS_RUNNING,
+    TOOL_ACTIVITY_STATUS_SUCCEEDED,
+    TOOL_ACTIVITY_STATUS_FAILED,
+    TOOL_ACTIVITY_STATUS_CANCELLED,
+  ];
+
+  static final $core.List<ToolActivityStatus?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 5);
+  static ToolActivityStatus? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const ToolActivityStatus._(super.value, super.name);
+}
+
 class SessionExportFormat extends $pb.ProtobufEnum {
   static const SessionExportFormat SESSION_EXPORT_FORMAT_UNSPECIFIED =
       SessionExportFormat._(
@@ -404,16 +552,20 @@ class TransferPurpose extends $pb.ProtobufEnum {
       TransferPurpose._(2, _omitEnumNames ? '' : 'TRANSFER_PURPOSE_ATTACHMENT');
   static const TransferPurpose TRANSFER_PURPOSE_EXPORT =
       TransferPurpose._(3, _omitEnumNames ? '' : 'TRANSFER_PURPOSE_EXPORT');
+  static const TransferPurpose TRANSFER_PURPOSE_MESSAGE_CONTENT =
+      TransferPurpose._(
+          4, _omitEnumNames ? '' : 'TRANSFER_PURPOSE_MESSAGE_CONTENT');
 
   static const $core.List<TransferPurpose> values = <TransferPurpose>[
     TRANSFER_PURPOSE_UNSPECIFIED,
     TRANSFER_PURPOSE_FILE,
     TRANSFER_PURPOSE_ATTACHMENT,
     TRANSFER_PURPOSE_EXPORT,
+    TRANSFER_PURPOSE_MESSAGE_CONTENT,
   ];
 
   static final $core.List<TransferPurpose?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 3);
+      $pb.ProtobufEnum.$_initByValueList(values, 4);
   static TransferPurpose? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

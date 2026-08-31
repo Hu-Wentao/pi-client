@@ -10,13 +10,7 @@ export {
   type PiNodeDirectoryEntry,
   type PiNodeDirectoryListing,
   type PiNodeEventBase,
-  type PiNodeJsonValue,
   type PiNodeKnownProjectSnapshot,
-  type PiNodeMessage,
-  type PiNodeMessagePart,
-  type PiNodeMessagePhase,
-  type PiNodeMessageRole,
-  type PiNodeMessageUsage,
   type PiNodeProjectBootstrap,
   type PiNodeProjectIdentity,
   type PiNodeProjectSnapshot,
@@ -65,13 +59,19 @@ export {
   type PublicPiSdkSessionAdministrationOptions,
 } from "./pi-sdk-session-administration.js";
 export {
-  normalizePiSdkMessage,
   sessionManagerToTreeSnapshot,
   PiSdkDomainAdapterError,
   PublicPiSdkDomainSessionFactory,
   type PiSdkDomainAdapterErrorCode,
   type PublicPiSdkDomainSessionFactoryOptions,
 } from "./pi-sdk-domain-session.js";
+export * from "./pi-node-conversation.js";
+export {
+  normalizeSafeValue,
+  PiSdkConversationNormalizer,
+  PiSdkConversationNormalizerError,
+  type PiSdkConversationNormalizerErrorCode,
+} from "./pi-sdk-conversation-normalizer.js";
 export {
   PiNodeLifecycleError,
   PiNodeRuntime,
@@ -133,16 +133,20 @@ export {
   PiNodeProtocolAdapterError,
   mapCommandFailure,
   mapDomainError,
-  piNodeMessageText,
   stableError,
+  toProtocolConversationEntry,
+  toProtocolConversationMetrics,
+  toProtocolConversationPage,
+  toProtocolConversationSnapshot,
   toProtocolDirectoryListing,
   toProtocolKnownProjectSnapshot,
-  toProtocolMessageSnapshot,
+  toProtocolMessageContentBinding,
   toProtocolProjectSnapshot,
   toProtocolSessionDetail,
   toProtocolSessionStats,
   toProtocolSessionSummary,
   toProtocolSessionTree,
+  toProtocolToolActivity,
 } from "./protocol/protobuf-domain-adapter.js";
 export {
   RedactedStderrLogger,

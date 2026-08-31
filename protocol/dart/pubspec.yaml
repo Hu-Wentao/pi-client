@@ -1,7 +1,7 @@
 name: pi_client_protocol_spike
 description: Unpublished Pi Client Protobuf protocol spike.
 publish_to: none
-version: 0.0.0
+version: 0.2.0
 
 environment:
   sdk: '>=3.11.4 <3.12.0'

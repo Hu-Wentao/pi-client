@@ -91,6 +91,7 @@ const sourceRoot = new URL("src", packageRoot).pathname;
 const files = [...collectFiles(sourceRoot), ...collectFiles(new URL("test", packageRoot).pathname)];
 const publicSdkPackage = "@earendil-works/pi-coding-agent";
 const sdkAdapterSourceFiles = new Set([
+  "pi-sdk-conversation-normalizer.ts",
   "pi-sdk-domain-session.ts",
   "pi-sdk-project-session-catalog.ts",
   "pi-sdk-session-administration.ts",

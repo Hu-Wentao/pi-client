@@ -52,6 +52,8 @@ final class FakePiNodeApi implements PiNodeApi {
   getSessionStatsHandler;
   Future<PiSessionExportHandle> Function(PiSessionExportRequest request)?
   exportSessionHandler;
+  Future<PiMessageContentHandle> Function(PiMessageContentRequest request)?
+  messageContentHandler;
   Future<PiSessionTreeMutationResult> Function(
     PiNavigateSessionTreeCommand command,
   )?
@@ -86,6 +88,7 @@ final class FakePiNodeApi implements PiNodeApi {
   int historyCalls = 0;
   int statsCalls = 0;
   int exportCalls = 0;
+  int messageContentCalls = 0;
   int navigateTreeCalls = 0;
   int forkCalls = 0;
   int cloneCalls = 0;
@@ -120,7 +123,7 @@ final class FakePiNodeApi implements PiNodeApi {
       throw error;
     }
     final connected = PiNodeConnectionSnapshot.connected(
-      PiProtocolVersion(0, 1, 0),
+      PiProtocolVersion(0, 2, 0),
       capabilities: const <PiProtocolCapability>{
         PiProtocolCapability.sessionRead,
         PiProtocolCapability.sessionCreate,
@@ -131,6 +134,8 @@ final class FakePiNodeApi implements PiNodeApi {
         PiProtocolCapability.projectTrust,
         PiProtocolCapability.sessionAdmin,
         PiProtocolCapability.sessionTree,
+        PiProtocolCapability.richConversation,
+        PiProtocolCapability.messageContent,
       },
     );
     _setConnection(connected);
@@ -246,7 +251,11 @@ final class FakePiNodeApi implements PiNodeApi {
     );
     final detail = PiSessionDetail(
       summary: summary,
-      messages: const <PiMessage>[],
+      conversation: PiConversationSnapshot(
+        sessionId: summary.id,
+        entries: const <PiConversationEntry>[],
+        lastEventSequence: 0,
+      ),
     );
     sessions = <PiSessionSummary>[summary, ...sessions];
     details[summary.id] = detail;
@@ -268,7 +277,16 @@ final class FakePiNodeApi implements PiNodeApi {
     if (summary == null) {
       throw const PiNodeException(PiNodeErrorCode.notFound, retryable: false);
     }
-    return fakeTree(PiSessionDetail(summary: summary, messages: const []));
+    return fakeTree(
+      PiSessionDetail(
+        summary: summary,
+        conversation: PiConversationSnapshot(
+          sessionId: summary.id,
+          entries: const <PiConversationEntry>[],
+          lastEventSequence: 0,
+        ),
+      ),
+    );
   }
 
   @override
@@ -286,16 +304,30 @@ final class FakePiNodeApi implements PiNodeApi {
     final hasMore = start > 0;
     return PiSessionHistoryPage(
       summary: detail.summary,
-      messages: detail.messages.sublist(start, end),
-      nextCursor: hasMore ? PiSessionHistoryCursor('$start') : null,
-      hasMore: hasMore,
-      activeBranchRevision: PiSessionBranchRevision(
-        'active-${detail.summary.adminRevision.value}',
-      ),
-      treeRevision: PiSessionTreeRevision(
-        'tree-${detail.summary.adminRevision.value}',
+      conversation: PiConversationPage(
+        sessionId: detail.summary.id,
+        entries: detail.conversation.entries.sublist(start, end),
+        nextCursor: hasMore ? PiSessionHistoryCursor('$start') : null,
+        hasMore: hasMore,
+        activeBranchRevision: PiSessionBranchRevision(
+          'active-${detail.summary.adminRevision.value}',
+        ),
+        treeRevision: PiSessionTreeRevision(
+          'tree-${detail.summary.adminRevision.value}',
+        ),
+        lastEventSequence: detail.conversation.lastEventSequence,
       ),
     );
+  }
+
+  @override
+  Future<PiMessageContentHandle> getMessageContent(
+    PiMessageContentRequest request,
+  ) async {
+    messageContentCalls += 1;
+    final handler = messageContentHandler;
+    if (handler != null) return handler(request);
+    throw const PiNodeException(PiNodeErrorCode.notFound, retryable: false);
   }
 
   @override
@@ -602,7 +634,14 @@ final class FakePiNodeApi implements PiNodeApi {
       hasCustomName: false,
       parentSessionId: sourceSessionId,
     );
-    final detail = PiSessionDetail(summary: summary, messages: source.messages);
+    final detail = PiSessionDetail(
+      summary: summary,
+      conversation: PiConversationSnapshot(
+        sessionId: summary.id,
+        entries: source.conversation.entries,
+        lastEventSequence: source.conversation.lastEventSequence,
+      ),
+    );
     final tree = fakeTree(detail);
     sessions = <PiSessionSummary>[summary, ...sessions];
     details[newSessionId] = detail;
@@ -632,7 +671,11 @@ final class FakePiNodeApi implements PiNodeApi {
     if (currentDetail != null) {
       details[summary.id] = PiSessionDetail(
         summary: summary,
-        messages: currentDetail.messages,
+        conversation: PiConversationSnapshot(
+          sessionId: summary.id,
+          entries: currentDetail.conversation.entries,
+          lastEventSequence: currentDetail.conversation.lastEventSequence,
+        ),
       );
     }
   }
@@ -840,4 +883,77 @@ PiMessage fakeMessage({
 PiSessionDetail fakeDetail(
   PiSessionSummary summary, {
   Iterable<PiMessage> messages = const <PiMessage>[],
-}) => PiSessionDetail(summary: summary, messages: messages);
+  Iterable<PiConversationEntry>? entries,
+  int lastEventSequence = 0,
+}) => PiSessionDetail(
+  summary: summary,
+  conversation: PiConversationSnapshot(
+    sessionId: summary.id,
+    entries: entries ?? messages.map(fakeConversationEntryFromMessage),
+    lastEventSequence: lastEventSequence,
+  ),
+);
+
+PiConversationEntry fakeConversationEntryFromMessage(
+  PiMessage message, {
+  int revision = 1,
+  PiConversationIdentityScope scope = PiConversationIdentityScope.runtime,
+  PiCommandId? originCommandId,
+}) {
+  final identity = PiConversationEntryIdentity(
+    entryId: message.id.value,
+    scope: scope,
+    originCommandId: originCommandId,
+  );
+  final parts = <PiConversationPart>[
+    PiTextConversationPart(
+      partId: '${message.id.value}-part-1',
+      revision: revision,
+      text: message.text,
+    ),
+  ];
+  return switch (message.role) {
+    PiMessageRole.user => PiUserConversationEntry(
+      identity: identity,
+      revision: revision,
+      createdAt: message.createdAt,
+      finalized: !message.isStreaming,
+      parts: parts,
+      toolActivities: const <PiToolActivity>[],
+    ),
+    PiMessageRole.assistant => PiAssistantConversationEntry(
+      identity: identity,
+      revision: revision,
+      createdAt: message.createdAt,
+      finalized: !message.isStreaming,
+      parts: parts,
+      toolActivities: const <PiToolActivity>[],
+      provider: 'fake-provider',
+      model: 'fake-model',
+      stopReason: message.isStreaming ? 'streaming' : 'stop',
+    ),
+    PiMessageRole.tool => PiToolResultConversationEntry(
+      identity: identity,
+      revision: revision,
+      createdAt: message.createdAt,
+      finalized: !message.isStreaming,
+      parts: parts,
+      toolActivities: const <PiToolActivity>[],
+      toolCallId: 'fake-call-${message.id.value}',
+      toolName: 'fake-tool',
+      isError: false,
+      safeDetails: const PiSafeNull(),
+    ),
+    PiMessageRole.system => PiCustomConversationEntry(
+      identity: identity,
+      revision: revision,
+      createdAt: message.createdAt,
+      finalized: !message.isStreaming,
+      parts: parts,
+      toolActivities: const <PiToolActivity>[],
+      customType: 'fake-system',
+      display: true,
+      safeDetails: const PiSafeNull(),
+    ),
+  };
+}

@@ -37,8 +37,20 @@ void main() {
           '9007199254740993',
         );
         expect(
-          frame.getSessionResponse.session.messages.single.role,
-          MessageRole.MESSAGE_ROLE_ASSISTANT,
+          frame.getSessionResponse.session.conversation.entries.single
+              .whichKind(),
+          ConversationEntry_Kind.assistant,
+        );
+        expect(
+          frame
+              .getSessionResponse
+              .session
+              .conversation
+              .entries
+              .single
+              .assistant
+              .model,
+          'model-ts',
         );
       },
     );

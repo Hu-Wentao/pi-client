@@ -30,7 +30,9 @@
 /// Models: [WorkspaceModel]
 /// Notes: The typed root route remains at `/`. [WorkspaceService] delegates
 ///   only to the app-owned [PiNodeApi], while [WorkspaceViewModel] owns typed
-///   [PiSessionSummary], [PiMessage], and [PiSessionEvent] feature state and
+///   [PiSessionSummary], [PiConversationEntry], and [PiSessionEvent] as
+///   authoritative feature state, derives [PiMessage] only for the compatibility
+///   View, and owns event
 ///   subscriptions. Startup connects, resolves the Node-owned default project,
 ///   loads session-derived known projects, and lists the selected project's
 ///   sessions; directory browsing, manual-path validation, project selection,
@@ -40,7 +42,7 @@
 ///   close remain observable. Flat session-tree loading, same-session branch
 ///   navigation, recoverable edit-from-here text, independent fork, active-branch
 ///   clone, runtime replacement, opaque-cursor history pagination with a
-///   50-message initial tail, full-session statistics, streamed HTML/JSONL
+///   50-entry initial tail, full-session statistics, streamed HTML/JSONL
 ///   export progress/cancellation, and authoritative history/tree refresh are
 ///   generation-guarded. Local-host, remote-node-required, unsupported,
 ///   empty, rejected, uncertain, disconnected, retry, and stale-result-safe
@@ -82,6 +84,9 @@ abstract class WorkspaceModel with _$WorkspaceModel {
     @JsonKey(includeToJson: false)
     @Default(<PiMessage>[])
     List<PiMessage> messages,
+    @JsonKey(includeToJson: false)
+    @Default(<PiConversationEntry>[])
+    List<PiConversationEntry> conversationEntries,
     @JsonKey(includeToJson: false) PiSessionHistoryCursor? historyCursor,
     @JsonKey(includeToJson: false)
     PiSessionBranchRevision? activeBranchRevision,

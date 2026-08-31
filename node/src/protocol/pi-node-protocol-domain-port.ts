@@ -2,6 +2,8 @@ import type {
   PiNodeAbortResult,
   PiNodeDirectoryListing,
   PiNodeKnownProjectSnapshot,
+  PiNodeMessageContent,
+  PiNodeMessageContentRequest,
   PiNodeProjectBootstrap,
   PiNodeProjectSnapshot,
   PiNodePromptAdmission,
@@ -47,6 +49,10 @@ export interface PiNodeProtocolDomain {
     readonly expectedActiveBranchRevision?: string;
     readonly expectedTreeRevision?: string;
   }): Promise<PiNodeSessionHistoryPage>;
+  getMessageContent(input: {
+    readonly cwd: string;
+    readonly request: PiNodeMessageContentRequest;
+  }): Promise<PiNodeMessageContent>;
   getSessionStats(input: {
     readonly cwd: string;
     readonly sessionId: string;
@@ -166,6 +172,17 @@ export class PiNodeDomainServiceProtocolAdapter implements PiNodeProtocolDomain 
   }): Promise<PiNodeSessionHistoryPage> {
     await this.domainService.loadSessionSnapshot(input);
     return this.domainService.getLoadedSessionHistory(input);
+  }
+
+  async getMessageContent(input: {
+    readonly cwd: string;
+    readonly request: PiNodeMessageContentRequest;
+  }): Promise<PiNodeMessageContent> {
+    await this.domainService.loadSessionSnapshot({
+      cwd: input.cwd,
+      sessionId: input.request.binding.sessionId,
+    });
+    return this.domainService.getLoadedMessageContent(input.request);
   }
 
   async getSessionStats(input: {

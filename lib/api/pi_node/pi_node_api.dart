@@ -35,6 +35,10 @@ abstract interface class PiNodeApi {
     PiSessionHistoryRequest request,
   );
 
+  Future<PiMessageContentHandle> getMessageContent(
+    PiMessageContentRequest request,
+  );
+
   Future<PiSessionStats> getSessionStats(
     PiProjectId projectId,
     PiSessionId sessionId,

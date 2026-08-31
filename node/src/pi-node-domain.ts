@@ -1,70 +1,32 @@
+import type {
+  PiNodeConversationBackendEvent,
+  PiNodeConversationPage,
+  PiNodeConversationSnapshot,
+  PiNodeMessageContent,
+  PiNodeMessageContentRequest,
+} from "./pi-node-conversation.js";
 import type { ProjectTrustAuthorization } from "./project-trust.js";
 
-export type PiNodeJsonValue =
-  | null
-  | boolean
-  | number
-  | string
-  | readonly PiNodeJsonValue[]
-  | { readonly [key: string]: PiNodeJsonValue };
-
-export type PiNodeMessageRole = "user" | "assistant" | "tool" | "custom";
-export type PiNodeMessagePhase = "started" | "updated" | "completed";
-
-export type PiNodeMessagePart =
-  | {
-      readonly type: "text";
-      readonly text: string;
-    }
-  | {
-      readonly type: "thinking";
-      readonly text: string;
-      readonly redacted: boolean;
-    }
-  | {
-      readonly type: "image";
-      readonly mimeType: string;
-      readonly data: string;
-    }
-  | {
-      readonly type: "tool-call";
-      readonly id: string;
-      readonly name: string;
-      readonly arguments: PiNodeJsonValue;
-    }
-  | {
-      readonly type: "unsupported";
-      readonly sourceType: string;
-    };
-
-export interface PiNodeMessageUsage {
-  readonly inputTokens: number;
-  readonly outputTokens: number;
-  readonly cacheReadTokens: number;
-  readonly cacheWriteTokens: number;
-  readonly totalTokens: number;
-  readonly totalCost: number;
-}
-
-export interface PiNodeMessage {
-  readonly id: string;
-  readonly role: PiNodeMessageRole;
-  readonly sourceRole: string;
-  readonly timestampMs: number;
-  readonly parts: readonly PiNodeMessagePart[];
-  readonly assistant?: {
-    readonly provider: string;
-    readonly model: string;
-    readonly stopReason: string;
-    readonly errorMessage?: string;
-    readonly usage?: PiNodeMessageUsage;
-  };
-  readonly tool?: {
-    readonly callId: string;
-    readonly name: string;
-    readonly isError: boolean;
-  };
-}
+export type {
+  PiNodeContextMetrics,
+  PiNodeConversationBackendEvent,
+  PiNodeConversationEntry,
+  PiNodeConversationEntryIdentity,
+  PiNodeConversationIdentityScope,
+  PiNodeConversationMetrics,
+  PiNodeConversationPage,
+  PiNodeConversationPart,
+  PiNodeConversationSnapshot,
+  PiNodeMessageContent,
+  PiNodeMessageContentBinding,
+  PiNodeMessageContentReference,
+  PiNodeMessageContentRequest,
+  PiNodeMoneyAmount,
+  PiNodeSafeValue,
+  PiNodeToolActivity,
+  PiNodeToolActivityStatus,
+  PiNodeUsageMetrics,
+} from "./pi-node-conversation.js";
 
 export interface PiNodeSessionSummary {
   readonly sessionId: string;
@@ -81,18 +43,12 @@ export interface PiNodeSessionSummary {
 
 export interface PiNodeSessionSnapshot extends PiNodeSessionSummary {
   readonly persistence: "persistent";
-  readonly messages: readonly PiNodeMessage[];
-  readonly lastEventSequence: number;
+  readonly conversation: PiNodeConversationSnapshot;
 }
 
 export interface PiNodeSessionHistoryPage {
   readonly summary: PiNodeSessionSummary;
-  readonly messages: readonly PiNodeMessage[];
-  readonly nextCursor?: string;
-  readonly hasMore: boolean;
-  readonly activeBranchRevision: string;
-  readonly treeRevision: string;
-  readonly lastEventSequence: number;
+  readonly conversation: PiNodeConversationPage;
 }
 
 export interface PiNodeSessionSafeProjection {
@@ -174,11 +130,7 @@ export interface PiNodeEventBase {
 }
 
 export type PiNodeSessionEvent =
-  | (PiNodeEventBase & {
-      readonly type: "message";
-      readonly phase: PiNodeMessagePhase;
-      readonly message: PiNodeMessage;
-    })
+  | (PiNodeEventBase & PiNodeConversationBackendEvent)
   | (PiNodeEventBase & {
       readonly type: "running";
       readonly running: boolean;
@@ -255,11 +207,7 @@ export interface PiNodeProjectBootstrap {
 }
 
 export type PiNodeSessionBackendEvent =
-  | {
-      readonly type: "message";
-      readonly phase: PiNodeMessagePhase;
-      readonly message: PiNodeMessage;
-    }
+  | PiNodeConversationBackendEvent
   | {
       readonly type: "running";
       readonly running: boolean;
@@ -267,7 +215,7 @@ export type PiNodeSessionBackendEvent =
 
 export interface PiNodeSessionBackendSnapshot extends PiNodeSessionSummary {
   readonly persistence: "persistent";
-  readonly messages: readonly PiNodeMessage[];
+  readonly conversation: PiNodeConversationSnapshot;
 }
 
 export interface PiNodePromptExecution {
@@ -348,7 +296,11 @@ export interface PiNodeDomainSessionBackend {
     readonly expectedTreeRevision?: string;
   }): Promise<void>;
   subscribe(listener: (event: PiNodeSessionBackendEvent) => void): () => void;
-  startPrompt(input: { readonly text: string }): Promise<PiNodePromptExecution>;
+  startPrompt(input: {
+    readonly commandId: string;
+    readonly text: string;
+  }): Promise<PiNodePromptExecution>;
+  getMessageContent(input: PiNodeMessageContentRequest): PiNodeMessageContent;
   abort(): Promise<boolean>;
   getTreeSnapshot(): PiNodeSessionTreeSnapshot;
   navigateSessionTree(input: {
@@ -442,6 +394,7 @@ export type PiNodeDomainErrorCode =
   | "session-dispose-failed"
   | "session-history-cursor-invalid"
   | "session-history-conflict"
+  | "session-content-invalid"
   | "session-export-failed"
   | "session-admin-invalid-name"
   | "session-admin-confirmation-required"

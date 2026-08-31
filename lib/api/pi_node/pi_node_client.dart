@@ -27,8 +27,7 @@ final class PiNodeClient implements PiNodeApi {
   final Map<PiSessionId, StreamController<PiSessionEvent>> _sessionControllers =
       <PiSessionId, StreamController<PiSessionEvent>>{};
   final Map<PiSessionId, int> _lastSessionSequences = <PiSessionId, int>{};
-  final Map<String, _ClientExportTransfer> _transfers =
-      <String, _ClientExportTransfer>{};
+  final Map<String, _ClientTransfer> _transfers = <String, _ClientTransfer>{};
 
   PiNodeConnectionSnapshot _connection =
       const PiNodeConnectionSnapshot.disconnected();
@@ -229,7 +228,7 @@ final class PiNodeClient implements PiNodeApi {
       projectId: projectId.value,
     ),
     (message) => switch (message) {
-      PiProtocolSessionResponse(:final session) => _sessionDetailFromProtocol(
+      PiProtocolSessionResponse(:final session) => _acceptSessionDetail(
         session,
       ),
       PiProtocolRequestRejectedMessage(:final failure) =>
@@ -250,7 +249,7 @@ final class PiNodeClient implements PiNodeApi {
         ),
         (message) => switch (message) {
           PiProtocolSessionCreatedResponse(:final session) =>
-            _sessionDetailFromProtocol(session),
+            _acceptSessionDetail(session),
           PiProtocolRequestRejectedMessage(:final failure) =>
             throw PiNodeException.fromProtocolFailure(failure),
           _ => throw const PiNodeException(
@@ -297,24 +296,34 @@ final class PiNodeClient implements PiNodeApi {
       expectedTreeRevision: request.expectedTreeRevision?.value,
     ),
     (message) => switch (message) {
-      PiProtocolSessionHistoryResponse(
-        :final summary,
-        :final messages,
-        :final nextCursor,
-        :final hasMore,
-        :final activeBranchRevision,
-        :final treeRevision,
-      ) =>
-        PiSessionHistoryPage(
-          summary: _sessionSummaryFromProtocol(summary),
-          messages: messages.map(_messageFromProtocol),
-          nextCursor: nextCursor == null
-              ? null
-              : PiSessionHistoryCursor(nextCursor),
-          hasMore: hasMore,
-          activeBranchRevision: PiSessionBranchRevision(activeBranchRevision),
-          treeRevision: PiSessionTreeRevision(treeRevision),
-        ),
+      PiProtocolSessionHistoryResponse(:final summary, :final conversation) =>
+        _acceptSessionHistory(summary, conversation),
+      PiProtocolRequestRejectedMessage(:final failure) =>
+        throw PiNodeException.fromProtocolFailure(failure),
+      _ => throw const PiNodeException(
+        PiNodeErrorCode.unexpectedResponse,
+        retryable: false,
+      ),
+    },
+  );
+
+  @override
+  Future<PiMessageContentHandle> getMessageContent(
+    PiMessageContentRequest request,
+  ) => _sendRequest<PiMessageContentHandle>(
+    (requestId) => PiProtocolGetMessageContentRequest(
+      requestId: requestId,
+      projectId: request.projectId.value,
+      binding: _protocolContentBinding(request.binding),
+      expectedMimeType: request.reference.mimeType,
+      expectedTotalBytes: request.reference.totalBytes,
+      expectedSha256: request.reference.sha256,
+    ),
+    (message) => switch (message) {
+      PiProtocolTransferOpenMessage() => _openMessageContentTransfer(
+        message,
+        request,
+      ),
       PiProtocolRequestRejectedMessage(:final failure) =>
         throw PiNodeException.fromProtocolFailure(failure),
       _ => throw const PiNodeException(
@@ -671,19 +680,66 @@ final class PiNodeClient implements PiNodeApi {
   PiSessionExportHandle _openExportTransfer(
     PiProtocolTransferOpenMessage message,
   ) {
+    if (message.purpose != PiProtocolTransferPurpose.export ||
+        message.messageContentBinding != null) {
+      throw const PiNodeException(
+        PiNodeErrorCode.protocolViolation,
+        retryable: false,
+      );
+    }
+    return _openTransfer(message);
+  }
+
+  PiMessageContentHandle _openMessageContentTransfer(
+    PiProtocolTransferOpenMessage message,
+    PiMessageContentRequest request,
+  ) {
+    final binding = message.messageContentBinding;
+    if (message.purpose != PiProtocolTransferPurpose.messageContent ||
+        binding == null ||
+        !_sameContentBinding(binding, request.binding) ||
+        message.contentType != request.reference.mimeType ||
+        message.totalBytes != request.reference.totalBytes ||
+        !_sameBytes(message.sha256, request.reference.sha256)) {
+      throw const PiNodeException(PiNodeErrorCode.dataLoss, retryable: false);
+    }
+    return _openTransfer(message);
+  }
+
+  _ClientTransfer _openTransfer(PiProtocolTransferOpenMessage message) {
     if (_transfers.containsKey(message.transferId)) {
       throw const PiNodeException(
         PiNodeErrorCode.protocolViolation,
         retryable: false,
       );
     }
-    final transfer = _ClientExportTransfer(
+    final transfer = _ClientTransfer(
       metadata: message,
       send: _sendControl,
       onFinished: () => _transfers.remove(message.transferId),
     );
     _transfers[message.transferId] = transfer;
     return transfer;
+  }
+
+  PiSessionDetail _acceptSessionDetail(PiProtocolSessionDetail value) {
+    final detail = _sessionDetailFromProtocol(value);
+    _lastSessionSequences[detail.summary.id] =
+        detail.conversation.lastEventSequence;
+    return detail;
+  }
+
+  PiSessionHistoryPage _acceptSessionHistory(
+    PiProtocolSessionSummary summary,
+    PiProtocolConversationPage conversation,
+  ) {
+    final page = PiSessionHistoryPage(
+      summary: _sessionSummaryFromProtocol(summary),
+      conversation: _conversationPageFromProtocol(conversation),
+    );
+    _lastSessionSequences[page.summary.id] =
+        page.conversation.lastEventSequence;
+    return page;
   }
 
   Future<void> _sendControl(PiClientProtocolMessage message) async {
@@ -1046,8 +1102,9 @@ final class PiNodeClient implements PiNodeApi {
   }
 }
 
-final class _ClientExportTransfer implements PiSessionExportHandle {
-  _ClientExportTransfer({
+final class _ClientTransfer
+    implements PiSessionExportHandle, PiMessageContentHandle {
+  _ClientTransfer({
     required PiProtocolTransferOpenMessage metadata,
     required Future<void> Function(PiClientProtocolMessage message) send,
     required void Function() onFinished,
@@ -1081,6 +1138,29 @@ final class _ClientExportTransfer implements PiSessionExportHandle {
 
   @override
   List<int> get sha256 => List<int>.unmodifiable(_metadata.sha256);
+
+  @override
+  PiMessageContentBinding get binding {
+    final value = _metadata.messageContentBinding;
+    if (value == null) {
+      throw StateError('Export transfers do not expose a message binding.');
+    }
+    return _contentBindingFromProtocol(value);
+  }
+
+  @override
+  PiMessageContentReference get reference {
+    if (_metadata.purpose != PiProtocolTransferPurpose.messageContent) {
+      throw StateError('Export transfers do not expose a message reference.');
+    }
+    return PiMessageContentReference(
+      contentId: binding.contentId,
+      mimeType: _metadata.contentType,
+      displayName: _metadata.fileName,
+      totalBytes: _metadata.totalBytes,
+      sha256: Uint8List.fromList(_metadata.sha256),
+    );
+  }
 
   @override
   Stream<Uint8List> get bytes => _bytes;
@@ -1603,8 +1683,324 @@ PiSessionSummary _sessionSummaryFromProtocol(PiProtocolSessionSummary value) =>
 PiSessionDetail _sessionDetailFromProtocol(PiProtocolSessionDetail value) =>
     PiSessionDetail(
       summary: _sessionSummaryFromProtocol(value.summary),
-      messages: value.messages.map(_messageFromProtocol),
+      conversation: _conversationSnapshotFromProtocol(value.conversation),
     );
+
+PiConversationSnapshot _conversationSnapshotFromProtocol(
+  PiProtocolConversationSnapshot value,
+) => PiConversationSnapshot(
+  sessionId: PiSessionId(value.sessionId),
+  entries: value.entries.map(_conversationEntryFromProtocol),
+  lastEventSequence: value.lastEventSequence,
+);
+
+PiConversationPage _conversationPageFromProtocol(
+  PiProtocolConversationPage value,
+) => PiConversationPage(
+  sessionId: PiSessionId(value.sessionId),
+  entries: value.entries.map(_conversationEntryFromProtocol),
+  nextCursor: value.nextCursor == null
+      ? null
+      : PiSessionHistoryCursor(value.nextCursor!),
+  hasMore: value.hasMore,
+  activeBranchRevision: PiSessionBranchRevision(value.activeBranchRevision),
+  treeRevision: PiSessionTreeRevision(value.treeRevision),
+  lastEventSequence: value.lastEventSequence,
+);
+
+PiConversationEntry _conversationEntryFromProtocol(
+  PiProtocolConversationEntry value,
+) {
+  final identity = PiConversationEntryIdentity(
+    entryId: value.entryId,
+    scope: switch (value.scope) {
+      PiProtocolConversationIdentityScope.persistent =>
+        PiConversationIdentityScope.persistent,
+      PiProtocolConversationIdentityScope.runtime =>
+        PiConversationIdentityScope.runtime,
+    },
+    originCommandId: value.originCommandId == null
+        ? null
+        : PiCommandId(value.originCommandId!),
+  );
+  final parts = value.parts.map(_conversationPartFromProtocol);
+  final activities = value.toolActivities.map(_toolActivityFromProtocol);
+  final metrics = value.metrics == null
+      ? null
+      : _conversationMetricsFromProtocol(value.metrics!);
+  return switch (value.type) {
+    PiProtocolConversationEntryType.user => PiUserConversationEntry(
+      identity: identity,
+      revision: value.revision,
+      createdAt: value.createdAt,
+      finalized: value.finalized,
+      parts: parts,
+      toolActivities: activities,
+      metrics: metrics,
+    ),
+    PiProtocolConversationEntryType.assistant => PiAssistantConversationEntry(
+      identity: identity,
+      revision: value.revision,
+      createdAt: value.createdAt,
+      finalized: value.finalized,
+      parts: parts,
+      toolActivities: activities,
+      metrics: metrics,
+      provider: value.provider!,
+      model: value.model!,
+      stopReason: value.stopReason!,
+      safeErrorMessage: value.safeErrorMessage,
+    ),
+    PiProtocolConversationEntryType.toolResult => PiToolResultConversationEntry(
+      identity: identity,
+      revision: value.revision,
+      createdAt: value.createdAt,
+      finalized: value.finalized,
+      parts: parts,
+      toolActivities: activities,
+      metrics: metrics,
+      toolCallId: value.toolCallId!,
+      toolName: value.toolName!,
+      isError: value.isError!,
+      safeDetails: _safeValueFromProtocol(value.safeDetails!),
+    ),
+    PiProtocolConversationEntryType.bash => PiBashConversationEntry(
+      identity: identity,
+      revision: value.revision,
+      createdAt: value.createdAt,
+      finalized: value.finalized,
+      parts: parts,
+      toolActivities: activities,
+      metrics: metrics,
+      command: value.command!,
+      exitCode: value.exitCode,
+      cancelled: value.cancelled!,
+      truncated: value.truncated!,
+      excludedFromContext: value.excludedFromContext!,
+    ),
+    PiProtocolConversationEntryType.custom => PiCustomConversationEntry(
+      identity: identity,
+      revision: value.revision,
+      createdAt: value.createdAt,
+      finalized: value.finalized,
+      parts: parts,
+      toolActivities: activities,
+      metrics: metrics,
+      customType: value.customType!,
+      display: value.display!,
+      safeDetails: _safeValueFromProtocol(value.safeDetails!),
+    ),
+    PiProtocolConversationEntryType.compaction => PiCompactionConversationEntry(
+      identity: identity,
+      revision: value.revision,
+      createdAt: value.createdAt,
+      finalized: value.finalized,
+      parts: parts,
+      toolActivities: activities,
+      metrics: metrics,
+      firstKeptEntryId: value.firstKeptEntryId!,
+      tokensBefore: value.tokensBefore!,
+      fromHook: value.fromHook!,
+      safeDetails: _safeValueFromProtocol(value.safeDetails!),
+    ),
+    PiProtocolConversationEntryType.branchSummary =>
+      PiBranchSummaryConversationEntry(
+        identity: identity,
+        revision: value.revision,
+        createdAt: value.createdAt,
+        finalized: value.finalized,
+        parts: parts,
+        toolActivities: activities,
+        metrics: metrics,
+        fromEntryId: value.fromEntryId!,
+        fromHook: value.fromHook!,
+        safeDetails: _safeValueFromProtocol(value.safeDetails!),
+      ),
+    PiProtocolConversationEntryType.marker => PiMarkerConversationEntry(
+      identity: identity,
+      revision: value.revision,
+      createdAt: value.createdAt,
+      finalized: value.finalized,
+      parts: parts,
+      toolActivities: activities,
+      metrics: metrics,
+      markerKind: switch (value.markerKind!) {
+        PiProtocolConversationMarkerKind.thinkingLevel =>
+          PiConversationMarkerKind.thinkingLevel,
+        PiProtocolConversationMarkerKind.modelChange =>
+          PiConversationMarkerKind.modelChange,
+        PiProtocolConversationMarkerKind.label =>
+          PiConversationMarkerKind.label,
+        PiProtocolConversationMarkerKind.sessionInfo =>
+          PiConversationMarkerKind.sessionInfo,
+      },
+      targetEntryId: value.targetEntryId,
+      label: value.label,
+      provider: value.provider,
+      model: value.model,
+      thinkingLevel: value.thinkingLevel,
+    ),
+    PiProtocolConversationEntryType.unknown => PiUnknownConversationEntry(
+      identity: identity,
+      revision: value.revision,
+      createdAt: value.createdAt,
+      finalized: value.finalized,
+      parts: parts,
+      toolActivities: activities,
+      metrics: metrics,
+      sourceType: value.sourceType!,
+    ),
+  };
+}
+
+PiConversationPart _conversationPartFromProtocol(
+  PiProtocolConversationPart value,
+) => switch (value.type) {
+  PiProtocolConversationPartType.text => PiTextConversationPart(
+    partId: value.partId,
+    revision: value.revision,
+    text: value.text,
+    contentReference: value.contentReference == null
+        ? null
+        : _contentReferenceFromProtocol(value.contentReference!),
+  ),
+  PiProtocolConversationPartType.thinking => PiThinkingConversationPart(
+    partId: value.partId,
+    revision: value.revision,
+    visibility: switch (value.thinkingVisibility!) {
+      PiProtocolThinkingVisibility.visible => PiThinkingVisibility.visible,
+      PiProtocolThinkingVisibility.redacted => PiThinkingVisibility.redacted,
+      PiProtocolThinkingVisibility.deferred => PiThinkingVisibility.deferred,
+    },
+    text: value.text,
+    contentReference: value.contentReference == null
+        ? null
+        : _contentReferenceFromProtocol(value.contentReference!),
+  ),
+  PiProtocolConversationPartType.image => PiImageConversationPart(
+    partId: value.partId,
+    revision: value.revision,
+    contentReference: _contentReferenceFromProtocol(value.contentReference!),
+  ),
+  PiProtocolConversationPartType.toolCall => PiToolCallConversationPart(
+    partId: value.partId,
+    revision: value.revision,
+    toolCallId: value.toolCallId!,
+    toolName: value.toolName!,
+    safeArguments: _safeValueFromProtocol(value.safeArguments!),
+  ),
+  PiProtocolConversationPartType.unsupported => PiUnsupportedConversationPart(
+    partId: value.partId,
+    revision: value.revision,
+    sourceType: value.sourceType!,
+  ),
+};
+
+PiMessageContentReference _contentReferenceFromProtocol(
+  PiProtocolMessageContentReference value,
+) => PiMessageContentReference(
+  contentId: value.contentId,
+  mimeType: value.mimeType,
+  displayName: value.displayName,
+  totalBytes: value.totalBytes,
+  sha256: value.sha256,
+);
+
+PiMessageContentBinding _contentBindingFromProtocol(
+  PiProtocolMessageContentBinding value,
+) => PiMessageContentBinding(
+  sessionId: PiSessionId(value.sessionId),
+  entryId: value.entryId,
+  partId: value.partId,
+  entryRevision: value.entryRevision,
+  partRevision: value.partRevision,
+  contentId: value.contentId,
+);
+
+PiProtocolMessageContentBinding _protocolContentBinding(
+  PiMessageContentBinding value,
+) => PiProtocolMessageContentBinding(
+  sessionId: value.sessionId.value,
+  entryId: value.entryId,
+  partId: value.partId,
+  entryRevision: value.entryRevision,
+  partRevision: value.partRevision,
+  contentId: value.contentId,
+);
+
+bool _sameContentBinding(
+  PiProtocolMessageContentBinding left,
+  PiMessageContentBinding right,
+) =>
+    left.sessionId == right.sessionId.value &&
+    left.entryId == right.entryId &&
+    left.partId == right.partId &&
+    left.entryRevision == right.entryRevision &&
+    left.partRevision == right.partRevision &&
+    left.contentId == right.contentId;
+
+PiSafeValue _safeValueFromProtocol(PiProtocolSafeValue value) =>
+    switch (value) {
+      PiProtocolSafeNull() => const PiSafeNull(),
+      PiProtocolSafeRedacted() => const PiSafeRedacted(),
+      PiProtocolSafeBool(:final value) => PiSafeBool(value),
+      PiProtocolSafeInt(:final value) => PiSafeInt(value),
+      PiProtocolSafeDouble(:final value) => PiSafeDouble(value),
+      PiProtocolSafeString(:final value) => PiSafeString(value),
+      PiProtocolSafeList(:final values) => PiSafeList(
+        values.map(_safeValueFromProtocol),
+      ),
+      PiProtocolSafeObject(:final fields) => PiSafeObject(
+        fields.map(
+          (field) => PiSafeObjectField(
+            key: field.key,
+            value: _safeValueFromProtocol(field.value),
+          ),
+        ),
+      ),
+    };
+
+PiToolActivity _toolActivityFromProtocol(
+  PiProtocolToolActivity value,
+) => PiToolActivity(
+  activityId: value.activityId,
+  toolCallId: value.toolCallId,
+  toolName: value.toolName,
+  sourceOrdinal: value.sourceOrdinal,
+  revision: value.revision,
+  status: switch (value.status) {
+    PiProtocolToolActivityStatus.pending => PiToolActivityStatus.pending,
+    PiProtocolToolActivityStatus.running => PiToolActivityStatus.running,
+    PiProtocolToolActivityStatus.succeeded => PiToolActivityStatus.succeeded,
+    PiProtocolToolActivityStatus.failed => PiToolActivityStatus.failed,
+    PiProtocolToolActivityStatus.cancelled => PiToolActivityStatus.cancelled,
+  },
+  progressBasisPoints: value.progressBasisPoints,
+  safeDetails: _safeValueFromProtocol(value.safeDetails),
+);
+
+PiConversationMetrics _conversationMetricsFromProtocol(
+  PiProtocolConversationMetrics value,
+) => PiConversationMetrics(
+  usage: PiUsageMetrics(
+    inputTokens: value.usage.inputTokens,
+    outputTokens: value.usage.outputTokens,
+    cacheReadTokens: value.usage.cacheReadTokens,
+    cacheWriteTokens: value.usage.cacheWriteTokens,
+    totalTokens: value.usage.totalTokens,
+  ),
+  cost: PiMoneyAmount(
+    currencyCode: value.cost.currencyCode,
+    decimalAmount: value.cost.decimalAmount,
+  ),
+  context: value.context == null
+      ? null
+      : PiContextMetrics(
+          tokens: value.context!.tokens,
+          contextWindow: value.context!.contextWindow,
+          percentDecimal: value.context!.percentDecimal,
+        ),
+);
 
 PiMessage _messageFromProtocol(PiProtocolMessageSnapshot value) => PiMessage(
   id: PiMessageId(value.id),
@@ -1736,6 +2132,74 @@ PiSessionEvent _sessionEventFromProtocol(
       sequence: message.sequence,
       messageId: PiMessageId(messageId),
       delta: delta,
+    ),
+  PiProtocolConversationEntryUpsertEvent(
+    :final entry,
+    :final expectedPreviousRevision,
+  ) =>
+    PiSessionEntryUpsertEvent(
+      sessionId: sessionId,
+      sequence: message.sequence,
+      entry: _conversationEntryFromProtocol(entry),
+      expectedPreviousRevision: expectedPreviousRevision,
+    ),
+  PiProtocolConversationPartDeltaEvent(
+    :final entryId,
+    :final expectedEntryRevision,
+    :final resultingEntryRevision,
+    :final partId,
+    :final expectedPartRevision,
+    :final resultingPartRevision,
+    :final textDelta,
+  ) =>
+    PiSessionPartDeltaEvent(
+      sessionId: sessionId,
+      sequence: message.sequence,
+      entryId: entryId,
+      expectedEntryRevision: expectedEntryRevision,
+      resultingEntryRevision: resultingEntryRevision,
+      partId: partId,
+      expectedPartRevision: expectedPartRevision,
+      resultingPartRevision: resultingPartRevision,
+      textDelta: textDelta,
+    ),
+  PiProtocolConversationEntryFinalizedEvent(
+    :final entry,
+    :final expectedPreviousRevision,
+  ) =>
+    PiSessionEntryFinalizedEvent(
+      sessionId: sessionId,
+      sequence: message.sequence,
+      entry: _conversationEntryFromProtocol(entry),
+      expectedPreviousRevision: expectedPreviousRevision,
+    ),
+  PiProtocolConversationToolActivityEvent(
+    :final entryId,
+    :final expectedEntryRevision,
+    :final resultingEntryRevision,
+    :final activity,
+  ) =>
+    PiSessionToolActivityEvent(
+      sessionId: sessionId,
+      sequence: message.sequence,
+      entryId: entryId,
+      expectedEntryRevision: expectedEntryRevision,
+      resultingEntryRevision: resultingEntryRevision,
+      activity: _toolActivityFromProtocol(activity),
+    ),
+  PiProtocolConversationMetricsEvent(
+    :final entryId,
+    :final expectedEntryRevision,
+    :final resultingEntryRevision,
+    :final metrics,
+  ) =>
+    PiSessionMetricsEvent(
+      sessionId: sessionId,
+      sequence: message.sequence,
+      entryId: entryId,
+      expectedEntryRevision: expectedEntryRevision,
+      resultingEntryRevision: resultingEntryRevision,
+      metrics: _conversationMetricsFromProtocol(metrics),
     ),
   PiProtocolSessionRunningChangedEvent(:final isRunning) =>
     PiSessionRunningChangedEvent(
