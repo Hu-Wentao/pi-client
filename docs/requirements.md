@@ -211,15 +211,17 @@ Default review level: L6. User-directed product scope and safety boundaries are 
 - Source: `PLAN-PI-004`.
 - Acceptance: Draft restore, history recall, image validation/compression, slash palette, prompt template, skill, extension command, `@` file/line mention, steer, follow-up, queue recall, and disabled-state outcomes are observable.
 
-## REQ-PI-019 - Run project shell commands
+## REQ-PI-019 - Run secure project-scoped remote shells
 
 - Status: Planned
 - Priority: Must
+- Target: 1.1
 - Review level: L9
-- Actor and goal: An authorized desktop user can run, observe, stop, and retrieve bounded project shell output from the composer.
-- Constraints: Shell execution is desktop-host-only, project-trust-gated, scoped to the project command environment, and never exposed as an arbitrary transport proxy.
-- Source: `DEC-014` and `PLAN-PI-004`.
-- Acceptance: Context-included and context-excluded commands, streaming output, truncation, full-output retrieval, cancellation, nonzero exit, and unsupported-platform states are observable.
+- Actor and goal: An authorized user can run, observe, control, stop, reconnect to, and retrieve bounded project command or PTY output from a local or remote Pi Node.
+- Constraints: Shell execution is project-trust-gated, allowed-root-scoped, bound to one authorized Node and writer, protected by transport authorization and E2EE when remote, and never exposed as an arbitrary transport proxy. Android, iOS, and Web remain remote clients and never host local command or PTY execution.
+- Source: `DEC-014`, `DEC-022`, and `PLAN-PI-008`.
+- Acceptance: Accepted/rejected/uncertain admission, non-interactive command and interactive PTY modes, structured cwd and environment policy, streaming stdout/stderr or terminal frames, input, resize, backpressure, reconnect cursor, truncation, authorized full-output retrieval, timeout, cancellation, process-tree termination, nonzero exit, Windows Shell profile, custom Extension terminal interaction, replay rejection, and unsupported-host states are observable.
+- Release boundary: This requirement is not release-scoped for `1.0.0`; Pi Client `1.0` contains no built-in command execution, PTY, remote Shell, mobile/Web Shell, or custom Extension terminal bridge.
 
 ## REQ-PI-020 - Read rich conversation output
 
@@ -285,11 +287,12 @@ Default review level: L6. User-directed product scope and safety boundaries are 
 
 - Status: Planned
 - Priority: Must
+- Target: 1.0
 - Review level: L9
 - Actor and goal: A user can inspect and change global or trusted-project settings that affect appearance and Pi runtime behavior.
-- Constraints: Project writes require trust; scope and reload impact are explicit; settings do not bypass provider, package, tool, or platform ownership.
-- Source: `PLAN-PI-004`.
-- Acceptance: Theme, locale, default model, thinking, retry, compaction, system prompt, tool definitions, tool presets, Windows shell, scope warning, save, reload-required, validation, and rollback states are observable.
+- Constraints: Project writes require trust; scope and reload impact are explicit; settings do not bypass provider, package, tool, or platform ownership. Windows Shell profiles are owned by the `1.1` remote Shell requirement rather than this `1.0` setting outcome.
+- Source: `DEC-022` and `PLAN-PI-004`.
+- Acceptance: Theme, locale, default model, thinking, retry, compaction, system prompt, tool definitions, tool presets, scope warning, save, reload-required, validation, and rollback states are observable.
 
 ## REQ-PI-027 - Manage skills
 
@@ -311,15 +314,16 @@ Default review level: L6. User-directed product scope and safety boundaries are 
 - Source: `PLAN-PI-004`.
 - Acceptance: npm, Git, and local sources; global/project scope; installed/loaded/disabled/error states; resource counts; update; removal; enable/disable; reload; and failure recovery are observable.
 
-## REQ-PI-029 - Host extension interactions
+## REQ-PI-029 - Host standard extension interactions
 
 - Status: Planned
 - Priority: Must
+- Target: 1.0
 - Review level: L9
-- Actor and goal: A user can respond to extension input and observe extension notifications, status, widgets, titles, editor changes, and custom terminal UI.
-- Constraints: Blocking requests carry identity, timeout, cancellation, disconnect recovery, and stale-response rejection; arbitrary custom UI stays within a bounded headless terminal bridge.
-- Source: `PLAN-PI-004`.
-- Acceptance: Select, confirm, input, editor, notify, status, widget, title, editor text, custom render/input/resize/close, extension error, timeout, cancel, and replacement outcomes are observable.
+- Actor and goal: A user can respond to standard extension input and observe extension notifications, status, widgets, titles, and editor changes through native Flutter controls.
+- Constraints: Blocking requests carry identity, timeout, cancellation, disconnect recovery, and stale-response rejection. Arbitrary custom terminal UI is excluded from `1.0` and is governed with `REQ-PI-019` by `PLAN-PI-008` for `1.1`.
+- Source: `DEC-022` and `PLAN-PI-004`.
+- Acceptance: Select, confirm, input, editor, notify, status, widget, title, editor text, extension error, timeout, cancel, disconnect, stale response, and replacement outcomes are observable.
 
 ## REQ-PI-030 - Open existing subagent sessions
 
@@ -356,10 +360,10 @@ Default review level: L6. User-directed product scope and safety boundaries are 
 - Status: Planned
 - Priority: Must
 - Review level: L9
-- Actor and goal: A user can grant only the project, file, shell, tool, package, model, and remote scopes needed for a Pi Client operation.
-- Constraints: Project trust, allowed roots, canonical path checks, symbolic-link escape prevention, node pairing, scoped grants, secret redaction, bounded streams, and destructive confirmations fail closed.
-- Source: `DEC-013`, `DEC-014`, and `PLAN-PI-004`.
-- Acceptance: Unauthorized roots, traversal, symbolic-link escape, stale/replayed grant, wrong Node, secret logging, oversized frames/uploads, unbounded streams, and unconfirmed destructive actions are rejected with stable user-visible errors.
+- Actor and goal: A user can grant only the project, file, tool, package, model, remote, and version-applicable Shell scopes needed for a Pi Client operation.
+- Constraints: Project trust, allowed roots, canonical path checks, symbolic-link escape prevention, node pairing, scoped grants, secret redaction, bounded streams, and destructive confirmations fail closed. The `1.0` external-terminal action consumes only the current Node-validated project identity and creates no Shell grant, command, environment, output, PTY, or transport authority; remote Shell scopes begin with `REQ-PI-019` in `1.1`.
+- Source: `DEC-013`, `DEC-014`, `DEC-022`, and `PLAN-PI-004`.
+- Acceptance: Unauthorized roots, traversal, symbolic-link escape, stale/replayed grant, wrong Node, secret logging, oversized frames/uploads, unbounded streams, unconfirmed destructive actions, and attempts to use the `1.0` external-terminal boundary as a command proxy are rejected with stable user-visible errors.
 
 ## REQ-PI-034 - Publish supported 1.0 releases
 
@@ -400,3 +404,14 @@ Default review level: L6. User-directed product scope and safety boundaries are 
 - Constraints: Current tooling remains dormant; activation requires a publication-enabled Profile, annotated Tag and commit identity, a public Universal first-party Runtime Capsule artifact, exact SHA-256, signing/trust disclosure, independent Tap authorization, and no Gatekeeper bypass.
 - Source: `DEC-018`, `DEC-021`, and `PLAN-PI-006`.
 - Acceptance: Cask generation rejects unpublished, mismatched, placeholder, non-Universal, connect-only, or non-runtime evidence; an authorized future Tap update installs and launches the exact qualified asset and survives public readback.
+
+## REQ-PI-038 - Open the trusted desktop project in an external terminal
+
+- Status: Planned
+- Priority: Must
+- Target: 1.0
+- Review level: L9
+- Actor and goal: A desktop user can open the current Pi Node-validated project in a system external terminal at its canonical working directory.
+- Constraints: The action is visible only for a selected project whose trust status is `trusted` or `notRequired`, accepts only its `PiProjectIdentity`, and is limited to macOS, Windows, and Linux. It does not execute `pi` or any other command, copy or generate commands, accept arbitrary arguments or environment, capture output, provide stdin or PTY, create a Shell grant, use a file URL, or cross Pi Protocol/Friday Transport. Android, iOS, and Web return unsupported and expose no action.
+- Source: `DEC-022` and `PLAN-PI-004`.
+- Acceptance: Exact canonical cwd, spaces and command metacharacters without Shell interpolation, Node-canonicalized symbolic-link identity, no selected or untrusted project, desktop availability, missing-terminal unsupported state, redacted launch failure, stale project switch, keyboard activation, screen-reader semantics, 200% text scale, and connect-only artifact absence are observable.

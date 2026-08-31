@@ -6,11 +6,13 @@ class ProjectBrowserView extends StatefulWidget {
     required this.onBrowseDirectory,
     required this.onValidatePath,
     required this.onProjectSelected,
+    this.onOpenExternalTerminal,
     this.selectedProject,
     this.directory,
     this.isLoading = false,
     this.isBrowsing = false,
     this.isValidating = false,
+    this.isOpeningExternalTerminal = false,
     this.errorMessage,
     super.key,
   });
@@ -21,10 +23,12 @@ class ProjectBrowserView extends StatefulWidget {
   final bool isLoading;
   final bool isBrowsing;
   final bool isValidating;
+  final bool isOpeningExternalTerminal;
   final String? errorMessage;
   final ValueChanged<String> onBrowseDirectory;
   final ValueChanged<String> onValidatePath;
   final ValueChanged<PiProject> onProjectSelected;
+  final VoidCallback? onOpenExternalTerminal;
 
   @override
   State<ProjectBrowserView> createState() => _ProjectBrowserViewState();
@@ -66,6 +70,8 @@ class _ProjectBrowserViewState extends State<ProjectBrowserView> {
     final project = widget.selectedProject;
     final directory = widget.directory;
     final busy = widget.isLoading || widget.isBrowsing || widget.isValidating;
+    final stacksTrustStatus =
+        project != null && MediaQuery.textScalerOf(context).scale(14) > 20;
 
     return Semantics(
       container: true,
@@ -98,10 +104,44 @@ class _ProjectBrowserViewState extends State<ProjectBrowserView> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              trailing: project == null
+              trailing: project == null || stacksTrustStatus
                   ? null
                   : _TrustStatusChip(status: project.trust.status),
             ),
+            if (project != null && stacksTrustStatus)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: _TrustStatusChip(status: project.trust.status),
+                ),
+              ),
+            if (project != null &&
+                !project.trust.requiresApproval &&
+                widget.onOpenExternalTerminal != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                child: Semantics(
+                  button: true,
+                  label: 'Open selected project in an external terminal',
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.tonalIcon(
+                      key: const Key('projectBrowserOpenExternalTerminal'),
+                      onPressed: widget.isOpeningExternalTerminal
+                          ? null
+                          : widget.onOpenExternalTerminal,
+                      icon: widget.isOpeningExternalTerminal
+                          ? const SizedBox.square(
+                              dimension: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.terminal_rounded),
+                      label: const Text('Open in terminal'),
+                    ),
+                  ),
+                ),
+              ),
             if (widget.errorMessage case final error?)
               MaterialBanner(
                 key: const Key('projectBrowserErrorBanner'),

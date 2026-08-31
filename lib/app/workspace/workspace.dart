@@ -12,6 +12,7 @@ import '../../components/project_browser/project_browser.dart';
 import '../../components/prompt_composer/prompt_composer.dart';
 import '../../components/session_browser/session_browser.dart';
 import '../../core/pi_node_composition.dart';
+import '../../platform/external_terminal/external_terminal_launcher.dart';
 import '../../platform/session_export/session_export_saver.dart';
 import 'workspace.srv.dart';
 

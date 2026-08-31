@@ -7,12 +7,12 @@
 /// - none
 /// State Ownership: none
 /// Capabilities:
-/// - Present Node-validated project identity, bounded directory browsing, session-derived known projects, manual-path validation, and explicit Project Trust approval without owning business state.
+/// - Present Node-validated project identity, bounded directory browsing, session-derived known projects, manual-path validation, the optional trusted-desktop external-terminal action, and explicit Project Trust approval without owning business state.
 /// Public Views:
 /// - [ProjectBrowserView] — project selector driven by typed Node snapshots and callbacks.
 /// - [ProjectTrustDialogView] — explicit approval surface for project-local resources before a resource-bearing session opens; `ProjectTrustDialog` is its semantic dialog factory.
 /// Widget Tree:
-/// - [ProjectBrowserView] > [ListTile] (selected identity), [TextField] (manual path), [FilledButton] (validate), [ExpansionTile] (directory browser), [ListView] (bounded child directories), [ListTile] × N (known projects), [MaterialBanner] (error)
+/// - [ProjectBrowserView] > [ListTile] (selected identity), [FilledButton] (external terminal, conditional), [TextField] (manual path), [FilledButton] (validate), [ExpansionTile] (directory browser), [ListView] (bounded child directories), [ListTile] × N (known projects), [MaterialBanner] (error)
 /// - [ProjectTrustDialogView] > [AlertDialog], [ListView] (trust reasons), [TextButton] (cancel), [FilledButton] (approve)
 /// Theme: material
 

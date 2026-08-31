@@ -155,13 +155,13 @@ mdq:
 - Planned evidence: Verify project selection/trust, workspace restore, session lifecycle, running/unread state, pagination, branches, edit-from-here, independent sessions, exports, destructive recovery, and existing child-session visibility.
 - Gap: `VER-PI-007` proves the basic first-party session list/create/load foundation and Workspace cutover only. Project selection and trust UX, restore, naming, deletion, export, pagination, branch/fork behavior, child-session presentation, and the full P3 module split remain unimplemented or unevidenced.
 
-## VER-PI-016 - Agent, composer, shell, and rich conversation behavior
+## VER-PI-016 - Agent, composer, and rich conversation behavior
 
 - Status: PLANNED
-- Requirements: REQ-PI-017, REQ-PI-018, REQ-PI-019, REQ-PI-020
-- Owner: future protocol fixtures, Pi Node runtime integration, focused Flutter concurrency/Widget tests, Golden tests, and desktop E2E
-- Planned evidence: Verify command admission, streaming order, retry, compaction, queue, drafts, attachments, commands, mentions, shell, rich renderers, deferred/oversized content, disconnect recovery, and stale-event rejection.
-- Gap: `VER-PI-007` proves basic typed prompt/abort admission, ordered session events, optimistic Workspace state, and sequence-gap recovery only. Retry, compaction, reload/steer/follow-up queues, full composer inputs, desktop shell, rich rendering, provider-backed production turns, and the complete P4 recovery matrix remain unimplemented or unevidenced.
+- Requirements: REQ-PI-017, REQ-PI-018, REQ-PI-020
+- Owner: protocol fixtures, Pi Node runtime integration, focused Flutter concurrency/Widget tests, Golden tests, and desktop E2E
+- Planned evidence: Verify command admission, streaming order, retry, compaction, queue, drafts, attachments, slash/skill/template/extension commands, file mentions, rich renderers, historical Shell/Process cards, deferred/oversized content, disconnect recovery, and stale-event rejection without claiming Shell execution.
+- Gap: Basic typed prompt/abort admission, ordered session events, optimistic Workspace state, sequence-gap recovery, and several structured rich renderers have focused evidence. Retry, compaction, reload/steer/follow-up queues, full composer inputs, provider-backed production turns, and the complete P4 recovery matrix remain incomplete or unevidenced. Built-in and remote Shell are intentionally outside this `1.0` verification owner.
 
 ## VER-PI-017 - File, Git, and worktree behavior
 
@@ -179,13 +179,13 @@ mdq:
 - Planned evidence: Verify model scope/selection/discovery/test/reload, OAuth/device/manual/API-key flows, logout, secret redaction, global/project settings, trust gates, validation, and rollback.
 - Gap: Pi Node model, provider, credential, and settings services are not implemented.
 
-## VER-PI-019 - Skill, package, and extension interaction behavior
+## VER-PI-019 - Skill, package, and standard extension interaction behavior
 
 - Status: PLANNED
 - Requirements: REQ-PI-027, REQ-PI-028, REQ-PI-029
-- Owner: future Pi resource/package integration, Flutter settings tests, extension dialog fixtures, terminal-bridge tests, and desktop E2E
-- Planned evidence: Verify skill dormancy/search/install/update, package inventory/install/update/enable/disable/remove/reload, privilege disclosure, and all standard/custom extension UI lifecycle states.
-- Gap: First-party resource/package services and extension UI bridge are not implemented.
+- Owner: future Pi resource/package integration, Flutter settings tests, standard Extension dialog fixtures, and desktop E2E
+- Planned evidence: Verify skill dormancy/search/install/update, package inventory/install/update/enable/disable/remove/reload, privilege disclosure, and Select/Confirm/Input/Editor/Notify/Status/Widget/Title/Editor Text lifecycle states including timeout, cancel, disconnect, stale response, and replacement.
+- Gap: First-party resource/package services and standard Extension UI bridge are not implemented. Arbitrary custom terminal UI is a `1.1` outcome owned by `VER-PI-030`, not this `1.0` record.
 
 ## VER-PI-020 - Localized adaptive UX and supported release artifacts
 
@@ -256,3 +256,19 @@ mdq:
 - Owner: immutable transitional `v0.0.3`, public asset checksum, `Hu-Wentao/homebrew-tap@7ec1023866376f83ddda6164b77cd1e2e673cdc4`, Homebrew install/uninstall, bundle inspection, `codesign`, and `spctl`
 - Evidence: The historical `Pi-Client-0.0.3-macOS-universal.zip` resolved to SHA-256 `44ca05689220759ae1ca45bb7fbb8aa049874449604918f670d03d6bf53f5623`; the public Tap Cask matched those bytes, passed style, installed `/Applications/Pi Client.app`, preserved quarantine, exposed version `0.0.3` build `3` and Universal app/framework slices, retained ad-hoc/no-Team signing with expected Gatekeeper rejection, and uninstalled cleanly.
 - Scope limit: This was an unsigned, unnotarized transitional Preview without the current first-party Runtime Capsule contract. It does not make Homebrew available for the independent build, does not satisfy `VER-PI-026`, and does not authorize a new Cask, Tag, Release, or deployment.
+
+## VER-PI-029 - Trusted-project external-terminal behavior
+
+- Status: PARTIAL
+- Requirements: REQ-PI-038
+- Owner: focused external-terminal launcher tests, Workspace/Project Browser Widget tests, full Flutter/Protocol/Pi Node suites, ACDD final validation, macOS/iOS/Android/Web JS/WebAssembly source builds, fake-executable process smoke, and connect-only artifact scans
+- Evidence: The app-owned launcher accepts only `PiProjectIdentity`; macOS uses `/usr/bin/open -a Terminal <canonical-cwd>`, Windows uses `wt.exe -d <canonical-cwd>` with a no-command `cmd.exe` cwd fallback only when Windows Terminal is absent, and Linux uses a bounded terminal allowlist with exact working-directory argv, detached process mode, and `runInShell: false`. Tests cover spaces/metacharacters, canonical identity, no selected/untrusted project, unsupported platforms, redacted failure and unsupported feedback, stale project switch, keyboard activation, semantics, 200% text scale, conditional Web selection, and a real detached fake-executable launch without opening a visible terminal. Generated-source comparison, format, analyze, Flutter, Protocol, Pi Node, release/workflow/site, ACDD, mdq, link, duplicate-ID, and diff checks pass. Debug macOS, unsigned iOS, Android, Web JavaScript, and WebAssembly builds pass; Web executable scans reject known desktop terminal/process signatures, and Android/iOS/Web packaging scans remain free of Shell/PTY host and remote-command-executor paths.
+- Gap: Windows and Linux native-runner launch behavior and actual installed-terminal availability still require their platform CI/manual acceptance. Automation intentionally does not open a user-visible Terminal.app, so macOS production Terminal availability remains a release-time smoke rather than this source check. `REQ-PI-038` therefore remains Planned.
+
+## VER-PI-030 - 1.1 secure remote Shell and terminal bridge
+
+- Status: PLANNED
+- Requirements: REQ-PI-019
+- Owner: future Protocol 1.x conformance, Pi Node Shell/PTY integration, Local Direct and Friday Transport E2E, mobile/Web remote-client tests, desktop native-runner tests, Extension terminal fixtures, adversarial security suites, and connect-only artifact scans
+- Planned evidence: Verify project-scoped command and PTY admission, cwd/environment policy, stdout/stderr or terminal frames, input, resize, backpressure, reconnect/resume, writer lease, timeout, cancellation, process-tree termination, Windows Shell profiles, arbitrary Extension terminal UI, remote grants, replay rejection, E2EE opacity, and absence of local Shell/PTY host code from Android/iOS/Web.
+- Gap: `1.0` deliberately contains no Shell request/event/stream, built-in executor, PTY, output capture, remote Shell, mobile/Web Shell, Windows Shell setting, or custom Extension terminal bridge. Implementation begins only under `PLAN-PI-008` after `1.0.0`.

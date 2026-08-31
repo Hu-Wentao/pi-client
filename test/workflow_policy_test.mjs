@@ -79,6 +79,25 @@ test('CI combines Flutter, Protocol, Pi Node, release, site, WASM, connect-only,
   assert.ok(source.includes('concurrency:'));
 });
 
+test('connect-only scan keeps the external-terminal desktop process boundary out of Web', async () => {
+  const source = await readFile(
+    resolve(repositoryRoot, '.github/scripts/assert-connect-only-artifact.mjs'),
+    'utf8',
+  );
+  for (const required of [
+    'assertExternalTerminalBoundary',
+    'external_terminal_launcher_stub.dart',
+    'external_terminal_launcher_io.dart',
+    'PiProjectIdentity projectIdentity',
+    'runInShell: false',
+    'desktop external-terminal process implementation',
+    'Shell host',
+    'remote command executor',
+  ]) {
+    assert.ok(source.includes(required), `connect-only scan must contain ${required}`);
+  }
+});
+
 test('ordinary desktop artifact scan rejects an embedded runtime Capsule', async () => {
   const script = resolve(
     repositoryRoot,

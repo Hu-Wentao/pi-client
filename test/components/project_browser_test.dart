@@ -76,6 +76,49 @@ void main() {
   );
 
   testWidgets(
+    'hides the external-terminal action without a selected trusted project',
+    (tester) async {
+      await tester.pumpWidget(
+        componentTestApp(
+          ProjectBrowserView(
+            knownProjects: const <PiKnownProject>[],
+            onBrowseDirectory: (_) {},
+            onValidatePath: (_) {},
+            onProjectSelected: (_) {},
+            onOpenExternalTerminal: () {},
+          ),
+        ),
+      );
+      expect(
+        find.byKey(const Key('projectBrowserOpenExternalTerminal')),
+        findsNothing,
+      );
+
+      final restricted = fakeProject(
+        '/Projects/restricted',
+        trustStatus: PiProjectTrustStatus.approvalRequired,
+      );
+      await tester.pumpWidget(
+        componentTestApp(
+          ProjectBrowserView(
+            selectedProject: restricted,
+            knownProjects: const <PiKnownProject>[],
+            onBrowseDirectory: (_) {},
+            onValidatePath: (_) {},
+            onProjectSelected: (_) {},
+            onOpenExternalTerminal: () {},
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(
+        find.byKey(const Key('projectBrowserOpenExternalTerminal')),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets(
     'requires an explicit trust action and names detected resources',
     (tester) async {
       final project = fakeProject(

@@ -40,6 +40,12 @@ const reservedHostRuntimeBasenames = Object.freeze([
   'piclientagenthost',
   'pi-sdk-host',
   'pi_sdk_host',
+  'pi-client-shell-host',
+  'pi_client_shell_host',
+  'pi-client-pty-host',
+  'pi_client_pty_host',
+  'pi-client-remote-shell',
+  'pi_client_remote_shell',
 ]);
 
 export const connectOnlyHostRuntimeVerification = Object.freeze({

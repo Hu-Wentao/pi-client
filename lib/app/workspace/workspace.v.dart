@@ -1,19 +1,31 @@
 part of 'workspace.dart';
 
 class WorkspaceView extends StatelessWidget {
-  const WorkspaceView({this.piNodeApi, super.key});
+  const WorkspaceView({
+    this.piNodeApi,
+    this.externalTerminalLauncher,
+    super.key,
+  });
 
   final PiNodeApi? piNodeApi;
+  final ExternalTerminalLauncher? externalTerminalLauncher;
 
   @override
-  Widget build(BuildContext context) =>
-      _WorkspaceViewBody(piNodeApi: piNodeApi);
+  Widget build(BuildContext context) => _WorkspaceViewBody(
+    piNodeApi: piNodeApi,
+    externalTerminalLauncher:
+        externalTerminalLauncher ?? createPlatformExternalTerminalLauncher(),
+  );
 }
 
 class _WorkspaceViewBody extends StatefulWidget {
-  const _WorkspaceViewBody({required this.piNodeApi});
+  const _WorkspaceViewBody({
+    required this.piNodeApi,
+    required this.externalTerminalLauncher,
+  });
 
   final PiNodeApi? piNodeApi;
+  final ExternalTerminalLauncher externalTerminalLauncher;
 
   @override
   State<_WorkspaceViewBody> createState() => _WorkspaceViewBodyState();
@@ -24,6 +36,8 @@ class _WorkspaceViewBodyState extends State<_WorkspaceViewBody> {
   final FocusNode _promptFocusNode = FocusNode(
     debugLabel: 'workspace prompt composer',
   );
+  int _externalTerminalGeneration = 0;
+  PiProjectId? _externalTerminalOpeningProjectId;
 
   @override
   void dispose() {
@@ -35,7 +49,21 @@ class _WorkspaceViewBodyState extends State<_WorkspaceViewBody> {
   @override
   Widget build(
     BuildContext context,
-  ) => FrView<WorkspaceViewModel, WorkspaceModel>(
+  ) => FrConsumer<WorkspaceViewModel, WorkspaceModel>(
+    listener: (context, previous, current, viewModel) {
+      final previousProject = previous.selectedProject;
+      final currentProject = current.selectedProject;
+      if (previousProject?.identity == currentProject?.identity &&
+          previousProject?.trust.status == currentProject?.trust.status) {
+        return;
+      }
+      _externalTerminalGeneration += 1;
+      if (_externalTerminalOpeningProjectId != null) {
+        setState(() {
+          _externalTerminalOpeningProjectId = null;
+        });
+      }
+    },
     builder: (context, snapshot, child) {
       final viewModel = snapshot.vm;
       final model = snapshot.data;
@@ -107,8 +135,13 @@ class _WorkspaceViewBodyState extends State<_WorkspaceViewBody> {
           sessionId,
         ),
       );
+      final selectedProject = model.selectedProject;
+      final canOpenExternalTerminal =
+          widget.externalTerminalLauncher.isPlatformSupported &&
+          selectedProject != null &&
+          !selectedProject.trust.requiresApproval;
       final projectBrowser = ProjectBrowserView(
-        selectedProject: model.selectedProject,
+        selectedProject: selectedProject,
         knownProjects: model.knownProjects,
         directory: model.projectDirectory,
         isLoading: model.projectLoading,
@@ -121,6 +154,12 @@ class _WorkspaceViewBodyState extends State<_WorkspaceViewBody> {
             viewModel.add(WorkspaceProjectPathValidated(directory)),
         onProjectSelected: (project) =>
             viewModel.add(WorkspaceProjectSelected(project)),
+        onOpenExternalTerminal: canOpenExternalTerminal
+            ? () => _openExternalTerminal(viewModel, selectedProject)
+            : null,
+        isOpeningExternalTerminal:
+            _externalTerminalOpeningProjectId ==
+            selectedProject?.identity.projectId,
       );
       final sidebar = _WorkspaceSidebar(
         connection: connection,
@@ -320,6 +359,54 @@ class _WorkspaceViewBodyState extends State<_WorkspaceViewBody> {
       );
     },
   );
+
+  Future<void> _openExternalTerminal(
+    WorkspaceViewModel viewModel,
+    PiProject project,
+  ) async {
+    if (project.trust.requiresApproval ||
+        !widget.externalTerminalLauncher.isPlatformSupported) {
+      return;
+    }
+    final generation = ++_externalTerminalGeneration;
+    final launchedIdentity = project.identity;
+    setState(() {
+      _externalTerminalOpeningProjectId = launchedIdentity.projectId;
+    });
+
+    ExternalTerminalLaunchResult result;
+    try {
+      result = await widget.externalTerminalLauncher.openTrustedProject(
+        launchedIdentity,
+      );
+    } on Object {
+      result = const ExternalTerminalLaunchResult.failure();
+    }
+    if (!mounted || generation != _externalTerminalGeneration) return;
+
+    setState(() {
+      _externalTerminalOpeningProjectId = null;
+    });
+    final currentProject = viewModel.state.selectedProject;
+    if (currentProject == null ||
+        currentProject.identity != launchedIdentity ||
+        currentProject.trust.requiresApproval) {
+      return;
+    }
+
+    final message = switch (result.status) {
+      ExternalTerminalLaunchStatus.success =>
+        'Project opened in an external terminal.',
+      ExternalTerminalLaunchStatus.unsupported =>
+        'No supported external terminal is available.',
+      ExternalTerminalLaunchStatus.failure =>
+        'The external terminal could not be opened.',
+    };
+    final messenger = ScaffoldMessenger.of(context);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
 
   Future<void> _requestCreateSession(
     WorkspaceViewModel viewModel,

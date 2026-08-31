@@ -117,3 +117,13 @@ Default review level: L6.
 - Homebrew tooling is retained as dormant deterministic infrastructure, not as a current installation promise.
 - Cask generation requires explicit qualified evidence for one publication-enabled, already-public Universal macOS runtime-bearing asset: annotated Tag, exact commit, exact file name, SHA-256, and published state.
 - Placeholder checksums, moving refs, connect-only assets, absent Runtime Capsules, Gatekeeper bypasses, and third-party Tap writes without separate authorization are rejected.
+
+## BASE-PI-011 - Versioned terminal and Shell boundary
+
+- Status: Active
+- Review level: L9
+- `DEC-022` defines the complete `1.0` CLI scope: macOS, Windows, and Linux may open only the current Pi Node-validated project identity in a system external terminal at its canonical cwd.
+- The `1.0` launcher does not execute `pi` or another command, copy or generate commands, accept command/argument/environment input, capture output, provide stdin or PTY, create a Shell grant, use a file URL, or cross Pi Protocol/Friday Transport.
+- Android, iOS, Web JavaScript, and WebAssembly expose no external-terminal action and must remain free of local Shell host, PTY host, remote-command executor, and host-process authority.
+- Standard native Extension dialogs remain a `1.0` outcome. Windows Shell settings, built-in command execution, remote Shell, mobile/Web Shell, PTY, and arbitrary Extension terminal UI belong to `REQ-PI-019` and `PLAN-PI-008` for `1.1`.
+- Historical Shell, ANSI, Process, and Tool conversation entries remain renderable under `REQ-PI-020`; read-only rendering does not create execution authority.

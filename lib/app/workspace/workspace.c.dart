@@ -12,7 +12,8 @@
 ///   [ProjectBrowserView], [SessionBrowserView],
 ///   [BranchNavigatorView], [ConversationView] > semantic entry cards and desktop activity minimap,
 ///   [PromptComposerView],
-///   [ProjectTrustDialog] (conditional)
+///   [ProjectTrustDialog] (conditional),
+///   [SnackBar] (external-terminal result, conditional)
 /// Theme: material
 /// Events: [WorkspaceStarted], [WorkspaceConnectionRetried],
 ///   [WorkspaceProjectDirectoryBrowsed], [WorkspaceProjectPathValidated],
@@ -47,7 +48,11 @@
 ///   export progress/cancellation, and authoritative history/tree refresh are
 ///   generation-guarded. Local-host, remote-node-required, unsupported,
 ///   empty, rejected, uncertain, disconnected, retry, and stale-result-safe
-///   states never invent runtime data. Optimistic prompts are removed only for
+///   states never invent runtime data. The View-local external-terminal action
+///   accepts only the current Node-validated project identity, appears only on
+///   supported desktops after trust approval is unnecessary, and generation-checks
+///   redacted feedback without adding a ViewModel Event or protocol operation.
+///   Optimistic prompts are removed only for
 ///   definitive rejection and retained for uncertain admission. Synchronous
 ///   busy guards and operation/event generations prevent duplicate work and
 ///   stale emissions without an extra Bloc concurrency dependency.
