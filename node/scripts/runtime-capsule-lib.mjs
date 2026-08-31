@@ -865,12 +865,18 @@ function validateNativeCodeDocument(nativeCode, target) {
     throw new Error("Capsule runtime executable architecture inventory is incomplete.");
   }
   for (const nativeObject of objects) {
+    const architecturesMatch =
+      target.platform === "darwin"
+        ? target.architectures.length === 1
+          ? nativeObject.architectures.includes(target.architectures[0])
+          : nativeObject.architectures.every((architecture) =>
+              target.architectures.includes(architecture),
+            )
+        : stableStringify(nativeObject.architectures) === stableStringify(target.architectures);
     if (
       nativeObject.format !== expectedFormat ||
       nativeObject.architectures.length === 0 ||
-      nativeObject.architectures.some(
-        (architecture) => !target.architectures.includes(architecture),
-      )
+      !architecturesMatch
     ) {
       throw new Error(`Capsule native object ${nativeObject.path} does not match ${target.id}.`);
     }

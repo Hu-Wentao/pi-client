@@ -701,14 +701,16 @@ final class _CapsuleManifest {
         !_listEquals(runtimeObject.architectures, targetArchitectures)) {
       throw const FormatException('Invalid runtime native-code inventory.');
     }
-    if (nativeObjects.values.any(
-      (object) =>
-          object.format != expectedNativeObjectFormat ||
+    if (nativeObjects.values.any((object) {
+      final architecturesMatch = target['platform'] == 'darwin'
+          ? targetArchitectures.length == 1
+                ? object.architectures.contains(targetArchitectures.single)
+                : object.architectures.every(targetArchitectures.contains)
+          : _listEquals(object.architectures, targetArchitectures);
+      return object.format != expectedNativeObjectFormat ||
           object.architectures.isEmpty ||
-          object.architectures.any(
-            (architecture) => !targetArchitectures.contains(architecture),
-          ),
-    )) {
+          !architecturesMatch;
+    })) {
       throw const FormatException('Native-code object does not match target.');
     }
     for (final entry in entries.values) {
