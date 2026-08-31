@@ -385,7 +385,7 @@ async function runRuntimeProtocolE2e(capsule, capsuleManifest, runtime) {
     await client.send(1n, {
       case: "clientProtocolOffer",
       value: {
-        protocolVersions: [{ major: 0, minor: 1, patch: 0 }],
+        protocolVersions: [{ major: 0, minor: 2, patch: 0 }],
         capabilities: [
           protocol.Capability.SESSION_READ,
           protocol.Capability.SESSION_CREATE,
