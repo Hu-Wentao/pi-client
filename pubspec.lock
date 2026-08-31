@@ -738,7 +738,7 @@ packages:
       path: "protocol/dart"
       relative: true
     source: path
-    version: "0.0.0"
+    version: "0.2.0"
   platform:
     dependency: transitive
     description:
