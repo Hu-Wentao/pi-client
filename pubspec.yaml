@@ -13,6 +13,7 @@ dependencies:
   flowr: ^6.2.1
   flutter:
     sdk: flutter
+  flutter_math_fork: 0.7.4
   flutter_localizations:
     sdk: flutter
   fr_acdd: ^0.7.0
@@ -22,9 +23,11 @@ dependencies:
   freezed_annotation: ^3.1.0
   go_router: ^17.5.0
   json_annotation: ^4.12.0
+  markdown: 7.3.1
   path_provider: ^2.1.6
   pi_client_protocol_spike:
     path: protocol/dart
+  re_highlight: 0.0.3
   web: 1.1.1
 
 dependency_overrides:
