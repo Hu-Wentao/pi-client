@@ -73,10 +73,10 @@ This inventory is bounded to user-visible capabilities that are reachable in the
 ## BENCH-PI-006 - Composer, commands, and project shell
 
 - Status: Observed
-- Disposition: Strict parity
+- Disposition: Versioned strict parity
 - Observed capability: Preserve drafts and input history; attach images; choose model, thinking, and tools; use slash commands, skills, prompt templates, extension commands, file mentions, and context-included or excluded shell commands.
-- Pi Client treatment: Adapt input, attachment, shell, and keyboard behavior to Flutter and each platform while preserving observable intent and failure states.
-- Requirements: `REQ-PI-018` and `REQ-PI-019`.
+- Pi Client treatment: `REQ-PI-018` keeps the accepted `1.0` composer outcomes; `REQ-PI-038` provides only a trusted desktop project's external-terminal entry. Built-in command execution, PTY, remote Shell, mobile/Web Shell, and Windows Shell settings are explicitly deferred to `REQ-PI-019` and `PLAN-PI-008` for `1.1` by `DEC-022`.
+- Requirements: `REQ-PI-018`, `REQ-PI-019`, and `REQ-PI-038`.
 
 ## BENCH-PI-007 - Conversation presentation
 
@@ -121,10 +121,10 @@ This inventory is bounded to user-visible capabilities that are reachable in the
 ## BENCH-PI-012 - Extension interaction host
 
 - Status: Observed
-- Disposition: Strict parity
+- Disposition: Versioned strict parity
 - Observed capability: Render blocking select, confirm, input, editor, and custom terminal interactions plus notifications, status items, widgets, titles, and editor-text changes.
-- Pi Client treatment: Map standard interactions to native Flutter controls and arbitrary custom terminal UI to a bounded headless bridge with request identity and lifecycle handling.
-- Requirements: `REQ-PI-029`.
+- Pi Client treatment: `REQ-PI-029` maps standard interactions to native Flutter controls for `1.0`; arbitrary custom terminal UI is deferred with the secure Shell/PTY boundary to `REQ-PI-019` and `PLAN-PI-008` for `1.1`.
+- Requirements: `REQ-PI-019` and `REQ-PI-029`.
 
 ## BENCH-PI-013 - Existing subagent sessions and unreachable creation
 

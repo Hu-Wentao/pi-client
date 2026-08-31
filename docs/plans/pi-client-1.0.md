@@ -45,6 +45,7 @@ mdq:
 - `DEC-020` 建立项目自有产品权威；`docs/requirements.md` 独立拥有产品语义、约束、完整性和可观察验收。
 - `PLAN-PI-001` 继续保持 Superseded，并且不授权任何实现。
 - `PLAN-PI-002` 是 Friday Workspace、Native OIDC、E2EE 和 WebAssembly 的并行轨道；它不得阻塞 Local Direct 功能完整性。
+- `PLAN-PI-008` 只拥有 `1.1` 远程 Shell 重点版本；`REQ-PI-019` 不属于 `1.0.0` release scope，也不得阻塞本计划退出。
 - `PLAN-PI-003` 仅保留为 `v0.0.2` Landing Page 与 Preview 的历史记录，不拥有当前 `1.0.0` 范围或验收权威。
 - 初始探索资料仅作为历史记录，不参与当前需求、完整性、架构、协议、实现、兼容性、运行时、构建、部署或发布判断。
 
@@ -71,7 +72,7 @@ Flutter Pi Client
 ```
 
 - Flutter owns presentation, navigation, transient interaction state, and non-secret preferences.
-- Pi Node owns Pi SDK lifecycle, provider credentials, project trust, host files, shell, Git, worktrees, resources, and authorization.
+- Pi Node owns Pi SDK lifecycle, provider credentials, project trust, host files, Git, worktrees, resources, and authorization. Future Shell execution remains a Pi Node responsibility but is deferred to `PLAN-PI-008` for `1.1`.
 - The protocol owns version negotiation, request/command/stream identity, cancellation, ordering, backpressure, reconnect cursors, stable errors, and limits.
 - Friday Relay owns only the control and opaque transport responsibilities accepted by `DEC-013` and `PLAN-PI-002`.
 - Feature modules depend on `PiNodeClient`, not on a concrete transport or Pi SDK type.
@@ -84,7 +85,7 @@ Flutter Pi Client
 | P1 | Source substantially complete | Protocol, Pi Node skeleton, desktop host controller | One typed prompt round trip works through project-owned runtime; crash/restart/version gates pass |
 | P2 | Source substantially complete | Local Direct migration and legacy adapter removal | Existing MVP uses only project-owned runtime; obsolete configuration paths remain absent |
 | P3 | Planned | Project, session, history, branch, and app shell | `REQ-PI-014` through `REQ-PI-016` and `REQ-PI-030` have complete evidence |
-| P4 | Planned | Agent, composer, shell, and rich messages | `REQ-PI-017` through `REQ-PI-020` have complete evidence |
+| P4 | Planned | Agent, composer, rich messages, and trusted-project external-terminal entry | `REQ-PI-017`, `REQ-PI-018`, `REQ-PI-020`, and `REQ-PI-038` have complete `1.0` evidence; `REQ-PI-019` remains a `1.1` target |
 | P5 | Planned | Files, Git, and worktrees | `REQ-PI-021` through `REQ-PI-023` and applicable security clauses have complete evidence |
 | P6 | Planned | Models, providers, and settings | `REQ-PI-024` through `REQ-PI-026` have complete evidence and secret scans pass |
 | P7 | Planned | Skills, packages, and extension UI | `REQ-PI-027` through `REQ-PI-029` have complete evidence |
@@ -130,7 +131,7 @@ Deliverables:
 
 Exit conditions:
 
-- A Flutter fixture starts or reaches Pi Node, opens a trusted test project, completes one prompt, receives terminal state, and cancels a second run.
+- A Flutter fixture starts or reaches Pi Node, opens a trusted test project, completes one prompt, receives a completed run state, and cancels a second run.
 - Dart and TypeScript encode/decode the same valid, unknown-field, invalid, oversized, cancelled, and incompatible-version vectors.
 - Pi Node restart and host shutdown do not corrupt sessions or leak secrets.
 
@@ -163,18 +164,20 @@ Exit conditions:
 - Deep, orphaned, cyclic, removed-worktree, stale-response, and concurrent-selection fixtures preserve deterministic project and session state.
 - Destructive session operations identify the exact target and recover from failure.
 
-### P4 - Deliver Agent, composer, shell, and messages
+### P4 - Deliver Agent, composer, messages, and the external-terminal entry
 
 Deliverables:
 
 - Implement prompt admission, optimistic input, ordered streaming, abort, retry, compaction, reload, steer, follow-up, queue, and refresh recovery.
-- Implement draft/history, image limits, slash palette, templates, skills, extension commands, file/line mentions, model/thinking/tool selection, and shell modes.
-- Implement sanitized Markdown/GFM/math/Mermaid/ANSI/code/image/tool/diff/written-file/process/usage rendering and oversized fallbacks.
+- Implement draft/history, image limits, slash palette, templates, skills, extension commands, file/line mentions, and model/thinking/tool selection without adding a Shell mode.
+- Implement sanitized Markdown/GFM/math/Mermaid/ANSI/code/image/tool/diff/written-file/process/usage rendering and oversized fallbacks; preserve historical Shell and Process cards as read-only content.
+- On macOS, Windows, and Linux, let the user open only the current Pi Node-validated `trusted` or `notRequired` project in an external terminal at its canonical cwd. Do not execute `pi`, copy or generate commands, accept command/argument/environment input, capture output, expose stdin/PTY, or cross the application protocol.
 
 Exit conditions:
 
 - Duplicate, missing, late, out-of-order, disconnected, uncertain, cancelled, and replaced-run cases cannot restore stale output or report false success.
-- Shell is unavailable on connect-only platforms and cannot escape project authorization.
+- `REQ-PI-038` passes exact argv/canonical-cwd, trust, stale-project, redaction, keyboard, semantics, text-scale, desktop-platform, Web conditional-import, and connect-only artifact checks.
+- Built-in command execution, PTY, remote Shell, mobile/Web Shell, Windows Shell settings, and arbitrary Extension terminal UI remain absent from `1.0`; they are owned by `REQ-PI-019` and `PLAN-PI-008` for `1.1`.
 
 ### P5 - Deliver files, Git, and worktrees
 
@@ -195,7 +198,7 @@ Deliverables:
 
 - Implement model catalog, scope, selection, thinking, discovery, metadata fill/undo, test, default, and reload.
 - Implement provider OAuth, device, manual, API-key, logout, dual-auth deduplication, expiry, and redacted status.
-- Implement global/project settings, system prompt, tool definitions, retry, compaction, tool presets, and Windows shell settings.
+- Implement global/project settings, system prompt, tool definitions, retry, compaction, and tool presets. Windows Shell settings are deferred to `PLAN-PI-008` for `1.1`.
 
 Exit conditions:
 
@@ -208,7 +211,7 @@ Deliverables:
 
 - Implement skill listing, dormancy, invocation, search, install, update checks, updates, source, and scope.
 - Implement package inventory, install, update, enable, disable, remove, resource listing, privilege disclosure, and reload.
-- Implement native standard extension dialogs and a bounded custom terminal bridge.
+- Implement native standard Extension Select, Confirm, Input, Editor, Notify, Status, Widget, Title, and Editor Text interactions. The arbitrary custom terminal bridge is deferred to `PLAN-PI-008` for `1.1`.
 
 Exit conditions:
 
@@ -234,7 +237,7 @@ Deliverables:
 
 - Qualify macOS, Windows, and Linux as Agent-host-capable releases.
 - Qualify Android, iOS, and Web as connect-only releases.
-- Inspect artifacts for forbidden Pi SDK, Node runtime, shell host, and host filesystem code on mobile/Web.
+- Inspect artifacts for forbidden Pi SDK, Node runtime, Shell/PTY host, remote-command executor, external-terminal desktop process implementation, and host filesystem code on mobile/Web.
 - Establish platform signing, icons, minimum versions, deep links, notifications, installers, and update channels.
 
 Exit conditions:
@@ -277,7 +280,7 @@ Exit conditions:
 | --- | --- |
 | `0.1.0` | P1-P2: project-owned Pi Node, Local Direct, and removal of obsolete runtime dependence |
 | `0.2.0` | P3: projects, sessions, history, branches, and existing child-session visibility |
-| `0.3.0` | P4: Agent, composer, shell, and rich messages |
+| `0.3.0` | P4: Agent, composer, rich messages, and the trusted-project external-terminal entry; no built-in or remote Shell |
 | `0.4.0` | P5: files, Git, and worktrees |
 | `0.5.0` | P6-P7: models, providers, settings, skills, packages, and extension UI |
 | `0.6.0` | P8-P9: complete product UX and six-platform execution-role qualification |
@@ -292,7 +295,7 @@ Milestone numbers are planning identities, not release authorization. A release 
 - Pi Node: SDK lifecycle, project trust, single-writer/session replacement, path and symbolic-link security, destructive Git/worktree operations, credential redaction, crash/restart/shutdown.
 - Flutter: format, generation, analysis, focused ViewModel concurrency, Widget interaction, Golden, route/contract validation, keyboard, accessibility, and six-platform builds.
 - Transport: identical accepted behavior fixtures on in-memory, Local IPC, paired LAN, and Friday transports where available.
-- Security: pairing, node key pinning, scoped authorization, grant expiry/replay, E2EE tamper, secret scans, Relay payload opacity, and connect-only artifact inspection.
+- Security: pairing, node key pinning, scoped authorization, grant expiry/replay, E2EE tamper, secret scans, Relay payload opacity, external-terminal no-command boundary, and connect-only artifact inspection.
 - Release: exact source, immutable tag, artifact manifest, checksums, signatures, SBOM, license inventory, installation, startup, update, rollback, and production smoke evidence.
 
 ### Compatibility and rollback
@@ -310,4 +313,6 @@ Milestone numbers are planning identities, not release authorization. A release 
 - The fail-closed project-trust coordinator and focused tests exist, but the production app has no complete trust-decision UX or operational evidence for protected project resources. Provider authentication and secure credential lifecycle remain unimplemented.
 - The runtime Capsule builder verifies a host-targeted Node/Pi Node payload, manifest, checksums, and forbidden-artifact scan, but no supported desktop application currently bundles and qualifies that Capsule. Windows/Linux packaging, signed/notarized desktop distribution, and the first independent public release remain incomplete.
 - README and Landing Page describe current source-only development and provide no binary CTA. The public `v0.0.2` Release remains immutable historical evidence outside current delivery surfaces.
+- The `1.0` external-terminal boundary is source-local and does not change Pi Protocol or Pi Node. Focused Dart/Widget and macOS fake-executable smoke evidence can qualify its current implementation, while Windows and Linux native-runner launch acceptance remains required before `REQ-PI-038` can become Active.
+- Built-in command execution, PTY, remote Shell, mobile/Web Shell, Windows Shell settings, and arbitrary Extension terminal UI are intentionally absent from `1.0`; they are the primary `1.1` work under `PLAN-PI-008`, not current gaps for `1.0.0`.
 - Friday Workspace contracts remain blocked as recorded by `VER-PI-008` and `VER-PI-009`; rich previews, E2EE, mobile store identity, WebAssembly compatibility, and production accessibility evidence remain Planned.
