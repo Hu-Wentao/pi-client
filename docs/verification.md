@@ -215,7 +215,7 @@ mdq:
 
 - Status: PASS
 - Requirements: REQ-PI-005, REQ-PI-006, REQ-PI-034, REQ-PI-035
-- Evidence: `release/release.json`, `tool/release_contract.mjs`, `tool/release_metadata.mjs`, `tool/preview_artifacts.mjs`, `tool/homebrew_cask.mjs`, `.github/workflows/ci.yml`, `.github/workflows/release-preview.yml`, `.github/workflows/release-desktop-candidates.yml`, and their Node test suites prove the `0.1.0+3` publication-disabled Profile, truthful desktop Capsule inclusion, mobile/Web connect-only roles, deterministic manifest/checksum behavior, exact recovery policy, dormant Homebrew, and stable desktop signing denial.
+- Evidence: `release/release.json`, `tool/release_contract.mjs`, `tool/release_metadata.mjs`, `tool/preview_artifacts.mjs`, `tool/homebrew_cask.mjs`, `.gitattributes`, `dart_test.yaml`, `.github/workflows/ci.yml`, `.github/workflows/release-preview.yml`, `.github/workflows/release-desktop-candidates.yml`, and their Node test suites prove the `0.1.0+3` publication-disabled Profile, truthful desktop Capsule inclusion, mobile/Web connect-only roles, deterministic manifest/checksum behavior, exact recovery policy, dormant Homebrew, stable desktop signing denial, macOS-only Golden execution, Windows `<version>+<build>` file identity, and LF-preserved strict Release inputs.
 - Scope: This is source and local policy/tooling evidence. It does not claim a remote qualification run, public Release, installable `0.1.0`, or production acceptance.
 
 ## VER-PI-024 - Native six-platform qualification and publication recovery
@@ -239,4 +239,20 @@ mdq:
 - Requirements: REQ-PI-037
 - Owner: future publication-enabled Release, public Tap repository, fresh Homebrew client, and exact asset readback
 - Planned evidence: Generate Cask from explicit Tag/commit/asset/SHA-256 evidence, commit the authorized Tap change, install the exact Universal runtime-bearing asset, verify version, launch and Capsule behavior, and confirm no Gatekeeper bypass.
-- Gap: Current development Profile is publication-disabled and no Homebrew publication is authorized; source tests prove only dormant fail-closed behavior.
+- Gap: Current development Profile is publication-disabled and no Homebrew publication is authorized; source tests prove only dormant fail-closed behavior. Historical `v0.0.3` evidence in `VER-PI-028` does not satisfy this first-party Runtime Capsule requirement.
+
+## VER-PI-027 - Historical v0.0.3 six-platform Preview delivery
+
+- Status: HISTORICAL PASS
+- Requirements: REQ-PI-010, REQ-PI-012
+- Owner: immutable transitional `v0.0.3`, GitHub Actions runs `33371971805`, `33372753316`, and `33373334624`, Release readback, and Pages admission
+- Evidence: Transitional commit `8f8d7e922cfe05f729c164d21ebb683e79ef1ac0` passed its `six-platform-preview-v1` qualification and six native runner jobs, retained the aggregate manifest/checksum bundle, created annotated Tag object `af5ccee0103c7fbe7108cb459de7adb3b2d10e12`, recovered publication from the original qualification run without rebuilding, downloaded and verified all 11 public assets, and deployed the exact-Tag Pages source.
+- Scope limit: This evidence belongs only to the immutable `v0.0.3` transitional lineage. Its desktop artifacts declared no first-party Host runtime and it does not activate the current `0.1.0+3` Profile, satisfy current `VER-PI-024`, advertise a current download, or authorize any remote mutation.
+
+## VER-PI-028 - Historical v0.0.3 unsigned Homebrew delivery
+
+- Status: HISTORICAL PASS
+- Requirements: REQ-PI-037
+- Owner: immutable transitional `v0.0.3`, public asset checksum, `Hu-Wentao/homebrew-tap@7ec1023866376f83ddda6164b77cd1e2e673cdc4`, Homebrew install/uninstall, bundle inspection, `codesign`, and `spctl`
+- Evidence: The historical `Pi-Client-0.0.3-macOS-universal.zip` resolved to SHA-256 `44ca05689220759ae1ca45bb7fbb8aa049874449604918f670d03d6bf53f5623`; the public Tap Cask matched those bytes, passed style, installed `/Applications/Pi Client.app`, preserved quarantine, exposed version `0.0.3` build `3` and Universal app/framework slices, retained ad-hoc/no-Team signing with expected Gatekeeper rejection, and uninstalled cleanly.
+- Scope limit: This was an unsigned, unnotarized transitional Preview without the current first-party Runtime Capsule contract. It does not make Homebrew available for the independent build, does not satisfy `VER-PI-026`, and does not authorize a new Cask, Tag, Release, or deployment.

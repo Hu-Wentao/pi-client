@@ -34,6 +34,7 @@ mdq:
 - `DEC-018` 曾授权的即时 `v0.0.3` unsigned Preview 路径已由 `DEC-021` 取代，本计划不得创建或复用该 Tag、Release、asset 或 Tap 提交。
 - 当前 Profile `independent-six-platform-development-v1` 明确 `publicationEnabled: false`；`tool/homebrew_cask.mjs` 必须先拒绝生成，README、Landing Page 与 Release Notes 不显示安装命令。
 - Homebrew 不是 macOS 签名、公证、Gatekeeper 信任或 first-party Runtime Capsule 完整性的替代物。
+- `main` lineage 的 transitional `v0.0.3` 与 Tap commit `7ec1023866376f83ddda6164b77cd1e2e673cdc4` 已完成过 unsigned Homebrew 安装和卸载；该事实由 `VER-PI-028` 历史化保留，不代表当前独立构建可通过 Homebrew 获得。
 
 ### 恢复条件
 
@@ -46,4 +47,4 @@ mdq:
 ### 验证
 
 - `test/homebrew_cask_test.mjs` 证明当前 Profile 失败关闭，并用合成的未来 publication-enabled metadata 验证 Cask 渲染与证据拒绝路径。
-- `VER-PI-026` 在真实公开资产和独立 Tap 安装 evidence 完成前保持 PLANNED。
+- `VER-PI-026` 在新的 first-party Runtime Capsule 公开资产和独立 Tap 安装 evidence 完成前保持 PLANNED；历史 `v0.0.3` evidence 不得将其提升为 PASS。

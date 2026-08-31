@@ -53,7 +53,7 @@ jobs:
         run: |
           fvm dart format --output=none --set-exit-if-changed lib test tool
           fvm flutter analyze --no-pub
-          fvm flutter test --no-pub
+          fvm flutter test --no-pub --exclude-tags golden
 
       - name: Test release, Homebrew, Preview, and workflow contracts
         run: node --test test/homebrew_cask_test.mjs test/release_contract_test.mjs test/preview_artifacts_test.mjs test/workflow_policy_test.mjs
@@ -196,6 +196,8 @@ jobs:
         uses: ./.github/actions/setup-flutter
       - name: Resolve locked Flutter dependencies
         run: fvm flutter pub get --enforce-lockfile
+      - name: Run desktop Golden on macOS
+        run: fvm flutter test test/workspace_golden_test.dart --no-pub
       - name: Build macOS debug app without a downloaded runtime Capsule
         run: |
           fvm flutter build macos --debug --no-pub

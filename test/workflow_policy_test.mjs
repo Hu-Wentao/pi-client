@@ -55,7 +55,8 @@ test('CI combines Flutter, Protocol, Pi Node, release, site, WASM, connect-only,
     'workflow_dispatch:',
     'build_runner build',
     'flutter analyze',
-    'flutter test',
+    'flutter test --no-pub --exclude-tags golden',
+    'flutter test test/workspace_golden_test.dart --no-pub',
     'test/homebrew_cask_test.mjs',
     'bun run validate',
     'Run the full Protocol check',
@@ -97,6 +98,9 @@ test('aggregated development qualification is Capsule-aware and publication-disa
   const source = await workflow('release-preview.yml');
   for (const required of [
     'independent-six-platform-development-v1',
+    'flutter test --exclude-tags golden',
+    'flutter test test/workspace_golden_test.dart',
+    "ProductVersion -ne '$VERSION+$BUILD_NUMBER'",
     '--require-publication',
     'capsule:build --target',
     'verify-macos-app-runtime-capsule.mjs',
@@ -238,6 +242,20 @@ test('Pages deploys the source-only public site while release dispatch stays exa
   }
   assert.ok(!source.includes('v0.0.3'));
   assert.ok(!source.includes('workspace-preview'));
+});
+
+test('strict release contract inputs keep LF line endings on every runner', async () => {
+  const source = await readFile(resolve(repositoryRoot, '.gitattributes'), 'utf8');
+  for (const rule of [
+    '/.fvmrc text eol=lf',
+    '/pubspec.yaml text eol=lf',
+    '/release/*.json text eol=lf',
+    '/site/package.json text eol=lf',
+    '/site/src/content/*.ts text eol=lf',
+    '/.github/release-notes/*.md text eol=lf',
+  ]) {
+    assert.ok(source.includes(`${rule}\n`), `.gitattributes must contain ${rule}`);
+  }
 });
 
 test('site validation rejects unpublished downloads, Homebrew commands, and stale screenshots', async () => {
