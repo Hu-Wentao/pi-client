@@ -374,6 +374,7 @@ test('site validation derives and rejects the active Preview and Homebrew instal
 test('composite Flutter setup does not depend on a Unix pub-cache executable path', async () => {
   const source = await readFile(setupAction, 'utf8');
   assert.ok(!source.includes('$HOME/.pub-cache/bin/fvm'));
+  assert.ok(source.includes('problem-matcher: false'));
   assert.ok(source.includes('dart pub global run fvm:main install 3.41.6'));
   assert.ok(source.includes('dart pub global run fvm:main use 3.41.6 --force'));
   assert.ok(source.includes("'exec dart pub global run fvm:main \"$@\"'"));

@@ -8,6 +8,7 @@ runs:
       uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1
       with:
         sdk: 3.11.4
+        problem-matcher: false
 
     - name: Cache Flutter SDK
       uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
