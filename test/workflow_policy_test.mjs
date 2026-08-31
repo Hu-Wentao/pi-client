@@ -63,7 +63,8 @@ test('CI provides quality and all-platform native-runner smoke builds', async ()
     'workflow_dispatch:',
     'build_runner build',
     'flutter analyze',
-    'flutter test',
+    'flutter test --exclude-tags golden',
+    'flutter test test/workspace_golden_test.dart',
     'node --test',
     'test/homebrew_cask_test.mjs',
     'bun run validate',
@@ -262,6 +263,8 @@ test('preview release remains profile-gated, aggregated, and publish-last', asyn
   const source = await workflow('release-preview.yml');
   for (const required of [
     '--require-profile six-platform-preview-v1',
+    'flutter test --exclude-tags golden',
+    'flutter test test/workspace_golden_test.dart',
     'test/homebrew_cask_test.mjs',
     "inputs.mode == 'publish'",
     'refs/heads/main',

@@ -53,7 +53,7 @@ void main() {
     await tester.pump();
     unawaited(viewModel.close());
     unawaited(api.close());
-  });
+  }, tags: const <String>['golden']);
 }
 
 Future<void> _waitUntil(bool Function() predicate) async {

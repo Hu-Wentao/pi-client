@@ -197,7 +197,7 @@ jobs:
         run: |
           fvm dart format --output=none --set-exit-if-changed lib test tool
           fvm flutter analyze
-          fvm flutter test
+          fvm flutter test --exclude-tags golden
           node --test test/homebrew_cask_test.mjs test/release_contract_test.mjs test/preview_artifacts_test.mjs test/workflow_policy_test.mjs
           node tool/release_metadata.mjs --require-profile six-platform-preview-v1
 
@@ -343,6 +343,7 @@ jobs:
                 --output-dir "$STAGE"
               ;;
             macos)
+              fvm flutter test test/workspace_golden_test.dart
               fvm flutter build macos --release --config-only \
                 --build-name "$VERSION" --build-number "$BUILD_NUMBER" \
                 --dart-define=PI_CLIENT_DISTRIBUTION_CHANNEL=unsigned-preview

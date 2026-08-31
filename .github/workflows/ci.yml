@@ -39,7 +39,7 @@ jobs:
         run: |
           fvm dart format --output=none --set-exit-if-changed lib test tool
           fvm flutter analyze
-          fvm flutter test
+          fvm flutter test --exclude-tags golden
 
       - name: Test release automation
         run: node --test test/homebrew_cask_test.mjs test/release_contract_test.mjs test/preview_artifacts_test.mjs test/workflow_policy_test.mjs
@@ -115,7 +115,10 @@ jobs:
           case "$TARGET" in
             android) fvm flutter build apk --debug ;;
             ios) fvm flutter build ios --debug --no-codesign ;;
-            macos) fvm flutter build macos --debug ;;
+            macos)
+              fvm flutter test test/workspace_golden_test.dart
+              fvm flutter build macos --debug
+              ;;
             windows) fvm flutter build windows --debug ;;
             linux) fvm flutter build linux --debug ;;
             web)
