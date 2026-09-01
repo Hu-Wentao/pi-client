@@ -71,7 +71,10 @@ jobs:
             [[ "$(git rev-parse "$LOCAL_TAG_REF^{}")" == "$INPUT_SOURCE_COMMIT" ]]
 
             REMOTE_TAG_REF='refs/pi-client-pages/validated-release-tag'
-            ! git show-ref --verify --quiet "$REMOTE_TAG_REF"
+            if git show-ref --verify --quiet "$REMOTE_TAG_REF"; then
+              echo "Unexpected pre-existing validation ref: $REMOTE_TAG_REF" >&2
+              exit 1
+            fi
             git fetch --no-tags origin "refs/tags/$INPUT_RELEASE_TAG:$REMOTE_TAG_REF"
             [[ "$(git cat-file -t "$REMOTE_TAG_REF")" == 'tag' ]]
             [[ "$(git rev-parse "$REMOTE_TAG_REF")" == "$LOCAL_TAG_OBJECT" ]]

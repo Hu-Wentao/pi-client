@@ -326,7 +326,8 @@ jobs:
 
       - name: Build AppImage and Debian packages
         run: |
-          export SOURCE_DATE_EPOCH="$(git show -s --format=%ct "${{ github.sha }}")"
+          SOURCE_DATE_EPOCH="$(git show -s --format=%ct "${{ github.sha }}")"
+          export SOURCE_DATE_EPOCH
           node tool/package_linux.mjs \
             --bundle "${{ steps.metadata.outputs.bundleDirectory }}" \
             --version "${{ steps.metadata.outputs.version }}" \
