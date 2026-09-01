@@ -1,5 +1,6 @@
 {
-  "schemaVersion": 1,
-  "artifactProfile": "six-platform-preview-v1",
-  "primaryTarget": "macos-universal"
+  "schemaVersion": 2,
+  "artifactProfile": "independent-six-platform-development-v1",
+  "primaryTarget": "macos-host-native",
+  "publicationEnabled": false
 }

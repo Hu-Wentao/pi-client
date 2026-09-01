@@ -1,0 +1,68 @@
+{
+  "name": "@pi-client/node",
+  "version": "0.2.0-dev.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.0",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "pi-client-node-stdio": "./dist/stdio-main.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "runtime:check": "node ./scripts/assert-runtime.mjs",
+    "protocol:sync": "bun run --cwd ../protocol build:package && bun install --frozen-lockfile",
+    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \"capsule/**/*.json\" \"*.json\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \"capsule/**/*.json\" \"*.json\"",
+    "typecheck": "bun run protocol:sync && bun run typecheck:raw",
+    "typecheck:raw": "tsc --noEmit -p tsconfig.json",
+    "build": "bun run protocol:sync && bun run build:raw",
+    "build:raw": "tsc -p tsconfig.build.json",
+    "smoke:dist": "node ./scripts/smoke-dist.mjs",
+    "test": "bun run test:node && bun run test:capsule",
+    "test:node": "bun run protocol:sync && bun run test:node:raw",
+    "test:node:raw": "node ./scripts/run-tests.mjs",
+    "test:capsule": "node --test test/runtime-capsule.test.mjs test/macos-app-runtime-capsule.test.mjs test/desktop-app-runtime-capsule.test.mjs test/desktop-packaging.test.mjs test/macos-architecture-strategy.test.mjs test/macos-code-signing-policy.test.mjs",
+    "capsule:build": "node ./scripts/build-runtime-capsule.mjs",
+    "capsule:verify": "node ./scripts/verify-runtime-capsule.mjs",
+    "capsule:install:macos": "node ./scripts/install-runtime-capsule-in-macos-app.mjs",
+    "capsule:verify:macos-app": "node ./scripts/verify-macos-app-runtime-capsule.mjs",
+    "capsule:install:desktop": "node ./scripts/install-runtime-capsule-in-desktop-bundle.mjs",
+    "capsule:verify:desktop-app": "node ./scripts/verify-desktop-app-runtime-capsule.mjs",
+    "capsule:probe:macos-hardening": "node ./scripts/probe-macos-hardened-runtime.mjs",
+    "macos:sign": "node ./scripts/sign-macos-app.mjs",
+    "macos:sign:verify": "node ./scripts/verify-macos-app-code-signing.mjs",
+    "macos:sign:tamper-test": "node ./scripts/test-macos-app-signing-tamper.mjs",
+    "scan:forbidden": "node ./scripts/scan-forbidden.mjs",
+    "check": "bun run runtime:check && bun run format:check && bun run protocol:sync && bun run typecheck:raw && bun run build:raw && bun run smoke:dist && bun run test:node:raw && bun run test:capsule && bun run scan:forbidden"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "2.14.0",
+    "@earendil-works/pi-coding-agent": "0.84.3",
+    "@pi-client/protocol": "file:../protocol"
+  },
+  "overrides": {
+    "@earendil-works/pi-agent-core": "0.84.3",
+    "@earendil-works/pi-ai": "0.84.3",
+    "@earendil-works/pi-client": "0.84.3",
+    "@earendil-works/pi-protocol": "0.84.3",
+    "@earendil-works/pi-telemetry": "0.84.3",
+    "@earendil-works/pi-tui": "0.84.3"
+  },
+  "devDependencies": {
+    "@types/node": "22.19.19",
+    "prettier": "3.6.2",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3"
+  }
+}

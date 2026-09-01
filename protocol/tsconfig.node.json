@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": ".build/node",
+    "rootDir": ".",
+    "rewriteRelativeImportExtensions": true,
+    "types": ["node"]
+  },
+  "include": [
+    "gen/ts/**/*.ts",
+    "src/**/*.ts",
+    "test/node_compat.test.ts"
+  ]
+}

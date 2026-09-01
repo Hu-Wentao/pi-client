@@ -1,0 +1,41 @@
+{
+  "appImageTool": {
+    "version": "12",
+    "architectures": {
+      "arm64": {
+        "assetArchitecture": "aarch64",
+        "sha256": "c9d058310a4e04b9fbbd81340fff2b5fb44943a630b31881e321719f271bd41a",
+        "url": "https://github.com/AppImage/AppImageKit/releases/download/12/appimagetool-aarch64.AppImage"
+      },
+      "x64": {
+        "assetArchitecture": "x86_64",
+        "sha256": "d918b4df547b388ef253f3c9e7f6529ca81a885395c31f619d9aaf7030499a13",
+        "url": "https://github.com/AppImage/AppImageKit/releases/download/12/appimagetool-x86_64.AppImage"
+      }
+    }
+  },
+  "innoSetup": {
+    "version": "6.7.3",
+    "sha256": "9c73c3bae7ed48d44112a0f48e66742c00090bdb5bef71d9d3c056c66e97b732",
+    "url": "https://github.com/jrsoftware/issrc/releases/download/is-6_7_3/innosetup-6.7.3.exe"
+  },
+  "syft": {
+    "version": "1.51.1",
+    "linux": {
+      "arm64": {
+        "sha256": "a7fd2b784e6664acd44719270574f6cd8c6864fc2b1700bf9099bd1cccda7d7f",
+        "url": "https://github.com/anchore/syft/releases/download/v1.51.1/syft_1.51.1_linux_arm64.tar.gz"
+      },
+      "x64": {
+        "sha256": "8fcb33017a0dc1058298c923c436d19dfa68ae93968e0b423248542e3afb9fc3",
+        "url": "https://github.com/anchore/syft/releases/download/v1.51.1/syft_1.51.1_linux_amd64.tar.gz"
+      }
+    },
+    "windows": {
+      "x64": {
+        "sha256": "5e4bc3e6b6344b4625de0f7aa5351aaa72856d11d78462972de0a101ee2c1c8f",
+        "url": "https://github.com/anchore/syft/releases/download/v1.51.1/syft_1.51.1_windows_amd64.zip"
+      }
+    }
+  }
+}

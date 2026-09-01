@@ -2,190 +2,136 @@
 /// - Frame: none
 /// - Page Title: Pi Client
 /// - Node: none
-/// Figma Fidelity: excluded | no Figma design was supplied; the UI is an independent Flutter implementation of the pinned pi-web behavior baseline
+/// Figma Fidelity: excluded | no Figma design was supplied; the UI is an independent Flutter implementation over the first-party Pi Node boundary
 /// Figma Data:
 /// - none
 /// State Ownership: page-owned [WorkspaceViewModel]
 /// Public Views:
 /// - [WorkspaceView] — typed Page primary View.
-/// Widget Tree: [WorkspaceView] > [_ConnectionPanel], [_SessionSidebar],
-///   [_ConversationHeader], [_MessageTimeline], [_Composer]
+/// Widget Tree: [WorkspaceView] > [NodeConnectionView],
+///   [ProjectBrowserView], [SessionBrowserView],
+///   [BranchNavigatorView], [ConversationView] > semantic entry cards and desktop activity minimap,
+///   [PromptComposerView],
+///   [ProjectTrustDialog] (conditional),
+///   [SnackBar] (external-terminal result, conditional)
 /// Theme: material
-/// Events: [WorkspaceStarted], [WorkspaceConnectionApplied],
+/// Events: [WorkspaceStarted], [WorkspaceConnectionRetried],
+///   [WorkspaceProjectDirectoryBrowsed], [WorkspaceProjectPathValidated],
+///   [WorkspaceProjectSelected], [WorkspaceProjectTrustApproved],
 ///   [WorkspaceSessionsRefreshed], [WorkspaceSessionSelected],
-///   [WorkspaceNewSessionRequested], [WorkspacePromptSubmitted],
-///   [WorkspaceAgentStopped]
+///   [WorkspaceNewSessionRequested], [WorkspaceSessionRenamed],
+///   [WorkspaceSessionCustomNameCleared], [WorkspaceSessionAutoNamed],
+///   [WorkspaceSessionDeleted], [WorkspaceSessionTreeNavigated],
+///   [WorkspaceSessionForked], [WorkspaceSessionCloned],
+///   [WorkspaceOlderHistoryRequested], [WorkspaceSessionStatsRefreshed],
+///   [WorkspaceSessionExportRequested], [WorkspaceSessionExportCancelled],
+///   [WorkspacePromptSubmitted], [WorkspaceAgentStopped]
 /// Startup Event: [WorkspaceStarted]
 /// ViewModels: [WorkspaceViewModel]
-/// Models: [WorkspaceModel], [PiSessionModel], [PiMessageModel]
-/// API: GET /api/sessions
-/// Behavior:
-/// - UI Data: connection state, session summaries, selected-session messages, running state, and incremental assistant output
-/// - Source: agegr/pi-web commit 28bab3c25f5f6770c9b0b745ebbfec1c27f7b948 endpoints under /api/sessions and /api/agent
-/// - Loading/Refresh: connect on entry, explicitly refresh sessions, load a selected conversation, and keep the active session SSE stream attached
-/// - Empty/Error: show a connection action when unavailable, an empty session state when no sessions exist, and retryable inline errors without inventing data
-/// Notes: [PiWebGateway] uses GET `/api/sessions` and GET
-///   `/api/sessions/:id` for the primary query behavior. It also owns POST
-///   `/api/agent/new`, POST `/api/agent/:id`, and GET
-///   `/api/agent/:id/events` for session creation, prompt/abort commands, and
-///   SSE updates under the same pinned upstream boundary. It uses the
-///   application-owned Dio instance with absolute request URIs and per-request
-///   Basic Auth. The password remains private to [WorkspaceViewModel], is never
-///   included in [WorkspaceModel], JSON output, logs, or repository files. SSE
-///   reconnects only for the selected session. Focused service and ViewModel
-///   tests own command and stream verification because explicit API contracts
-///   expose one primary query/command Behavior.
+/// Models: [WorkspaceModel]
+/// Notes: The typed root route remains at `/`. [WorkspaceService] delegates
+///   only to the app-owned [PiNodeApi], while [WorkspaceViewModel] owns typed
+///   [PiSessionSummary], [PiConversationEntry], and [PiSessionEvent] as
+///   authoritative feature state. The production [ConversationView] consumes
+///   semantic entries directly; the compatibility [PiMessage] projection remains
+///   non-authoritative for legacy API and test surfaces. [WorkspaceViewModel]
+///   owns the single revision-aware event reducer and event subscriptions. Startup connects, resolves the Node-owned default project,
+///   loads session-derived known projects, and lists the selected project's
+///   sessions; directory browsing, manual-path validation, project selection,
+///   explicit trust approval, refresh, session selection, creation, rename,
+///   custom-name clearing, bounded model-assisted naming, confirmed deletion,
+///   prompt admission, ordered events, sequence-gap recovery, abort, and clean
+///   close remain observable. Flat session-tree loading, same-session branch
+///   navigation, recoverable edit-from-here text, independent fork, active-branch
+///   clone, runtime replacement, opaque-cursor history pagination with a
+///   50-entry initial tail, full-session statistics, streamed HTML/JSONL
+///   export progress/cancellation, and authoritative history/tree refresh are
+///   generation-guarded. Local-host, remote-node-required, unsupported,
+///   empty, rejected, uncertain, disconnected, retry, and stale-result-safe
+///   states never invent runtime data. The View-local external-terminal action
+///   accepts only the current Node-validated project identity, appears only on
+///   supported desktops after trust approval is unnecessary, and generation-checks
+///   redacted feedback without adding a ViewModel Event or protocol operation.
+///   Optimistic prompts are removed only for
+///   definitive rejection and retained for uncertain admission. Synchronous
+///   busy guards and operation/event generations prevent duplicate work and
+///   stale emissions without an extra Bloc concurrency dependency.
 
 part of 'workspace.dart';
 
-enum WorkspaceConnectionStatus { disconnected, connecting, connected, error }
+enum WorkspaceEventStatus { idle, listening, recovering, error }
 
-enum WorkspaceStreamStatus { idle, connecting, connected, reconnecting, error }
-
-enum PiMessageRole { user, assistant, tool, custom, bash }
-
-@immutable
-@JsonSerializable(createFactory: false)
-class PiSessionModel {
-  const PiSessionModel({
-    required this.id,
-    required this.cwd,
-    required this.created,
-    required this.modified,
-    required this.messageCount,
-    required this.firstMessage,
-    required this.running,
-    this.name,
-  });
-
-  final String id;
-  final String cwd;
-  final String? name;
-  final String created;
-  final String modified;
-  final int messageCount;
-  final String firstMessage;
-  final bool running;
-
-  String get title {
-    final trimmedName = name?.trim();
-    if (trimmedName != null && trimmedName.isNotEmpty) return trimmedName;
-    final trimmedFirstMessage = firstMessage.trim();
-    if (trimmedFirstMessage.isNotEmpty &&
-        trimmedFirstMessage != '(no messages)') {
-      return trimmedFirstMessage;
-    }
-    return id;
-  }
-
-  PiSessionModel copyWith({bool? running}) => PiSessionModel(
-    id: id,
-    cwd: cwd,
-    name: name,
-    created: created,
-    modified: modified,
-    messageCount: messageCount,
-    firstMessage: firstMessage,
-    running: running ?? this.running,
-  );
-
-  Map<String, dynamic> toJson() => _$PiSessionModelToJson(this);
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is PiSessionModel &&
-          id == other.id &&
-          cwd == other.cwd &&
-          name == other.name &&
-          created == other.created &&
-          modified == other.modified &&
-          messageCount == other.messageCount &&
-          firstMessage == other.firstMessage &&
-          running == other.running;
-
-  @override
-  @JsonKey(includeToJson: false)
-  int get hashCode => Object.hash(
-    id,
-    cwd,
-    name,
-    created,
-    modified,
-    messageCount,
-    firstMessage,
-    running,
-  );
-}
-
-@immutable
-@JsonSerializable(createFactory: false)
-class PiMessageModel {
-  const PiMessageModel({
-    required this.id,
-    required this.role,
-    required this.text,
-    this.isError = false,
-    this.timestampMs,
-    this.streaming = false,
-  });
-
-  final String id;
-  final PiMessageRole role;
-  final String text;
-  final bool isError;
-  final int? timestampMs;
-  final bool streaming;
-
-  PiMessageModel copyWith({
-    String? text,
-    bool? isError,
-    int? timestampMs,
-    bool? streaming,
-  }) => PiMessageModel(
-    id: id,
-    role: role,
-    text: text ?? this.text,
-    isError: isError ?? this.isError,
-    timestampMs: timestampMs ?? this.timestampMs,
-    streaming: streaming ?? this.streaming,
-  );
-
-  Map<String, dynamic> toJson() => _$PiMessageModelToJson(this);
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is PiMessageModel &&
-          id == other.id &&
-          role == other.role &&
-          text == other.text &&
-          isError == other.isError &&
-          timestampMs == other.timestampMs &&
-          streaming == other.streaming;
-
-  @override
-  @JsonKey(includeToJson: false)
-  int get hashCode =>
-      Object.hash(id, role, text, isError, timestampMs, streaming);
-}
+enum WorkspacePromptAdmissionStatus { idle, accepted, rejected, uncertain }
 
 @FrState
 abstract class WorkspaceModel with _$WorkspaceModel {
   const factory WorkspaceModel({
-    @Default('http://127.0.0.1:30141') String baseUrl,
-    @Default(WorkspaceConnectionStatus.disconnected)
-    WorkspaceConnectionStatus connectionStatus,
-    @Default(WorkspaceStreamStatus.idle) WorkspaceStreamStatus streamStatus,
-    @Default(<PiSessionModel>[]) List<PiSessionModel> sessions,
-    String? selectedSessionId,
-    @Default(<PiMessageModel>[]) List<PiMessageModel> messages,
+    @JsonKey(includeToJson: false)
+    @Default(PiNodeConnectionSnapshot.disconnected())
+    PiNodeConnectionSnapshot connection,
+    @Default(PiNodeCompositionAvailability.externalNode)
+    PiNodeCompositionAvailability nodeAvailability,
+    @Default(WorkspaceEventStatus.idle) WorkspaceEventStatus eventStatus,
+    @Default(WorkspacePromptAdmissionStatus.idle)
+    WorkspacePromptAdmissionStatus promptAdmissionStatus,
+    @JsonKey(includeToJson: false) PiProjectBootstrap? projectBootstrap,
+    @JsonKey(includeToJson: false)
+    @Default(<PiKnownProject>[])
+    List<PiKnownProject> knownProjects,
+    @JsonKey(includeToJson: false) PiProject? selectedProject,
+    @JsonKey(includeToJson: false) PiDirectoryListing? projectDirectory,
+    @JsonKey(includeToJson: false)
+    @Default(<PiSessionSummary>[])
+    List<PiSessionSummary> sessions,
+    @JsonKey(includeToJson: false) PiSessionId? selectedSessionId,
+    @JsonKey(includeToJson: false) PiSessionId? sessionAdminSessionId,
+    @JsonKey(includeToJson: false)
+    PiSessionAdminOperation? sessionAdminOperation,
+    @JsonKey(includeToJson: false)
+    @Default(<PiMessage>[])
+    List<PiMessage> messages,
+    @JsonKey(includeToJson: false)
+    @Default(<PiConversationEntry>[])
+    List<PiConversationEntry> conversationEntries,
+    @JsonKey(includeToJson: false) PiSessionHistoryCursor? historyCursor,
+    @JsonKey(includeToJson: false)
+    PiSessionBranchRevision? activeBranchRevision,
+    @JsonKey(includeToJson: false) PiSessionTreeRevision? treeRevision,
+    @Default(false) bool historyHasMore,
+    @Default(false) bool historyLoading,
+    @JsonKey(includeToJson: false) PiSessionStats? sessionStats,
+    @Default(false) bool sessionStatsLoading,
+    @JsonKey(includeToJson: false) PiSessionTree? sessionTree,
+    @JsonKey(includeToJson: false)
+    PiSessionTreeMutationOperation? sessionTreeMutationOperation,
+    @Default(false) bool sessionTreeLoading,
+    @Default(false) bool sessionTreeMutationLoading,
+    @Default(0) int composerDraftGeneration,
+    @JsonKey(includeToJson: false) String? composerDraft,
+    @Default(false) bool projectLoading,
+    @Default(false) bool projectBrowsing,
+    @Default(false) bool projectValidating,
+    @Default(false) bool projectTrustApproving,
     @Default(false) bool sessionsLoading,
     @Default(false) bool conversationLoading,
     @Default(false) bool creatingSession,
+    @Default(false) bool sessionAdminLoading,
+    @Default(false) bool sessionExportLoading,
+    @JsonKey(includeToJson: false) PiSessionExportFormat? sessionExportFormat,
+    @Default(0) int sessionExportSavedBytes,
+    @Default(0) int sessionExportTotalBytes,
+    String? lastExportFileName,
     @Default(false) bool sending,
-    @Default(false) bool streaming,
-    String? error,
+    @Default(false) bool stopping,
+    String? nodeError,
+    String? projectError,
+    String? sessionError,
+    String? sessionAdminError,
+    String? sessionTreeError,
+    String? conversationError,
+    String? sessionStatsError,
+    String? sessionExportError,
+    String? promptError,
     String? statusMessage,
   }) = _WorkspaceModel;
 }
@@ -198,14 +144,36 @@ final class WorkspaceStarted extends WorkspaceEvent {
   const WorkspaceStarted();
 }
 
-final class WorkspaceConnectionApplied extends WorkspaceEvent {
-  const WorkspaceConnectionApplied({
-    required this.baseUrl,
-    required this.password,
+final class WorkspaceConnectionRetried extends WorkspaceEvent {
+  const WorkspaceConnectionRetried();
+}
+
+final class WorkspaceProjectDirectoryBrowsed extends WorkspaceEvent {
+  const WorkspaceProjectDirectoryBrowsed(this.directory);
+
+  final String directory;
+}
+
+final class WorkspaceProjectPathValidated extends WorkspaceEvent {
+  const WorkspaceProjectPathValidated(this.candidateDirectory);
+
+  final String candidateDirectory;
+}
+
+final class WorkspaceProjectSelected extends WorkspaceEvent {
+  const WorkspaceProjectSelected(this.project);
+
+  final PiProject project;
+}
+
+final class WorkspaceProjectTrustApproved extends WorkspaceEvent {
+  const WorkspaceProjectTrustApproved({
+    this.createSessionAfterApproval = false,
+    this.sessionIdAfterApproval,
   });
 
-  final String baseUrl;
-  final String password;
+  final bool createSessionAfterApproval;
+  final PiSessionId? sessionIdAfterApproval;
 }
 
 final class WorkspaceSessionsRefreshed extends WorkspaceEvent {
@@ -215,61 +183,118 @@ final class WorkspaceSessionsRefreshed extends WorkspaceEvent {
 final class WorkspaceSessionSelected extends WorkspaceEvent {
   const WorkspaceSessionSelected(this.sessionId);
 
-  final String sessionId;
+  final PiSessionId sessionId;
 }
 
 final class WorkspaceNewSessionRequested extends WorkspaceEvent {
-  const WorkspaceNewSessionRequested(this.cwd);
+  const WorkspaceNewSessionRequested();
+}
 
-  final String cwd;
+final class WorkspaceSessionRenamed extends WorkspaceEvent {
+  const WorkspaceSessionRenamed({required this.sessionId, required this.name});
+
+  final PiSessionId sessionId;
+  final String name;
+}
+
+final class WorkspaceSessionCustomNameCleared extends WorkspaceEvent {
+  const WorkspaceSessionCustomNameCleared(this.sessionId);
+
+  final PiSessionId sessionId;
+}
+
+final class WorkspaceSessionAutoNamed extends WorkspaceEvent {
+  const WorkspaceSessionAutoNamed(this.sessionId);
+
+  final PiSessionId sessionId;
+}
+
+final class WorkspaceSessionDeleted extends WorkspaceEvent {
+  const WorkspaceSessionDeleted(this.confirmation);
+
+  final PiDeleteSessionConfirmation confirmation;
+}
+
+final class WorkspaceSessionTreeNavigated extends WorkspaceEvent {
+  const WorkspaceSessionTreeNavigated(this.entryId);
+
+  final PiSessionTreeEntryId entryId;
+}
+
+final class WorkspaceSessionForked extends WorkspaceEvent {
+  const WorkspaceSessionForked(this.userEntryId);
+
+  final PiSessionTreeEntryId userEntryId;
+}
+
+final class WorkspaceSessionCloned extends WorkspaceEvent {
+  const WorkspaceSessionCloned();
+}
+
+final class WorkspaceOlderHistoryRequested extends WorkspaceEvent {
+  const WorkspaceOlderHistoryRequested();
+}
+
+final class WorkspaceSessionStatsRefreshed extends WorkspaceEvent {
+  const WorkspaceSessionStatsRefreshed();
+}
+
+final class WorkspaceSessionExportRequested extends WorkspaceEvent {
+  const WorkspaceSessionExportRequested(this.format);
+
+  final PiSessionExportFormat format;
+}
+
+final class WorkspaceSessionExportCancelled extends WorkspaceEvent {
+  const WorkspaceSessionExportCancelled();
 }
 
 final class WorkspacePromptSubmitted extends WorkspaceEvent {
-  const WorkspacePromptSubmitted(this.message);
+  const WorkspacePromptSubmitted(this.prompt);
 
-  final String message;
+  final String prompt;
 }
 
 final class WorkspaceAgentStopped extends WorkspaceEvent {
   const WorkspaceAgentStopped();
 }
 
-final class _WorkspaceStreamEventReceived extends WorkspaceEvent {
-  const _WorkspaceStreamEventReceived({
-    required this.sessionId,
-    required this.generation,
-    required this.payload,
-  });
+final class _WorkspaceConnectionSnapshotReceived extends WorkspaceEvent {
+  const _WorkspaceConnectionSnapshotReceived(this.snapshot);
 
-  final String sessionId;
-  final int generation;
-  final Map<String, dynamic> payload;
+  final PiNodeConnectionSnapshot snapshot;
 }
 
-final class _WorkspaceStreamFailed extends WorkspaceEvent {
-  const _WorkspaceStreamFailed({
+final class _WorkspaceSessionEventReceived extends WorkspaceEvent {
+  const _WorkspaceSessionEventReceived({
+    required this.sessionId,
+    required this.generation,
+    required this.event,
+  });
+
+  final PiSessionId sessionId;
+  final int generation;
+  final PiSessionEvent event;
+}
+
+final class _WorkspaceSessionEventsFailed extends WorkspaceEvent {
+  const _WorkspaceSessionEventsFailed({
     required this.sessionId,
     required this.generation,
     required this.error,
   });
 
-  final String sessionId;
+  final PiSessionId sessionId;
   final int generation;
   final Object error;
 }
 
-final class _WorkspaceStreamClosed extends WorkspaceEvent {
-  const _WorkspaceStreamClosed({
+final class _WorkspaceSessionEventsClosed extends WorkspaceEvent {
+  const _WorkspaceSessionEventsClosed({
     required this.sessionId,
     required this.generation,
   });
 
-  final String sessionId;
+  final PiSessionId sessionId;
   final int generation;
-}
-
-final class _WorkspaceStreamStatusChanged extends WorkspaceEvent {
-  const _WorkspaceStreamStatusChanged(this.status);
-
-  final WorkspaceStreamStatus status;
 }

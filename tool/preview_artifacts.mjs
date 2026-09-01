@@ -34,18 +34,34 @@ const workflowPlatforms = Object.freeze([
   'windows',
 ]);
 const reservedHostRuntimeBasenames = Object.freeze([
+  'pinode',
   'pi-client-agent-host',
   'pi_client_agent_host',
   'piclientagenthost',
   'pi-sdk-host',
   'pi_sdk_host',
+  'pi-client-shell-host',
+  'pi_client_shell_host',
+  'pi-client-pty-host',
+  'pi_client_pty_host',
+  'pi-client-remote-shell',
+  'pi_client_remote_shell',
 ]);
 
-export const hostRuntimeVerification = Object.freeze({
-  method: 'recursive-package-filename-boundary-scan',
+export const connectOnlyHostRuntimeVerification = Object.freeze({
+  method: 'recursive-connect-only-package-boundary-scan',
   result: 'passed',
   evidenceBoundary: 'filenames-and-contained-symlink-targets-only',
 });
+
+export const firstPartyHostRuntimeVerification = Object.freeze({
+  method: 'first-party-runtime-capsule-layout-and-manifest-presence',
+  result: 'passed',
+  evidenceBoundary: 'package-layout-after-platform-capsule-verifier',
+});
+
+// Compatibility export for callers that explicitly verify connect-only artifacts.
+export const hostRuntimeVerification = connectOnlyHostRuntimeVerification;
 
 function assertCommit(commit) {
   if (!/^[0-9a-f]{40}$/.test(commit ?? '')) {
@@ -74,14 +90,19 @@ function assertAllowedBasename(path) {
   }
 }
 
-export async function scanPackageContents(contentsRoot) {
+export async function scanPackageContents(contentsRoot, options = {}) {
+  const hostRuntimeIncluded = options.hostRuntimeIncluded ?? false;
+  if (typeof hostRuntimeIncluded !== 'boolean') {
+    throw new Error('hostRuntimeIncluded must be a boolean.');
+  }
   const root = resolve(contentsRoot);
   const rootInfo = await lstat(root);
   if (rootInfo.isSymbolicLink() || !rootInfo.isDirectory()) {
     throw new Error(`Expected a non-symlink contents directory: ${root}.`);
   }
-  assertAllowedBasename(root);
+  if (!hostRuntimeIncluded) assertAllowedBasename(root);
   const canonicalRoot = await realpath(root);
+  const relativeEntries = [];
   let descendants = 0;
   async function visit(directory) {
     for (const entry of (await readdir(directory, { withFileTypes: true })).sort((a, b) =>
@@ -89,7 +110,8 @@ export async function scanPackageContents(contentsRoot) {
     )) {
       const path = resolve(directory, entry.name);
       const info = await lstat(path);
-      assertAllowedBasename(path);
+      if (!hostRuntimeIncluded) assertAllowedBasename(path);
+      relativeEntries.push(relative(root, path).split(sep).join('/'));
       descendants += 1;
       if (info.isSymbolicLink()) {
         let target;
@@ -112,7 +134,31 @@ export async function scanPackageContents(contentsRoot) {
   if (descendants === 0) {
     throw new Error('Contents root must contain at least one package entry.');
   }
-  return hostRuntimeVerification;
+  const capsuleRoots = relativeEntries
+    .filter((path) => path.endsWith('/PiNode/capsule-manifest.json') || path === 'PiNode/capsule-manifest.json')
+    .map((path) => path.slice(0, -'/capsule-manifest.json'.length));
+  if (hostRuntimeIncluded) {
+    if (capsuleRoots.length !== 1) {
+      throw new Error('Desktop package must contain exactly one first-party PiNode capsule manifest.');
+    }
+    const [capsuleRoot] = capsuleRoots;
+    for (const required of [
+      `${capsuleRoot}/app/dist/stdio-main.js`,
+      `${capsuleRoot}/metadata/licenses.json`,
+    ]) {
+      if (!relativeEntries.includes(required)) {
+        throw new Error(`Desktop package runtime Capsule is missing ${required}.`);
+      }
+    }
+    if (!relativeEntries.some((path) => path.startsWith(`${capsuleRoot}/runtime/`) && /(?:^|\/)node(?:\.exe)?$/i.test(path))) {
+      throw new Error('Desktop package runtime Capsule is missing its Node executable.');
+    }
+    return firstPartyHostRuntimeVerification;
+  }
+  if (capsuleRoots.length !== 0) {
+    throw new Error('Connect-only package unexpectedly contains a PiNode runtime Capsule.');
+  }
+  return connectOnlyHostRuntimeVerification;
 }
 
 async function walkFiles(root) {
@@ -161,13 +207,13 @@ function stageEvidenceName(artifactFile) {
   return `${artifactFile}${stageEvidenceSuffix}`;
 }
 
-function stageEvidenceFor(artifact) {
+function stageEvidenceFor(artifact, verification) {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     target: artifact.id,
     file: artifact.file,
-    hostRuntimeIncluded: false,
-    hostRuntimeVerification,
+    hostRuntimeIncluded: artifact.hostRuntimeIncluded,
+    hostRuntimeVerification: verification,
   };
 }
 
@@ -197,7 +243,9 @@ export async function stageArtifact({
     throw new Error('Stage input must be one regular, non-symlink file.');
   }
   if (inputInfo.size === 0) throw new Error('Stage input must not be empty.');
-  const verification = await scanPackageContents(contentsRoot);
+  const verification = await scanPackageContents(contentsRoot, {
+    hostRuntimeIncluded: artifact.hostRuntimeIncluded,
+  });
   await mkdir(outputDir, { recursive: true });
   const destination = resolve(outputDir, artifact.file);
   const evidencePath = resolve(outputDir, stageEvidenceName(artifact.file));
@@ -206,7 +254,7 @@ export async function stageArtifact({
   await copyFile(inputPath, destination);
   await writeFile(
     evidencePath,
-    `${JSON.stringify({ ...stageEvidenceFor(artifact), hostRuntimeVerification: verification }, null, 2)}\n`,
+    `${JSON.stringify(stageEvidenceFor(artifact, verification), null, 2)}\n`,
   );
   return {
     ...artifact,
@@ -236,12 +284,15 @@ async function parseStageEvidence(path, expectedArtifact) {
   if (JSON.stringify(Object.keys(evidence).sort()) !== JSON.stringify(expectedKeys)) {
     throw new Error(`Stage evidence ${basename(path)} has unexpected or missing fields.`);
   }
+  const expectedVerification = expectedArtifact.hostRuntimeIncluded
+    ? firstPartyHostRuntimeVerification
+    : connectOnlyHostRuntimeVerification;
   if (
-    evidence.schemaVersion !== 1 ||
+    evidence.schemaVersion !== 2 ||
     evidence.target !== expectedArtifact.id ||
     evidence.file !== expectedArtifact.file ||
-    evidence.hostRuntimeIncluded !== false ||
-    JSON.stringify(evidence.hostRuntimeVerification) !== JSON.stringify(hostRuntimeVerification)
+    evidence.hostRuntimeIncluded !== expectedArtifact.hostRuntimeIncluded ||
+    JSON.stringify(evidence.hostRuntimeVerification) !== JSON.stringify(expectedVerification)
   ) {
     throw new Error(`Stage evidence ${basename(path)} does not match its artifact.`);
   }
@@ -353,7 +404,7 @@ function manifestFor({ contract, profile, artifacts, commit, flutterVersion }) {
   return {
     schemaVersion: 1,
     product: 'Pi Client',
-    distribution: 'unsigned-preview',
+    distribution: contract.distribution,
     version: contract.version,
     buildNumber: contract.buildNumber,
     tag: contract.tag,
@@ -514,7 +565,7 @@ export async function verifyArtifacts({
   if (
     manifest.schemaVersion !== 1 ||
     manifest.product !== 'Pi Client' ||
-    manifest.distribution !== 'unsigned-preview' ||
+    manifest.distribution !== contract.distribution ||
     manifest.version !== contract.version ||
     manifest.buildNumber !== contract.buildNumber ||
     manifest.tag !== contract.tag ||
@@ -563,13 +614,16 @@ export async function verifyArtifacts({
       signing: expected.signing,
       installability: expected.installability,
       runtimeBaseline: expected.runtimeBaseline,
-      hostRuntimeIncluded: false,
+      hostRuntimeIncluded: expected.hostRuntimeIncluded,
     })) {
       if (entry[key] !== value) throw new Error(`Manifest entry ${entry.file} has invalid ${key}.`);
     }
+    const expectedVerification = expected.hostRuntimeIncluded
+      ? firstPartyHostRuntimeVerification
+      : connectOnlyHostRuntimeVerification;
     if (
       JSON.stringify(entry.hostRuntimeVerification) !==
-      JSON.stringify(hostRuntimeVerification)
+      JSON.stringify(expectedVerification)
     ) {
       throw new Error(`Manifest entry ${entry.file} has invalid hostRuntimeVerification.`);
     }

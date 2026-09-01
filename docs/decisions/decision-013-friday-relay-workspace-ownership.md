@@ -43,7 +43,7 @@ mdq:
 - 选择：选项 C
 - 同意影响：每个 Friday user 第一版最多一个个人 Workspace和平台管理子域；WebAssembly 使用 canonical Friday auth handoff与host-only session；Native使用新增public OIDC + PKCE profile；付费 access由friday-relay实时Decision；Pi业务payload仍不得持久化到friday-relay；Native Local Direct不依赖Friday身份或订阅。
 - 否决影响：选项A复制Friday Identity/Billing并扩大客户端安全面；选项B无法满足中心付费服务和统一用户子域目标。
-- 与历史决策的关系：`DEC-012`继续禁止任何pi-web代码依赖；本决策取代`PLAN-PI-001`中的Stateless Relay和Pi Node自有Passkey设计，不改变已交付MVP历史。
+- 与历史决策的关系：项目自有运行时和协议边界保持有效；本决策取代 `PLAN-PI-001` 中的 Stateless Relay 和 Pi Node 自有 Passkey 设计，不改变已交付 MVP 历史。
 - 跨项目边界：friday-relay新增能力必须在其独立治理流程和worktree中实施；本仓库只能消费受版本管理的公共合同，不能直接读取Friday Relay数据库或内部Repository。
 - 兼容性：Native public OIDC、Workspace Host、Pi Workspace entitlement和Node tunnel都是新兼容面；不得通过放宽现有confidential OIDC、Team DomainBinding或Model Access Plan语义实现。
 - 标签：`decision/013-friday-relay-workspace-ownership`

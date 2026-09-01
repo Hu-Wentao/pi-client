@@ -654,5 +654,5 @@ friday-relay 新增能力必须在其独立治理流程和隔离 worktree 中实
 - 当前friday-relay fixed OIDC client不支持Native；新增public profile是独立协议扩展，不能修改既有confidential client语义。
 - 当前Passkey只允许显式canonical origin；Workspace子域通过auth handoff保持该边界，不自动加入RP。
 - 当前Team `domain_bindings`不迁移为Pi Workspace hostname；两者继续拥有不同schema和产品语义。
-- 当前pi-client的pi-web URL/Basic Auth仍属于MVP遗留实现，后续迁移到Pi Node/Friday Relay时按`0.x`Breaking Change处理。
+- 当前 pi-client 已移除旧版端点凭据和兼容传输路径；后续实现不得声称这些配置仍存在，也不得恢复其运行时语义。
 - 六平台工程和执行角色合同是加法性变更，不移除现有 macOS MVP 行为；真实桌面 Pi SDK host 仍是 Planned，不因平台能力映射而视为已交付。

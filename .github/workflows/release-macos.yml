@@ -1,0 +1,311 @@
+name: Release independent ad-hoc macOS preview
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-independent-macos-preview
+  cancel-in-progress: false
+
+env:
+  BUN_VERSION: 1.4.0
+  DART_VERSION: 3.11.4
+  FLUTTER_VERSION: 3.41.6
+  FVM_VERSION: 4.0.5
+  NODE_VERSION: 22.19.0
+
+jobs:
+  release:
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - name: Require the main branch
+        env:
+          EXPECTED_REF: refs/heads/main
+        run: |
+          if [[ "$GITHUB_REF" != "$EXPECTED_REF" ]]; then
+            echo "Run this workflow from ${EXPECTED_REF}; received ${GITHUB_REF}." >&2
+            exit 1
+          fi
+
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Keep the legacy single-macOS publisher dormant
+        run: node tool/release_metadata.mjs --require-profile macos-preview-v1 --require-publication
+
+      - name: Set up Bun ${{ env.BUN_VERSION }}
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Resolve independent preview metadata
+        id: metadata
+        run: node .github/scripts/release-independent-macos-preview-metadata.mjs --github-output "$GITHUB_OUTPUT"
+
+      - name: Reject existing release identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.metadata.outputs.tag }}
+        run: |
+          if git show-ref --verify --quiet "refs/tags/${TAG}"; then
+            echo "Local tag ${TAG} already exists." >&2
+            exit 1
+          fi
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG}" >/dev/null 2>&1; then
+            echo "Remote tag ${TAG} already exists." >&2
+            exit 1
+          fi
+          if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" >/dev/null 2>&1; then
+            echo "GitHub Release ${TAG} already exists." >&2
+            exit 1
+          fi
+
+      - name: Set up Dart ${{ env.DART_VERSION }}
+        uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1
+        with:
+          sdk: ${{ env.DART_VERSION }}
+
+      - name: Cache Flutter SDK
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ~/fvm/versions/${{ env.FLUTTER_VERSION }}
+          key: macos-fvm-flutter-${{ env.FLUTTER_VERSION }}
+
+      - name: Install FVM and Flutter
+        run: |
+          dart pub global activate fvm "$FVM_VERSION"
+          echo "$HOME/.pub-cache/bin" >> "$GITHUB_PATH"
+          "$HOME/.pub-cache/bin/fvm" install "$FLUTTER_VERSION"
+          "$HOME/.pub-cache/bin/fvm" use "$FLUTTER_VERSION" --force
+          "$HOME/.pub-cache/bin/fvm" flutter config --enable-macos-desktop
+
+      - name: Resolve locked Flutter dependencies
+        run: fvm flutter pub get --enforce-lockfile
+
+      - name: Verify generated Dart sources
+        run: |
+          fvm dart run build_runner build
+          if ! git diff --exit-code -- lib test; then
+            echo 'Generated Dart sources are stale.' >&2
+            exit 1
+          fi
+
+      - name: Analyze and test Flutter source
+        run: |
+          fvm dart format --output=none --set-exit-if-changed lib test tool
+          fvm flutter analyze --no-pub
+          fvm flutter test --no-pub
+
+      - name: Install locked Protocol dependencies and check package
+        working-directory: protocol
+        run: |
+          bun install --frozen-lockfile
+          bun run check
+
+      - name: Install locked Pi Node dependencies and check package
+        working-directory: node
+        run: |
+          bun install --frozen-lockfile
+          bun run check
+
+      - name: Build and verify the truthful architecture runtime capsule
+        working-directory: node
+        env:
+          CAPSULE_TARGET: ${{ steps.metadata.outputs.capsuleTarget }}
+        run: bun run capsule:build --target "$CAPSULE_TARGET"
+
+      - name: Prove minimum ad-hoc Hardened Runtime entitlements
+        working-directory: node
+        env:
+          CAPSULE_DIRECTORY: ${{ steps.metadata.outputs.capsuleDirectory }}
+        run: bun run capsule:probe:macos-hardening --capsule "$GITHUB_WORKSPACE/$CAPSULE_DIRECTORY"
+
+      - name: Configure unsigned independent Release build
+        env:
+          VERSION: ${{ steps.metadata.outputs.version }}
+          BUILD_NUMBER: ${{ steps.metadata.outputs.buildNumber }}
+        run: |
+          fvm flutter build macos \
+            --release \
+            --config-only \
+            --build-name "$VERSION" \
+            --build-number "$BUILD_NUMBER" \
+            --dart-define=PI_CLIENT_DISTRIBUTION_CHANNEL=unsigned-preview \
+            --dart-define=PI_CLIENT_RUNTIME_CAPSULE_SOURCE_COMMIT="$GITHUB_SHA"
+
+      - name: Build unsigned architecture-selected app with bundled capsule
+        env:
+          APP_ARCHITECTURES: ${{ steps.metadata.outputs.appArchitectures }}
+          CAPSULE_DIRECTORY: ${{ steps.metadata.outputs.capsuleDirectory }}
+          DERIVED_DATA: ${{ runner.temp }}/pi-client-derived-data
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace macos/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -derivedDataPath "$DERIVED_DATA" \
+            ARCHS="$APP_ARCHITECTURES" \
+            ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            PI_CLIENT_RUNTIME_CAPSULE_PATH="$GITHUB_WORKSPACE/$CAPSULE_DIRECTORY" \
+            PI_CLIENT_RUNTIME_CAPSULE_EXPECTED_SOURCE_COMMIT="$GITHUB_SHA" \
+            build | tee "$RUNNER_TEMP/xcodebuild.log"
+
+      - name: Verify unsigned app identity, capsule, and expected rejection
+        id: app
+        env:
+          BUILD_NUMBER: ${{ steps.metadata.outputs.buildNumber }}
+          DERIVED_DATA: ${{ runner.temp }}/pi-client-derived-data
+          VERSION: ${{ steps.metadata.outputs.version }}
+        run: |
+          APP="$DERIVED_DATA/Build/Products/Release/Pi Client.app"
+          PLIST="$APP/Contents/Info.plist"
+          EXECUTABLE="$APP/Contents/MacOS/Pi Client"
+          test -d "$APP"
+          test -x "$EXECUTABLE"
+          [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$PLIST")" == 'Pi Client' ]]
+          [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$PLIST")" == 'Pi Client' ]]
+          [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$PLIST")" == 'io.github.huwentao.piClient' ]]
+          [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST")" == "$VERSION" ]]
+          [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PLIST")" == "$BUILD_NUMBER" ]]
+          [[ "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$PLIST")" == '11.0' ]]
+          ! grep -Eq 'app-sandbox|disable-library-validation|allow-unsigned-executable-memory' macos/Runner/Release.entitlements
+          grep -q 'disable-library-validation' macos/Runner/ReleaseAdHoc.entitlements
+          grep -q 'allow-unsigned-executable-memory' macos/Runner/PiNode.entitlements
+          grep -q 'allow-unsigned-executable-memory' macos/Runner/PiNodeAdHoc.entitlements
+
+          node node/scripts/verify-macos-app-runtime-capsule.mjs \
+            --app "$APP" \
+            --expected-source-commit "$GITHUB_SHA"
+          if codesign --verify --strict "$APP" >/dev/null 2>&1; then
+            echo 'Expected the pre-signing app to be unsigned.' >&2
+            exit 1
+          fi
+          if spctl --assess --type execute "$APP" >/dev/null 2>&1; then
+            echo 'Expected Gatekeeper to reject the unsigned pre-signing app.' >&2
+            exit 1
+          fi
+          echo "path=$APP" >> "$GITHUB_OUTPUT"
+
+      - name: Sign bundled app inside-out with ad-hoc Hardened Runtime
+        env:
+          APP: ${{ steps.app.outputs.path }}
+        run: |
+          node node/scripts/sign-macos-app.mjs \
+            --app "$APP" \
+            --identity - \
+            --timestamp none \
+            --expected-source-commit "$GITHUB_SHA" \
+            --gatekeeper reject
+
+      - name: Verify strict signatures, entitlements, manifest, and tamper gates
+        env:
+          APP: ${{ steps.app.outputs.path }}
+        run: |
+          node node/scripts/verify-macos-app-code-signing.mjs \
+            --app "$APP" \
+            --expected-source-commit "$GITHUB_SHA" \
+            --expected-signing-kind ad-hoc \
+            --gatekeeper reject
+          node node/scripts/test-macos-app-signing-tamper.mjs \
+            --app "$APP" \
+            --expected-source-commit "$GITHUB_SHA" \
+            --expected-signing-kind ad-hoc
+
+      - name: Launch installed app with system Node removed from PATH
+        env:
+          APP: ${{ steps.app.outputs.path }}
+        run: |
+          node tool/run_macos_bundled_app_e2e.mjs \
+            --app "$APP" \
+            --expected-source-commit "$GITHUB_SHA"
+
+      - name: Package app and checksum
+        env:
+          APP: ${{ steps.app.outputs.path }}
+          ASSET: ${{ steps.metadata.outputs.asset }}
+          CHECKSUM_ASSET: ${{ steps.metadata.outputs.checksumAsset }}
+        run: |
+          mkdir -p artifacts
+          ditto -c -k --sequesterRsrc --keepParent "$APP" "artifacts/$ASSET"
+          (
+            cd artifacts
+            shasum -a 256 "$ASSET" > "$CHECKSUM_ASSET"
+          )
+          unzip -t "artifacts/$ASSET"
+
+      - name: Create immutable release tag
+        env:
+          TAG: ${{ steps.metadata.outputs.tag }}
+          VERSION: ${{ steps.metadata.outputs.version }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git tag -a "$TAG" "$GITHUB_SHA" -m "Pi Client ${VERSION}"
+          git push origin "refs/tags/$TAG"
+          [[ "$(git rev-parse "${TAG}^{commit}")" == "$GITHUB_SHA" ]]
+
+      - name: Create draft GitHub prerelease and upload assets
+        env:
+          ARCHITECTURE: ${{ steps.metadata.outputs.architecture }}
+          ASSET: ${{ steps.metadata.outputs.asset }}
+          CHECKSUM_ASSET: ${{ steps.metadata.outputs.checksumAsset }}
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.metadata.outputs.tag }}
+          VERSION: ${{ steps.metadata.outputs.version }}
+        run: |
+          NOTES="$RUNNER_TEMP/release-notes.md"
+          cat > "$NOTES" <<EOF
+          This independent Pi Client preview bundles the verified first-party Pi Node runtime Capsule. It uses the project-owned protocol over Local Direct and requires neither a separately installed gateway nor a system Node.js installation.
+
+          This ${ARCHITECTURE} app is ad-hoc signed with Hardened Runtime but has no Developer ID identity and is not notarized. Verify the published SHA-256 checksum and expect Gatekeeper to reject ordinary launch until you explicitly approve the app. The unsigned-preview storage directory and public non-secret storage key remain isolated from future Developer ID releases.
+
+          A Universal label is emitted only when both arm64 and x64 Node startup plus native-addon/extension fixtures pass. Developer ID signing, notarization, and DMG packaging remain external release gates.
+          EOF
+          gh release create "$TAG" \
+            "artifacts/$ASSET" \
+            "artifacts/$CHECKSUM_ASSET" \
+            --verify-tag \
+            --draft \
+            --prerelease \
+            --title "Pi Client ${VERSION} independent ad-hoc macOS ${ARCHITECTURE} preview" \
+            --notes-file "$NOTES"
+
+      - name: Verify and publish GitHub prerelease
+        env:
+          ASSET: ${{ steps.metadata.outputs.asset }}
+          CHECKSUM_ASSET: ${{ steps.metadata.outputs.checksumAsset }}
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.metadata.outputs.tag }}
+        run: |
+          RELEASE_JSON="$(
+            gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" |
+              jq -c --arg tag "$TAG" '
+                [.[] | select(.tag_name == $tag and .draft == true)] |
+                if length == 1 then .[0]
+                else error("expected exactly one draft release for " + $tag)
+                end
+              '
+          )"
+          RELEASE_ID="$(jq -r '.id' <<<"$RELEASE_JSON")"
+          jq -r '.assets[].name' <<<"$RELEASE_JSON" | grep -Fxq "$ASSET"
+          jq -r '.assets[].name' <<<"$RELEASE_JSON" | grep -Fxq "$CHECKSUM_ASSET"
+          [[ "$(jq --arg name "$ASSET" '[.assets[] | select(.name == $name) | .size > 0] | all' <<<"$RELEASE_JSON")" == 'true' ]]
+          [[ "$(jq --arg name "$CHECKSUM_ASSET" '[.assets[] | select(.name == $name) | .size > 0] | all' <<<"$RELEASE_JSON")" == 'true' ]]
+          gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
+            -F draft=false \
+            -F prerelease=true >/dev/null
+          [[ "$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" --jq '.draft')" == 'false' ]]

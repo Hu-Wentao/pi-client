@@ -1,287 +1,272 @@
-import 'dart:convert';
+import '../../api/pi_node/pi_node.dart';
+import '../../core/pi_node_composition.dart';
+import '../../platform/agent_host/pi_node_host_controller.dart';
 
-import 'package:dio/dio.dart';
+final class WorkspaceService {
+  const WorkspaceService(this._api);
 
-abstract interface class PiWebApi {
-  String normalizeBaseUrl(String value);
+  final PiNodeApi _api;
 
-  Future<Map<String, dynamic>> loadSessions({
-    required String baseUrl,
-    required String password,
-    bool force = false,
-  });
+  PiNodeConnectionSnapshot get connection => _api.connection;
 
-  Future<Map<String, dynamic>> loadSession({
-    required String baseUrl,
-    required String password,
-    required String sessionId,
-  });
+  Stream<PiNodeConnectionSnapshot> get connectionStates =>
+      _api.connectionStates;
 
-  Future<String> ensureSession({
-    required String baseUrl,
-    required String password,
-    required String cwd,
-  });
+  PiNodeCompositionAvailability get availability {
+    final metadata = _api is PiNodeCompositionMetadata
+        ? _api as PiNodeCompositionMetadata
+        : null;
+    return metadata?.availability ?? PiNodeCompositionAvailability.externalNode;
+  }
 
-  Future<void> sendPrompt({
-    required String baseUrl,
-    required String password,
-    required String sessionId,
-    required String message,
-  });
+  Future<PiNodeConnectionSnapshot> connect() => _api.connect();
 
-  Future<void> abort({
-    required String baseUrl,
-    required String password,
-    required String sessionId,
-  });
+  Future<PiProjectBootstrap> loadProjectBootstrap() =>
+      _api.getProjectBootstrap();
 
-  Stream<Map<String, dynamic>> watchEvents({
-    required String baseUrl,
-    required String password,
-    required String sessionId,
-  });
-}
+  Future<PiDirectoryListing> browseDirectory(
+    String directory, {
+    int maxChildren = 64,
+  }) => _api.browseDirectory(
+    PiBrowseDirectoryRequest(directory: directory, maxChildren: maxChildren),
+  );
 
-final class PiWebGateway implements PiWebApi {
-  PiWebGateway(this._dio);
-
-  final Dio _dio;
-
-  @override
-  String normalizeBaseUrl(String value) {
-    var normalized = value.trim();
-    if (normalized.isEmpty) {
-      throw const PiWebGatewayException('Server URL is required.');
-    }
-    if (!normalized.contains('://')) normalized = 'http://$normalized';
-    final uri = Uri.tryParse(normalized);
-    if (uri == null ||
-        (uri.scheme != 'http' && uri.scheme != 'https') ||
-        uri.host.isEmpty ||
-        uri.hasQuery ||
-        uri.hasFragment ||
-        uri.userInfo.isNotEmpty) {
-      throw const PiWebGatewayException(
-        'Enter an absolute http(s) URL without credentials, query, or fragment.',
+  Future<PiProject> validateProject(String candidateDirectory) =>
+      _api.validateProject(
+        PiValidateProjectRequest(candidateDirectory: candidateDirectory),
       );
-    }
-    final path = uri.path == '/'
-        ? ''
-        : uri.path.replaceFirst(RegExp(r'/+$'), '');
-    return uri.replace(path: path).toString();
-  }
 
-  @override
-  Future<Map<String, dynamic>> loadSessions({
-    required String baseUrl,
-    required String password,
-    bool force = false,
-  }) async {
-    final response = await _request(
-      'GET',
-      _endpoint(baseUrl, 'api/sessions'),
-      password: password,
-      queryParameters: force ? const <String, dynamic>{'force': '1'} : null,
-    );
-    return _object(response.data);
-  }
+  Future<List<PiKnownProject>> loadKnownProjects({int maxProjects = 24}) =>
+      _api.listKnownProjects(maxProjects: maxProjects);
 
-  @override
-  Future<Map<String, dynamic>> loadSession({
-    required String baseUrl,
-    required String password,
-    required String sessionId,
-  }) async {
-    final encoded = Uri.encodeComponent(sessionId);
-    final response = await _request(
-      'GET',
-      _endpoint(baseUrl, 'api/sessions/$encoded'),
-      password: password,
-      queryParameters: const <String, dynamic>{
-        'deferThinking': '1',
-        'deferMedia': '1',
-        'tail': '100',
-      },
-    );
-    return _object(response.data);
-  }
-
-  @override
-  Future<String> ensureSession({
-    required String baseUrl,
-    required String password,
-    required String cwd,
-  }) async {
-    final response = await _request(
-      'POST',
-      _endpoint(baseUrl, 'api/agent/new'),
-      password: password,
-      data: <String, dynamic>{'cwd': cwd, 'type': 'ensure_session'},
-    );
-    final data = _object(response.data);
-    final sessionId = data['sessionId'];
-    if (sessionId is! String || sessionId.isEmpty) {
-      throw const PiWebGatewayException('pi-web did not return a session id.');
-    }
-    return sessionId;
-  }
-
-  @override
-  Future<void> sendPrompt({
-    required String baseUrl,
-    required String password,
-    required String sessionId,
-    required String message,
-  }) async {
-    final encoded = Uri.encodeComponent(sessionId);
-    await _request(
-      'POST',
-      _endpoint(baseUrl, 'api/agent/$encoded'),
-      password: password,
-      data: <String, dynamic>{'type': 'prompt', 'message': message},
-    );
-  }
-
-  @override
-  Future<void> abort({
-    required String baseUrl,
-    required String password,
-    required String sessionId,
-  }) async {
-    final encoded = Uri.encodeComponent(sessionId);
-    await _request(
-      'POST',
-      _endpoint(baseUrl, 'api/agent/$encoded'),
-      password: password,
-      data: const <String, dynamic>{'type': 'abort'},
-    );
-  }
-
-  @override
-  Stream<Map<String, dynamic>> watchEvents({
-    required String baseUrl,
-    required String password,
-    required String sessionId,
-  }) async* {
-    final encoded = Uri.encodeComponent(sessionId);
-    final response = await _request(
-      'GET',
-      _endpoint(baseUrl, 'api/agent/$encoded/events'),
-      password: password,
-      responseType: ResponseType.stream,
-      receiveTimeout: Duration.zero,
-    );
-    final body = response.data;
-    if (body is! ResponseBody) {
-      throw const PiWebGatewayException('pi-web returned an invalid SSE body.');
-    }
-
-    final dataLines = <String>[];
-    await for (final line
-        in utf8.decoder.bind(body.stream).transform(const LineSplitter())) {
-      if (line.isEmpty) {
-        if (dataLines.isEmpty) continue;
-        final raw = dataLines.join('\n');
-        dataLines.clear();
-        final decoded = jsonDecode(raw);
-        if (decoded is Map) {
-          yield Map<String, dynamic>.from(decoded);
-        }
-        continue;
-      }
-      if (line.startsWith(':')) continue;
-      if (line.startsWith('data:')) {
-        dataLines.add(line.substring(5).trimLeft());
-      }
-    }
-  }
-
-  Uri _endpoint(String baseUrl, String relativePath) {
-    final root = Uri.parse('${normalizeBaseUrl(baseUrl)}/');
-    return root.resolve(relativePath);
-  }
-
-  Options _options(
-    String password, {
-    ResponseType responseType = ResponseType.json,
-    Duration? receiveTimeout,
-  }) {
-    final headers = <String, dynamic>{
-      Headers.acceptHeader: responseType == ResponseType.stream
-          ? 'text/event-stream'
-          : Headers.jsonContentType,
-    };
-    if (password.isNotEmpty) {
-      headers['Authorization'] =
-          'Basic ${base64Encode(utf8.encode('pi:$password'))}';
-    }
-    return Options(
-      responseType: responseType,
-      headers: headers,
-      contentType: Headers.jsonContentType,
-      receiveTimeout: receiveTimeout,
-      sendTimeout: const Duration(seconds: 20),
-    );
-  }
-
-  Future<Response<dynamic>> _request(
-    String method,
-    Uri uri, {
-    required String password,
-    Object? data,
-    Map<String, dynamic>? queryParameters,
-    ResponseType responseType = ResponseType.json,
-    Duration? receiveTimeout = const Duration(seconds: 45),
-  }) async {
-    final requestUri = queryParameters == null
-        ? uri
-        : uri.replace(queryParameters: queryParameters);
-    try {
-      return await _dio.requestUri<dynamic>(
-        requestUri,
-        data: data,
-        options: _options(
-          password,
-          responseType: responseType,
-          receiveTimeout: receiveTimeout,
-        ).copyWith(method: method),
+  Future<PiProject> approveProjectTrust(PiProject project) =>
+      _api.approveProjectTrust(
+        PiProjectTrustApproval(
+          projectId: project.identity.projectId,
+          revision: project.trust.revision,
+        ),
       );
-    } on DioException catch (error) {
-      final response = error.response;
-      final body = response?.data;
-      final object = body is Map ? Map<String, dynamic>.from(body) : null;
-      throw PiWebGatewayException(
-        object?['error']?.toString() ??
-            error.message ??
-            'pi-web request failed.',
-        statusCode: response?.statusCode,
-        code: object?['code']?.toString(),
-        accepted: object?['accepted'] as bool?,
-      );
-    }
-  }
 
-  Map<String, dynamic> _object(Object? value) {
-    if (value is Map<String, dynamic>) return value;
-    if (value is Map) return Map<String, dynamic>.from(value);
-    throw const PiWebGatewayException('pi-web returned invalid JSON.');
-  }
-}
+  Future<List<PiSessionSummary>> loadSessions(PiProjectId projectId) =>
+      _api.listSessions(projectId);
 
-final class PiWebGatewayException implements Exception {
-  const PiWebGatewayException(
-    this.message, {
-    this.statusCode,
-    this.code,
-    this.accepted,
-  });
+  Future<PiSessionDetail> loadSession(
+    PiProjectId projectId,
+    PiSessionId sessionId,
+  ) => _api.getSession(projectId, sessionId);
 
-  final String message;
-  final int? statusCode;
-  final String? code;
-  final bool? accepted;
+  Future<PiSessionHistoryPage> loadSessionHistory({
+    required PiProjectId projectId,
+    required PiSessionId sessionId,
+    PiSessionHistoryCursor? cursor,
+    int limit = 50,
+    PiSessionBranchRevision? expectedActiveBranchRevision,
+    PiSessionTreeRevision? expectedTreeRevision,
+  }) => _api.getSessionHistory(
+    PiSessionHistoryRequest(
+      projectId: projectId,
+      sessionId: sessionId,
+      cursor: cursor,
+      limit: limit,
+      expectedActiveBranchRevision: expectedActiveBranchRevision,
+      expectedTreeRevision: expectedTreeRevision,
+    ),
+  );
 
-  @override
-  String toString() => message;
+  Future<PiSessionStats> loadSessionStats(
+    PiProjectId projectId,
+    PiSessionId sessionId,
+  ) => _api.getSessionStats(projectId, sessionId);
+
+  Future<PiSessionExportHandle> exportSession({
+    required PiProjectId projectId,
+    required PiSessionId sessionId,
+    required PiSessionExportFormat format,
+    PiSessionBranchRevision? expectedActiveBranchRevision,
+    PiSessionTreeRevision? expectedTreeRevision,
+  }) => _api.exportSession(
+    PiSessionExportRequest(
+      projectId: projectId,
+      sessionId: sessionId,
+      format: format,
+      expectedActiveBranchRevision: expectedActiveBranchRevision,
+      expectedTreeRevision: expectedTreeRevision,
+    ),
+  );
+
+  Future<PiSessionDetail> createSession(PiProjectId projectId) =>
+      _api.createSession(PiCreateSessionRequest(projectId: projectId));
+
+  Future<PiSessionTree> loadSessionTree(
+    PiProjectId projectId,
+    PiSessionId sessionId,
+  ) => _api.getSessionTree(projectId, sessionId);
+
+  Future<PiSessionTreeMutationResult> navigateSessionTree({
+    required PiCommandId commandId,
+    required PiProjectId projectId,
+    required PiSessionId sessionId,
+    required PiSessionAdminRevision expectedAdminRevision,
+    required PiSessionTreeEntryId entryId,
+  }) => _api.navigateSessionTree(
+    PiNavigateSessionTreeCommand(
+      commandId: commandId,
+      projectId: projectId,
+      sessionId: sessionId,
+      expectedAdminRevision: expectedAdminRevision,
+      entryId: entryId,
+    ),
+  );
+
+  Future<PiSessionTreeMutationResult> forkSession({
+    required PiCommandId commandId,
+    required PiProjectId projectId,
+    required PiSessionId sessionId,
+    required PiSessionAdminRevision expectedAdminRevision,
+    required PiSessionTreeEntryId userEntryId,
+  }) => _api.forkSession(
+    PiForkSessionCommand(
+      commandId: commandId,
+      projectId: projectId,
+      sessionId: sessionId,
+      expectedAdminRevision: expectedAdminRevision,
+      userEntryId: userEntryId,
+    ),
+  );
+
+  Future<PiSessionTreeMutationResult> cloneSession({
+    required PiCommandId commandId,
+    required PiProjectId projectId,
+    required PiSessionId sessionId,
+    required PiSessionAdminRevision expectedAdminRevision,
+  }) => _api.cloneSession(
+    PiCloneSessionCommand(
+      commandId: commandId,
+      projectId: projectId,
+      sessionId: sessionId,
+      expectedAdminRevision: expectedAdminRevision,
+    ),
+  );
+
+  Future<PiSessionAdminResult> renameSession({
+    required PiCommandId commandId,
+    required PiProjectId projectId,
+    required PiSessionId sessionId,
+    required String name,
+  }) => _api.renameSession(
+    PiRenameSessionCommand(
+      commandId: commandId,
+      projectId: projectId,
+      sessionId: sessionId,
+      name: name,
+    ),
+  );
+
+  Future<PiSessionAdminResult> clearSessionName({
+    required PiCommandId commandId,
+    required PiProjectId projectId,
+    required PiSessionId sessionId,
+  }) => _api.clearSessionName(
+    PiClearSessionNameCommand(
+      commandId: commandId,
+      projectId: projectId,
+      sessionId: sessionId,
+    ),
+  );
+
+  Future<PiSessionAdminResult> autoNameSession({
+    required PiCommandId commandId,
+    required PiProjectId projectId,
+    required PiSessionId sessionId,
+  }) => _api.autoNameSession(
+    PiAutoNameSessionCommand(
+      commandId: commandId,
+      projectId: projectId,
+      sessionId: sessionId,
+    ),
+  );
+
+  Future<PiSessionAdminResult> deleteSession({
+    required PiCommandId commandId,
+    required PiProjectId projectId,
+    required PiSessionId sessionId,
+    required PiDeleteSessionConfirmation confirmation,
+  }) => _api.deleteSession(
+    PiDeleteSessionCommand(
+      commandId: commandId,
+      projectId: projectId,
+      sessionId: sessionId,
+      confirmation: confirmation,
+    ),
+  );
+
+  Future<PiCommandResult> submitPrompt({
+    required PiCommandId commandId,
+    required PiSessionId sessionId,
+    required String prompt,
+  }) => _api.prompt(
+    PiPromptCommand(commandId: commandId, sessionId: sessionId, prompt: prompt),
+  );
+
+  Future<PiCommandResult> abort({
+    required PiCommandId commandId,
+    required PiSessionId sessionId,
+  }) => _api.abort(PiAbortCommand(commandId: commandId, sessionId: sessionId));
+
+  Stream<PiSessionEvent> watchSession(PiSessionId sessionId) =>
+      _api.sessionEvents(sessionId);
+
+  String describeError(Object error) => switch (error) {
+    PiNodeCompositionException(:final code) => switch (code) {
+      PiNodeCompositionErrorCode.remoteNodeRequired =>
+        'This platform requires a remote Pi Node. Remote transport is not configured yet.',
+      PiNodeCompositionErrorCode.unsupported =>
+        'Pi Node hosting and remote transport are unavailable on this platform.',
+      PiNodeCompositionErrorCode.notConnected =>
+        'The Pi Node is not connected. Retry the connection.',
+      PiNodeCompositionErrorCode.closed =>
+        'The Pi Node connection has been closed.',
+    },
+    PiNodeHostException(:final code) => switch (code) {
+      PiNodeHostErrorCode.unsupportedPlatform =>
+        'This platform cannot host a local Pi Node.',
+      PiNodeHostErrorCode.launchFailed =>
+        'The local Pi Node could not start. Verify the Node runtime and built stdio entrypoint.',
+      PiNodeHostErrorCode.closed => 'The local Pi Node host has been closed.',
+    },
+    PiNodeException(:final code) => switch (code) {
+      PiNodeErrorCode.authenticationRequired =>
+        'The Pi Node requires authentication.',
+      PiNodeErrorCode.permissionDenied =>
+        'Pi Node denied access to this operation.',
+      PiNodeErrorCode.notFound => 'The requested Pi session was not found.',
+      PiNodeErrorCode.invalidRequest => 'Pi Node rejected an invalid request.',
+      PiNodeErrorCode.conflict =>
+        'The Pi session changed before the operation completed.',
+      PiNodeErrorCode.nodeBusy => 'Pi Node is busy. Try again shortly.',
+      PiNodeErrorCode.cancelled => 'The Pi Node operation was cancelled.',
+      PiNodeErrorCode.deadlineExceeded =>
+        'The Pi Node operation exceeded its deadline.',
+      PiNodeErrorCode.failedPrecondition =>
+        'The Pi Node operation requires refreshed or additional state.',
+      PiNodeErrorCode.protocolMismatch =>
+        'Pi Node does not support protocol 0.2.0.',
+      PiNodeErrorCode.malformedFrame || PiNodeErrorCode.unexpectedResponse =>
+        'Pi Node returned an invalid protocol response.',
+      PiNodeErrorCode.dataLoss =>
+        'The Pi Node export failed integrity verification.',
+      PiNodeErrorCode.resourceExhausted =>
+        'Pi Node has reached a bounded resource limit.',
+      PiNodeErrorCode.protocolViolation =>
+        'The Pi Node transfer violated the negotiated protocol.',
+      PiNodeErrorCode.unavailable || PiNodeErrorCode.internal =>
+        'The Pi Node operation is temporarily unavailable.',
+      PiNodeErrorCode.disconnected =>
+        'The Pi Node disconnected. Retry the connection.',
+      PiNodeErrorCode.closed => 'The Pi Node connection has been closed.',
+      PiNodeErrorCode.remoteRejected => 'Pi Node rejected the operation.',
+    },
+    ArgumentError() => 'Enter a valid working directory or prompt.',
+    _ => 'The Pi Node operation failed.',
+  };
 }

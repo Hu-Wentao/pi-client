@@ -36,7 +36,9 @@ mdq:
 
 ## PLAN-PI-003 - Landing Page 与 macOS Preview 发布
 
-- Status: Partially implemented
+- Status: Historical release record
+- Lifecycle: Archived for current product scope; retained as immutable `v0.0.2` release and publication evidence.
+- Authority boundary: This plan does not define, expand, or verify the current Pi Client `1.0` product scope. Its remaining external acceptance gaps remain honest historical gaps and are not current `1.0` work unless reaccepted by a current authority.
 - Review level: L9（目标与范围）/ L6（实现路径）
 - Target: 在 `https://pi.wyattcoder.top/` 提供中英文独立 Landing Page、精确 `v0.0.2` 下载入口和可审计的未签名 Universal macOS Preview 发布流程。
 
@@ -47,7 +49,7 @@ mdq:
 - `v0.0.1` 是不可变历史 annotated tag，不能移动到当前代码，也没有 Release 资产。
 - 当前没有 Developer ID、Notarization 或 DMG 发布证据。
 - WebAssembly Client 依赖尚未冻结的第一方 Pi SDK/transport、Friday Workspace 和浏览器安全边界，本计划不实现它。
-- `PLAN-PI-004` 在不改写当前 `v0.0.2` 的前提下建立未来六平台 CI 和 Preview Artifact Profile；本计划继续拥有不可变 macOS Release 与历史 Landing Page 事实。
+- `PLAN-PI-007` 在不改写当前 `v0.0.2` 的前提下维护六平台资格与发布工具；本计划继续拥有不可变 macOS Release 与历史 Landing Page 事实。
 - `DEC-017` 与 `PLAN-PI-005` 已取代当前产品页的内容和 CTA；以下下载、截图和旧页面验收内容只记录历史，不再约束当前产品展示。
 - 用户已确认 `https://wyattcoder.top/pi-client/` 是错误部署目标；Landing Page 的规范域名为 `https://pi.wyattcoder.top/`，旧路径的历史部署证据不能替代该域名的生产验收。
 
@@ -61,7 +63,7 @@ mdq:
 6. `unsigned-preview` 分发通道使用独立 `fr_storage_unsigned_preview` 目录和固定公开 32 字节密钥，不访问 Keychain；标准 Release 继续使用 `fr_storage` 和平台安全存储。
 7. Release entitlement 为未来签名、沙箱化版本声明 outbound network client 能力，但不伪造 Apple Team 或 Keychain group。
 8. Pages workflow 在 PR 和 main 上检查并构建站点，只在精确 Release 资产已发布时部署。
-9. 历史 `.github/workflows/release-macos.yml@ac2b492` 从 main 构建、测试、生成未签名 Universal App、验证启动及架构、打包 ZIP/校验和、创建不可变 tag、发布 `v0.0.2` prerelease，并请求 Pages 部署；当前源码已由 `PLAN-PI-004` 的跨平台 workflow 取代。
+9. 历史 `.github/workflows/release-macos.yml@ac2b492` 从 main 构建、测试、生成未签名 Universal App、验证启动及架构、打包 ZIP/校验和、创建不可变 tag、发布 `v0.0.2` prerelease，并请求 Pages 部署；当前源码已由 `PLAN-PI-007` 的跨平台资格 workflow 和第一方 Capsule 候选流程取代。
 
 ### 外部发布状态
 
@@ -83,7 +85,7 @@ mdq:
 
 ### v0.0.2 历史发布准入
 
-以下规则记录已完成的 macOS-only workflow 和 `v0.0.2` 证据，不是未来跨平台发布状态机；当前准入与恢复规则以 `PLAN-PI-004` 为准。
+以下规则记录已完成的 macOS-only workflow 和 `v0.0.2` 证据，不是未来跨平台发布状态机；当前准入与恢复规则以 `PLAN-PI-007` 为准。
 
 - Source commit 必须是已推送 `main` 的精确 HEAD。
 - `pubspec.yaml`、Landing Page 和资产名称必须共同解析为 `0.0.2+2`、`v0.0.2` 和 `Pi-Client-0.0.2-macOS-universal.zip`。
@@ -101,7 +103,7 @@ mdq:
 - 未签名 Preview 偏好不迁移到未来签名版；用户可删除独立 Preview 数据而不影响标准目录。
 - 签名、公证和 DMG 是后续独立目标，需要 Apple 开发者身份与发布授权。
 - WebAssembly Client 继续由 `PLAN-PI-002` 及未来正式 Pi SDK/transport 决策约束，不进入本计划。
-- 下一版本的跨平台 Preview 资格与聚合发布由 `PLAN-PI-004` 约束；当前产品页不再声明或渲染历史 macOS 下载，未来下载入口必须由新的已验证发布事实单独恢复。
+- 后续跨平台候选资格与聚合发布由 `PLAN-PI-007` 约束；当前产品页不再声明或渲染历史 macOS 下载，未来下载入口必须由新的已授权、已验证公开发布事实单独恢复。
 
 ### 完成条件
 

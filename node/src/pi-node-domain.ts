@@ -1,0 +1,425 @@
+import type {
+  PiNodeConversationBackendEvent,
+  PiNodeConversationPage,
+  PiNodeConversationSnapshot,
+  PiNodeMessageContent,
+  PiNodeMessageContentRequest,
+} from "./pi-node-conversation.js";
+import type { ProjectTrustAuthorization } from "./project-trust.js";
+
+export type {
+  PiNodeContextMetrics,
+  PiNodeConversationBackendEvent,
+  PiNodeConversationEntry,
+  PiNodeConversationEntryIdentity,
+  PiNodeConversationIdentityScope,
+  PiNodeConversationMetrics,
+  PiNodeConversationPage,
+  PiNodeConversationPart,
+  PiNodeConversationSnapshot,
+  PiNodeMessageContent,
+  PiNodeMessageContentBinding,
+  PiNodeMessageContentReference,
+  PiNodeMessageContentRequest,
+  PiNodeMoneyAmount,
+  PiNodeSafeValue,
+  PiNodeToolActivity,
+  PiNodeToolActivityStatus,
+  PiNodeUsageMetrics,
+} from "./pi-node-conversation.js";
+
+export interface PiNodeSessionSummary {
+  readonly sessionId: string;
+  readonly cwd: string;
+  readonly name?: string;
+  readonly parentSessionId?: string;
+  readonly createdAtMs: number;
+  readonly modifiedAtMs: number;
+  readonly messageCount: number;
+  readonly firstMessage: string;
+  readonly running: boolean;
+  readonly adminRevision: string;
+}
+
+export interface PiNodeSessionSnapshot extends PiNodeSessionSummary {
+  readonly persistence: "persistent";
+  readonly conversation: PiNodeConversationSnapshot;
+}
+
+export interface PiNodeSessionHistoryPage {
+  readonly summary: PiNodeSessionSummary;
+  readonly conversation: PiNodeConversationPage;
+}
+
+export interface PiNodeSessionSafeProjection {
+  readonly sessionFileName: string;
+  readonly sessionId: string;
+  readonly projectId: string;
+  readonly canonicalProjectDirectory: string;
+  readonly worktreeId: string;
+  readonly mainProjectId: string;
+  readonly branch?: string;
+  readonly isLinkedWorktree: boolean;
+  readonly isDetachedHead: boolean;
+}
+
+export interface PiNodeSessionStats {
+  readonly projection: PiNodeSessionSafeProjection;
+  readonly userMessages: number;
+  readonly assistantMessages: number;
+  readonly toolCalls: number;
+  readonly toolResults: number;
+  readonly totalMessages: number;
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+  readonly cacheReadTokens: number;
+  readonly cacheWriteTokens: number;
+  readonly totalTokens: number;
+  readonly cost: number;
+  readonly contextTokens?: number;
+  readonly contextWindow?: number;
+  readonly contextPercent?: number;
+  readonly activeTimeMillis: number;
+}
+
+export type PiNodeSessionExportFormat = "html" | "jsonl";
+
+export type PiNodeCommandFailureCode =
+  | "invalid-prompt"
+  | "session-busy"
+  | "model-unavailable"
+  | "provider-auth-required"
+  | "prompt-rejected"
+  | "runtime-failed"
+  | "aborted";
+
+export interface PiNodeCommandFailure {
+  readonly code: PiNodeCommandFailureCode;
+  readonly message: string;
+}
+
+export type PiNodePromptAdmissionStatus = "accepted" | "rejected" | "uncertain";
+
+export interface PiNodePromptAdmission {
+  readonly sessionId: string;
+  readonly commandId: string;
+  readonly status: PiNodePromptAdmissionStatus;
+  readonly failure?: PiNodeCommandFailure;
+}
+
+export interface PiNodeCommandCompletion {
+  readonly outcome: "succeeded" | "failed" | "aborted";
+  readonly failure?: PiNodeCommandFailure;
+}
+
+export type PiNodeAbortResult =
+  | {
+      readonly status: "not-running";
+      readonly sessionId: string;
+    }
+  | {
+      readonly status: "requested";
+      readonly sessionId: string;
+      readonly commandId?: string;
+    };
+
+export interface PiNodeEventBase {
+  readonly sessionId: string;
+  readonly sequence: number;
+  readonly emittedAtMs: number;
+}
+
+export type PiNodeSessionEvent =
+  | (PiNodeEventBase & PiNodeConversationBackendEvent)
+  | (PiNodeEventBase & {
+      readonly type: "running";
+      readonly running: boolean;
+      readonly commandId?: string;
+    })
+  | (PiNodeEventBase & {
+      readonly type: "command-completed";
+      readonly commandId: string;
+      readonly outcome: "succeeded" | "failed" | "aborted" | "rejected";
+      readonly failure?: PiNodeCommandFailure;
+    });
+
+export type PiNodeSessionEventListener = (event: PiNodeSessionEvent) => void;
+
+export type PiNodeProjectTrustStatus = "not-required" | "trusted" | "approval-required" | "denied";
+
+export type PiNodeProjectTrustReason =
+  | "pi-settings"
+  | "pi-extensions"
+  | "pi-skills"
+  | "pi-prompts"
+  | "pi-themes"
+  | "pi-system-prompt"
+  | "agent-skills"
+  | "saved-approval"
+  | "saved-denial";
+
+export interface PiNodeProjectTrustSnapshot {
+  readonly status: PiNodeProjectTrustStatus;
+  readonly reasons: readonly PiNodeProjectTrustReason[];
+  readonly revision: string;
+}
+
+export interface PiNodeProjectIdentity {
+  readonly projectId: string;
+  readonly canonicalCwd: string;
+  readonly isGitRepository: boolean;
+  readonly gitRoot?: string;
+  readonly mainWorktreeRoot?: string;
+  readonly branch?: string;
+  readonly isLinkedWorktree: boolean;
+  readonly isDetachedHead: boolean;
+  readonly worktreeId: string;
+  readonly mainProjectId: string;
+}
+
+export interface PiNodeProjectSnapshot {
+  readonly identity: PiNodeProjectIdentity;
+  readonly trust: PiNodeProjectTrustSnapshot;
+}
+
+export interface PiNodeKnownProjectSnapshot {
+  readonly project: PiNodeProjectSnapshot;
+  readonly lastSessionAtMs: number;
+  readonly sessionCount: number;
+}
+
+export interface PiNodeDirectoryEntry {
+  readonly name: string;
+  readonly canonicalPath: string;
+  readonly isSymbolicLink: boolean;
+}
+
+export interface PiNodeDirectoryListing {
+  readonly canonicalDirectory: string;
+  readonly parentDirectory?: string;
+  readonly children: readonly PiNodeDirectoryEntry[];
+  readonly truncated: boolean;
+}
+
+export interface PiNodeProjectBootstrap {
+  readonly homeDirectory: string;
+  readonly defaultProject: PiNodeProjectSnapshot;
+}
+
+export type PiNodeSessionBackendEvent =
+  | PiNodeConversationBackendEvent
+  | {
+      readonly type: "running";
+      readonly running: boolean;
+    };
+
+export interface PiNodeSessionBackendSnapshot extends PiNodeSessionSummary {
+  readonly persistence: "persistent";
+  readonly conversation: PiNodeConversationSnapshot;
+}
+
+export interface PiNodePromptExecution {
+  readonly admission: {
+    readonly status: PiNodePromptAdmissionStatus;
+    readonly failure?: PiNodeCommandFailure;
+  };
+  readonly completion: Promise<PiNodeCommandCompletion>;
+}
+
+export type PiNodeSessionTreeEntryKind =
+  | "user-message"
+  | "assistant-message"
+  | "tool-message"
+  | "custom-message"
+  | "thinking-level"
+  | "model-change"
+  | "compaction"
+  | "branch-summary"
+  | "custom"
+  | "label"
+  | "session-info";
+
+export interface PiNodeSessionTreeNode {
+  readonly entryId: string;
+  readonly parentEntryId?: string;
+  readonly kind: PiNodeSessionTreeEntryKind;
+  readonly text: string;
+  readonly createdAtMs: number;
+  readonly label?: string;
+  readonly depth: number;
+  readonly isOnActivePath: boolean;
+  readonly hasChildren: boolean;
+  readonly canEditFromHere: boolean;
+  readonly canFork: boolean;
+}
+
+export interface PiNodeSessionTreeSnapshot {
+  readonly sessionId: string;
+  readonly nodes: readonly PiNodeSessionTreeNode[];
+  readonly activePathEntryIds: readonly string[];
+  readonly activeLeafEntryId?: string;
+  readonly canCloneActiveBranch: boolean;
+  readonly adminRevision: string;
+}
+
+export interface PiNodeSessionTreeMutationResult {
+  readonly previousSessionId: string;
+  readonly session: PiNodeSessionSnapshot;
+  readonly tree: PiNodeSessionTreeSnapshot;
+  readonly editorText?: string;
+}
+
+export interface PiNodeSessionBackendMutationResult {
+  readonly previousSessionId: string;
+  readonly session: PiNodeSessionBackendSnapshot;
+  readonly tree: PiNodeSessionTreeSnapshot;
+  readonly editorText?: string;
+}
+
+export interface PiNodeDomainSessionBackend {
+  readonly sessionId: string;
+  readonly cwd: string;
+  readonly persistence: "persistent";
+  readonly isRunning: boolean;
+  getSnapshot(): PiNodeSessionBackendSnapshot;
+  getHistoryPage(input: {
+    readonly cursor?: string;
+    readonly limit: number;
+    readonly expectedActiveBranchRevision?: string;
+    readonly expectedTreeRevision?: string;
+  }): PiNodeSessionHistoryPage;
+  getStats(input: { readonly project: PiNodeProjectSnapshot }): PiNodeSessionStats;
+  exportToPath(input: {
+    readonly format: PiNodeSessionExportFormat;
+    readonly outputPath: string;
+    readonly expectedActiveBranchRevision?: string;
+    readonly expectedTreeRevision?: string;
+  }): Promise<void>;
+  subscribe(listener: (event: PiNodeSessionBackendEvent) => void): () => void;
+  startPrompt(input: {
+    readonly commandId: string;
+    readonly text: string;
+  }): Promise<PiNodePromptExecution>;
+  getMessageContent(input: PiNodeMessageContentRequest): PiNodeMessageContent;
+  abort(): Promise<boolean>;
+  getTreeSnapshot(): PiNodeSessionTreeSnapshot;
+  navigateSessionTree(input: {
+    readonly entryId: string;
+    readonly expectedAdminRevision: string;
+  }): Promise<PiNodeSessionBackendMutationResult>;
+  forkFromUserEntry(input: {
+    readonly userEntryId: string;
+    readonly expectedAdminRevision: string;
+  }): Promise<PiNodeSessionBackendMutationResult>;
+  cloneActiveBranch(input: {
+    readonly expectedAdminRevision: string;
+  }): Promise<PiNodeSessionBackendMutationResult>;
+  dispose(): Promise<void>;
+}
+
+export interface PiNodeSessionDeleteConfirmation {
+  readonly sessionId: string;
+  readonly adminRevision: string;
+  readonly displayedTitle: string;
+  readonly destructiveActionAcknowledged: boolean;
+}
+
+export interface PiNodeSessionDeleteResult {
+  readonly sessionId: string;
+  readonly reparentedChildCount: number;
+}
+
+export interface PiNodeSessionAdministrationBackend {
+  renamePersistentSession(input: {
+    readonly authorization: ProjectTrustAuthorization;
+    readonly agentDir: string;
+    readonly sessionId: string;
+    readonly name: string;
+  }): Promise<PiNodeSessionSummary>;
+  clearPersistentSessionName(input: {
+    readonly authorization: ProjectTrustAuthorization;
+    readonly agentDir: string;
+    readonly sessionId: string;
+  }): Promise<PiNodeSessionSummary>;
+  autoNamePersistentSession(input: {
+    readonly authorization: ProjectTrustAuthorization;
+    readonly agentDir: string;
+    readonly sessionId: string;
+    readonly timeoutMillis: number;
+    readonly signal?: AbortSignal;
+  }): Promise<PiNodeSessionSummary>;
+  deletePersistentSession(input: {
+    readonly authorization: ProjectTrustAuthorization;
+    readonly agentDir: string;
+    readonly sessionId: string;
+    readonly confirmation: PiNodeSessionDeleteConfirmation;
+  }): Promise<PiNodeSessionDeleteResult>;
+}
+
+export interface PiNodeDomainSessionBackendFactory extends PiNodeSessionAdministrationBackend {
+  listPersistentSessions(input: {
+    readonly authorization: ProjectTrustAuthorization;
+    readonly agentDir: string;
+  }): Promise<readonly PiNodeSessionSummary[]>;
+  createPersistentSession(input: {
+    readonly authorization: ProjectTrustAuthorization;
+    readonly agentDir: string;
+  }): Promise<PiNodeDomainSessionBackend>;
+  openPersistentSession(input: {
+    readonly authorization: ProjectTrustAuthorization;
+    readonly agentDir: string;
+    readonly sessionId: string;
+  }): Promise<PiNodeDomainSessionBackend>;
+}
+
+export type PiNodeDomainErrorCode =
+  | "service-disposed"
+  | "invalid-project-path"
+  | "project-not-registered"
+  | "project-trust-revision-stale"
+  | "project-browse-failed"
+  | "project-validation-failed"
+  | "project-list-failed"
+  | "project-trust-persist-failed"
+  | "project-trust-denied"
+  | "project-trust-unresolved"
+  | "project-trust-resolution-failed"
+  | "session-not-found"
+  | "session-not-loaded"
+  | "session-owned"
+  | "session-capacity-exceeded"
+  | "session-list-failed"
+  | "session-create-failed"
+  | "session-load-failed"
+  | "session-dispose-failed"
+  | "session-history-cursor-invalid"
+  | "session-history-conflict"
+  | "session-content-invalid"
+  | "session-export-failed"
+  | "session-admin-invalid-name"
+  | "session-admin-confirmation-required"
+  | "session-admin-conflict"
+  | "session-admin-locked"
+  | "session-admin-failed"
+  | "session-auto-name-model-unavailable"
+  | "session-auto-name-provider-auth-required"
+  | "session-auto-name-timeout"
+  | "session-auto-name-cancelled"
+  | "session-auto-name-failed"
+  | "session-tree-entry-invalid"
+  | "session-clone-ineligible"
+  | "session-mutation-conflict"
+  | "session-mutation-locked"
+  | "session-mutation-failed"
+  | "abort-failed";
+
+export class PiNodeDomainError extends Error {
+  constructor(
+    readonly code: PiNodeDomainErrorCode,
+    message: string,
+    options?: ErrorOptions,
+  ) {
+    super(message, options);
+    this.name = "PiNodeDomainError";
+  }
+}

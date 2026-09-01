@@ -26,27 +26,30 @@ mdq:
 ---
 # Pi Client verification traceability
 
-## VER-PI-001 - Gateway request and SSE compatibility
+## VER-PI-001 - Legacy v0.0.2 gateway compatibility
 
 - Status: PASS
 - Requirements: REQ-PI-001, REQ-PI-003
 - Owner: `test/workspace_gateway_test.dart` and `tool/pi_web_smoke.dart`
-- Evidence: URL validation, Basic Auth header, credential-free URI, SSE heartbeat/data parsing, and read-only live `GET /api/sessions` against pi-web `0.8.11`.
+- Evidence: URL validation, Basic Auth header, credential-free URI, SSE heartbeat/data parsing, and read-only live session listing against pi-web `0.8.11`.
+- Release scope: This evidence remains valid for immutable `v0.0.2`; it does not qualify first-party Pi Node or post-`v0.0.2` product behavior.
 - Scope limit: The live smoke is read-only; mutation semantics are owned by controlled ViewModel tests.
 
-## VER-PI-002 - Workspace state machine
+## VER-PI-002 - Legacy v0.0.2 workspace state machine
 
 - Status: PASS
 - Requirements: REQ-PI-001, REQ-PI-002, REQ-PI-003
 - Owner: `test/workspace_view_model_test.dart`
 - Evidence: connect/load/select, history parsing, prompt optimistic state, stream delta, abort, final authoritative refresh, reconnect, and password exclusion from JSON state.
+- Release scope: This evidence remains valid for immutable `v0.0.2` and does not satisfy the replacement requirements.
 
-## VER-PI-003 - Flutter UI interaction
+## VER-PI-003 - Legacy v0.0.2 Flutter interaction
 
 - Status: PASS
 - Requirements: REQ-PI-001, REQ-PI-002, REQ-PI-003
 - Owner: `test/workspace_view_test.dart` and `test/application_test.dart`
 - Evidence: routed application build, connection/session controls, session click, selected history rendering, composer controls, and application-owned/external Dio boundaries.
+- Release scope: This evidence remains valid for immutable `v0.0.2`; future UI verification uses first-party requirements and transports.
 
 ## VER-PI-004 - Desktop visual baseline
 
@@ -54,15 +57,16 @@ mdq:
 - Requirements: REQ-PI-002, REQ-PI-004
 - Owner: `test/workspace_golden_test.dart` and `test/goldens/workspace_desktop.png`
 - Evidence: fixed 1200 × 800 Flutter-rendered workspace layout with connection controls, sessions, selected messages, status line, and composer.
+- Release scope: Session behavior in this record remains historical `v0.0.2` evidence; the reusable geometry evidence may continue only while the rendered contract remains applicable.
 - Scope limit: Flutter's deterministic test font validates geometry rather than production glyph rasterization; the native app build and launch own real-font startup evidence.
 
-## VER-PI-005 - Contract, generation, analysis, tests, and macOS build
+## VER-PI-005 - Contract, generation, analysis, tests, and macOS source build
 
-- Status: PASS
-- Requirements: REQ-PI-004, REQ-PI-005
+- Status: PARTIAL
+- Requirements: REQ-PI-004
 - Owner: fr-mvvm-contract validator, build_runner, Flutter analyzer/test/build
 - Evidence: `workspace.page.dart` passes contract and final phases; generated Freezed/JSON/typed-route files are current; analysis has no issues; all Flutter tests pass; macOS Debug `.app` builds and launches.
-- Scope limit: Release signing, Apple Team identity, notarization, and distribution are outside MVP.
+- Gap: This source-build evidence does not prove runtime Capsule installation, bundled-app end-to-end execution, artifact inspection, release signing, notarization, or supported distribution required by current `REQ-PI-004`.
 
 ## VER-PI-006 - PLAN-PI-002 R0 client contract surface
 
@@ -72,13 +76,20 @@ mdq:
 - Evidence: The pure Dart central projection, auth adapter, opaque grant, error, protocol-version, and transport interfaces compile; focused tests cover safe projection invariants, configured Workspace-origin authority, server-owned access Decisions, stable error mapping, grant redaction and trusted TTL/path/thumbprint binding contracts, defensive frame copies, and Local Direct independence; governed R0 records remain uniquely queryable.
 - Scope limit: This PASS proves only the pi-client contract surface; it does not prove Pi Node, Friday Relay, platform authentication, socket/tunnel, grant issuance, E2EE, or product runtime behavior.
 
-## VER-PI-007 - Local Direct and transport conformance runtime
+## VER-PI-007 - Local Direct, Pi Node, and transport conformance runtime
 
-- Status: PLANNED
-- Requirements: REQ-PI-006, REQ-PI-009
-- Owner: future pi-client and Pi Node integration/conformance suite
-- Planned evidence: Run the same accepted Pi behavior fixtures through Local Direct and the unified transport contract while Friday Relay is unavailable.
-- Gap: Pi Node, the versioned Pi protocol, Local Direct transport, and runtime conformance fixtures are not implemented in this repository.
+- Status: PARTIAL
+- Requirements: REQ-PI-006, REQ-PI-009, REQ-PI-013
+- Owner: `protocol/`, `node/`, `lib/api/pi_node/`, `lib/protocol/`, `lib/transport/`, `lib/platform/agent_host/`, `test/pi_node_*`, `test/local_direct_pi_transport_test.dart`, `test/protobuf_pi_protocol_codec_test.dart`, and `tool/run_pi_node_cross_process_e2e.mjs`
+- Source identity: The scoped source evidence is `c10178c930a7176711ae66a9f00736be8e14ef1c`; it is not a published independent release identity.
+- Protocol evidence: Private `@pi-client/protocol 0.1.0-dev.0` defines an unpublished Protobuf v0 envelope, exact `0.1.0` negotiation, stable typed session operations/events, frame and transfer limits, Dart/TypeScript codecs, generated no-diff checks, and cross-language binary vectors including unknown-field, unknown-operation, unknown-enum, and full-range `uint64` cases.
+- Node evidence: First-party Pi Node source imports reviewed public Pi SDK package entry points, gates project resources through `ProjectTrustCoordinator`, owns persistent session list/create/load, prompt/abort admission and ordered events, serves bounded length-prefixed Protobuf over stdio, separates protocol stdout from redacted stderr, and has focused lifecycle/domain/protocol/trust tests.
+- Flutter evidence: `PiNodeApi`, `PiNodeClient`, `ProtobufPiProtocolCodec`, stdio `LocalDirectPiTransport`, desktop `PiNodeHostController`, and app-owned provider composition exist; Workspace has cut over to typed first-party list/load/create/prompt/abort/session-event behavior with stale-load and sequence-gap recovery tests.
+- Cross-process evidence: The built production Node passes offline public-SDK handshake, session list/create/get, missing-session error, and production Workspace creation. A built fixture proves accepted/rejected/uncertain commands, abort, ordered session events, split/coalesced framing, 512 KiB stderr pressure, incompatible-version rejection, process-exit uncertainty, and idempotent close.
+- Capsule evidence: The repository contains a reproducible host-targeted runtime Capsule builder and verifier for pinned Node, Pi Node, Protocol, Pi SDK, manifests, checksums, read-only payloads, and forbidden artifacts; the Capsule is not yet integrated into an application release.
+- Absence evidence: Current tracked source and runtime composition contain only project-owned transport and Node paths; legacy endpoint credentials, compatibility adapters, and HTTP streaming tools are absent. Immutable `v0.0.2` historical evidence remains owned by `VER-PI-001` through `VER-PI-003`.
+- Gaps: Protocol v0 remains unpublished and lacks production authentication/pairing, LAN and Friday transports, reconnect/replay completion, and a frozen v1 policy. A real provider-backed production prompt/abort, protected-project trust-decision UX, Node crash restart/session recovery, Capsule bundling on supported desktops, artifact-level external-runtime absence, and a public project-owned release are not yet evidenced.
+- Lifecycle decision: `REQ-PI-006`, `REQ-PI-009`, and `REQ-PI-013` remain Planned because their complete Direct/remote equivalence, authorization, restart, packaging, operational, and release acceptance clauses are not satisfied.
 
 ## VER-PI-008 - Friday Workspace and private tunnel runtime
 
@@ -108,54 +119,156 @@ mdq:
 
 - Status: PARTIAL
 - Requirements: REQ-PI-010, REQ-PI-011
-- Owner: Flutter platform directories, `.metadata`, shared analyzer/tests, per-platform Flutter build commands, and `.github/workflows/ci.yml`
-- Evidence: `.metadata` tracks Android, iOS, Linux, macOS, Web, and Windows; shared analysis and all tests pass; macOS Debug, Android Debug APK, iOS Debug without code signing, and standard JavaScript Web builds succeed. The CI source now assigns all six builds to native GitHub runners and keeps Web on JavaScript. iOS is fixed at 15.0 because ObjectBox requires it.
-- Gap: The new GitHub-hosted matrix has not yet produced a merged-commit run, so Windows/Linux and hosted iOS/macOS evidence remain pending. Dart WebAssembly is blocked by `flutter_secure_storage_web 1.2.1`. Signing, store identity, production icons, and formal distribution remain unverified or missing; Preview workflow source is tracked by `VER-PI-014`, while hosted qualification/publication is tracked by `VER-PI-015`.
+- Owner: Flutter platform directories, `.metadata`, shared analyzer/tests, and per-platform Flutter build commands
+- Evidence: `.metadata` tracks Android, iOS, Linux, macOS, Web, and Windows; shared analysis and all tests pass; macOS Debug, Android Debug APK, iOS Debug without code signing, and standard JavaScript Web builds succeed. iOS is fixed at 15.0 because ObjectBox requires it.
+- Gap: Windows and Linux native builds require their respective operating systems. Dart WebAssembly is blocked by `flutter_secure_storage_web 1.2.1`, which still imports unsupported `dart:html` and `dart:js` libraries. Signing, store identity, production icons, and supported distribution remain unverified or missing for the general platform matrix; historical release evidence is scoped separately by `VER-PI-012` and `VER-PI-013`.
 
-## VER-PI-012 - Landing Page and unsigned Preview source qualification
+## VER-PI-012 - Historical Landing Page and unsigned Preview source qualification
+
+- Status: HISTORICAL PASS
+- Requirements: REQ-PI-004, REQ-PI-012
+- Owner: immutable `v0.0.2` source and release evidence
+- Evidence: At the historical release commit, distribution-channel tests, the sanitized screenshot, brand generation, bilingual static routes, exact release CTA, Flutter checks, and macOS build gates passed within the recorded scope.
+- Scope limit: This result applies only to immutable `v0.0.2` evidence. The current Landing Page is source-only, has no download CTA, and requires its own current site validation; this historical PASS does not satisfy current `REQ-PI-004` or `REQ-PI-012`.
+
+## VER-PI-013 - Historical public Release and GitHub Pages acceptance
+
+- Status: HISTORICAL PARTIAL
+- Requirements: REQ-PI-012
+- Owner: immutable `v0.0.2` tag, GitHub Release, workflow, and Pages evidence
+- Evidence: Annotated `v0.0.2` resolves to `ac2b492cf595a715fc5e86f7e850ae5bcaf4c942`; recorded workflow, artifact, checksum, publication, production HTML, responsive Chrome, and Lighthouse checks passed within that release scope.
+- Gap: The historical Safari, VoiceOver, zoom, HTTPS-enforcement, signing, notarization, and trust gaps remain unresolved for `v0.0.2`. They neither describe nor satisfy a future supported release.
+
+## VER-PI-014 - Historical exploration governance integrity
+
+- Status: SUPERSEDED
+- Requirements: REQ-PI-005
+- Owner: persistent mdq contracts, exact/negative queries, link checks, and historical source review
+- Evidence: The initial exploratory classification and its project-owned requirement mappings were uniquely queryable when this check passed.
+- Scope limit: This record is retained as historical governance evidence only; it does not define current scope or prove any Planned runtime feature or `1.0.0` completeness.
+
+## VER-PI-015 - Project, session, history, and child-session behavior
+
+- Status: PLANNED
+- Requirements: REQ-PI-014, REQ-PI-015, REQ-PI-016, REQ-PI-030
+- Owner: future Pi Node integration, Flutter ViewModel/Widget tests, deep-tree fixtures, and desktop E2E
+- Planned evidence: Verify project selection/trust, workspace restore, session lifecycle, running/unread state, pagination, branches, edit-from-here, independent sessions, exports, destructive recovery, and existing child-session visibility.
+- Gap: `VER-PI-007` proves the basic first-party session list/create/load foundation and Workspace cutover only. Project selection and trust UX, restore, naming, deletion, export, pagination, branch/fork behavior, child-session presentation, and the full P3 module split remain unimplemented or unevidenced.
+
+## VER-PI-016 - Agent, composer, and rich conversation behavior
+
+- Status: PLANNED
+- Requirements: REQ-PI-017, REQ-PI-018, REQ-PI-020
+- Owner: protocol fixtures, Pi Node runtime integration, focused Flutter concurrency/Widget tests, Golden tests, and desktop E2E
+- Planned evidence: Verify command admission, streaming order, retry, compaction, queue, drafts, attachments, slash/skill/template/extension commands, file mentions, rich renderers, historical Shell/Process cards, deferred/oversized content, disconnect recovery, and stale-event rejection without claiming Shell execution.
+- Gap: Basic typed prompt/abort admission, ordered session events, optimistic Workspace state, sequence-gap recovery, and several structured rich renderers have focused evidence. Retry, compaction, reload/steer/follow-up queues, full composer inputs, provider-backed production turns, and the complete P4 recovery matrix remain incomplete or unevidenced. Built-in and remote Shell are intentionally outside this `1.0` verification owner.
+
+## VER-PI-017 - File, Git, and worktree behavior
+
+- Status: PLANNED
+- Requirements: REQ-PI-021, REQ-PI-022, REQ-PI-023
+- Owner: future Pi Node filesystem/Git integration, Flutter file workspace tests, destructive-operation tests, and desktop E2E
+- Planned evidence: Verify allowed file workflows and previews, Git status/diff, worktree list/switch/create/remove, dirty refusal, explicit force confirmation, cancellation, large files, watches, and session preservation.
+- Gap: Pi Node file, Git, and worktree services and Flutter workspace UI are not implemented.
+
+## VER-PI-018 - Model, provider, and settings behavior
+
+- Status: PLANNED
+- Requirements: REQ-PI-024, REQ-PI-025, REQ-PI-026
+- Owner: future Pi SDK model/auth integration, Pi Node secure-storage tests, Flutter settings tests, provider-flow integration, and manual platform verification
+- Planned evidence: Verify model scope/selection/discovery/test/reload, OAuth/device/manual/API-key flows, logout, secret redaction, global/project settings, trust gates, validation, and rollback.
+- Gap: Pi Node model, provider, credential, and settings services are not implemented.
+
+## VER-PI-019 - Skill, package, and standard extension interaction behavior
+
+- Status: PLANNED
+- Requirements: REQ-PI-027, REQ-PI-028, REQ-PI-029
+- Owner: future Pi resource/package integration, Flutter settings tests, standard Extension dialog fixtures, and desktop E2E
+- Planned evidence: Verify skill dormancy/search/install/update, package inventory/install/update/enable/disable/remove/reload, privilege disclosure, and Select/Confirm/Input/Editor/Notify/Status/Widget/Title/Editor Text lifecycle states including timeout, cancel, disconnect, stale response, and replacement.
+- Gap: First-party resource/package services and standard Extension UI bridge are not implemented. Arbitrary custom terminal UI is a `1.1` outcome owned by `VER-PI-030`, not this `1.0` record.
+
+## VER-PI-020 - Localized adaptive UX and supported release artifacts
+
+- Status: PLANNED
+- Requirements: REQ-PI-010, REQ-PI-011, REQ-PI-031, REQ-PI-032, REQ-PI-034
+- Owner: Flutter platform builds, localization tests, responsive/Golden/keyboard/accessibility tests, artifact inspection, signing checks, and manual platform acceptance
+- Planned evidence: Verify three locales, themes, layouts, restoration, IME, notifications, shortcuts, clipboard, safe areas, reduced motion, screen readers, 200% zoom, desktop-host artifacts, connect-only artifacts, signing, installation, update, and rollback.
+- Gap: Windows/Linux host evidence, mobile/Web release artifacts, signed/notarized production desktop artifacts, and full accessibility acceptance are missing.
+
+## VER-PI-021 - Host authorization and secret-boundary security
+
+- Status: PLANNED
+- Requirements: REQ-PI-033
+- Owner: future protocol and Pi Node adversarial suites, credential scans, transport tests, artifact scans, and operational review
+- Planned evidence: Reject unauthorized roots, traversal, symbolic-link escape, wrong Node, stale/replayed grants, secret logging, oversized frames/uploads, unbounded streams, and unconfirmed destructive operations.
+- Gap: `VER-PI-007` proves a fail-closed project-trust coordinator, bounded Protobuf frames, and redacted stdio diagnostics only. User trust decisions, allowed-root and symbolic-link enforcement for host services, Node pairing, scoped grants, replay protection, production stream/backpressure limits, provider secret storage, artifact scans, and adversarial operational evidence remain incomplete.
+
+## VER-PI-022 - 1.0 completeness and release audit
+
+- Status: PLANNED
+- Requirements: REQ-PI-034
+- Owner: final project-owned requirement status review, release manifest verification, installation matrix, and production operational acceptance
+- Planned evidence: Prove every release-scoped Must requirement is Active with complete acceptance evidence, all release identities and artifacts are immutable and verified, no external runtime or compatibility dependency remains, and no unsupported host runtime is present.
+- Gap: P0 governance is complete and P1/P2 source implementation is substantially complete as scoped by `VER-PI-007`, but their full acceptance and project-owned release evidence remain incomplete. P3 through P11 are not complete, so this audit cannot pass from documentation, source foundations, or partial platform builds alone.
+
+## VER-PI-023 - Independent development Release contract and local tooling
 
 - Status: PASS
-- Requirements: REQ-PI-004, REQ-PI-012
-- Owner: historical `test/marketing_screenshot_test.dart@4b699c42f7fbe34386f8bb91688e27955c9ee947`, `test/app_storage_test.dart`, the historical built-site validator, Astro checks, Flutter checks, and local macOS build inspection
-- Evidence: Distribution-channel tests prove standard/Preview directory and key selection without changing Windows/Linux debug storage; the committed 1280 × 800 screenshot renders synthetic data with real Flutter fonts and icons, with cross-host raster variance bounded to 0.02%; brand generation is source-controlled; English and Chinese static routes build with exact metadata, base-aware assets, exact `v0.0.2` CTA, and no client JavaScript; Flutter analysis/tests and macOS build gates qualify the source.
-- Scope limit: This PASS is historical evidence for the superseded download-oriented page. It does not approve the current independent-product content defined by `REQ-PI-014`, nor prove a pushed tag, public GitHub Release asset, GitHub-hosted workflow run, Pages deployment, notarization, Gatekeeper trust, or production-browser acceptance.
+- Requirements: REQ-PI-005, REQ-PI-006, REQ-PI-034, REQ-PI-035
+- Evidence: `release/release.json`, `tool/release_contract.mjs`, `tool/release_metadata.mjs`, `tool/preview_artifacts.mjs`, `tool/homebrew_cask.mjs`, `.gitattributes`, `dart_test.yaml`, `.github/workflows/ci.yml`, `.github/workflows/release-preview.yml`, `.github/workflows/release-desktop-candidates.yml`, and their Node test suites prove the `0.1.0+3` publication-disabled Profile, truthful desktop Capsule inclusion, mobile/Web connect-only roles, deterministic manifest/checksum behavior, exact recovery policy, dormant Homebrew, stable desktop signing denial, macOS-only Golden execution, Windows `<version>+<build>` file identity, and LF-preserved strict Release inputs.
+- Scope: This is source and local policy/tooling evidence. It does not claim a remote qualification run, public Release, installable `0.1.0`, or production acceptance.
 
-## VER-PI-013 - Public Release and GitHub Pages acceptance
+## VER-PI-024 - Native six-platform qualification and publication recovery
+
+- Status: PLANNED
+- Requirements: REQ-PI-035
+- Owner: GitHub Actions native runners, aggregate artifact verifier, Release readback, and Pages release-dispatch evidence
+- Planned evidence: One exact commit produces all nine application artifacts and manifest/checksums; desktop candidates pass Capsule verification and E2E; mobile/Web pass connect-only scans; retry uses the original qualification run; any future publication uses an annotated Tag, Draft-first readback, no overwrite, and publish-last.
+- Gap: Current Profile intentionally denies publication, and no new remote qualification or public Release is authorized by this merge.
+
+## VER-PI-025 - Independent Landing Page source and production identity
+
+- Status: PASS
+- Requirements: REQ-PI-036
+- Evidence: Astro build and `site/scripts/validate-built-site.mjs` validate source output; Pages governance preserves canonical `pi.wyattcoder.top`; the existing production evidence for the imported `main` Landing Page confirms status `200`, title `Pi Client | A Flutter UI for Pi`, canonical URL, expected independent-product copy, and absence of legacy runtime identity, downloads, Homebrew commands, unpublished versions, stale workspace screenshots, and secret markers.
+- Scope: Passing source and endpoint evidence proves the current source-only product page, not a binary release.
+
+## VER-PI-026 - Homebrew public installation
+
+- Status: PLANNED
+- Requirements: REQ-PI-037
+- Owner: future publication-enabled Release, public Tap repository, fresh Homebrew client, and exact asset readback
+- Planned evidence: Generate Cask from explicit Tag/commit/asset/SHA-256 evidence, commit the authorized Tap change, install the exact Universal runtime-bearing asset, verify version, launch and Capsule behavior, and confirm no Gatekeeper bypass.
+- Gap: Current development Profile is publication-disabled and no Homebrew publication is authorized; source tests prove only dormant fail-closed behavior. Historical `v0.0.3` evidence in `VER-PI-028` does not satisfy this first-party Runtime Capsule requirement.
+
+## VER-PI-027 - Historical v0.0.3 six-platform Preview delivery
+
+- Status: HISTORICAL PASS
+- Requirements: REQ-PI-010, REQ-PI-012
+- Owner: immutable transitional `v0.0.3`, GitHub Actions runs `33371971805`, `33372753316`, and `33373334624`, Release readback, and Pages admission
+- Evidence: Transitional commit `8f8d7e922cfe05f729c164d21ebb683e79ef1ac0` passed its `six-platform-preview-v1` qualification and six native runner jobs, retained the aggregate manifest/checksum bundle, created annotated Tag object `af5ccee0103c7fbe7108cb459de7adb3b2d10e12`, recovered publication from the original qualification run without rebuilding, downloaded and verified all 11 public assets, and deployed the exact-Tag Pages source.
+- Scope limit: This evidence belongs only to the immutable `v0.0.3` transitional lineage. Its desktop artifacts declared no first-party Host runtime and it does not activate the current `0.1.0+3` Profile, satisfy current `VER-PI-024`, advertise a current download, or authorize any remote mutation.
+
+## VER-PI-028 - Historical v0.0.3 unsigned Homebrew delivery
+
+- Status: HISTORICAL PASS
+- Requirements: REQ-PI-037
+- Owner: immutable transitional `v0.0.3`, public asset checksum, `Hu-Wentao/homebrew-tap@7ec1023866376f83ddda6164b77cd1e2e673cdc4`, Homebrew install/uninstall, bundle inspection, `codesign`, and `spctl`
+- Evidence: The historical `Pi-Client-0.0.3-macOS-universal.zip` resolved to SHA-256 `44ca05689220759ae1ca45bb7fbb8aa049874449604918f670d03d6bf53f5623`; the public Tap Cask matched those bytes, passed style, installed `/Applications/Pi Client.app`, preserved quarantine, exposed version `0.0.3` build `3` and Universal app/framework slices, retained ad-hoc/no-Team signing with expected Gatekeeper rejection, and uninstalled cleanly.
+- Scope limit: This was an unsigned, unnotarized transitional Preview without the current first-party Runtime Capsule contract. It does not make Homebrew available for the independent build, does not satisfy `VER-PI-026`, and does not authorize a new Cask, Tag, Release, or deployment.
+
+## VER-PI-029 - Trusted-project external-terminal behavior
 
 - Status: PARTIAL
-- Requirements: REQ-PI-012
-- Owner: historical `.github/workflows/release-macos.yml@ac2b492`, current `.github/workflows/pages.yml`, GitHub Release evidence, and production manual accessibility/browser verification
-- Evidence: Annotated `v0.0.2` resolves to `ac2b492cf595a715fc5e86f7e850ae5bcaf4c942`; Release build run `33308958703` passed generation, analysis, 35 tests, Debug build, unsigned Universal build, bundle/architecture/Gatekeeper checks, launch without Keychain `-34018`, packaging, tag creation, and Draft upload. Draft release `379262752` was reconciled after the historical workflow's tag lookup returned 404; the exact uploaded ZIP and SHA-256 were downloaded, checksum-verified, unpacked, and inspected before publication. Historical Pages run `33309764563` deployed the retired inherited path. Corrective Pages run `33356691081` successfully built and deployed `da201f2ae74970651bf4feab582e9a9f0965982c`; GitHub Pages readback reports `cname=pi.wyattcoder.top`, workflow builds, an approved certificate for `pi.wyattcoder.top`, and `https_enforced=true`. Host transaction `pi-pages-dns-20260831T042531Z-7bd4164b` created the exact DNS-only CNAME to `hu-wentao.github.io` and verified public propagation. Production checks observed HTTP `301`, HTTPS `200` for `/` and `/zh-cn/`, `200` for required assets, canonical `pi.wyattcoder.top` metadata, no retired root-relative `/pi-client/` asset paths, and a successful exact Release download.
-- Gap: Safari WebDriver remains blocked until **Allow Remote Automation** is enabled. The corrected domain still needs representative Chrome visual/Lighthouse, VoiceOver, and 200% zoom acceptance; historical Lighthouse 94/100/100/100 applies only to the retired path.
+- Requirements: REQ-PI-038
+- Owner: focused external-terminal launcher tests, Workspace/Project Browser Widget tests, full Flutter/Protocol/Pi Node suites, ACDD final validation, macOS/iOS/Android/Web JS/WebAssembly source builds, fake-executable process smoke, and connect-only artifact scans
+- Evidence: The app-owned launcher accepts only `PiProjectIdentity`; macOS uses `/usr/bin/open -a Terminal <canonical-cwd>`, Windows uses `wt.exe -d <canonical-cwd>` with a no-command `cmd.exe` cwd fallback only when Windows Terminal is absent, and Linux uses a bounded terminal allowlist with exact working-directory argv, detached process mode, and `runInShell: false`. Tests cover spaces/metacharacters, canonical identity, no selected/untrusted project, unsupported platforms, redacted failure and unsupported feedback, stale project switch, keyboard activation, semantics, 200% text scale, conditional Web selection, and a real detached fake-executable launch without opening a visible terminal. Generated-source comparison, format, analyze, Flutter, Protocol, Pi Node, release/workflow/site, ACDD, mdq, link, duplicate-ID, and diff checks pass. Debug macOS, unsigned iOS, Android, Web JavaScript, and WebAssembly builds pass; Web executable scans reject known desktop terminal/process signatures, and Android/iOS/Web packaging scans remain free of Shell/PTY host and remote-command-executor paths.
+- Gap: Windows and Linux native-runner launch behavior and actual installed-terminal availability still require their platform CI/manual acceptance. Automation intentionally does not open a user-visible Terminal.app, so macOS production Terminal availability remains a release-time smoke rather than this source check. `REQ-PI-038` therefore remains Planned.
 
-## VER-PI-014 - Cross-platform Release contract and workflow source
+## VER-PI-030 - 1.1 secure remote Shell and terminal bridge
 
-- Status: PASS
-- Requirements: REQ-PI-010, REQ-PI-011, REQ-PI-013
-- Owner: `tool/release_contract.mjs`, `tool/release_metadata.mjs`, `tool/preview_artifacts.mjs`, Node release tests, workflow policy tests, actionlint, and local Flutter/Astro checks
-- Evidence: Focused tests validate generic and monotonic SemVer resolution, active-Profile-independent tests plus immutable synthesized `0.0.2+2` compatibility, the future six-platform file/role/runtime-baseline contract, isolated platform Artifact sources, package filename-boundary evidence with contained Framework symlinks, deterministic manifest/checksum output, commit binding, missing/extra/wrong-source/duplicate/unsafe-name/zero-byte rejection, SHA-pinned Actions, exact-run bundle recovery, bounded Draft starter repair, concurrent-publication rejection, annotated-Tag Pages binding, recoverable fail-closed Tag/Draft/public states, and JavaScript Dart application policy. Local shared checks and actual unsigned Android split APK, no-codesign iOS archive, unsigned Universal macOS bundle, and standard JavaScript Web builds qualify the source without changing the public version.
-- Scope limit: This PASS proves repository source and locally available hosts. It does not prove GitHub runner availability, Windows/Linux runtime output, a six-platform Actions bundle, a new Tag, or a public cross-platform Prerelease.
-
-## VER-PI-015 - GitHub-hosted six-platform qualification and Preview publication
-
-- Status: PASS
-- Requirements: REQ-PI-010, REQ-PI-013
-- Owner: `.github/workflows/ci.yml`, `.github/workflows/release-preview.yml`, GitHub Actions artifacts, GitHub Release readback, and Pages admission
-- Evidence: Commit `8f8d7e922cfe05f729c164d21ebb683e79ef1ac0` passed the shared qualification gates and six isolated GitHub-hosted Android, iOS, macOS, Windows, Linux, and Web Release jobs in run `33371971805`; its aggregate Job accepted the exact `six-platform-preview-v1` sources and produced the retained qualified bundle, manifest, checksums, and package-boundary evidence. The publish Job created annotated Tag object `af5ccee0103c7fbe7108cb459de7adb3b2d10e12`, which peels to that commit, and admitted Draft `379603649`; after an immediate post-create list read observed GitHub eventual consistency, recovery run `33372753316` used `resume_run_id=33371971805`, reverified the retained bundle and immutable Tag, uploaded and downloaded all 11 exact assets, matched their SHA-256 values, and published `v0.0.3` as a Prerelease without moving the Tag or rebuilding artifacts. Pages run `33373334624` then bound `v0.0.3` to the same commit, passed source, build, exact public Release-asset admission, and deploy Jobs after the `github-pages` environment admitted `v*` tags.
-- Scope limit: This PASS covers unsigned/no-codesign Preview qualification and public GitHub distribution. Developer ID, Notarization, Authenticode, signed mobile/store delivery, native installers, the first-party Pi host runtime, and WebAssembly remain separate future work.
-
-## VER-PI-016 - Independent product Landing Page
-
-- Status: PASS
-- Requirements: REQ-PI-014
-- Owner: Astro checks, `site/scripts/validate-built-site.mjs`, brand generation, Node release/workflow policy tests, mdq contract checks, GitHub Pages run evidence, and production HTTP/content verification
-- Evidence: The initial independent-product deployment at `e2110c0c03c03d9b4de8c7bfc62c303de00a375b` passed brand generation, Astro check/build, and built-site validation for canonical English and Simplified Chinese routes with root-relative brand assets, all six platform names, verified platform-role wording, GitHub/contribution CTAs, active-development disclosure, and no client JavaScript; Pages run `33365568081` deployed it successfully. Current Release source `8f8d7e922cfe05f729c164d21ebb683e79ef1ac0` additionally derives the active Preview URL, Tag, ZIP name, and Homebrew command from the Release contract and rejects them from rendered pages. Annotated-Tag Pages run `33373334624` passed source identity, Astro build, exact `v0.0.3` public-asset admission, and deployment. Production HTTP checks after that deployment returned the English and Chinese pages while confirming that neither `brew install --cask hu-wentao/tap/pi-client` nor `Pi-Client-0.0.3-macOS-universal.zip` is rendered.
-- Scope limit: Representative visual regression, Lighthouse, VoiceOver, and 200% zoom acceptance remain separate manual quality evidence.
-
-## VER-PI-017 - Unsigned Homebrew Cask publication and installation
-
-- Status: PASS
-- Requirements: REQ-PI-015
-- Owner: `tool/homebrew_cask.mjs`, `test/homebrew_cask_test.mjs`, `Hu-Wentao/homebrew-tap`, GitHub Release asset readback, Homebrew style/install/uninstall, official-new-cask audit classification, macOS bundle inspection, `codesign`, and `spctl`
-- Evidence: The public `v0.0.3` asset `Pi-Client-0.0.3-macOS-universal.zip` and its published checksum both resolve to SHA-256 `44ca05689220759ae1ca45bb7fbb8aa049874449604918f670d03d6bf53f5623`. The project generator rendered and byte-verified `Casks/pi-client.rb`; public Tap `Hu-Wentao/homebrew-tap` commit `7ec1023866376f83ddda6164b77cd1e2e673cdc4` publishes that Cask on default branch `main`, and Homebrew style inspected it with no offenses. `brew audit --cask --new` produced the expected non-gating official-channel failures for a GitHub Prerelease, absence of a distributor signature accepted by Gatekeeper, and repository notability. The exact command `brew install --cask hu-wentao/tap/pi-client` installed `/Applications/Pi Client.app`; inspection found Bundle ID `io.github.huwentao.piClient`, short version `0.0.3`, build `3`, a nonempty `com.apple.quarantine` attribute, and arm64+x86_64 slices in the application executable and all six bundled Mach-O frameworks. `codesign` reported `Signature=adhoc` and no Team Identifier; `spctl --assess --type execute` returned status `3`, `rejected`, and `source=no usable signature`. `brew uninstall --cask hu-wentao/tap/pi-client` then removed both the application and Caskroom version.
-- Scope limit: This is intentionally an unsigned, unnotarized custom-Tap Preview. A user must explicitly use Finder Control-click → Open for the first launch; no quarantine removal, Gatekeeper disablement, Developer ID claim, or official Homebrew Cask acceptance is part of this PASS.
+- Status: PLANNED
+- Requirements: REQ-PI-019
+- Owner: future Protocol 1.x conformance, Pi Node Shell/PTY integration, Local Direct and Friday Transport E2E, mobile/Web remote-client tests, desktop native-runner tests, Extension terminal fixtures, adversarial security suites, and connect-only artifact scans
+- Planned evidence: Verify project-scoped command and PTY admission, cwd/environment policy, stdout/stderr or terminal frames, input, resize, backpressure, reconnect/resume, writer lease, timeout, cancellation, process-tree termination, Windows Shell profiles, arbitrary Extension terminal UI, remote grants, replay rejection, E2EE opacity, and absence of local Shell/PTY host code from Android/iOS/Web.
+- Gap: `1.0` deliberately contains no Shell request/event/stream, built-in executor, PTY, output capture, remote Shell, mobile/Web Shell, Windows Shell setting, or custom Extension terminal bridge. Implementation begins only under `PLAN-PI-008` after `1.0.0`.

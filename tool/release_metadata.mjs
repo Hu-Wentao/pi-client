@@ -17,13 +17,17 @@ function optionValue(name) {
 
 const outputPath = optionValue('--github-output');
 const requireProfile = optionValue('--require-profile');
+const requirePublication = process.argv.includes('--require-publication');
 const remoteTagsPath = optionValue('--remote-tags-file');
 const candidateCommit = optionValue('--candidate-commit');
 if (Boolean(remoteTagsPath) !== Boolean(candidateCommit)) {
   throw new Error('--remote-tags-file and --candidate-commit must be provided together.');
 }
 
-const contract = await loadReleaseContract(undefined, { requireProfile });
+const contract = await loadReleaseContract(undefined, {
+  requireProfile,
+  requirePublication,
+});
 const metadata = {
   version: contract.version,
   buildNumber: contract.buildNumber,
@@ -32,6 +36,8 @@ const metadata = {
   checksumAsset: contract.checksumAsset,
   downloadUrl: contract.downloadUrl,
   artifactProfile: contract.artifactProfile,
+  publicationEnabled: String(contract.publicationEnabled),
+  distribution: contract.distribution,
   expectedAssetsJson: JSON.stringify(contract.expectedAssets),
   releaseTitle: contract.releaseTitle,
   releaseNotesPath: contract.releaseNotesPath,

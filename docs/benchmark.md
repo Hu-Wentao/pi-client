@@ -23,77 +23,139 @@ mdq:
       expect: {max_total_bytes: 65536, structured: true, min_confidence: 1.0}
   maintenance: {query_contract: {mode: locked}}
 ---
-# External comparison baseline
+# pi-web observed capability inventory
 
-Pi-web reference: `https://github.com/agegr/pi-web`, commit `28bab3c25f5f6770c9b0b745ebbfec1c27f7b948`, package `0.8.11`, MIT.
+Reference snapshot: [`agegr/pi-web`](https://github.com/agegr/pi-web) `v0.8.11`, commit `28bab3c25f5f6770c9b0b745ebbfec1c27f7b948`, MIT.
 
-## BENCH-PI-001 - Session workspace
+This inventory is bounded to user-visible capabilities that are reachable in the fixed snapshot. It was created as initial completeness-review evidence under `DEC-019`. The inventory and every `Strict parity`, `Partial strict parity`, or `Native adaptation` disposition below are now archived historical evidence: they do not define or expand the current Pi Client `1.0` scope, and they authorize no route, DTO, event, protocol, implementation, deployment, requirement, or acceptance criterion. Current scope must come from `DEC-020`, the active baseline, requirements, and `docs/plans/pi-client-1.0.md`; later upstream changes and this snapshot itself have no current product authority.
 
-- Status: Verified
-- Disposition: Implemented
-- Pi-web behavior: list sessions with project/cwd context and running state; open visible history.
-- Pi Client scope: load/refresh summaries, select one session, render core message roles, preserve last successful data on retryable errors.
-- Evidence owner: service, ViewModel, Widget, app, live gateway smoke.
+## BENCH-PI-001 - Snapshot and independence boundary
 
-## BENCH-PI-002 - New session and prompt lifecycle
+- Status: Archived
+- Disposition: Historical exploration baseline (superseded for current scope)
+- Observed capability: The fixed product presents a local coding-agent workspace with project, session, Agent, file, Git, model, resource, and settings surfaces.
+- Pi Client treatment: Every reachable domain is represented below and mapped to project-owned requirements; no moving pi-web branch can change the `1.0.0` scope automatically.
+- Excluded evidence: Internal routes, schemas, event names, test-only behavior, hidden controls, implementation bugs, build scripts, branding, and deployment mechanics.
+- Evidence owner: Fixed tag/commit identity, pi-web README, and bounded user-facing source inspection.
 
-- Status: Verified
-- Disposition: Implemented
-- Pi-web behavior: create a runtime from cwd, send prompt commands, observe events, abort.
-- Pi Client scope: `ensure_session`, prompt, abort, optimistic user message, SSE deltas, final authoritative reload, reconnect for the selected session.
-- Evidence owner: `workspace_view_model_test.dart` and `workspace_gateway_test.dart`.
+## BENCH-PI-002 - Projects, directories, and trust
 
-## BENCH-PI-003 - Connection and authentication
+- Status: Observed
+- Disposition: Strict parity
+- Observed capability: Select and validate a directory, use recent or default projects, restore project context, group linked worktrees, and require trust before project resources load.
+- Pi Client treatment: Provide equivalent user outcomes through first-party Project and Pi Node contracts, including invalid, untrusted, trusted, moved, and unavailable states.
+- Requirements: `REQ-PI-014` and `REQ-PI-033`.
 
-- Status: Verified
-- Disposition: Implemented
-- Pi-web behavior: loopback by default; optional Basic Auth with username `pi`.
-- Pi Client scope: configurable http(s) base URL and password, URL validation, Basic Auth header, no credential URL/log/model persistence.
-- Evidence owner: gateway and ViewModel tests plus security baseline.
+## BENCH-PI-003 - Session catalog and lifecycle
 
-## BENCH-PI-004 - File, Git, and worktree tools
+- Status: Observed
+- Disposition: Strict parity
+- Observed capability: Browse sessions by project, restore a prior session, show running and unread activity, create lazily, rename, auto-name, delete, export, and inspect session statistics.
+- Pi Client treatment: Preserve user-visible lifecycle and recovery outcomes without reading pi-web data or adopting its session representations.
+- Requirements: `REQ-PI-015`.
 
-- Status: Deferred
-- Disposition: Deferred candidate
-- Pi-web behavior: file browser/upload/watch/preview, Git status/diff, and worktree operations.
-- Pi Client scope: not implemented in MVP.
-- Reason: these features require additional filesystem, upload, preview, and destructive-operation contracts beyond the core agent loop.
-- Governance: This comparison entry is a candidate only; implementation requires explicit acceptance in a current requirement or plan.
+## BENCH-PI-004 - History, branching, and independent sessions
 
-## BENCH-PI-005 - Models, skills, plugins, and subagents
+- Status: Observed
+- Disposition: Strict parity
+- Observed capability: Load earlier history and deferred content, navigate in-session branches, edit from an earlier point, and create an independent session from a previous message.
+- Pi Client treatment: Keep branch navigation and independent session creation as separate domain operations with stale-response protection and deep-tree handling.
+- Requirements: `REQ-PI-016`.
 
-- Status: Deferred
-- Disposition: Deferred candidate
-- Pi-web behavior: provider login/API keys, model discovery/testing, skill/plugin management, subagents, system prompt, and tool selection.
-- Pi Client scope: not implemented in MVP.
-- Reason: the MVP assumes pi-web/pi is already configured and does not copy credential-management surfaces.
-- Governance: This comparison entry is a candidate only; implementation requires explicit acceptance in a current requirement or plan.
+## BENCH-PI-005 - Agent lifecycle and recovery
 
-## BENCH-PI-006 - Advanced conversation features
+- Status: Observed
+- Disposition: Strict parity
+- Observed capability: Start and resume Agent work, stream output, abort, retry, compact, abort compaction, reload, steer, follow up, queue input, and reconcile activity after refresh or disconnect.
+- Pi Client treatment: Express the same outcomes through accepted/rejected/uncertain commands and ordered first-party streams, not through pi-web command or event shapes.
+- Requirements: `REQ-PI-013` and `REQ-PI-017`.
 
-- Status: Deferred
-- Disposition: Deferred candidate
-- Pi-web behavior: branch/fork, rename/delete/export, compaction, queues, extension UI, bash, rich Markdown/media, notifications, and multi-panel file tabs.
-- Pi Client scope: historical bash/tool text can render, but advanced controls and rich presentation are deferred.
-- Reason: P0 freezes the smallest complete find/continue/run/stop flow.
-- Governance: This comparison entry is a candidate only; implementation requires explicit acceptance in a current requirement or plan.
+## BENCH-PI-006 - Composer, commands, and project shell
 
-## BENCH-PI-007 - Platform matrix
+- Status: Observed
+- Disposition: Versioned strict parity
+- Observed capability: Preserve drafts and input history; attach images; choose model, thinking, and tools; use slash commands, skills, prompt templates, extension commands, file mentions, and context-included or excluded shell commands.
+- Pi Client treatment: `REQ-PI-018` keeps the accepted `1.0` composer outcomes; `REQ-PI-038` provides only a trusted desktop project's external-terminal entry. Built-in command execution, PTY, remote Shell, mobile/Web Shell, and Windows Shell settings are explicitly deferred to `REQ-PI-019` and `PLAN-PI-008` for `1.1` by `DEC-022`.
+- Requirements: `REQ-PI-018`, `REQ-PI-019`, and `REQ-PI-038`.
 
-- Status: Superseded
-- Disposition: Project-owned requirement
-- Pi-web behavior: browser/PWA layouts across desktop and mobile browsers.
-- Pi Client scope: Android, iOS, macOS, Windows, Linux, and Web are first-party targets; macOS, Windows, and Linux are Agent-host-capable, while Android, iOS, and Web are connect-only clients.
-- Reason: the platform matrix now comes directly from `DEC-014`, `REQ-PI-010`, and `REQ-PI-011`, not from comparison with pi-web.
-- Governance: This record remains historical comparison context only. PWA behavior is still deferred unless a separate project requirement accepts it.
+## BENCH-PI-007 - Conversation presentation
 
-## BENCH-PI-008 - FlClash cross-platform release pipeline
+- Status: Observed
+- Disposition: Strict parity
+- Observed capability: Present user, assistant, thinking, tool, shell, custom, error, compaction, and usage content with Markdown, GFM, math, Mermaid, ANSI, code, images, diffs, written files, process details, and oversized-content protection.
+- Pi Client treatment: Provide sanitized, bounded Flutter renderers and keep unknown or deferred content inspectable without converting it into a successful known state.
+- Requirements: `REQ-PI-020`.
 
-- Status: Verified
-- Disposition: Selectively adopted
-- FlClash reference: `https://github.com/chen08209/FlClash`, stable tag `v0.8.96`, commit `e2f678909dd9738015a5c032a8e25288ed79d4f1`, GPL-3.0.
-- Adopted design: use native operating-system runners, standard platform/architecture asset names, one project-owned packaging contract, per-platform Actions Artifacts, and one aggregate Release step with checksum output.
-- Rejected design: do not use tag-only CI, broad `v*` admission, hyphen-only prerelease classification, floating Action or packaging refs, Android Debug-signing fallback, post-Release main mutation, quarantine removal, or unsigned desktop artifacts without explicit disclosure.
-- Pi Client difference: the matrix includes iOS and Web, preserves manual `qualify`/`publish`, binds the annotated Tag to an exact qualified commit, verifies Draft assets and downloaded digests, and records platform execution role plus `hostRuntimeIncluded: false` in a manifest.
-- License boundary: architecture concepts were independently implemented; no FlClash workflow, setup script, buildkit, packaging template, branding, or other substantial GPL-3.0 source was copied.
-- Evidence owner: `DEC-016`, `PLAN-PI-004`, Release tooling tests, workflow policy tests, and the stored shared open-source assessment `RESOURCE-ASSESS-GITHUB-COM-CHEN08209-FLCLASH-BAA102A4`.
+## BENCH-PI-008 - File workspace
+
+- Status: Observed
+- Disposition: Strict parity
+- Observed capability: Browse and search an allowed project tree, upload and download files, watch changes, mention files or lines, keep multiple tabs, and view source, Markdown/HTML, image, audio, PDF, DOCX, and diff modes.
+- Pi Client treatment: Pi Node owns allowed roots, canonical path checks, ranges, watching, uploads, downloads, and backpressure; Flutter owns tabs and previews.
+- Requirements: `REQ-PI-021` and `REQ-PI-033`.
+
+## BENCH-PI-009 - Git status, diffs, and worktrees
+
+- Status: Observed
+- Disposition: Strict parity
+- Observed capability: Show branch and changed-file status, working-tree diffs, and line totals; list, switch, create, and remove worktrees with dirty-state force confirmation while preserving branches and session history.
+- Pi Client treatment: Keep Git inspection bounded to observed outcomes and govern destructive worktree removal as a separate confirmed operation.
+- Requirements: `REQ-PI-022`, `REQ-PI-023`, and `REQ-PI-033`.
+
+## BENCH-PI-010 - Models, providers, and settings
+
+- Status: Observed
+- Disposition: Strict parity
+- Observed capability: Select and scope models and thinking; configure, discover, enrich, and test models; authenticate providers with supported OAuth, device, manual, or API-key flows; edit global and project runtime settings.
+- Pi Client treatment: Pi Node owns credentials and runtime configuration; Flutter receives redacted status and explicit scope, validation, reload, and rollback outcomes.
+- Requirements: `REQ-PI-024`, `REQ-PI-025`, `REQ-PI-026`, and `REQ-PI-033`.
+
+## BENCH-PI-011 - Skills and Pi packages
+
+- Status: Observed
+- Disposition: Strict parity
+- Observed capability: List skill and package sources, control skill dormancy, search and install skills, check and apply skill updates, and install, update, enable, disable, remove, inventory, and reload packages.
+- Pi Client treatment: Use reviewed Pi resource and package APIs, show source/scope/privilege, and trust-gate project actions instead of reproducing pi-web package code.
+- Requirements: `REQ-PI-027`, `REQ-PI-028`, and `REQ-PI-033`.
+
+## BENCH-PI-012 - Extension interaction host
+
+- Status: Observed
+- Disposition: Versioned strict parity
+- Observed capability: Render blocking select, confirm, input, editor, and custom terminal interactions plus notifications, status items, widgets, titles, and editor-text changes.
+- Pi Client treatment: `REQ-PI-029` maps standard interactions to native Flutter controls for `1.0`; arbitrary custom terminal UI is deferred with the secure Shell/PTY boundary to `REQ-PI-019` and `PLAN-PI-008` for `1.1`.
+- Requirements: `REQ-PI-019` and `REQ-PI-029`.
+
+## BENCH-PI-013 - Existing subagent sessions and unreachable creation
+
+- Status: Observed
+- Disposition: Partial strict parity
+- Observed capability: Existing child or subagent sessions are grouped with their parent, expose status and profile context, and can be opened from the session family.
+- Unreachable capability: Built-in subagent creation is not a reachable `v0.8.11` product capability. The runtime enable predicate always returns false, the ordinary Settings panel omits the Agents section, and the built-in profile editor/toggle component is not mounted from a user-visible path.
+- Parity consequence: Strict parity requires existing child-session discovery, status, and opening only. Built-in subagent creation, profile editing, and its hidden toggle are excluded from the `1.0.0` completeness gate; third-party plugin behavior is not inherited automatically.
+- Requirements: `REQ-PI-030`.
+
+## BENCH-PI-014 - Language, theme, layout, and navigation
+
+- Status: Observed
+- Disposition: Native adaptation
+- Observed capability: English, Simplified Chinese, and Traditional Chinese; light, dark, and system themes; responsive desktop/mobile navigation; resizable panels; tab and workspace restoration; keyboard and clipboard actions.
+- Pi Client treatment: Preserve outcomes with native Flutter layout, focus, accessibility, safe-area, and platform conventions rather than matching browser DOM, CSS, or storage mechanics.
+- Requirements: `REQ-PI-031` and `REQ-PI-032`.
+
+## BENCH-PI-015 - Notifications, updates, and access posture
+
+- Status: Observed
+- Disposition: Native adaptation
+- Observed capability: Completion sound, foreground/background notifications, attention-needed notices, notification navigation, application update notices, local-by-default access, optional authentication, and explicit remote-access warnings.
+- Pi Client treatment: Use native notification, update, pairing, secure transport, and release mechanisms. Browser PWA installation, loopback server binding, and Basic Auth are not exact parity mechanisms.
+- Requirements: `REQ-PI-006`, `REQ-PI-007`, `REQ-PI-008`, `REQ-PI-009`, `REQ-PI-032`, `REQ-PI-033`, and `REQ-PI-034`.
+
+## BENCH-PI-016 - FlClash native multi-platform delivery
+
+- Status: Observed
+- Disposition: Adopt delivery-governance capability, not product identity
+- Observed capability: Native Flutter CI across Android, iOS, macOS, Windows, Linux, and Web; target-specific packaging; explicit versioned assets; desktop signing and package-manager paths; public product-page delivery.
+- Pi Client treatment: Use native runner separation, deterministic artifact naming, platform qualification, manifest/checksum evidence, stable signing fail-closed policy, and future package-manager gating. Do not copy FlClash product UI, network semantics, release identity, dependencies, or trust claims.
+- Independent correction: Pi Client desktop artifacts are Agent-host-capable and must contain a verified first-party Runtime Capsule; Android, iOS, Web JavaScript, and WebAssembly remain connect-only. The current `0.1.0+3` Profile is publication-disabled, so qualification is not a release claim.
+- Evidence boundary: This benchmark informed `DEC-016`, `DEC-021`, `PLAN-PI-007`, and `REQ-PI-035`; exact repository/license observations remain audit inputs rather than Pi Client requirements.

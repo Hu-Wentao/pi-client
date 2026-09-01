@@ -81,17 +81,6 @@ export type LandingCopy = {
   };
 };
 
-// Release metadata remains machine-readable for immutable release verification.
-// The independent product page intentionally does not render a download flow.
-export const release = {
-  version: '0.0.3',
-  tag: 'v0.0.3',
-  asset: 'Pi-Client-0.0.3-macOS-universal.zip',
-  downloadUrl:
-    'https://github.com/Hu-Wentao/pi-client/releases/download/v0.0.3/Pi-Client-0.0.3-macOS-universal.zip',
-  releaseUrl: 'https://github.com/Hu-Wentao/pi-client/releases/tag/v0.0.3',
-} as const;
-
 export const copy: Record<Locale, LandingCopy> = {
   en: {
     locale: 'en',
@@ -120,7 +109,7 @@ export const copy: Record<Locale, LandingCopy> = {
       badges: ['Flutter', 'Six platform targets', 'Open source'],
       primary: 'Explore the source',
       secondary: 'Contribute',
-      note: 'The first-party runtime and transport are under active development.',
+      note: 'First-party Local Direct is implemented in source; supported public distribution is still under active development.',
       platformLabel: 'Supported project targets',
     },
     principles: {
@@ -165,7 +154,7 @@ export const copy: Record<Locale, LandingCopy> = {
         platforms: 'macOS · Windows · Linux',
         badge: 'Host-capable by contract',
         description:
-          'Desktop targets can connect to an Agent host and are designed to support a first-party local host integration when that runtime is delivered.',
+          'Desktop source builds support first-party Local Direct and verified runtime Capsules. Supported public packages are still being qualified.',
       },
       connectOnly: {
         title: 'Connect-only clients',
@@ -175,7 +164,7 @@ export const copy: Record<Locale, LandingCopy> = {
           'Mobile and Web targets connect without embedding the Agent runtime or receiving host filesystem and tool-execution authority.',
       },
       note:
-        'Host capability is a verified execution-role contract, not evidence that the host runtime ships in the current public product.',
+        'First-party host runtime Capsules are verified in source and candidate workflows, but no supported public package is currently promoted.',
     },
     status: {
       eyebrow: 'Current status',
@@ -186,7 +175,7 @@ export const copy: Record<Locale, LandingCopy> = {
         'Flutter project directories are present for Android, iOS, macOS, Windows, Linux, and Web.',
         'Focused tests verify the desktop host-capable and mobile/Web connect-only role mapping.',
         'Shared analysis, tests, and cross-platform build automation are maintained in the repository.',
-        'The first-party runtime and transport are not presented as a current public download.',
+        'First-party Local Direct and runtime Capsules exist in source, but are not presented as a current public download.',
       ],
       noticeTitle: 'Development status',
       noticeBody:
@@ -236,7 +225,7 @@ export const copy: Record<Locale, LandingCopy> = {
       badges: ['Flutter', '六个平台目标', '开放源代码'],
       primary: '查看源代码',
       secondary: '参与贡献',
-      note: '第一方运行时与传输能力正在积极开发中。',
+      note: '第一方 Local Direct 已在源码中实现；受支持的公开分发仍在积极建设中。',
       platformLabel: '项目支持的平台目标',
     },
     principles: {
@@ -276,7 +265,7 @@ export const copy: Record<Locale, LandingCopy> = {
         platforms: 'macOS · Windows · Linux',
         badge: '契约定义为 Host-capable',
         description:
-          '桌面目标可以连接 Agent Host，并为未来交付的第一方本地 Host 集成保留能力边界。',
+          '桌面源码构建已支持第一方 Local Direct 和经过验证的 Runtime Capsule；受支持的公开安装包仍在资格验证中。',
       },
       connectOnly: {
         title: '仅连接客户端',
@@ -285,7 +274,7 @@ export const copy: Record<Locale, LandingCopy> = {
         description:
           '移动端和 Web 不嵌入 Agent 运行时，也不获取宿主文件系统或工具执行权限。',
       },
-      note: 'Host 能力是已经验证的执行角色契约，不代表当前公开产品已经包含 Host 运行时。',
+      note: '第一方 Host Runtime Capsule 已在源码和候选流程中验证，但当前没有受支持的公开安装包入口。',
     },
     status: {
       eyebrow: '当前状态',
@@ -295,7 +284,7 @@ export const copy: Record<Locale, LandingCopy> = {
         '仓库包含 Android、iOS、macOS、Windows、Linux 和 Web 的 Flutter 平台工程。',
         '聚焦测试验证桌面 Host-capable 与移动端/Web connect-only 的角色映射。',
         '共享分析、测试和跨平台构建自动化都在仓库中维护。',
-        '第一方运行时与传输能力不会被描述为当前公开下载。',
+        '第一方 Local Direct 与 Runtime Capsule 已存在于源码中，但不会被描述为当前公开下载。',
       ],
       noticeTitle: '开发状态',
       noticeBody:

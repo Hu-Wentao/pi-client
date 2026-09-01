@@ -1,0 +1,165 @@
+export {
+  PiNodeDomainError,
+  type PiNodeAbortResult,
+  type PiNodeCommandCompletion,
+  type PiNodeCommandFailure,
+  type PiNodeCommandFailureCode,
+  type PiNodeDomainErrorCode,
+  type PiNodeDomainSessionBackend,
+  type PiNodeDomainSessionBackendFactory,
+  type PiNodeDirectoryEntry,
+  type PiNodeDirectoryListing,
+  type PiNodeEventBase,
+  type PiNodeKnownProjectSnapshot,
+  type PiNodeProjectBootstrap,
+  type PiNodeProjectIdentity,
+  type PiNodeProjectSnapshot,
+  type PiNodeProjectTrustReason,
+  type PiNodeProjectTrustSnapshot,
+  type PiNodeProjectTrustStatus,
+  type PiNodePromptAdmission,
+  type PiNodePromptAdmissionStatus,
+  type PiNodePromptExecution,
+  type PiNodeSessionBackendEvent,
+  type PiNodeSessionAdministrationBackend,
+  type PiNodeSessionBackendMutationResult,
+  type PiNodeSessionBackendSnapshot,
+  type PiNodeSessionDeleteConfirmation,
+  type PiNodeSessionDeleteResult,
+  type PiNodeSessionEvent,
+  type PiNodeSessionEventListener,
+  type PiNodeSessionExportFormat,
+  type PiNodeSessionHistoryPage,
+  type PiNodeSessionSafeProjection,
+  type PiNodeSessionSnapshot,
+  type PiNodeSessionStats,
+  type PiNodeSessionSummary,
+  type PiNodeSessionTreeEntryKind,
+  type PiNodeSessionTreeMutationResult,
+  type PiNodeSessionTreeNode,
+  type PiNodeSessionTreeSnapshot,
+} from "./pi-node-domain.js";
+export {
+  InMemoryPiNodeSessionOwnershipRegistry,
+  PiNodeDomainService,
+  type PiNodeDomainServiceOptions,
+  type PiNodeSessionLease,
+  type PiNodeSessionObservation,
+  type PiNodeSessionOwnershipRegistry,
+} from "./pi-node-domain-service.js";
+export {
+  createSessionAdminRevision,
+  PiSdkSessionAdministrationError,
+  PublicPiSdkSessionAdministration,
+  sanitizeGeneratedSessionName,
+  sessionInfoToSummary,
+  type PiSdkSessionAdministrationErrorCode,
+  type PiSessionAutoNameGenerator,
+  type PiSessionAutoNameGeneratorInput,
+  type PublicPiSdkSessionAdministrationOptions,
+} from "./pi-sdk-session-administration.js";
+export {
+  sessionManagerToTreeSnapshot,
+  PiSdkDomainAdapterError,
+  PublicPiSdkDomainSessionFactory,
+  type PiSdkDomainAdapterErrorCode,
+  type PublicPiSdkDomainSessionFactoryOptions,
+} from "./pi-sdk-domain-session.js";
+export * from "./pi-node-conversation.js";
+export {
+  normalizeSafeValue,
+  PiSdkConversationNormalizer,
+  PiSdkConversationNormalizerError,
+  type PiSdkConversationNormalizerErrorCode,
+} from "./pi-sdk-conversation-normalizer.js";
+export {
+  PiNodeLifecycleError,
+  PiNodeRuntime,
+  type PiNodeCapabilities,
+  type PiNodeFailureCode,
+  type PiNodeHealth,
+  type PiNodeLifecycleState,
+  type PiNodeRuntimeOptions,
+} from "./pi-node-runtime.js";
+export {
+  PublicPiSdkProjectSessionCatalog,
+  type PublicPiSdkProjectSessionCatalogOptions,
+} from "./pi-sdk-project-session-catalog.js";
+export type {
+  PiNodeProjectSessionCatalog,
+  PiNodeProjectSessionRecord,
+} from "./project-session-catalog.js";
+export {
+  PI_NODE_MAX_DIRECTORY_CHILDREN,
+  PI_NODE_MAX_KNOWN_PROJECTS,
+  PiNodeProjectService,
+  type PiNodeProjectServiceOptions,
+} from "./project-service.js";
+export {
+  PublicPiSdkRuntimeSessionFactory,
+  type PiSdkDiagnosticCounts,
+  type PiSdkRuntimeSessionFactory,
+  type PiSdkSessionHandle,
+} from "./pi-sdk-session-factory.js";
+export {
+  ProjectTrustCoordinator,
+  ProjectTrustError,
+  PublicPiSdkProjectTrustBackend,
+  type ProjectTrustAuthorization,
+  type ProjectTrustBackend,
+  type ProjectTrustCoordinatorOptions,
+  type ProjectTrustDecision,
+  type ProjectTrustDecisionProvider,
+  type ProjectTrustErrorCode,
+  type ProjectTrustInspection,
+  type ProjectTrustRequest,
+  type ProjectTrustSource,
+} from "./project-trust.js";
+export {
+  PiNodeDomainServiceProtocolAdapter,
+  type PiNodeProtocolDomain,
+} from "./protocol/pi-node-protocol-domain-port.js";
+export {
+  PI_NODE_PROTOCOL_IMPLEMENTATION_NAME,
+  PiNodeProtobufConnection,
+  SUPPORTED_PROTOCOL_CAPABILITIES,
+  SUPPORTED_UNPUBLISHED_PROTOCOL_VERSIONS,
+  type PiNodeProtocolConnectionOptions,
+  type PiNodeProtocolLogCode,
+  type PiNodeProtocolLogger,
+  type PiNodeProtocolReceiveResult,
+} from "./protocol/pi-node-protobuf-connection.js";
+export {
+  PiNodeProtocolAdapterError,
+  mapCommandFailure,
+  mapDomainError,
+  stableError,
+  toProtocolConversationEntry,
+  toProtocolConversationMetrics,
+  toProtocolConversationPage,
+  toProtocolConversationSnapshot,
+  toProtocolDirectoryListing,
+  toProtocolKnownProjectSnapshot,
+  toProtocolMessageContentBinding,
+  toProtocolProjectSnapshot,
+  toProtocolSessionDetail,
+  toProtocolSessionStats,
+  toProtocolSessionSummary,
+  toProtocolSessionTree,
+  toProtocolToolActivity,
+} from "./protocol/protobuf-domain-adapter.js";
+export {
+  RedactedStderrLogger,
+  runPiNodeStdioServer,
+  type PiNodeStdioServerOptions,
+  type PiNodeStdioServerResult,
+} from "./stdio/pi-node-stdio-server.js";
+export {
+  assertRuntimeCompatibility,
+  getRuntimeMetadata,
+  PI_NODE_VERSION,
+  REQUIRED_NODE_VERSION,
+  REQUIRED_PI_SDK_VERSION,
+  RuntimeCompatibilityError,
+  type PiNodeRuntimeMetadata,
+} from "./runtime-metadata.js";

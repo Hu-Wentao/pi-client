@@ -1,0 +1,405 @@
+name: Build Windows and Linux release candidates
+
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: Candidate permits unsigned artifacts; stable requires platform signing credentials.
+        required: true
+        default: candidate
+        type: choice
+        options:
+          - candidate
+          - stable
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-release-candidate-${{ github.ref }}-${{ inputs.channel }}
+  cancel-in-progress: false
+
+env:
+  BUN_VERSION: 1.4.0
+  DART_VERSION: 3.11.4
+  FLUTTER_VERSION: 3.41.6
+  FVM_VERSION: 4.0.5
+  NODE_VERSION: 22.19.0
+
+jobs:
+  windows-x64:
+    name: Windows x64 ${{ inputs.channel }}
+    runs-on: windows-2025
+    timeout-minutes: 120
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Resolve release metadata
+        id: metadata
+        shell: pwsh
+        run: node tool/desktop_release_metadata.mjs --platform windows --architecture x64 --channel "${{ inputs.channel }}" --github-output $env:GITHUB_OUTPUT
+
+      - name: Enforce stable signing admission
+        env:
+          WINDOWS_SIGNING_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
+          WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
+        run: node tool/require_desktop_signing.mjs --platform windows --channel "${{ inputs.channel }}"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1
+        with:
+          sdk: ${{ env.DART_VERSION }}
+
+      - name: Cache Flutter SDK
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ~/fvm/versions/${{ env.FLUTTER_VERSION }}
+          key: windows-release-flutter-${{ env.FLUTTER_VERSION }}-fvm-${{ env.FVM_VERSION }}
+
+      - name: Install FVM and Flutter
+        shell: pwsh
+        run: |
+          dart pub global activate fvm "$env:FVM_VERSION"
+          $pubCacheBin = Join-Path $env:LOCALAPPDATA 'Pub\Cache\bin'
+          $pubCacheBin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          $fvm = Join-Path $pubCacheBin 'fvm.bat'
+          & $fvm install "$env:FLUTTER_VERSION"
+          & $fvm use "$env:FLUTTER_VERSION" --force
+          & $fvm flutter config --enable-windows-desktop
+
+      - name: Resolve locked dependencies
+        run: |
+          fvm flutter pub get --enforce-lockfile
+          bun install --cwd protocol --frozen-lockfile
+          bun install --cwd node --frozen-lockfile
+
+      - name: Check Pi Protocol and Pi Node
+        run: |
+          bun run --cwd protocol check
+          bun run --cwd node check
+
+      - name: Build and verify Windows runtime Capsule v2
+        run: bun run --cwd node capsule:build --target "${{ steps.metadata.outputs.capsuleTarget }}"
+
+      - name: Build Windows Release bundle with immutable Capsule
+        shell: pwsh
+        env:
+          PI_CLIENT_RUNTIME_CAPSULE_PATH: ${{ github.workspace }}\${{ steps.metadata.outputs.capsuleDirectory }}
+        run: |
+          fvm flutter build windows --release --no-pub `
+            --build-name "${{ steps.metadata.outputs.version }}" `
+            --build-number "${{ steps.metadata.outputs.buildNumber }}" `
+            --dart-define=PI_CLIENT_RUNTIME_CAPSULE_SOURCE_COMMIT=${{ github.sha }}
+
+      - name: Install and verify fixed Windows bundle Capsule layout
+        shell: pwsh
+        run: |
+          node node/scripts/install-runtime-capsule-in-desktop-bundle.mjs `
+            --platform windows `
+            --bundle "${{ steps.metadata.outputs.bundleDirectory }}" `
+            --capsule "${{ steps.metadata.outputs.capsuleDirectory }}" `
+            --expected-source-commit "${{ github.sha }}"
+          node node/scripts/verify-desktop-app-runtime-capsule.mjs `
+            --platform windows `
+            --bundle "${{ steps.metadata.outputs.bundleDirectory }}" `
+            --expected-source-commit "${{ github.sha }}"
+
+      - name: Sign Windows application for stable channel
+        if: inputs.channel == 'stable'
+        shell: pwsh
+        env:
+          WINDOWS_SIGNING_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
+          WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
+        run: ./tool/sign_windows_artifacts.ps1 -Path "${{ steps.metadata.outputs.bundleDirectory }}\pi_client.exe"
+
+      - name: Run PATH-empty Windows installed-app stdio E2E
+        run: node tool/run_desktop_bundled_app_e2e.mjs --platform windows --bundle "${{ steps.metadata.outputs.bundleDirectory }}" --expected-source-commit "${{ github.sha }}"
+
+      - name: Install pinned Inno Setup compiler
+        id: inno
+        shell: pwsh
+        run: |
+          $toolchain = Get-Content packaging/toolchain.json | ConvertFrom-Json
+          $installer = Join-Path $env:RUNNER_TEMP 'innosetup.exe'
+          Invoke-WebRequest -Uri $toolchain.innoSetup.url -OutFile $installer
+          $actual = (Get-FileHash -Algorithm SHA256 $installer).Hash.ToLowerInvariant()
+          if ($actual -ne $toolchain.innoSetup.sha256) { throw "Inno Setup SHA-256 mismatch" }
+          $root = Join-Path $env:RUNNER_TEMP 'inno'
+          Start-Process -FilePath $installer -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',("/DIR=$root") -Wait -NoNewWindow
+          "iscc=$root\ISCC.exe" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Build signed-ready Windows installer
+        shell: pwsh
+        run: |
+          $base = [IO.Path]::GetFileNameWithoutExtension('${{ steps.metadata.outputs.installerAsset }}')
+          node tool/package_windows.mjs `
+            --bundle "${{ steps.metadata.outputs.bundleDirectory }}" `
+            --version "${{ steps.metadata.outputs.version }}" `
+            --iscc "${{ steps.inno.outputs.iscc }}" `
+            --output artifacts `
+            --output-base-filename $base
+
+      - name: Sign Windows installer for stable channel
+        if: inputs.channel == 'stable'
+        shell: pwsh
+        env:
+          WINDOWS_SIGNING_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
+          WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
+        run: ./tool/sign_windows_artifacts.ps1 -Path "artifacts\${{ steps.metadata.outputs.installerAsset }}"
+
+      - name: Install, smoke, and uninstall Windows installer
+        shell: pwsh
+        run: |
+          $installRoot = Join-Path $env:RUNNER_TEMP 'installed-pi-client'
+          Start-Process -FilePath "artifacts\${{ steps.metadata.outputs.installerAsset }}" `
+            -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-',("/DIR=$installRoot") `
+            -Wait -NoNewWindow
+          node tool/run_desktop_bundled_app_e2e.mjs --platform windows --bundle $installRoot --expected-source-commit "${{ github.sha }}"
+          $uninstaller = Join-Path $installRoot 'unins000.exe'
+          if (-not (Test-Path $uninstaller)) { throw 'Inno Setup uninstaller is missing.' }
+          Start-Process -FilePath $uninstaller -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -NoNewWindow
+          if (Test-Path (Join-Path $installRoot 'pi_client.exe')) { throw 'Windows uninstall left the application executable behind.' }
+
+      - name: Install pinned Syft and generate SBOM
+        shell: pwsh
+        run: |
+          $toolchain = Get-Content packaging/toolchain.json | ConvertFrom-Json
+          $archive = Join-Path $env:RUNNER_TEMP 'syft.zip'
+          Invoke-WebRequest -Uri $toolchain.syft.windows.x64.url -OutFile $archive
+          $actual = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
+          if ($actual -ne $toolchain.syft.windows.x64.sha256) { throw 'Syft SHA-256 mismatch.' }
+          $root = Join-Path $env:RUNNER_TEMP 'syft'
+          Expand-Archive -Path $archive -DestinationPath $root
+          & "$root\syft.exe" "dir:${{ steps.metadata.outputs.bundleDirectory }}" -o "spdx-json=artifacts\${{ steps.metadata.outputs.sbomAsset }}"
+          Copy-Item "${{ steps.metadata.outputs.bundleDirectory }}\PiNode\metadata\licenses.json" "artifacts\${{ steps.metadata.outputs.licenseAsset }}"
+
+      - name: Generate checksums and immutable artifact manifest
+        shell: pwsh
+        run: |
+          node tool/generate_desktop_artifact_manifest.mjs `
+            --artifacts artifacts `
+            --output "artifacts\${{ steps.metadata.outputs.manifestAsset }}" `
+            --source-commit "${{ github.sha }}" `
+            --version "${{ steps.metadata.outputs.version }}" `
+            --platform windows `
+            --architecture x64 `
+            --channel "${{ inputs.channel }}" `
+            --signed "${{ inputs.channel == 'stable' }}"
+          Get-ChildItem artifacts -File | Where-Object Name -ne '${{ steps.metadata.outputs.checksumAsset }}' | Sort-Object Name | ForEach-Object {
+            $hash = (Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLowerInvariant()
+            "$hash  $($_.Name)"
+          } | Set-Content -Encoding ascii "artifacts\${{ steps.metadata.outputs.checksumAsset }}"
+
+      - name: Upload Windows candidate evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pi-client-${{ steps.metadata.outputs.version }}-windows-x64-${{ inputs.channel }}
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 14
+
+  linux:
+    name: Linux ${{ matrix.architecture }} ${{ inputs.channel }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: x64
+            runner: ubuntu-24.04
+          - architecture: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Resolve release metadata
+        id: metadata
+        run: node tool/desktop_release_metadata.mjs --platform linux --architecture "${{ matrix.architecture }}" --channel "${{ inputs.channel }}" --github-output "$GITHUB_OUTPUT"
+
+      - name: Enforce stable signing admission
+        env:
+          LINUX_GPG_PRIVATE_KEY_BASE64: ${{ secrets.LINUX_GPG_PRIVATE_KEY_BASE64 }}
+          LINUX_GPG_PASSPHRASE: ${{ secrets.LINUX_GPG_PASSPHRASE }}
+        run: node tool/require_desktop_signing.mjs --platform linux --channel "${{ inputs.channel }}"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1
+        with:
+          sdk: ${{ env.DART_VERSION }}
+
+      - name: Cache Flutter SDK
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ~/fvm/versions/${{ env.FLUTTER_VERSION }}
+          key: linux-${{ matrix.architecture }}-release-flutter-${{ env.FLUTTER_VERSION }}-fvm-${{ env.FVM_VERSION }}
+
+      - name: Install native Linux build and package dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            clang cmake dpkg-dev file libgtk-3-dev liblzma-dev ninja-build pkg-config \
+            xvfb xauth
+
+      - name: Install FVM and Flutter
+        run: |
+          dart pub global activate fvm "$FVM_VERSION"
+          echo "$HOME/.pub-cache/bin" >> "$GITHUB_PATH"
+          "$HOME/.pub-cache/bin/fvm" install "$FLUTTER_VERSION"
+          "$HOME/.pub-cache/bin/fvm" use "$FLUTTER_VERSION" --force
+          "$HOME/.pub-cache/bin/fvm" flutter config --enable-linux-desktop
+
+      - name: Resolve locked dependencies
+        run: |
+          fvm flutter pub get --enforce-lockfile
+          bun install --cwd protocol --frozen-lockfile
+          bun install --cwd node --frozen-lockfile
+
+      - name: Check Pi Protocol and Pi Node
+        run: |
+          bun run --cwd protocol check
+          bun run --cwd node check
+
+      - name: Build and verify Linux runtime Capsule v2
+        run: bun run --cwd node capsule:build --target "${{ steps.metadata.outputs.capsuleTarget }}"
+
+      - name: Build Linux Release bundle with immutable Capsule
+        env:
+          PI_CLIENT_RUNTIME_CAPSULE_PATH: ${{ github.workspace }}/${{ steps.metadata.outputs.capsuleDirectory }}
+        run: |
+          fvm flutter build linux --release --no-pub \
+            --build-name "${{ steps.metadata.outputs.version }}" \
+            --build-number "${{ steps.metadata.outputs.buildNumber }}" \
+            --dart-define=PI_CLIENT_RUNTIME_CAPSULE_SOURCE_COMMIT=${{ github.sha }}
+
+      - name: Install and verify fixed Linux bundle Capsule layout
+        run: |
+          node node/scripts/install-runtime-capsule-in-desktop-bundle.mjs \
+            --platform linux \
+            --bundle "${{ steps.metadata.outputs.bundleDirectory }}" \
+            --capsule "${{ steps.metadata.outputs.capsuleDirectory }}" \
+            --expected-source-commit "${{ github.sha }}"
+          node node/scripts/verify-desktop-app-runtime-capsule.mjs \
+            --platform linux \
+            --bundle "${{ steps.metadata.outputs.bundleDirectory }}" \
+            --expected-source-commit "${{ github.sha }}"
+
+      - name: Run PATH-empty Linux installed-app stdio E2E
+        run: xvfb-run -a node tool/run_desktop_bundled_app_e2e.mjs --platform linux --bundle "${{ steps.metadata.outputs.bundleDirectory }}" --expected-source-commit "${{ github.sha }}"
+
+      - name: Download pinned AppImageTool
+        id: appimagetool
+        run: |
+          URL="$(jq -r '.appImageTool.architectures["${{ matrix.architecture }}"].url' packaging/toolchain.json)"
+          EXPECTED="$(jq -r '.appImageTool.architectures["${{ matrix.architecture }}"].sha256' packaging/toolchain.json)"
+          TOOL="$RUNNER_TEMP/appimagetool.AppImage"
+          curl --fail --location --silent --show-error "$URL" --output "$TOOL"
+          echo "$EXPECTED  $TOOL" | sha256sum --check --strict
+          chmod 0755 "$TOOL"
+          echo "path=$TOOL" >> "$GITHUB_OUTPUT"
+
+      - name: Build AppImage and Debian packages
+        run: |
+          export SOURCE_DATE_EPOCH="$(git show -s --format=%ct "${{ github.sha }}")"
+          node tool/package_linux.mjs \
+            --bundle "${{ steps.metadata.outputs.bundleDirectory }}" \
+            --version "${{ steps.metadata.outputs.version }}" \
+            --architecture "${{ matrix.architecture }}" \
+            --appimagetool "${{ steps.appimagetool.outputs.path }}" \
+            --output artifacts \
+            --work "$RUNNER_TEMP/pi-client-linux-packaging" \
+            --appimage-name "${{ steps.metadata.outputs.installerAsset }}" \
+            --deb-name "${{ steps.metadata.outputs.debAsset }}"
+
+      - name: Extract and smoke AppImage payload
+        run: |
+          mkdir "$RUNNER_TEMP/appimage-extract"
+          cd "$RUNNER_TEMP/appimage-extract"
+          "$GITHUB_WORKSPACE/artifacts/${{ steps.metadata.outputs.installerAsset }}" --appimage-extract >/dev/null
+          xvfb-run -a node "$GITHUB_WORKSPACE/tool/run_desktop_bundled_app_e2e.mjs" \
+            --platform linux \
+            --bundle "$RUNNER_TEMP/appimage-extract/squashfs-root/usr/lib/pi-client" \
+            --expected-source-commit "${{ github.sha }}"
+
+      - name: Install, smoke, and uninstall Debian package
+        run: |
+          sudo dpkg --install "artifacts/${{ steps.metadata.outputs.debAsset }}"
+          xvfb-run -a node tool/run_desktop_bundled_app_e2e.mjs \
+            --platform linux \
+            --bundle /opt/pi-client \
+            --expected-source-commit "${{ github.sha }}"
+          sudo dpkg --remove pi-client
+          test ! -e /opt/pi-client/pi_client
+
+      - name: Install pinned Syft and generate SBOM
+        run: |
+          URL="$(jq -r '.syft.linux["${{ matrix.architecture }}"].url' packaging/toolchain.json)"
+          EXPECTED="$(jq -r '.syft.linux["${{ matrix.architecture }}"].sha256' packaging/toolchain.json)"
+          ARCHIVE="$RUNNER_TEMP/syft.tar.gz"
+          curl --fail --location --silent --show-error "$URL" --output "$ARCHIVE"
+          echo "$EXPECTED  $ARCHIVE" | sha256sum --check --strict
+          mkdir "$RUNNER_TEMP/syft"
+          tar -xzf "$ARCHIVE" -C "$RUNNER_TEMP/syft" syft
+          "$RUNNER_TEMP/syft/syft" "dir:${{ steps.metadata.outputs.bundleDirectory }}" \
+            -o "spdx-json=artifacts/${{ steps.metadata.outputs.sbomAsset }}"
+          cp "${{ steps.metadata.outputs.bundleDirectory }}/lib/pi-client/PiNode/metadata/licenses.json" \
+            "artifacts/${{ steps.metadata.outputs.licenseAsset }}"
+
+      - name: Generate checksums and immutable artifact manifest
+        run: |
+          node tool/generate_desktop_artifact_manifest.mjs \
+            --artifacts artifacts \
+            --output "artifacts/${{ steps.metadata.outputs.manifestAsset }}" \
+            --source-commit "${{ github.sha }}" \
+            --version "${{ steps.metadata.outputs.version }}" \
+            --platform linux \
+            --architecture "${{ matrix.architecture }}" \
+            --channel "${{ inputs.channel }}" \
+            --signed "${{ inputs.channel == 'stable' }}"
+          find artifacts -maxdepth 1 -type f ! -name '${{ steps.metadata.outputs.checksumAsset }}' -print0 | sort -z | xargs -0 sha256sum > "artifacts/${{ steps.metadata.outputs.checksumAsset }}"
+
+      - name: Sign Linux release evidence for stable channel
+        if: inputs.channel == 'stable'
+        env:
+          LINUX_GPG_PRIVATE_KEY_BASE64: ${{ secrets.LINUX_GPG_PRIVATE_KEY_BASE64 }}
+          LINUX_GPG_PASSPHRASE: ${{ secrets.LINUX_GPG_PASSPHRASE }}
+        run: |
+          node tool/sign_linux_artifacts.mjs \
+            --file "artifacts/${{ steps.metadata.outputs.installerAsset }}" \
+            --file "artifacts/${{ steps.metadata.outputs.debAsset }}" \
+            --file "artifacts/${{ steps.metadata.outputs.checksumAsset }}" \
+            --file "artifacts/${{ steps.metadata.outputs.manifestAsset }}"
+
+      - name: Upload Linux candidate evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pi-client-${{ steps.metadata.outputs.version }}-linux-${{ matrix.architecture }}-${{ inputs.channel }}
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 14

@@ -2,14 +2,8 @@ import { access, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import {
-  homebrewInstallCommand,
-  loadReleaseContract,
-} from '../../tool/release_contract.mjs';
-
 const siteRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const dist = resolve(siteRoot, 'dist');
-const activeRelease = await loadReleaseContract();
 const pages = [
   {
     path: resolve(dist, 'index.html'),
@@ -52,9 +46,10 @@ for (const page of pages) {
   }
 
   const forbidden = [
-    [activeRelease.downloadUrl, 'current Preview download'],
-    [activeRelease.tag, 'current Preview version'],
-    [homebrewInstallCommand, 'Homebrew installation flow'],
+    ['releases/download/', 'unpublished download URL'],
+    ['brew install --cask', 'Homebrew installation flow'],
+    ['v0.1.0', 'unpublished development version'],
+    ['v0.0.3', 'unpublished abandoned Preview version'],
     ['pi-web', 'legacy runtime name'],
     ['@agegr', 'legacy package owner'],
     ['pi_web', 'legacy credential or identifier'],

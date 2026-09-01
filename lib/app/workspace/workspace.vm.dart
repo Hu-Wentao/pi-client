@@ -3,117 +3,500 @@ part of 'workspace.dart';
 class WorkspaceViewModel
     extends FrBlocViewModel<WorkspaceEvent, WorkspaceModel> {
   WorkspaceViewModel({
-    required PiWebApi gateway,
-    required String initialBaseUrl,
-    this.reconnectDelay = const Duration(seconds: 2),
-  }) : _gateway = gateway,
-       super(WorkspaceModel(baseUrl: initialBaseUrl)) {
+    required WorkspaceService service,
+    PiSessionExportSaver? exportSaver,
+  }) : _service = service,
+       _exportSaver = exportSaver ?? createPlatformSessionExportSaver(),
+       super(
+         WorkspaceModel(
+           connection: service.connection,
+           nodeAvailability: service.availability,
+         ),
+       ) {
     on<WorkspaceStarted>(_onStarted);
-    on<WorkspaceConnectionApplied>(_onConnectionApplied);
+    on<WorkspaceConnectionRetried>(_onConnectionRetried);
+    on<WorkspaceProjectDirectoryBrowsed>(_onProjectDirectoryBrowsed);
+    on<WorkspaceProjectPathValidated>(_onProjectPathValidated);
+    on<WorkspaceProjectSelected>(_onProjectSelected);
+    on<WorkspaceProjectTrustApproved>(_onProjectTrustApproved);
     on<WorkspaceSessionsRefreshed>(_onSessionsRefreshed);
     on<WorkspaceSessionSelected>(_onSessionSelected);
     on<WorkspaceNewSessionRequested>(_onNewSessionRequested);
+    on<WorkspaceSessionRenamed>(_onSessionRenamed);
+    on<WorkspaceSessionCustomNameCleared>(_onSessionCustomNameCleared);
+    on<WorkspaceSessionAutoNamed>(_onSessionAutoNamed);
+    on<WorkspaceSessionDeleted>(_onSessionDeleted);
+    on<WorkspaceSessionTreeNavigated>(_onSessionTreeNavigated);
+    on<WorkspaceSessionForked>(_onSessionForked);
+    on<WorkspaceSessionCloned>(_onSessionCloned);
+    on<WorkspaceOlderHistoryRequested>(_onOlderHistoryRequested);
+    on<WorkspaceSessionStatsRefreshed>(_onSessionStatsRefreshed);
+    on<WorkspaceSessionExportRequested>(_onSessionExportRequested);
+    on<WorkspaceSessionExportCancelled>(_onSessionExportCancelled);
     on<WorkspacePromptSubmitted>(_onPromptSubmitted);
     on<WorkspaceAgentStopped>(_onAgentStopped);
-    on<_WorkspaceStreamEventReceived>(_onStreamEventReceived);
-    on<_WorkspaceStreamFailed>(_onStreamFailed);
-    on<_WorkspaceStreamClosed>(_onStreamClosed);
-    on<_WorkspaceStreamStatusChanged>(_onStreamStatusChanged);
+    on<_WorkspaceConnectionSnapshotReceived>(_onConnectionSnapshotReceived);
+    on<_WorkspaceSessionEventReceived>(_onSessionEventReceived);
+    on<_WorkspaceSessionEventsFailed>(_onSessionEventsFailed);
+    on<_WorkspaceSessionEventsClosed>(_onSessionEventsClosed);
+
+    _connectionSubscription = _service.connectionStates.listen(
+      (snapshot) => _addIfOpen(_WorkspaceConnectionSnapshotReceived(snapshot)),
+    );
   }
 
-  final PiWebApi _gateway;
-  final Duration reconnectDelay;
-  String _password = '';
-  StreamSubscription<Map<String, dynamic>>? _eventSubscription;
+  final WorkspaceService _service;
+  final PiSessionExportSaver _exportSaver;
+  late final StreamSubscription<PiNodeConnectionSnapshot>
+  _connectionSubscription;
+  StreamSubscription<PiSessionEvent>? _sessionEventSubscription;
+
+  bool _connecting = false;
+  bool _browsingProject = false;
+  bool _validatingProject = false;
+  bool _approvingProjectTrust = false;
+  bool _refreshingSessions = false;
+  bool _creatingSession = false;
+  bool _sessionAdminInFlight = false;
+  bool _sessionTreeMutationInFlight = false;
+  bool _historyInFlight = false;
+  bool _statsInFlight = false;
+  bool _exportInFlight = false;
+  bool _exportCancellationRequested = false;
+  bool _promptInFlight = false;
+  bool _abortInFlight = false;
+  bool _closing = false;
   int _connectionGeneration = 0;
+  int _projectSelectionGeneration = 0;
+  int _sessionListGeneration = 0;
   int _sessionLoadGeneration = 0;
-  int _streamGeneration = 0;
+  int _sessionAdminGeneration = 0;
+  int _sessionTreeMutationGeneration = 0;
+  int _exportGeneration = 0;
+  int _eventGeneration = 0;
+  int _promptGeneration = 0;
+  int _commandOrdinal = 0;
+  PiCommandId? _activePromptCommandId;
+  PiSessionExportHandle? _activeExportHandle;
+  Future<void>? _closeFuture;
 
   Future<void> _onStarted(
     WorkspaceStarted event,
     Emitter<WorkspaceModel> emit,
-  ) => _connectAndLoad(baseUrl: state.baseUrl, password: _password, emit: emit);
+  ) => _connectAndLoad(emit);
 
-  Future<void> _onConnectionApplied(
-    WorkspaceConnectionApplied event,
+  Future<void> _onConnectionRetried(
+    WorkspaceConnectionRetried event,
     Emitter<WorkspaceModel> emit,
-  ) async {
-    if (state.connectionStatus == WorkspaceConnectionStatus.connecting) return;
-    await _connectAndLoad(
-      baseUrl: event.baseUrl,
-      password: event.password,
-      emit: emit,
-    );
-  }
+  ) => _connectAndLoad(emit);
 
-  Future<void> _connectAndLoad({
-    required String baseUrl,
-    required String password,
-    required Emitter<WorkspaceModel> emit,
-  }) async {
+  Future<void> _connectAndLoad(Emitter<WorkspaceModel> emit) async {
+    if (_connecting || _closing) return;
+    _connecting = true;
     final generation = ++_connectionGeneration;
+    _projectSelectionGeneration += 1;
+    _sessionListGeneration += 1;
     _sessionLoadGeneration += 1;
-    await _stopEventStream();
+    _sessionAdminGeneration += 1;
+    _sessionAdminInFlight = false;
+    _sessionTreeMutationGeneration += 1;
+    _sessionTreeMutationInFlight = false;
+    _promptGeneration += 1;
+    _activePromptCommandId = null;
+    await _cancelActiveExportForContextChange();
 
-    String normalizedBaseUrl;
+    emit(
+      state.copyWith(
+        connection: const PiNodeConnectionSnapshot.connecting(),
+        projectLoading: true,
+        projectBrowsing: false,
+        projectValidating: false,
+        projectTrustApproving: false,
+        sessionsLoading: true,
+        conversationLoading: false,
+        sending: false,
+        stopping: false,
+        eventStatus: WorkspaceEventStatus.idle,
+        promptAdmissionStatus: WorkspacePromptAdmissionStatus.idle,
+        projectBootstrap: null,
+        knownProjects: const <PiKnownProject>[],
+        selectedProject: null,
+        projectDirectory: null,
+        selectedSessionId: null,
+        sessionAdminSessionId: null,
+        sessionAdminOperation: null,
+        sessionAdminLoading: false,
+        sessionTree: null,
+        sessionTreeLoading: false,
+        sessionTreeMutationOperation: null,
+        sessionTreeMutationLoading: false,
+        sessions: const <PiSessionSummary>[],
+        conversationEntries: const <PiConversationEntry>[],
+        messages: const <PiMessage>[],
+        historyCursor: null,
+        activeBranchRevision: null,
+        treeRevision: null,
+        historyHasMore: false,
+        historyLoading: false,
+        sessionStats: null,
+        sessionStatsLoading: false,
+        sessionExportLoading: false,
+        sessionExportFormat: null,
+        sessionExportSavedBytes: 0,
+        sessionExportTotalBytes: 0,
+        lastExportFileName: null,
+        nodeError: null,
+        projectError: null,
+        sessionError: null,
+        sessionAdminError: null,
+        sessionTreeError: null,
+        conversationError: null,
+        sessionStatsError: null,
+        sessionExportError: null,
+        promptError: null,
+        statusMessage: 'Connecting to the first-party Pi Node…',
+      ),
+    );
+    await _stopSessionEvents();
+
+    var connected = false;
     try {
-      normalizedBaseUrl = _gateway.normalizeBaseUrl(baseUrl);
-    } catch (error) {
+      final connection = await _service.connect();
+      connected = true;
+      final bootstrap = await _service.loadProjectBootstrap();
+      final projectResults = await Future.wait<Object>(<Future<Object>>[
+        _service.loadKnownProjects(),
+        _service.browseDirectory(bootstrap.homeDirectory),
+        _service.loadSessions(bootstrap.defaultProject.identity.projectId),
+      ]);
+      final knownProjects = projectResults[0] as List<PiKnownProject>;
+      final directory = projectResults[1] as PiDirectoryListing;
+      final sessions = projectResults[2] as List<PiSessionSummary>;
+      if (!_isCurrentConnection(generation)) return;
       emit(
         state.copyWith(
-          connectionStatus: WorkspaceConnectionStatus.error,
+          connection: connection,
+          projectLoading: false,
+          projectBootstrap: bootstrap,
+          knownProjects: knownProjects,
+          selectedProject: bootstrap.defaultProject,
+          projectDirectory: directory,
           sessionsLoading: false,
-          error: _messageOf(error),
+          sessions: sessions,
+          nodeError: null,
+          projectError: null,
+          sessionError: null,
+          statusMessage: sessions.isEmpty
+              ? 'Pi Node connected. The default project has no sessions.'
+              : 'Pi Node connected. ${sessions.length} project sessions loaded.',
         ),
       );
+    } catch (error, stackTrace) {
+      if (!_isCurrentConnection(generation)) return;
+      logE(
+        connected
+            ? 'Loading Pi Node sessions failed'
+            : 'Connecting to Pi Node failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      final message = _service.describeError(error);
+      final connection = _service.connection;
+      emit(
+        state.copyWith(
+          connection: connection,
+          projectLoading: false,
+          sessionsLoading: false,
+          nodeError: connected ? null : message,
+          projectError: connected ? message : null,
+          sessionError: null,
+          statusMessage: connected
+              ? 'Pi Node connected, but project discovery failed.'
+              : 'Pi Node connection failed.',
+        ),
+      );
+    } finally {
+      if (generation == _connectionGeneration) _connecting = false;
+    }
+  }
+
+  Future<void> _onProjectDirectoryBrowsed(
+    WorkspaceProjectDirectoryBrowsed event,
+    Emitter<WorkspaceModel> emit,
+  ) async {
+    if (_browsingProject || _closing) return;
+    if (state.connection.status != PiNodeConnectionStatus.connected) {
+      emit(
+        state.copyWith(
+          projectError: 'Connect to Pi Node before browsing projects.',
+        ),
+      );
+      return;
+    }
+    _browsingProject = true;
+    emit(
+      state.copyWith(
+        projectBrowsing: true,
+        projectError: null,
+        statusMessage: 'Browsing project directories…',
+      ),
+    );
+    try {
+      final directory = await _service.browseDirectory(event.directory);
+      if (_closing || isClosed) return;
+      emit(
+        state.copyWith(
+          projectBrowsing: false,
+          projectDirectory: directory,
+          projectError: null,
+          statusMessage: directory.truncated
+              ? 'Directory loaded with a bounded child list.'
+              : 'Directory loaded.',
+        ),
+      );
+    } catch (error, stackTrace) {
+      if (_closing || isClosed) return;
+      logE(
+        'Browsing Pi Node project directories failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      emit(
+        state.copyWith(
+          projectBrowsing: false,
+          projectError: _service.describeError(error),
+          statusMessage: 'Project directory browse failed.',
+        ),
+      );
+    } finally {
+      _browsingProject = false;
+    }
+  }
+
+  Future<void> _onProjectPathValidated(
+    WorkspaceProjectPathValidated event,
+    Emitter<WorkspaceModel> emit,
+  ) async {
+    final candidate = event.candidateDirectory.trim();
+    if (_validatingProject || _closing) return;
+    if (candidate.isEmpty) {
+      emit(
+        state.copyWith(projectError: 'Enter a project directory to validate.'),
+      );
+      return;
+    }
+    _validatingProject = true;
+    emit(
+      state.copyWith(
+        projectValidating: true,
+        projectError: null,
+        statusMessage: 'Validating the project in Pi Node…',
+      ),
+    );
+    try {
+      final project = await _service.validateProject(candidate);
+      if (_closing || isClosed) return;
+      emit(
+        state.copyWith(
+          projectValidating: false,
+          projectError: null,
+          statusMessage: 'Project validated by Pi Node.',
+        ),
+      );
+      add(WorkspaceProjectSelected(project));
+    } catch (error, stackTrace) {
+      if (_closing || isClosed) return;
+      logE(
+        'Validating a Pi Node project failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      emit(
+        state.copyWith(
+          projectValidating: false,
+          projectError: _service.describeError(error),
+          statusMessage: 'Project validation failed.',
+        ),
+      );
+    } finally {
+      _validatingProject = false;
+    }
+  }
+
+  Future<void> _onProjectSelected(
+    WorkspaceProjectSelected event,
+    Emitter<WorkspaceModel> emit,
+  ) async {
+    if (_closing ||
+        state.connection.status != PiNodeConnectionStatus.connected) {
+      return;
+    }
+    final project = event.project;
+    final generation = ++_projectSelectionGeneration;
+    _sessionListGeneration += 1;
+    _sessionLoadGeneration += 1;
+    _sessionAdminGeneration += 1;
+    _sessionAdminInFlight = false;
+    _sessionTreeMutationGeneration += 1;
+    _sessionTreeMutationInFlight = false;
+    _promptGeneration += 1;
+    _activePromptCommandId = null;
+    await _cancelActiveExportForContextChange();
+    await _stopSessionEvents();
+    if (_closing || isClosed || generation != _projectSelectionGeneration) {
       return;
     }
 
     emit(
       state.copyWith(
-        baseUrl: normalizedBaseUrl,
-        connectionStatus: WorkspaceConnectionStatus.connecting,
+        selectedProject: project,
         sessionsLoading: true,
-        streamStatus: WorkspaceStreamStatus.idle,
         selectedSessionId: null,
-        messages: const <PiMessageModel>[],
-        error: null,
-        statusMessage: 'Connecting to pi-web…',
+        sessionAdminSessionId: null,
+        sessionAdminOperation: null,
+        sessionAdminLoading: false,
+        sessionTree: null,
+        sessionTreeLoading: false,
+        sessionTreeMutationOperation: null,
+        sessionTreeMutationLoading: false,
+        sessions: const <PiSessionSummary>[],
+        conversationEntries: const <PiConversationEntry>[],
+        messages: const <PiMessage>[],
+        historyCursor: null,
+        activeBranchRevision: null,
+        treeRevision: null,
+        historyHasMore: false,
+        historyLoading: false,
+        sessionStats: null,
+        sessionStatsLoading: false,
+        sessionExportLoading: false,
+        sessionExportFormat: null,
+        sessionExportSavedBytes: 0,
+        sessionExportTotalBytes: 0,
+        lastExportFileName: null,
+        conversationLoading: false,
+        eventStatus: WorkspaceEventStatus.idle,
+        promptAdmissionStatus: WorkspacePromptAdmissionStatus.idle,
+        sending: false,
+        stopping: false,
+        projectError: null,
+        sessionError: null,
+        sessionAdminError: null,
+        sessionTreeError: null,
+        conversationError: null,
+        sessionStatsError: null,
+        sessionExportError: null,
+        promptError: null,
+        statusMessage: 'Loading the selected project…',
       ),
     );
 
     try {
-      final payload = await _gateway.loadSessions(
-        baseUrl: normalizedBaseUrl,
-        password: password,
-        force: true,
-      );
-      if (generation != _connectionGeneration || isClosed) return;
-      _password = password;
-      final sessions = _parseSessions(payload);
+      final results = await Future.wait<Object>(<Future<Object>>[
+        _service.loadSessions(project.identity.projectId),
+        _service.browseDirectory(project.identity.canonicalWorkingDirectory),
+      ]);
+      if (_closing || isClosed || generation != _projectSelectionGeneration) {
+        return;
+      }
+      final sessions = results[0] as List<PiSessionSummary>;
+      final directory = results[1] as PiDirectoryListing;
       emit(
         state.copyWith(
-          baseUrl: normalizedBaseUrl,
-          connectionStatus: WorkspaceConnectionStatus.connected,
+          selectedProject: project,
+          knownProjects: _replaceKnownProject(state.knownProjects, project),
+          projectDirectory: directory,
           sessionsLoading: false,
           sessions: sessions,
-          error: null,
+          projectError: null,
+          sessionError: null,
           statusMessage: sessions.isEmpty
-              ? 'Connected. No pi sessions were found.'
-              : 'Connected. ${sessions.length} sessions loaded.',
+              ? 'Project selected. No sessions were found.'
+              : 'Project selected. ${sessions.length} sessions loaded.',
         ),
       );
     } catch (error, stackTrace) {
-      if (generation != _connectionGeneration || isClosed) return;
-      logE('Connecting to pi-web failed', error: error, stackTrace: stackTrace);
+      if (_closing || isClosed || generation != _projectSelectionGeneration) {
+        return;
+      }
+      logE(
+        'Loading a selected Pi Node project failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
       emit(
         state.copyWith(
-          connectionStatus: WorkspaceConnectionStatus.error,
           sessionsLoading: false,
-          error: _messageOf(error),
-          statusMessage: 'Connection failed.',
+          projectError: _service.describeError(error),
+          statusMessage: 'Selected project load failed.',
         ),
       );
+    }
+  }
+
+  Future<void> _onProjectTrustApproved(
+    WorkspaceProjectTrustApproved event,
+    Emitter<WorkspaceModel> emit,
+  ) async {
+    final project = state.selectedProject;
+    if (_approvingProjectTrust || _closing || project == null) return;
+    if (!project.trust.requiresApproval) {
+      if (event.createSessionAfterApproval) {
+        add(const WorkspaceNewSessionRequested());
+      } else if (event.sessionIdAfterApproval case final sessionId?) {
+        add(WorkspaceSessionSelected(sessionId));
+      }
+      return;
+    }
+
+    _approvingProjectTrust = true;
+    emit(
+      state.copyWith(
+        projectTrustApproving: true,
+        projectError: null,
+        sessionError: null,
+        statusMessage: 'Persisting explicit project trust approval…',
+      ),
+    );
+    try {
+      final approved = await _service.approveProjectTrust(project);
+      if (_closing ||
+          isClosed ||
+          state.selectedProject?.identity.projectId !=
+              project.identity.projectId) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          projectTrustApproving: false,
+          selectedProject: approved,
+          knownProjects: _replaceKnownProject(state.knownProjects, approved),
+          projectError: null,
+          statusMessage:
+              'Project trust approved. Session runtimes will reload.',
+        ),
+      );
+      if (event.createSessionAfterApproval) {
+        add(const WorkspaceNewSessionRequested());
+      } else if (event.sessionIdAfterApproval case final sessionId?) {
+        add(WorkspaceSessionSelected(sessionId));
+      }
+    } catch (error, stackTrace) {
+      if (_closing || isClosed) return;
+      logE(
+        'Approving Pi Node project trust failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      emit(
+        state.copyWith(
+          projectTrustApproving: false,
+          projectError: _service.describeError(error),
+          statusMessage: 'Project trust approval failed.',
+        ),
+      );
+    } finally {
+      _approvingProjectTrust = false;
     }
   }
 
@@ -121,52 +504,71 @@ class WorkspaceViewModel
     WorkspaceSessionsRefreshed event,
     Emitter<WorkspaceModel> emit,
   ) async {
-    if (state.sessionsLoading ||
-        state.connectionStatus == WorkspaceConnectionStatus.connecting) {
+    final project = state.selectedProject;
+    if (_refreshingSessions ||
+        _closing ||
+        project == null ||
+        state.connection.status != PiNodeConnectionStatus.connected) {
       return;
     }
+    _refreshingSessions = true;
+    final generation = ++_sessionListGeneration;
     emit(
       state.copyWith(
         sessionsLoading: true,
-        error: null,
-        statusMessage: 'Refreshing sessions…',
+        sessionError: null,
+        sessionAdminError: null,
+        statusMessage: 'Refreshing Pi sessions…',
       ),
     );
+
     try {
-      final payload = await _gateway.loadSessions(
-        baseUrl: state.baseUrl,
-        password: _password,
-        force: true,
-      );
-      final sessions = _parseSessions(payload);
-      final selectedStillExists = sessions.any(
-        (session) => session.id == state.selectedSessionId,
-      );
+      final sessions = await _service.loadSessions(project.identity.projectId);
+      if (!_isCurrentSessionList(generation)) return;
+      final selectedSessionId = state.selectedSessionId;
+      final selectedStillExists =
+          selectedSessionId != null &&
+          sessions.any((session) => session.id == selectedSessionId);
       emit(
         state.copyWith(
-          connectionStatus: WorkspaceConnectionStatus.connected,
           sessionsLoading: false,
           sessions: sessions,
-          selectedSessionId: selectedStillExists
-              ? state.selectedSessionId
+          selectedSessionId: selectedStillExists ? selectedSessionId : null,
+          conversationEntries: selectedStillExists
+              ? state.conversationEntries
+              : const <PiConversationEntry>[],
+          messages: selectedStillExists ? state.messages : const <PiMessage>[],
+          sessionTree: selectedStillExists ? state.sessionTree : null,
+          sessionTreeError: selectedStillExists ? state.sessionTreeError : null,
+          eventStatus: selectedStillExists
+              ? state.eventStatus
+              : WorkspaceEventStatus.idle,
+          sessionError: null,
+          sessionAdminError: null,
+          conversationError: selectedStillExists
+              ? state.conversationError
               : null,
-          messages: selectedStillExists
-              ? state.messages
-              : const <PiMessageModel>[],
-          error: null,
-          statusMessage: 'Sessions refreshed.',
+          promptError: selectedStillExists ? state.promptError : null,
+          statusMessage: 'Pi sessions refreshed.',
         ),
       );
-      if (!selectedStillExists) await _stopEventStream();
+      if (!selectedStillExists) await _stopSessionEvents();
     } catch (error, stackTrace) {
-      logE('Refreshing sessions failed', error: error, stackTrace: stackTrace);
+      if (!_isCurrentSessionList(generation)) return;
+      logE(
+        'Refreshing Pi Node sessions failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
       emit(
         state.copyWith(
           sessionsLoading: false,
-          error: _messageOf(error),
+          sessionError: _service.describeError(error),
           statusMessage: 'Session refresh failed.',
         ),
       );
+    } finally {
+      _refreshingSessions = false;
     }
   }
 
@@ -174,52 +576,119 @@ class WorkspaceViewModel
     WorkspaceSessionSelected event,
     Emitter<WorkspaceModel> emit,
   ) async {
-    final sessionId = event.sessionId.trim();
-    if (sessionId.isEmpty) return;
+    if (_closing ||
+        state.connection.status != PiNodeConnectionStatus.connected) {
+      return;
+    }
+    if (state.selectedProject?.trust.requiresApproval ?? true) {
+      emit(
+        state.copyWith(
+          sessionError:
+              'Approve project trust before opening a resource-bearing session.',
+          statusMessage: 'Project trust approval is required.',
+        ),
+      );
+      return;
+    }
+    final project = state.selectedProject!;
+    final sessionId = event.sessionId;
     final generation = ++_sessionLoadGeneration;
-    await _stopEventStream();
+    _promptGeneration += 1;
+    _activePromptCommandId = null;
+    await _cancelActiveExportForContextChange();
+    await _stopSessionEvents();
+    if (_closing || isClosed || generation != _sessionLoadGeneration) return;
+
     emit(
       state.copyWith(
         selectedSessionId: sessionId,
         conversationLoading: true,
-        messages: const <PiMessageModel>[],
-        streamStatus: WorkspaceStreamStatus.connecting,
-        error: null,
-        statusMessage: 'Loading conversation…',
+        sessionTreeLoading: true,
+        conversationEntries: const <PiConversationEntry>[],
+        messages: const <PiMessage>[],
+        historyCursor: null,
+        activeBranchRevision: null,
+        treeRevision: null,
+        historyHasMore: false,
+        historyLoading: false,
+        sessionStats: null,
+        sessionStatsLoading: true,
+        sessionExportLoading: false,
+        sessionExportFormat: null,
+        sessionExportSavedBytes: 0,
+        sessionExportTotalBytes: 0,
+        lastExportFileName: null,
+        sessionTree: null,
+        eventStatus: WorkspaceEventStatus.idle,
+        promptAdmissionStatus: WorkspacePromptAdmissionStatus.idle,
+        composerDraft: '',
+        composerDraftGeneration: state.composerDraftGeneration + 1,
+        sending: false,
+        stopping: false,
+        conversationError: null,
+        sessionTreeError: null,
+        sessionStatsError: null,
+        sessionExportError: null,
+        promptError: null,
+        statusMessage:
+            'Loading the latest 50 messages, statistics, and branch tree…',
       ),
     );
+
     try {
-      final payload = await _gateway.loadSession(
-        baseUrl: state.baseUrl,
-        password: _password,
-        sessionId: sessionId,
-      );
-      if (generation != _sessionLoadGeneration ||
-          state.selectedSessionId != sessionId ||
-          isClosed) {
-        return;
-      }
+      final results = await Future.wait<Object>(<Future<Object>>[
+        _service.loadSessionHistory(
+          projectId: project.identity.projectId,
+          sessionId: sessionId,
+          limit: 50,
+        ),
+        _service.loadSessionTree(project.identity.projectId, sessionId),
+        _service.loadSessionStats(project.identity.projectId, sessionId),
+      ]);
+      if (!_isCurrentSessionLoad(generation, sessionId)) return;
+      final history = results[0] as PiSessionHistoryPage;
+      final tree = results[1] as PiSessionTree;
+      final stats = results[2] as PiSessionStats;
       emit(
         state.copyWith(
           conversationLoading: false,
-          messages: _parseMessages(payload),
-          error: null,
-          statusMessage: 'Conversation loaded.',
+          sessionTreeLoading: false,
+          sessionStatsLoading: false,
+          sessions: _replaceSession(state.sessions, history.summary),
+          conversationEntries: history.conversation.entries,
+          messages: history.messages,
+          historyCursor: history.nextCursor,
+          activeBranchRevision: history.activeBranchRevision,
+          treeRevision: history.treeRevision,
+          historyHasMore: history.hasMore,
+          historyLoading: false,
+          sessionStats: stats,
+          sessionTree: tree,
+          conversationError: null,
+          sessionTreeError: null,
+          sessionStatsError: null,
+          statusMessage: history.hasMore
+              ? 'Latest 50 messages loaded. Older history is available.'
+              : 'Complete conversation, statistics, and branch tree loaded.',
         ),
       );
-      await _startEventStream(sessionId);
+      await _startSessionEvents(sessionId, emit);
     } catch (error, stackTrace) {
-      if (generation != _sessionLoadGeneration || isClosed) return;
+      if (!_isCurrentSessionLoad(generation, sessionId)) return;
       logE(
-        'Loading a conversation failed',
+        'Loading a Pi Node conversation failed',
         error: error,
         stackTrace: stackTrace,
       );
       emit(
         state.copyWith(
           conversationLoading: false,
-          streamStatus: WorkspaceStreamStatus.error,
-          error: _messageOf(error),
+          sessionTreeLoading: false,
+          sessionStatsLoading: false,
+          eventStatus: WorkspaceEventStatus.error,
+          conversationError: _service.describeError(error),
+          sessionTreeError: _service.describeError(error),
+          sessionStatsError: _service.describeError(error),
           statusMessage: 'Conversation load failed.',
         ),
       );
@@ -230,128 +699,1114 @@ class WorkspaceViewModel
     WorkspaceNewSessionRequested event,
     Emitter<WorkspaceModel> emit,
   ) async {
-    final cwd = event.cwd.trim();
-    if (cwd.isEmpty || state.creatingSession) {
-      if (cwd.isEmpty) {
-        emit(state.copyWith(error: 'Enter an absolute working directory.'));
-      }
+    final project = state.selectedProject;
+    if (_creatingSession || _closing) return;
+    if (state.connection.status != PiNodeConnectionStatus.connected) {
+      emit(
+        state.copyWith(
+          sessionError: 'Connect to Pi Node before creating a session.',
+        ),
+      );
       return;
     }
+    if (project == null) {
+      emit(
+        state.copyWith(
+          sessionError:
+              'Select a Node-validated project before creating a session.',
+        ),
+      );
+      return;
+    }
+    if (project.trust.requiresApproval) {
+      emit(
+        state.copyWith(
+          sessionError:
+              'Approve project trust before creating a resource-bearing session.',
+          statusMessage: 'Project trust approval is required.',
+        ),
+      );
+      return;
+    }
+
+    _creatingSession = true;
     emit(
       state.copyWith(
         creatingSession: true,
-        error: null,
-        statusMessage: 'Creating a pi session…',
+        sessionError: null,
+        statusMessage: 'Creating a Pi session in the validated project…',
       ),
     );
     try {
-      final sessionId = await _gateway.ensureSession(
-        baseUrl: state.baseUrl,
-        password: _password,
-        cwd: cwd,
-      );
-      final payload = await _gateway.loadSessions(
-        baseUrl: state.baseUrl,
-        password: _password,
-        force: true,
-      );
+      final detail = await _service.createSession(project.identity.projectId);
+      if (_closing ||
+          isClosed ||
+          state.selectedProject?.identity.projectId !=
+              project.identity.projectId) {
+        return;
+      }
+      List<PiSessionSummary> sessions;
+      try {
+        sessions = await _service.loadSessions(project.identity.projectId);
+      } catch (_) {
+        sessions = _replaceSession(state.sessions, detail.summary);
+      }
+      if (_closing || isClosed) return;
       emit(
         state.copyWith(
           creatingSession: false,
-          sessions: _parseSessions(payload),
-          error: null,
-          statusMessage: 'Session created.',
+          sessions: sessions,
+          sessionError: null,
+          statusMessage: 'Pi session created.',
         ),
       );
-      add(WorkspaceSessionSelected(sessionId));
+      add(WorkspaceSessionSelected(detail.summary.id));
     } catch (error, stackTrace) {
-      logE('Creating a session failed', error: error, stackTrace: stackTrace);
+      if (_closing || isClosed) return;
+      logE(
+        'Creating a Pi Node session failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
       emit(
         state.copyWith(
           creatingSession: false,
-          error: _messageOf(error),
+          sessionError: _service.describeError(error),
           statusMessage: 'Session creation failed.',
         ),
       );
+    } finally {
+      _creatingSession = false;
     }
   }
+
+  Future<void> _onSessionRenamed(
+    WorkspaceSessionRenamed event,
+    Emitter<WorkspaceModel> emit,
+  ) async {
+    final name = event.name.trim();
+    if (name.isEmpty) {
+      emit(
+        state.copyWith(
+          sessionAdminError: 'Enter a non-empty session name.',
+          statusMessage: 'Session rename requires a name.',
+        ),
+      );
+      return;
+    }
+    await _runSessionAdministration(
+      sessionId: event.sessionId,
+      operation: PiSessionAdminOperation.rename,
+      emit: emit,
+      invoke: (commandId, projectId) => _service.renameSession(
+        commandId: commandId,
+        projectId: projectId,
+        sessionId: event.sessionId,
+        name: name,
+      ),
+    );
+  }
+
+  Future<void> _onSessionCustomNameCleared(
+    WorkspaceSessionCustomNameCleared event,
+    Emitter<WorkspaceModel> emit,
+  ) => _runSessionAdministration(
+    sessionId: event.sessionId,
+    operation: PiSessionAdminOperation.clearName,
+    emit: emit,
+    invoke: (commandId, projectId) => _service.clearSessionName(
+      commandId: commandId,
+      projectId: projectId,
+      sessionId: event.sessionId,
+    ),
+  );
+
+  Future<void> _onSessionAutoNamed(
+    WorkspaceSessionAutoNamed event,
+    Emitter<WorkspaceModel> emit,
+  ) => _runSessionAdministration(
+    sessionId: event.sessionId,
+    operation: PiSessionAdminOperation.autoName,
+    emit: emit,
+    invoke: (commandId, projectId) => _service.autoNameSession(
+      commandId: commandId,
+      projectId: projectId,
+      sessionId: event.sessionId,
+    ),
+  );
+
+  Future<void> _onSessionDeleted(
+    WorkspaceSessionDeleted event,
+    Emitter<WorkspaceModel> emit,
+  ) => _runSessionAdministration(
+    sessionId: event.confirmation.sessionId,
+    operation: PiSessionAdminOperation.delete,
+    emit: emit,
+    invoke: (commandId, projectId) => _service.deleteSession(
+      commandId: commandId,
+      projectId: projectId,
+      sessionId: event.confirmation.sessionId,
+      confirmation: event.confirmation,
+    ),
+  );
+
+  Future<void> _runSessionAdministration({
+    required PiSessionId sessionId,
+    required PiSessionAdminOperation operation,
+    required Emitter<WorkspaceModel> emit,
+    required Future<PiSessionAdminResult> Function(
+      PiCommandId commandId,
+      PiProjectId projectId,
+    )
+    invoke,
+  }) async {
+    final project = state.selectedProject;
+    final target = state.sessions
+        .where((session) => session.id == sessionId)
+        .firstOrNull;
+    if (_sessionAdminInFlight || _sessionTreeMutationInFlight || _closing) {
+      return;
+    }
+    if (project == null || target == null) {
+      emit(
+        state.copyWith(
+          sessionAdminError: 'Refresh sessions before using session actions.',
+          statusMessage:
+              'Session administration requires current project state.',
+        ),
+      );
+      return;
+    }
+    if (state.connection.status != PiNodeConnectionStatus.connected) {
+      emit(
+        state.copyWith(
+          sessionAdminError: 'Connect to Pi Node before using session actions.',
+        ),
+      );
+      return;
+    }
+    if (operation == PiSessionAdminOperation.autoName &&
+        project.trust.requiresApproval) {
+      emit(
+        state.copyWith(
+          sessionAdminError:
+              'Approve project trust before using model-assisted session naming.',
+          statusMessage: 'Project trust approval is required for auto-name.',
+        ),
+      );
+      return;
+    }
+
+    _sessionAdminInFlight = true;
+    final generation = ++_sessionAdminGeneration;
+    final projectId = project.identity.projectId;
+    final wasSelected = state.selectedSessionId == sessionId;
+    _sessionListGeneration += 1;
+    _sessionLoadGeneration += 1;
+    _sessionTreeMutationGeneration += 1;
+    _sessionTreeMutationInFlight = false;
+    _promptGeneration += 1;
+    _activePromptCommandId = null;
+    if (wasSelected) await _stopSessionEvents();
+    if (!_isCurrentSessionAdmin(generation, projectId)) return;
+
+    final immediateDeleteCleanup =
+        wasSelected && operation == PiSessionAdminOperation.delete;
+    emit(
+      state.copyWith(
+        sessionAdminSessionId: sessionId,
+        sessionAdminOperation: operation,
+        sessionAdminLoading: true,
+        sessionAdminError: null,
+        selectedSessionId: immediateDeleteCleanup
+            ? null
+            : state.selectedSessionId,
+        conversationEntries: immediateDeleteCleanup
+            ? const <PiConversationEntry>[]
+            : state.conversationEntries,
+        messages: immediateDeleteCleanup ? const <PiMessage>[] : state.messages,
+        conversationLoading: wasSelected && !immediateDeleteCleanup,
+        sessionTreeLoading: wasSelected && !immediateDeleteCleanup,
+        sessionTree: immediateDeleteCleanup ? null : state.sessionTree,
+        sessionTreeMutationOperation: null,
+        sessionTreeMutationLoading: false,
+        eventStatus: wasSelected
+            ? WorkspaceEventStatus.idle
+            : state.eventStatus,
+        sending: wasSelected ? false : state.sending,
+        stopping: wasSelected ? false : state.stopping,
+        promptError: wasSelected ? null : state.promptError,
+        statusMessage: switch (operation) {
+          PiSessionAdminOperation.rename => 'Renaming the Pi session…',
+          PiSessionAdminOperation.clearName =>
+            'Clearing the custom session name…',
+          PiSessionAdminOperation.autoName =>
+            'Generating a bounded session name with the current model…',
+          PiSessionAdminOperation.delete =>
+            'Deleting the confirmed Pi session…',
+        },
+      ),
+    );
+
+    PiSessionAdminResult? result;
+    Object? invocationError;
+    try {
+      result = await invoke(_newCommandId('session-admin'), projectId);
+    } catch (error, stackTrace) {
+      invocationError = error;
+      logE(
+        'Pi Node session administration failed before an outcome',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+    if (!_isCurrentSessionAdmin(generation, projectId)) return;
+
+    var provisionalSessions = state.sessions;
+    var outcomeError = invocationError == null
+        ? null
+        : _service.describeError(invocationError);
+    var deleteSucceeded = false;
+    var reparentedChildCount = 0;
+    switch (result) {
+      case PiSessionAdminUpdated(:final session):
+        provisionalSessions = _replaceSession(provisionalSessions, session);
+      case PiSessionAdminDeleted(
+        sessionId: final deletedSessionId,
+        reparentedChildCount: final childCount,
+      ):
+        deleteSucceeded = true;
+        reparentedChildCount = childCount;
+        provisionalSessions = provisionalSessions
+            .where((session) => session.id != deletedSessionId)
+            .toList(growable: false);
+      case PiSessionAdminRejected(:final error):
+        outcomeError = _service.describeError(error);
+      case PiSessionAdminUncertain(:final error):
+        outcomeError =
+            '${_service.describeError(error)} The session action outcome is uncertain; authoritative state was requested.';
+      case null:
+        break;
+    }
+
+    try {
+      final sessions = await _service.loadSessions(projectId);
+      if (!_isCurrentSessionAdmin(generation, projectId)) return;
+      final targetExists = sessions.any((session) => session.id == sessionId);
+      final canRestoreDeletedSelection =
+          immediateDeleteCleanup && !deleteSucceeded && targetExists;
+      final canRestoreUpdatedSelection =
+          wasSelected &&
+          operation != PiSessionAdminOperation.delete &&
+          state.selectedSessionId == sessionId &&
+          targetExists;
+      final restoreTarget =
+          canRestoreDeletedSelection || canRestoreUpdatedSelection;
+      PiSessionHistoryPage? history;
+      PiSessionTree? tree;
+      PiSessionStats? stats;
+      if (restoreTarget && !project.trust.requiresApproval) {
+        final restored = await Future.wait<Object>(<Future<Object>>[
+          _service.loadSessionHistory(
+            projectId: projectId,
+            sessionId: sessionId,
+            limit: 50,
+          ),
+          _service.loadSessionTree(projectId, sessionId),
+          _service.loadSessionStats(projectId, sessionId),
+        ]);
+        if (!_isCurrentSessionAdmin(generation, projectId)) return;
+        history = restored[0] as PiSessionHistoryPage;
+        tree = restored[1] as PiSessionTree;
+        stats = restored[2] as PiSessionStats;
+      }
+      final selectedOtherSession =
+          state.selectedSessionId != null &&
+          state.selectedSessionId != sessionId;
+      emit(
+        state.copyWith(
+          sessions: history == null
+              ? sessions
+              : _replaceSession(sessions, history.summary),
+          selectedSessionId: history != null
+              ? sessionId
+              : selectedOtherSession
+              ? state.selectedSessionId
+              : null,
+          conversationEntries: history != null
+              ? history.conversation.entries
+              : selectedOtherSession
+              ? state.conversationEntries
+              : const <PiConversationEntry>[],
+          messages: history != null
+              ? history.messages
+              : selectedOtherSession
+              ? state.messages
+              : const <PiMessage>[],
+          historyCursor: history?.nextCursor,
+          activeBranchRevision: history?.activeBranchRevision,
+          treeRevision: history?.treeRevision,
+          historyHasMore: history?.hasMore ?? false,
+          historyLoading: false,
+          sessionStats: history != null
+              ? stats
+              : selectedOtherSession
+              ? state.sessionStats
+              : null,
+          sessionStatsLoading: false,
+          sessionStatsError: history != null ? null : state.sessionStatsError,
+          conversationLoading: false,
+          sessionTreeLoading: false,
+          sessionTree: history != null
+              ? tree
+              : selectedOtherSession
+              ? state.sessionTree
+              : null,
+          sessionTreeError: history != null ? null : state.sessionTreeError,
+          eventStatus: history != null
+              ? WorkspaceEventStatus.idle
+              : selectedOtherSession
+              ? state.eventStatus
+              : WorkspaceEventStatus.idle,
+          sessionAdminSessionId: null,
+          sessionAdminOperation: null,
+          sessionAdminLoading: false,
+          sessionAdminError: outcomeError,
+          sessionError: null,
+          conversationError: history != null ? null : state.conversationError,
+          statusMessage: outcomeError != null
+              ? 'Session action finished with an error; sessions were refreshed.'
+              : deleteSucceeded
+              ? reparentedChildCount == 0
+                    ? 'Pi session deleted.'
+                    : 'Pi session deleted and $reparentedChildCount child sessions reparented.'
+              : 'Pi session updated and refreshed.',
+        ),
+      );
+      if (history != null) await _startSessionEvents(sessionId, emit);
+    } catch (error, stackTrace) {
+      if (!_isCurrentSessionAdmin(generation, projectId)) return;
+      logE(
+        'Refreshing sessions after administration failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      emit(
+        state.copyWith(
+          sessions: provisionalSessions,
+          conversationLoading: false,
+          sessionTreeLoading: false,
+          sessionAdminSessionId: null,
+          sessionAdminOperation: null,
+          sessionAdminLoading: false,
+          sessionAdminError:
+              outcomeError ??
+              '${_service.describeError(error)} Authoritative session refresh failed.',
+          statusMessage: 'Session action could not be reconciled with Pi Node.',
+        ),
+      );
+    } finally {
+      if (generation == _sessionAdminGeneration) {
+        _sessionAdminInFlight = false;
+      }
+    }
+  }
+
+  Future<void> _onSessionTreeNavigated(
+    WorkspaceSessionTreeNavigated event,
+    Emitter<WorkspaceModel> emit,
+  ) => _runSessionTreeMutation(
+    operation: PiSessionTreeMutationOperation.navigate,
+    entryId: event.entryId,
+    emit: emit,
+    invoke: (commandId, projectId, sessionId, revision) =>
+        _service.navigateSessionTree(
+          commandId: commandId,
+          projectId: projectId,
+          sessionId: sessionId,
+          expectedAdminRevision: revision,
+          entryId: event.entryId,
+        ),
+  );
+
+  Future<void> _onSessionForked(
+    WorkspaceSessionForked event,
+    Emitter<WorkspaceModel> emit,
+  ) => _runSessionTreeMutation(
+    operation: PiSessionTreeMutationOperation.fork,
+    entryId: event.userEntryId,
+    emit: emit,
+    invoke: (commandId, projectId, sessionId, revision) => _service.forkSession(
+      commandId: commandId,
+      projectId: projectId,
+      sessionId: sessionId,
+      expectedAdminRevision: revision,
+      userEntryId: event.userEntryId,
+    ),
+  );
+
+  Future<void> _onSessionCloned(
+    WorkspaceSessionCloned event,
+    Emitter<WorkspaceModel> emit,
+  ) => _runSessionTreeMutation(
+    operation: PiSessionTreeMutationOperation.clone,
+    emit: emit,
+    invoke: (commandId, projectId, sessionId, revision) =>
+        _service.cloneSession(
+          commandId: commandId,
+          projectId: projectId,
+          sessionId: sessionId,
+          expectedAdminRevision: revision,
+        ),
+  );
+
+  Future<void> _runSessionTreeMutation({
+    required PiSessionTreeMutationOperation operation,
+    PiSessionTreeEntryId? entryId,
+    required Emitter<WorkspaceModel> emit,
+    required Future<PiSessionTreeMutationResult> Function(
+      PiCommandId commandId,
+      PiProjectId projectId,
+      PiSessionId sessionId,
+      PiSessionAdminRevision expectedAdminRevision,
+    )
+    invoke,
+  }) async {
+    final project = state.selectedProject;
+    final sourceSessionId = state.selectedSessionId;
+    final tree = state.sessionTree;
+    final selected = _selectedSession(state);
+    if (_sessionTreeMutationInFlight ||
+        _sessionAdminInFlight ||
+        state.conversationLoading ||
+        _closing) {
+      return;
+    }
+    if (project == null ||
+        sourceSessionId == null ||
+        tree == null ||
+        selected == null ||
+        tree.sessionId != sourceSessionId) {
+      emit(
+        state.copyWith(
+          sessionTreeError:
+              'Reload the selected session before using branch actions.',
+          statusMessage: 'Branch actions require current session state.',
+        ),
+      );
+      return;
+    }
+    if (project.trust.requiresApproval) {
+      emit(
+        state.copyWith(
+          sessionTreeError:
+              'Approve project trust before changing the session branch.',
+          statusMessage: 'Project trust approval is required.',
+        ),
+      );
+      return;
+    }
+    if (selected.isRunning || state.sending || state.stopping) {
+      emit(
+        state.copyWith(
+          sessionTreeError:
+              'Wait for Pi to become idle before changing branches.',
+          statusMessage: 'The active session is busy.',
+        ),
+      );
+      return;
+    }
+    final selectedNode = entryId == null ? null : tree.nodeById(entryId);
+    if (operation == PiSessionTreeMutationOperation.fork &&
+        selectedNode?.canFork != true) {
+      emit(
+        state.copyWith(
+          sessionTreeError: 'Fork requires a current user-message entry.',
+          statusMessage: 'The selected entry cannot be forked.',
+        ),
+      );
+      return;
+    }
+    if (operation == PiSessionTreeMutationOperation.navigate &&
+        selectedNode == null) {
+      emit(
+        state.copyWith(
+          sessionTreeError: 'The selected branch entry is no longer available.',
+          statusMessage: 'Refresh the session tree.',
+        ),
+      );
+      return;
+    }
+    if (operation == PiSessionTreeMutationOperation.clone &&
+        !tree.canCloneActiveBranch) {
+      emit(
+        state.copyWith(
+          sessionTreeError: 'The active branch is not eligible for cloning.',
+          statusMessage: 'Nothing to clone yet.',
+        ),
+      );
+      return;
+    }
+
+    _sessionTreeMutationInFlight = true;
+    final generation = ++_sessionTreeMutationGeneration;
+    final projectId = project.identity.projectId;
+    _sessionListGeneration += 1;
+    _sessionLoadGeneration += 1;
+    _promptGeneration += 1;
+    _activePromptCommandId = null;
+    await _stopSessionEvents();
+    if (!_isCurrentSessionTreeMutation(generation, projectId)) return;
+    emit(
+      state.copyWith(
+        sessionTreeMutationOperation: operation,
+        sessionTreeMutationLoading: true,
+        sessionTreeError: null,
+        conversationError: null,
+        eventStatus: WorkspaceEventStatus.idle,
+        statusMessage: switch (operation) {
+          PiSessionTreeMutationOperation.navigate =>
+            'Changing the active session branch…',
+          PiSessionTreeMutationOperation.fork =>
+            'Forking the selected user message into a new session…',
+          PiSessionTreeMutationOperation.clone =>
+            'Cloning the active branch into a new session…',
+        },
+      ),
+    );
+
+    PiSessionTreeMutationResult? result;
+    Object? invocationError;
+    try {
+      result = await invoke(
+        _newCommandId('session-tree-${operation.name}'),
+        projectId,
+        sourceSessionId,
+        tree.adminRevision,
+      );
+    } catch (error, stackTrace) {
+      invocationError = error;
+      logE(
+        'Pi Node session tree mutation failed before an outcome',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+    if (!_isCurrentSessionTreeMutation(generation, projectId)) return;
+
+    PiSessionId targetSessionId = sourceSessionId;
+    String? editorText;
+    String? outcomeError = invocationError == null
+        ? null
+        : _service.describeError(invocationError);
+    switch (result) {
+      case PiSessionTreeMutationUpdated(
+        session: final updatedSession,
+        editorText: final restoredText,
+      ):
+        targetSessionId = updatedSession.summary.id;
+        editorText = restoredText;
+      case PiSessionTreeMutationRejected(:final error):
+        outcomeError = _service.describeError(error);
+      case PiSessionTreeMutationUncertain(:final error):
+        outcomeError =
+            '${_service.describeError(error)} The branch action outcome is uncertain; authoritative state was requested.';
+      case null:
+        break;
+    }
+
+    try {
+      final results = await Future.wait<Object>(<Future<Object>>[
+        _service.loadSessionHistory(
+          projectId: projectId,
+          sessionId: targetSessionId,
+          limit: 50,
+        ),
+        _service.loadSessionTree(projectId, targetSessionId),
+        _service.loadSessions(projectId),
+        _service.loadSessionStats(projectId, targetSessionId),
+      ]);
+      if (!_isCurrentSessionTreeMutation(generation, projectId)) return;
+      final history = results[0] as PiSessionHistoryPage;
+      final refreshedTree = results[1] as PiSessionTree;
+      final sessions = results[2] as List<PiSessionSummary>;
+      final stats = results[3] as PiSessionStats;
+      final appliedDraft = result is PiSessionTreeMutationUpdated
+          ? (editorText ?? '')
+          : null;
+      emit(
+        state.copyWith(
+          sessions: _replaceSession(sessions, history.summary),
+          selectedSessionId: targetSessionId,
+          conversationEntries: history.conversation.entries,
+          messages: history.messages,
+          historyCursor: history.nextCursor,
+          activeBranchRevision: history.activeBranchRevision,
+          treeRevision: history.treeRevision,
+          historyHasMore: history.hasMore,
+          historyLoading: false,
+          sessionStats: stats,
+          sessionStatsLoading: false,
+          sessionStatsError: null,
+          sessionTree: refreshedTree,
+          conversationLoading: false,
+          sessionTreeLoading: false,
+          sessionTreeMutationOperation: null,
+          sessionTreeMutationLoading: false,
+          sessionTreeError: outcomeError,
+          conversationError: null,
+          promptError: null,
+          composerDraft: appliedDraft ?? state.composerDraft,
+          composerDraftGeneration: appliedDraft == null
+              ? state.composerDraftGeneration
+              : state.composerDraftGeneration + 1,
+          eventStatus: WorkspaceEventStatus.idle,
+          statusMessage: outcomeError != null
+              ? 'Branch action finished with an error; authoritative state was refreshed.'
+              : switch (operation) {
+                  PiSessionTreeMutationOperation.navigate =>
+                    'Active branch updated. Edit and submit the restored prompt when ready.',
+                  PiSessionTreeMutationOperation.fork =>
+                    'Forked session selected. The source prompt is ready to edit.',
+                  PiSessionTreeMutationOperation.clone =>
+                    'Cloned session selected.',
+                },
+        ),
+      );
+      await _startSessionEvents(targetSessionId, emit);
+    } catch (error, stackTrace) {
+      if (!_isCurrentSessionTreeMutation(generation, projectId)) return;
+      logE(
+        'Authoritative refresh after a session tree mutation failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      emit(
+        state.copyWith(
+          sessionTreeMutationOperation: null,
+          sessionTreeMutationLoading: false,
+          sessionTreeLoading: false,
+          eventStatus: WorkspaceEventStatus.error,
+          sessionTreeError:
+              outcomeError ??
+              '${_service.describeError(error)} Authoritative branch refresh failed.',
+          statusMessage:
+              'The branch action could not be reconciled with Pi Node.',
+        ),
+      );
+    } finally {
+      if (generation == _sessionTreeMutationGeneration) {
+        _sessionTreeMutationInFlight = false;
+      }
+    }
+  }
+
+  Future<void> _onOlderHistoryRequested(
+    WorkspaceOlderHistoryRequested event,
+    Emitter<WorkspaceModel> emit,
+  ) async {
+    final project = state.selectedProject;
+    final sessionId = state.selectedSessionId;
+    final cursor = state.historyCursor;
+    final activeRevision = state.activeBranchRevision;
+    final treeRevision = state.treeRevision;
+    if (_historyInFlight ||
+        _closing ||
+        project == null ||
+        sessionId == null ||
+        cursor == null ||
+        !state.historyHasMore ||
+        activeRevision == null ||
+        treeRevision == null) {
+      return;
+    }
+
+    _historyInFlight = true;
+    final generation = _sessionLoadGeneration;
+    emit(
+      state.copyWith(
+        historyLoading: true,
+        conversationError: null,
+        statusMessage: 'Loading older session history…',
+      ),
+    );
+    try {
+      final page = await _service.loadSessionHistory(
+        projectId: project.identity.projectId,
+        sessionId: sessionId,
+        cursor: cursor,
+        limit: 50,
+        expectedActiveBranchRevision: activeRevision,
+        expectedTreeRevision: treeRevision,
+      );
+      if (!_isCurrentSessionLoad(generation, sessionId)) return;
+      final existingIds = state.conversationEntries
+          .map((entry) => entry.identity.entryId)
+          .toSet();
+      final olderEntries = page.conversation.entries
+          .where((entry) => !existingIds.contains(entry.identity.entryId))
+          .toList(growable: false);
+      final entries = <PiConversationEntry>[
+        ...olderEntries,
+        ...state.conversationEntries,
+      ];
+      emit(
+        state.copyWith(
+          sessions: _replaceSession(state.sessions, page.summary),
+          conversationEntries: entries,
+          messages: _messagesFromEntries(entries),
+          historyCursor: page.nextCursor,
+          activeBranchRevision: page.activeBranchRevision,
+          treeRevision: page.treeRevision,
+          historyHasMore: page.hasMore,
+          historyLoading: false,
+          conversationError: null,
+          statusMessage: page.hasMore
+              ? '${olderEntries.length} older messages loaded.'
+              : 'The complete active-branch history is loaded.',
+        ),
+      );
+    } catch (error, stackTrace) {
+      if (!_isCurrentSessionLoad(generation, sessionId)) return;
+      logE(
+        'Loading older Pi Node session history failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      emit(
+        state.copyWith(
+          historyLoading: false,
+          conversationError: _service.describeError(error),
+          statusMessage: 'Older history could not be loaded.',
+        ),
+      );
+    } finally {
+      _historyInFlight = false;
+    }
+  }
+
+  Future<void> _onSessionStatsRefreshed(
+    WorkspaceSessionStatsRefreshed event,
+    Emitter<WorkspaceModel> emit,
+  ) async {
+    final project = state.selectedProject;
+    final sessionId = state.selectedSessionId;
+    if (_statsInFlight || _closing || project == null || sessionId == null) {
+      return;
+    }
+    _statsInFlight = true;
+    final generation = _sessionLoadGeneration;
+    emit(
+      state.copyWith(
+        sessionStatsLoading: true,
+        sessionStatsError: null,
+        statusMessage: 'Refreshing full-session statistics…',
+      ),
+    );
+    try {
+      final stats = await _service.loadSessionStats(
+        project.identity.projectId,
+        sessionId,
+      );
+      if (!_isCurrentSessionLoad(generation, sessionId)) return;
+      emit(
+        state.copyWith(
+          sessionStats: stats,
+          sessionStatsLoading: false,
+          sessionStatsError: null,
+          statusMessage: 'Full-session statistics refreshed.',
+        ),
+      );
+    } catch (error, stackTrace) {
+      if (!_isCurrentSessionLoad(generation, sessionId)) return;
+      logE(
+        'Refreshing Pi Node session statistics failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      emit(
+        state.copyWith(
+          sessionStatsLoading: false,
+          sessionStatsError: _service.describeError(error),
+          statusMessage: 'Session statistics refresh failed.',
+        ),
+      );
+    } finally {
+      _statsInFlight = false;
+    }
+  }
+
+  Future<void> _onSessionExportRequested(
+    WorkspaceSessionExportRequested event,
+    Emitter<WorkspaceModel> emit,
+  ) async {
+    final project = state.selectedProject;
+    final sessionId = state.selectedSessionId;
+    if (_exportInFlight ||
+        _closing ||
+        project == null ||
+        sessionId == null ||
+        _selectedSession(state)?.isRunning == true) {
+      return;
+    }
+    _exportInFlight = true;
+    _exportCancellationRequested = false;
+    final generation = ++_exportGeneration;
+    emit(
+      state.copyWith(
+        sessionExportLoading: true,
+        sessionExportFormat: event.format,
+        sessionExportSavedBytes: 0,
+        sessionExportTotalBytes: 0,
+        lastExportFileName: null,
+        sessionExportError: null,
+        statusMessage:
+            'Preparing a streamed ${event.format.name.toUpperCase()} export…',
+      ),
+    );
+    try {
+      final handle = await _service.exportSession(
+        projectId: project.identity.projectId,
+        sessionId: sessionId,
+        format: event.format,
+        expectedActiveBranchRevision: state.activeBranchRevision,
+        expectedTreeRevision: state.treeRevision,
+      );
+      if (!_isCurrentExport(generation, sessionId) ||
+          _exportCancellationRequested) {
+        await handle.cancel();
+        if (_isCurrentExport(generation, sessionId)) {
+          throw const PiNodeException(
+            PiNodeErrorCode.cancelled,
+            retryable: false,
+          );
+        }
+        return;
+      }
+      _activeExportHandle = handle;
+      emit(
+        state.copyWith(
+          sessionExportTotalBytes: handle.totalBytes,
+          statusMessage: 'Choose where to save ${handle.fileName}.',
+        ),
+      );
+      final result = await _exportSaver.save(
+        handle,
+        onProgress: (savedBytes, totalBytes) {
+          if (!_isCurrentExport(generation, sessionId)) return;
+          emit(
+            state.copyWith(
+              sessionExportSavedBytes: savedBytes,
+              sessionExportTotalBytes: totalBytes,
+              statusMessage: 'Exporting $savedBytes of $totalBytes bytes…',
+            ),
+          );
+        },
+      );
+      if (!_isCurrentExport(generation, sessionId)) return;
+      emit(
+        state.copyWith(
+          sessionExportLoading: false,
+          sessionExportFormat: null,
+          sessionExportSavedBytes: result.saved ? handle.totalBytes : 0,
+          sessionExportTotalBytes: result.saved ? handle.totalBytes : 0,
+          lastExportFileName: result.saved ? result.fileName : null,
+          sessionExportError: null,
+          statusMessage: result.saved
+              ? '${result.fileName} exported with SHA-256 verification.'
+              : 'Session export cancelled.',
+        ),
+      );
+    } catch (error, stackTrace) {
+      if (!_isCurrentExport(generation, sessionId)) return;
+      final cancelled =
+          error is PiNodeException && error.code == PiNodeErrorCode.cancelled;
+      if (!cancelled) {
+        logE(
+          'Saving a Pi Node session export failed',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
+      emit(
+        state.copyWith(
+          sessionExportLoading: false,
+          sessionExportFormat: null,
+          sessionExportSavedBytes: 0,
+          sessionExportTotalBytes: 0,
+          sessionExportError: cancelled
+              ? null
+              : _describeExportSaveError(error),
+          statusMessage: cancelled
+              ? 'Session export cancelled.'
+              : 'Session export failed.',
+        ),
+      );
+    } finally {
+      if (generation == _exportGeneration) {
+        _activeExportHandle = null;
+        _exportInFlight = false;
+        _exportCancellationRequested = false;
+      }
+    }
+  }
+
+  Future<void> _onSessionExportCancelled(
+    WorkspaceSessionExportCancelled event,
+    Emitter<WorkspaceModel> emit,
+  ) async {
+    if (!_exportInFlight) return;
+    _exportCancellationRequested = true;
+    final handle = _activeExportHandle;
+    await handle?.cancel();
+    if (_closing || isClosed) return;
+    emit(
+      state.copyWith(
+        sessionExportLoading: false,
+        sessionExportFormat: null,
+        sessionExportSavedBytes: 0,
+        sessionExportTotalBytes: 0,
+        sessionExportError: null,
+        statusMessage: 'Session export cancellation requested.',
+      ),
+    );
+  }
+
+  String _describeExportSaveError(Object error) => switch (error) {
+    PiSessionExportSaveException(:final code) => switch (code) {
+      PiSessionExportSaveErrorCode.unsupported =>
+        'This platform does not provide a streaming export destination.',
+      PiSessionExportSaveErrorCode.writeFailed =>
+        'The selected export destination could not be written.',
+      PiSessionExportSaveErrorCode.integrityFailed =>
+        'The exported byte count or digest did not match.',
+    },
+    _ => _service.describeError(error),
+  };
 
   Future<void> _onPromptSubmitted(
     WorkspacePromptSubmitted event,
     Emitter<WorkspaceModel> emit,
   ) async {
-    final message = event.message.trim();
+    final prompt = event.prompt.trim();
     final sessionId = state.selectedSessionId;
-    if (message.isEmpty || sessionId == null || state.sending) return;
+    final selected = _selectedSession(state);
+    if (_promptInFlight ||
+        _closing ||
+        prompt.isEmpty ||
+        sessionId == null ||
+        selected?.isRunning == true ||
+        state.connection.status != PiNodeConnectionStatus.connected) {
+      return;
+    }
 
-    final optimisticId = 'optimistic-${DateTime.now().microsecondsSinceEpoch}';
-    final optimistic = PiMessageModel(
-      id: optimisticId,
-      role: PiMessageRole.user,
-      text: message,
-      timestampMs: DateTime.now().millisecondsSinceEpoch,
+    _promptInFlight = true;
+    final generation = ++_promptGeneration;
+    final commandId = _newCommandId('prompt');
+    _activePromptCommandId = commandId;
+    final optimisticEntry = PiUserConversationEntry(
+      identity: PiConversationEntryIdentity(
+        entryId: 'workspace-optimistic-${commandId.value}',
+        scope: PiConversationIdentityScope.runtime,
+        originCommandId: commandId,
+      ),
+      revision: 1,
+      createdAt: DateTime.now().toUtc(),
+      finalized: true,
+      parts: <PiConversationPart>[
+        PiTextConversationPart(
+          partId: 'workspace-optimistic-part-${commandId.value}',
+          revision: 1,
+          text: prompt,
+        ),
+      ],
+      toolActivities: const <PiToolActivity>[],
     );
+    final optimisticEntries = <PiConversationEntry>[
+      ...state.conversationEntries,
+      optimisticEntry,
+    ];
     emit(
       state.copyWith(
-        messages: <PiMessageModel>[...state.messages, optimistic],
+        conversationEntries: optimisticEntries,
+        messages: _messagesFromEntries(optimisticEntries),
         sending: true,
-        streaming: true,
-        error: null,
-        statusMessage: 'Agent is running…',
+        promptAdmissionStatus: WorkspacePromptAdmissionStatus.idle,
+        promptError: null,
+        statusMessage: 'Submitting the prompt to Pi Node…',
       ),
     );
-    await _startEventStream(sessionId);
 
     try {
-      await _gateway.sendPrompt(
-        baseUrl: state.baseUrl,
-        password: _password,
+      final result = await _service.submitPrompt(
+        commandId: commandId,
         sessionId: sessionId,
-        message: message,
+        prompt: prompt,
       );
-      if (state.selectedSessionId != sessionId || isClosed) return;
-      final results = await Future.wait<Map<String, dynamic>>([
-        _gateway.loadSession(
-          baseUrl: state.baseUrl,
-          password: _password,
-          sessionId: sessionId,
-        ),
-        _gateway.loadSessions(
-          baseUrl: state.baseUrl,
-          password: _password,
-          force: true,
-        ),
-      ]);
-      if (state.selectedSessionId != sessionId || isClosed) return;
-      emit(
-        state.copyWith(
-          messages: _parseMessages(results[0]),
-          sessions: _parseSessions(results[1]),
-          sending: false,
-          streaming: false,
-          error: null,
-          statusMessage: 'Agent run completed.',
-        ),
-      );
+      if (!_isCurrentPrompt(generation, sessionId)) return;
+      switch (result) {
+        case PiCommandAccepted():
+          emit(
+            state.copyWith(
+              sending: false,
+              promptAdmissionStatus: WorkspacePromptAdmissionStatus.accepted,
+              sessions: _setSessionRunning(state.sessions, sessionId, true),
+              promptError: null,
+              statusMessage: 'Prompt accepted. Pi is running…',
+            ),
+          );
+        case PiCommandRejected(:final error):
+          _activePromptCommandId = null;
+          final entries = _withoutOriginCommand(
+            state.conversationEntries,
+            commandId,
+          );
+          emit(
+            state.copyWith(
+              conversationEntries: entries,
+              messages: _messagesFromEntries(entries),
+              sending: false,
+              promptAdmissionStatus: WorkspacePromptAdmissionStatus.rejected,
+              promptError: _service.describeError(error),
+              statusMessage: 'Pi Node rejected the prompt.',
+            ),
+          );
+        case PiCommandUncertain(:final error):
+          emit(
+            state.copyWith(
+              sending: false,
+              promptAdmissionStatus: WorkspacePromptAdmissionStatus.uncertain,
+              sessions: _setSessionRunning(state.sessions, sessionId, true),
+              promptError:
+                  '${_service.describeError(error)} Prompt admission is uncertain; refresh the conversation before retrying.',
+              statusMessage: 'Prompt admission is uncertain.',
+            ),
+          );
+      }
     } catch (error, stackTrace) {
-      logE('Submitting a prompt failed', error: error, stackTrace: stackTrace);
-      final definitivelyRejected =
-          error is PiWebGatewayException && error.accepted == false;
+      if (!_isCurrentPrompt(generation, sessionId)) return;
+      _activePromptCommandId = null;
+      logE(
+        'Submitting a Pi Node prompt failed before admission',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      final entries = _withoutOriginCommand(
+        state.conversationEntries,
+        commandId,
+      );
       emit(
         state.copyWith(
-          messages: definitivelyRejected
-              ? state.messages
-                    .where((item) => item.id != optimisticId)
-                    .toList(growable: false)
-              : state.messages,
+          conversationEntries: entries,
+          messages: _messagesFromEntries(entries),
           sending: false,
-          streaming: false,
-          error: _messageOf(error),
-          statusMessage: definitivelyRejected
-              ? 'Prompt was rejected.'
-              : 'Prompt status is uncertain; refresh the conversation.',
+          promptAdmissionStatus: WorkspacePromptAdmissionStatus.rejected,
+          promptError: _service.describeError(error),
+          statusMessage: 'Prompt submission failed.',
         ),
       );
+    } finally {
+      if (generation == _promptGeneration) _promptInFlight = false;
     }
   }
 
@@ -360,432 +1815,862 @@ class WorkspaceViewModel
     Emitter<WorkspaceModel> emit,
   ) async {
     final sessionId = state.selectedSessionId;
-    if (sessionId == null || (!state.sending && !state.streaming)) return;
-    emit(state.copyWith(statusMessage: 'Stopping the agent…', error: null));
-    try {
-      await _gateway.abort(
-        baseUrl: state.baseUrl,
-        password: _password,
-        sessionId: sessionId,
-      );
-    } catch (error, stackTrace) {
-      logE('Stopping the agent failed', error: error, stackTrace: stackTrace);
-      emit(state.copyWith(error: _messageOf(error)));
-    }
-  }
-
-  void _onStreamStatusChanged(
-    _WorkspaceStreamStatusChanged event,
-    Emitter<WorkspaceModel> emit,
-  ) {
-    emit(state.copyWith(streamStatus: event.status));
-  }
-
-  void _onStreamEventReceived(
-    _WorkspaceStreamEventReceived event,
-    Emitter<WorkspaceModel> emit,
-  ) {
-    if (event.generation != _streamGeneration ||
-        event.sessionId != state.selectedSessionId) {
+    if (_abortInFlight ||
+        _closing ||
+        sessionId == null ||
+        _selectedSession(state)?.isRunning != true) {
       return;
     }
-    final payload = event.payload;
-    final type = payload['type']?.toString();
-    switch (type) {
-      case 'connected':
-        final isStreaming = payload['isStreaming'] == true;
+
+    _abortInFlight = true;
+    emit(
+      state.copyWith(
+        stopping: true,
+        promptError: null,
+        statusMessage: 'Requesting Pi to stop…',
+      ),
+    );
+    try {
+      final result = await _service.abort(
+        commandId: _newCommandId('abort'),
+        sessionId: sessionId,
+      );
+      if (_closing || isClosed || state.selectedSessionId != sessionId) return;
+      switch (result) {
+        case PiCommandAccepted():
+          emit(
+            state.copyWith(
+              stopping: false,
+              statusMessage: 'Stop requested. Waiting for Pi to settle…',
+            ),
+          );
+        case PiCommandRejected(:final error):
+          emit(
+            state.copyWith(
+              stopping: false,
+              promptError: _service.describeError(error),
+              statusMessage: 'Pi Node rejected the stop request.',
+            ),
+          );
+        case PiCommandUncertain(:final error):
+          emit(
+            state.copyWith(
+              stopping: false,
+              promptError:
+                  '${_service.describeError(error)} Stop status is uncertain.',
+              statusMessage: 'Stop status is uncertain.',
+            ),
+          );
+      }
+    } catch (error, stackTrace) {
+      if (_closing || isClosed || state.selectedSessionId != sessionId) return;
+      logE(
+        'Stopping the Pi Node run failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      emit(
+        state.copyWith(
+          stopping: false,
+          promptError: _service.describeError(error),
+          statusMessage: 'Stop request failed.',
+        ),
+      );
+    } finally {
+      _abortInFlight = false;
+    }
+  }
+
+  Future<void> _onConnectionSnapshotReceived(
+    _WorkspaceConnectionSnapshotReceived event,
+    Emitter<WorkspaceModel> emit,
+  ) async {
+    if (_closing) return;
+    final snapshot = event.snapshot;
+    if (snapshot.status == PiNodeConnectionStatus.disconnected &&
+        state.connection.status == PiNodeConnectionStatus.connected) {
+      _sessionLoadGeneration += 1;
+      _sessionAdminGeneration += 1;
+      _sessionAdminInFlight = false;
+      _sessionTreeMutationGeneration += 1;
+      _sessionTreeMutationInFlight = false;
+      _promptGeneration += 1;
+      _activePromptCommandId = null;
+      await _cancelActiveExportForContextChange();
+      await _stopSessionEvents();
+      emit(
+        state.copyWith(
+          connection: snapshot,
+          eventStatus: WorkspaceEventStatus.error,
+          sessionAdminSessionId: null,
+          sessionAdminOperation: null,
+          sessionAdminLoading: false,
+          sessionTreeMutationOperation: null,
+          sessionTreeMutationLoading: false,
+          sessionExportLoading: false,
+          sessionExportFormat: null,
+          sessionExportSavedBytes: 0,
+          sessionExportTotalBytes: 0,
+          sending: false,
+          stopping: false,
+          nodeError: 'The Pi Node disconnected. Retry the connection.',
+          statusMessage: 'Pi Node disconnected.',
+        ),
+      );
+      return;
+    }
+    emit(state.copyWith(connection: snapshot));
+  }
+
+  Future<void> _onSessionEventReceived(
+    _WorkspaceSessionEventReceived event,
+    Emitter<WorkspaceModel> emit,
+  ) async {
+    if (!_isCurrentEvent(event.generation, event.sessionId)) return;
+    final nodeEvent = event.event;
+    switch (nodeEvent) {
+      case PiSessionSequenceGapEvent():
         emit(
           state.copyWith(
-            streamStatus: WorkspaceStreamStatus.connected,
-            streaming: isStreaming || state.streaming,
+            eventStatus: WorkspaceEventStatus.recovering,
+            conversationLoading: true,
+            conversationError: null,
+            statusMessage:
+                'A Pi event sequence gap was detected. Reloading authoritative state…',
+          ),
+        );
+        await _refreshSelectedAuthoritatively(
+          event.sessionId,
+          event.generation,
+          emit,
+        );
+      case PiSessionEntryUpsertEvent() ||
+          PiSessionPartDeltaEvent() ||
+          PiSessionEntryFinalizedEvent() ||
+          PiSessionToolActivityEvent() ||
+          PiSessionMetricsEvent():
+        final entries = _reduceConversationEvent(
+          state.conversationEntries,
+          nodeEvent,
+        );
+        if (entries == null) {
+          emit(
+            state.copyWith(
+              eventStatus: WorkspaceEventStatus.recovering,
+              conversationLoading: true,
+              conversationError: null,
+              statusMessage:
+                  'A Pi conversation revision gap was detected. Reloading authoritative state…',
+            ),
+          );
+          await _refreshSelectedAuthoritatively(
+            event.sessionId,
+            event.generation,
+            emit,
+          );
+          return;
+        }
+        emit(
+          state.copyWith(
+            eventStatus: WorkspaceEventStatus.listening,
+            conversationEntries: entries,
+            messages: _messagesFromEntries(entries),
+            conversationError: null,
+            statusMessage: 'Receiving Pi output…',
+          ),
+        );
+      case PiSessionMessageAddedEvent() ||
+          PiSessionMessageDeltaEvent() ||
+          PiSessionRevisionGapEvent():
+        emit(
+          state.copyWith(
+            eventStatus: WorkspaceEventStatus.recovering,
+            conversationLoading: true,
+            conversationError: null,
+            statusMessage:
+                'A legacy or invalid conversation event was received. Reloading authoritative state…',
+          ),
+        );
+        await _refreshSelectedAuthoritatively(
+          event.sessionId,
+          event.generation,
+          emit,
+        );
+      case PiSessionRunningChangedEvent(:final isRunning):
+        emit(
+          state.copyWith(
+            eventStatus: WorkspaceEventStatus.listening,
             sessions: _setSessionRunning(
               state.sessions,
               event.sessionId,
-              isStreaming || state.sending,
+              isRunning,
             ),
-            statusMessage: isStreaming
-                ? 'Attached to a running agent.'
-                : 'Live updates connected.',
+            sending: isRunning ? state.sending : false,
+            stopping: isRunning ? state.stopping : false,
+            statusMessage: isRunning ? 'Pi is running…' : 'Pi run settled.',
           ),
         );
-      case 'agent_start':
-        emit(
-          state.copyWith(
-            streaming: true,
-            streamStatus: WorkspaceStreamStatus.connected,
-            sessions: _setSessionRunning(state.sessions, event.sessionId, true),
-            statusMessage: 'Agent is running…',
-          ),
-        );
-      case 'message_start':
-        final message = _parseMessage(
-          payload['message'],
-          fallbackId: 'stream-${event.sessionId}',
-          streaming: true,
-        );
-        if (message != null && message.role != PiMessageRole.user) {
-          emit(
-            state.copyWith(messages: _upsertStreaming(state.messages, message)),
-          );
+      case PiSessionCommandCompletedEvent(:final commandId, :final succeeded):
+        if (_activePromptCommandId == commandId) {
+          _activePromptCommandId = null;
         }
-      case 'message_update':
-        final update = _asMap(payload['assistantMessageEvent']);
-        final delta = update?['delta'];
-        if (delta is String && delta.isNotEmpty) {
-          emit(
-            state.copyWith(
-              messages: _appendStreamingDelta(
-                state.messages,
-                event.sessionId,
-                delta,
-              ),
-            ),
-          );
-        }
-      case 'message_end':
-        final message = _parseMessage(
-          payload['message'],
-          fallbackId: 'message-${DateTime.now().microsecondsSinceEpoch}',
-        );
-        if (message != null) {
-          emit(
-            state.copyWith(
-              messages: _completeStreaming(state.messages, message),
-            ),
-          );
-        }
-      case 'tool_execution_start':
         emit(
           state.copyWith(
-            statusMessage: 'Running ${payload['toolName'] ?? 'tool'}…',
-          ),
-        );
-      case 'prompt_error':
-      case 'startup_error':
-      case 'extension_error':
-        emit(
-          state.copyWith(
-            error:
-                payload['errorMessage']?.toString() ??
-                payload['error']?.toString() ??
-                'The agent reported an error.',
-          ),
-        );
-      case 'prompt_done':
-      case 'agent_settled':
-        emit(
-          state.copyWith(
-            streaming: false,
+            eventStatus: WorkspaceEventStatus.recovering,
+            conversationLoading: true,
+            sending: false,
+            stopping: false,
             sessions: _setSessionRunning(
               state.sessions,
               event.sessionId,
               false,
             ),
-            statusMessage: 'Agent run settled.',
+            promptAdmissionStatus: WorkspacePromptAdmissionStatus.idle,
+            promptError: succeeded
+                ? null
+                : 'The Pi command did not complete successfully.',
+            statusMessage: succeeded
+                ? 'Pi command completed. Refreshing conversation…'
+                : 'Pi command ended with an error. Refreshing conversation…',
           ),
         );
-      default:
-        break;
+        await _refreshSelectedAuthoritatively(
+          event.sessionId,
+          event.generation,
+          emit,
+        );
     }
   }
 
-  void _onStreamFailed(
-    _WorkspaceStreamFailed event,
+  void _onSessionEventsFailed(
+    _WorkspaceSessionEventsFailed event,
     Emitter<WorkspaceModel> emit,
   ) {
-    if (event.generation != _streamGeneration ||
-        event.sessionId != state.selectedSessionId) {
-      return;
-    }
-    logW('pi-web SSE disconnected: ${event.error}');
+    if (!_isCurrentEvent(event.generation, event.sessionId)) return;
+    logW('Pi Node session event stream failed.');
     emit(
       state.copyWith(
-        streamStatus: WorkspaceStreamStatus.reconnecting,
-        statusMessage: 'Live updates disconnected; reconnecting…',
+        eventStatus: WorkspaceEventStatus.error,
+        conversationError: _service.describeError(event.error),
+        statusMessage: 'Live Pi events disconnected.',
       ),
     );
-    _reconnectAfterDelay(event.sessionId, event.generation);
   }
 
-  void _onStreamClosed(
-    _WorkspaceStreamClosed event,
+  void _onSessionEventsClosed(
+    _WorkspaceSessionEventsClosed event,
     Emitter<WorkspaceModel> emit,
   ) {
-    if (event.generation != _streamGeneration ||
-        event.sessionId != state.selectedSessionId) {
-      return;
-    }
+    if (!_isCurrentEvent(event.generation, event.sessionId)) return;
     emit(
       state.copyWith(
-        streamStatus: WorkspaceStreamStatus.reconnecting,
-        statusMessage: 'Live updates closed; reconnecting…',
+        eventStatus: WorkspaceEventStatus.error,
+        conversationError:
+            'The Pi Node event stream closed. Reload the conversation or retry the connection.',
+        statusMessage: 'Live Pi events closed.',
       ),
     );
-    _reconnectAfterDelay(event.sessionId, event.generation);
   }
 
-  Future<void> _startEventStream(String sessionId) async {
-    await _stopEventStream();
-    if (isClosed || state.selectedSessionId != sessionId) return;
-    final generation = ++_streamGeneration;
-    add(const _WorkspaceStreamStatusChanged(WorkspaceStreamStatus.connecting));
-    final subscription = _gateway
-        .watchEvents(
-          baseUrl: state.baseUrl,
-          password: _password,
+  Future<void> _refreshSelectedAuthoritatively(
+    PiSessionId sessionId,
+    int eventGeneration,
+    Emitter<WorkspaceModel> emit,
+  ) async {
+    final sessionListGeneration = ++_sessionListGeneration;
+    final project = state.selectedProject;
+    if (project == null) return;
+    try {
+      final results = await Future.wait<Object>(<Future<Object>>[
+        _service.loadSessionHistory(
+          projectId: project.identity.projectId,
           sessionId: sessionId,
-        )
+          limit: 50,
+        ),
+        _service.loadSessionTree(project.identity.projectId, sessionId),
+        _service.loadSessions(project.identity.projectId),
+        _service.loadSessionStats(project.identity.projectId, sessionId),
+      ]);
+      if (!_isCurrentEvent(eventGeneration, sessionId) ||
+          sessionListGeneration != _sessionListGeneration) {
+        return;
+      }
+      final history = results[0] as PiSessionHistoryPage;
+      final tree = results[1] as PiSessionTree;
+      final sessions = results[2] as List<PiSessionSummary>;
+      final stats = results[3] as PiSessionStats;
+      emit(
+        state.copyWith(
+          conversationLoading: false,
+          sessionsLoading: false,
+          sessions: _replaceSession(sessions, history.summary),
+          conversationEntries: history.conversation.entries,
+          messages: history.messages,
+          historyCursor: history.nextCursor,
+          activeBranchRevision: history.activeBranchRevision,
+          treeRevision: history.treeRevision,
+          historyHasMore: history.hasMore,
+          historyLoading: false,
+          sessionStats: stats,
+          sessionStatsLoading: false,
+          sessionTree: tree,
+          sessionTreeLoading: false,
+          eventStatus: WorkspaceEventStatus.listening,
+          sessionError: null,
+          sessionTreeError: null,
+          conversationError: null,
+          sessionStatsError: null,
+          statusMessage: 'Conversation and statistics reconciled with Pi Node.',
+        ),
+      );
+    } catch (error, stackTrace) {
+      if (!_isCurrentEvent(eventGeneration, sessionId) ||
+          sessionListGeneration != _sessionListGeneration) {
+        return;
+      }
+      logE(
+        'Authoritative Pi Node refresh failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      emit(
+        state.copyWith(
+          conversationLoading: false,
+          sessionsLoading: false,
+          sessionTreeLoading: false,
+          sessionStatsLoading: false,
+          eventStatus: WorkspaceEventStatus.error,
+          sessionTreeError: _service.describeError(error),
+          conversationError: _service.describeError(error),
+          statusMessage: 'Authoritative conversation refresh failed.',
+        ),
+      );
+    }
+  }
+
+  Future<void> _startSessionEvents(
+    PiSessionId sessionId,
+    Emitter<WorkspaceModel> emit,
+  ) async {
+    await _stopSessionEvents();
+    if (_closing || isClosed || state.selectedSessionId != sessionId) return;
+    final generation = ++_eventGeneration;
+    emit(
+      state.copyWith(
+        eventStatus: WorkspaceEventStatus.listening,
+        conversationError: null,
+        statusMessage: 'Listening for first-party Pi events.',
+      ),
+    );
+    _sessionEventSubscription = _service
+        .watchSession(sessionId)
         .listen(
-          (payload) => add(
-            _WorkspaceStreamEventReceived(
+          (event) => _addIfOpen(
+            _WorkspaceSessionEventReceived(
               sessionId: sessionId,
               generation: generation,
-              payload: payload,
+              event: event,
             ),
           ),
-          onError: (Object error, StackTrace stackTrace) => add(
-            _WorkspaceStreamFailed(
+          onError: (Object error, StackTrace stackTrace) => _addIfOpen(
+            _WorkspaceSessionEventsFailed(
               sessionId: sessionId,
               generation: generation,
               error: error,
             ),
           ),
-          onDone: () => add(
-            _WorkspaceStreamClosed(
+          onDone: () => _addIfOpen(
+            _WorkspaceSessionEventsClosed(
               sessionId: sessionId,
               generation: generation,
             ),
           ),
           cancelOnError: true,
         );
-    _eventSubscription = subscription;
   }
 
-  Future<void> _stopEventStream() async {
-    _streamGeneration += 1;
-    final subscription = _eventSubscription;
-    _eventSubscription = null;
+  Future<void> _stopSessionEvents() async {
+    _eventGeneration += 1;
+    final subscription = _sessionEventSubscription;
+    _sessionEventSubscription = null;
     await subscription?.cancel();
   }
 
-  void _reconnectAfterDelay(String sessionId, int generation) {
-    Future<void>.delayed(reconnectDelay, () async {
-      if (isClosed ||
-          generation != _streamGeneration ||
-          state.selectedSessionId != sessionId) {
-        return;
-      }
-      await _startEventStream(sessionId);
-    });
+  Future<void> _cancelActiveExportForContextChange() async {
+    _exportGeneration += 1;
+    _exportInFlight = false;
+    _exportCancellationRequested = true;
+    final handle = _activeExportHandle;
+    _activeExportHandle = null;
+    await handle?.cancel();
+    _exportCancellationRequested = false;
   }
 
-  static List<PiSessionModel> _parseSessions(Map<String, dynamic> payload) {
-    final runningIds =
-        (payload['runningSessionIds'] as List? ?? const <Object>[])
-            .map((value) => value.toString())
-            .toSet();
-    final records = payload['sessions'];
-    if (records is! List) return const <PiSessionModel>[];
-    return records
-        .whereType<Map>()
-        .map((raw) {
-          final map = Map<String, dynamic>.from(raw);
-          final id = map['id']?.toString() ?? '';
-          return PiSessionModel(
-            id: id,
-            cwd: map['cwd']?.toString() ?? '',
-            name: map['name']?.toString(),
-            created: map['created']?.toString() ?? '',
-            modified: map['modified']?.toString() ?? '',
-            messageCount: (map['messageCount'] as num?)?.toInt() ?? 0,
-            firstMessage: map['firstMessage']?.toString() ?? '(no messages)',
-            running: runningIds.contains(id),
-          );
-        })
-        .where((session) => session.id.isNotEmpty)
-        .toList(growable: false);
+  void _addIfOpen(WorkspaceEvent event) {
+    if (!_closing && !isClosed) add(event);
   }
 
-  static List<PiMessageModel> _parseMessages(Map<String, dynamic> payload) {
-    final context = _asMap(payload['context']);
-    final messages = context?['messages'];
-    final entryIds = context?['entryIds'];
-    if (messages is! List) return const <PiMessageModel>[];
-    return List<PiMessageModel>.generate(messages.length, (index) {
-      final entryId = entryIds is List && index < entryIds.length
-          ? entryIds[index]?.toString()
-          : null;
-      return _parseMessage(
-            messages[index],
-            fallbackId: entryId ?? 'message-$index',
-          ) ??
-          PiMessageModel(
-            id: entryId ?? 'message-$index',
-            role: PiMessageRole.custom,
-            text: '[Unsupported pi message]',
-          );
-    }, growable: false);
-  }
+  PiCommandId _newCommandId(String operation) => PiCommandId(
+    'workspace-$operation-${DateTime.now().toUtc().microsecondsSinceEpoch}-${++_commandOrdinal}',
+  );
 
-  static PiMessageModel? _parseMessage(
-    Object? raw, {
-    required String fallbackId,
-    bool streaming = false,
-  }) {
-    final message = _asMap(raw);
-    if (message == null) return null;
-    final role = switch (message['role']?.toString()) {
-      'user' => PiMessageRole.user,
-      'assistant' => PiMessageRole.assistant,
-      'toolResult' => PiMessageRole.tool,
-      'bashExecution' => PiMessageRole.bash,
-      _ => PiMessageRole.custom,
-    };
-    final errorText = message['errorMessage']?.toString();
-    var text = _contentText(message['content']);
-    if (role == PiMessageRole.bash) {
-      final command = message['command']?.toString() ?? '';
-      final output = message['output']?.toString() ?? '';
-      text = [
-        if (command.isNotEmpty) r'$ ' + command,
-        if (output.isNotEmpty) output,
-      ].join('\n');
-    }
-    if (text.isEmpty && errorText != null) text = errorText;
-    if (text.isEmpty) text = '[${message['role'] ?? 'message'}]';
-    final timestamp = message['timestamp'];
-    final timestampMs = timestamp is num
-        ? timestamp.toInt()
-        : DateTime.tryParse(
-            timestamp?.toString() ?? '',
-          )?.millisecondsSinceEpoch;
-    return PiMessageModel(
-      id: message['id']?.toString() ?? fallbackId,
-      role: role,
-      text: text,
-      isError: message['isError'] == true || errorText != null,
-      timestampMs: timestampMs,
-      streaming: streaming,
-    );
-  }
+  bool _isCurrentConnection(int generation) =>
+      !_closing && !isClosed && generation == _connectionGeneration;
 
-  static String _contentText(Object? content) {
-    if (content is String) return content;
-    if (content is! List) return '';
-    final parts = <String>[];
-    for (final rawBlock in content) {
-      final block = _asMap(rawBlock);
-      if (block == null) continue;
-      switch (block['type']?.toString()) {
-        case 'text':
-          final text = block['text']?.toString();
-          if (text != null && text.isNotEmpty) parts.add(text);
-        case 'thinking':
-          final thinking = block['thinking']?.toString();
-          if (thinking != null && thinking.isNotEmpty) {
-            parts.add('Thinking\n$thinking');
-          }
-        case 'toolCall':
-          final name = block['toolName'] ?? block['name'] ?? 'tool';
-          parts.add('Tool call: $name');
-        case 'image':
-          parts.add('[image]');
-        default:
-          final text = block['text']?.toString();
-          if (text != null && text.isNotEmpty) parts.add(text);
-      }
-    }
-    return parts.join('\n\n');
-  }
+  bool _isCurrentSessionList(int generation) =>
+      !_closing && !isClosed && generation == _sessionListGeneration;
 
-  static Map<String, dynamic>? _asMap(Object? value) {
-    if (value is Map<String, dynamic>) return value;
-    if (value is Map) return Map<String, dynamic>.from(value);
-    return null;
-  }
+  bool _isCurrentSessionLoad(int generation, PiSessionId sessionId) =>
+      !_closing &&
+      !isClosed &&
+      generation == _sessionLoadGeneration &&
+      state.selectedSessionId == sessionId;
 
-  static List<PiSessionModel> _setSessionRunning(
-    List<PiSessionModel> sessions,
-    String sessionId,
-    bool running,
-  ) => sessions
-      .map(
-        (session) => session.id == sessionId
-            ? session.copyWith(running: running)
-            : session,
-      )
-      .toList(growable: false);
+  bool _isCurrentSessionAdmin(int generation, PiProjectId projectId) =>
+      !_closing &&
+      !isClosed &&
+      generation == _sessionAdminGeneration &&
+      state.selectedProject?.identity.projectId == projectId;
 
-  static List<PiMessageModel> _upsertStreaming(
-    List<PiMessageModel> messages,
-    PiMessageModel message,
-  ) {
-    final index = messages.lastIndexWhere((item) => item.streaming);
-    if (index == -1) return <PiMessageModel>[...messages, message];
-    return <PiMessageModel>[
-      ...messages.take(index),
-      message,
-      ...messages.skip(index + 1),
-    ];
-  }
+  bool _isCurrentSessionTreeMutation(int generation, PiProjectId projectId) =>
+      !_closing &&
+      !isClosed &&
+      generation == _sessionTreeMutationGeneration &&
+      state.selectedProject?.identity.projectId == projectId;
 
-  static List<PiMessageModel> _appendStreamingDelta(
-    List<PiMessageModel> messages,
-    String sessionId,
-    String delta,
-  ) {
-    final index = messages.lastIndexWhere((item) => item.streaming);
-    if (index == -1) {
-      return <PiMessageModel>[
-        ...messages,
-        PiMessageModel(
-          id: 'stream-$sessionId',
-          role: PiMessageRole.assistant,
-          text: delta,
-          streaming: true,
-        ),
-      ];
-    }
-    final current = messages[index];
-    return <PiMessageModel>[
-      ...messages.take(index),
-      current.copyWith(text: '${current.text}$delta', streaming: true),
-      ...messages.skip(index + 1),
-    ];
-  }
+  bool _isCurrentExport(int generation, PiSessionId sessionId) =>
+      !_closing &&
+      !isClosed &&
+      generation == _exportGeneration &&
+      state.selectedSessionId == sessionId;
 
-  static List<PiMessageModel> _completeStreaming(
-    List<PiMessageModel> messages,
-    PiMessageModel completed,
-  ) {
-    final streamingIndex = messages.lastIndexWhere((item) => item.streaming);
-    if (streamingIndex != -1) {
-      return <PiMessageModel>[
-        ...messages.take(streamingIndex),
-        completed.copyWith(streaming: false),
-        ...messages.skip(streamingIndex + 1),
-      ];
-    }
-    if (completed.role == PiMessageRole.user && messages.isNotEmpty) {
-      final last = messages.last;
-      if (last.role == PiMessageRole.user && last.text == completed.text) {
-        return messages;
-      }
-    }
-    return <PiMessageModel>[...messages, completed];
-  }
+  bool _isCurrentPrompt(int generation, PiSessionId sessionId) =>
+      !_closing &&
+      !isClosed &&
+      generation == _promptGeneration &&
+      state.selectedSessionId == sessionId;
 
-  static String _messageOf(Object error) {
-    if (error is PiWebGatewayException) return error.message;
-    return error.toString().replaceFirst('Exception: ', '');
-  }
+  bool _isCurrentEvent(int generation, PiSessionId sessionId) =>
+      !_closing &&
+      !isClosed &&
+      generation == _eventGeneration &&
+      state.selectedSessionId == sessionId;
 
   @override
-  Future<void> close() async {
+  Future<void> close() {
+    final existing = _closeFuture;
+    if (existing != null) return existing;
+    _closing = true;
     _connectionGeneration += 1;
+    _projectSelectionGeneration += 1;
+    _sessionListGeneration += 1;
     _sessionLoadGeneration += 1;
-    _streamGeneration += 1;
-    await _eventSubscription?.cancel();
-    return super.close();
+    _sessionAdminGeneration += 1;
+    _sessionTreeMutationGeneration += 1;
+    _promptGeneration += 1;
+    _eventGeneration += 1;
+    _exportGeneration += 1;
+    final exportHandle = _activeExportHandle;
+    _activeExportHandle = null;
+    _exportInFlight = false;
+    final future = Future.wait<void>(<Future<void>>[
+      if (_sessionEventSubscription case final subscription?)
+        subscription.cancel(),
+      if (exportHandle != null) exportHandle.cancel(),
+      _connectionSubscription.cancel(),
+    ]).then<void>((_) => super.close());
+    _closeFuture = future;
+    return future;
   }
+}
+
+List<PiKnownProject> _replaceKnownProject(
+  List<PiKnownProject> projects,
+  PiProject replacement,
+) => projects
+    .map(
+      (known) =>
+          known.project.identity.projectId == replacement.identity.projectId
+          ? PiKnownProject(
+              project: replacement,
+              lastSessionAt: known.lastSessionAt,
+              sessionCount: known.sessionCount,
+            )
+          : known,
+    )
+    .toList(growable: false);
+
+PiSessionSummary? _selectedSession(WorkspaceModel model) {
+  final selectedSessionId = model.selectedSessionId;
+  if (selectedSessionId == null) return null;
+  for (final session in model.sessions) {
+    if (session.id == selectedSessionId) return session;
+  }
+  return null;
+}
+
+List<PiSessionSummary> _replaceSession(
+  List<PiSessionSummary> sessions,
+  PiSessionSummary replacement,
+) {
+  final index = sessions.indexWhere((session) => session.id == replacement.id);
+  if (index == -1) return <PiSessionSummary>[replacement, ...sessions];
+  return <PiSessionSummary>[
+    ...sessions.take(index),
+    replacement,
+    ...sessions.skip(index + 1),
+  ];
+}
+
+List<PiSessionSummary> _setSessionRunning(
+  List<PiSessionSummary> sessions,
+  PiSessionId sessionId,
+  bool isRunning,
+) => sessions
+    .map(
+      (session) => session.id == sessionId
+          ? PiSessionSummary(
+              id: session.id,
+              title: session.title,
+              workingDirectory: session.workingDirectory,
+              createdAt: session.createdAt,
+              updatedAt: session.updatedAt,
+              isRunning: isRunning,
+              hasUnread: session.hasUnread,
+              adminRevision: session.adminRevision,
+              hasCustomName: session.hasCustomName,
+              parentSessionId: session.parentSessionId,
+            )
+          : session,
+    )
+    .toList(growable: false);
+
+List<PiMessage> _messagesFromEntries(List<PiConversationEntry> entries) =>
+    List<PiMessage>.unmodifiable(entries.map(piConversationEntryToMessage));
+
+List<PiConversationEntry> _withoutOriginCommand(
+  List<PiConversationEntry> entries,
+  PiCommandId commandId,
+) => entries
+    .where((entry) => entry.identity.originCommandId != commandId)
+    .toList(growable: false);
+
+List<PiConversationEntry>? _reduceConversationEvent(
+  List<PiConversationEntry> current,
+  PiSessionEvent event,
+) {
+  switch (event) {
+    case PiSessionEntryUpsertEvent(
+      :final entry,
+      :final expectedPreviousRevision,
+    ):
+      var entries = current;
+      final originCommandId = entry.identity.originCommandId;
+      if (originCommandId != null) {
+        entries = entries
+            .where(
+              (candidate) =>
+                  candidate.identity.entryId == entry.identity.entryId ||
+                  candidate.identity.originCommandId != originCommandId,
+            )
+            .toList(growable: false);
+      }
+      final index = entries.indexWhere(
+        (candidate) => candidate.identity.entryId == entry.identity.entryId,
+      );
+      if (index == -1) {
+        if (expectedPreviousRevision != null) return null;
+        return <PiConversationEntry>[...entries, entry];
+      }
+      final previous = entries[index];
+      if (entry.revision <= previous.revision) return entries;
+      if (expectedPreviousRevision != null) {
+        if (previous.revision != expectedPreviousRevision ||
+            entry.revision != expectedPreviousRevision + 1) {
+          return null;
+        }
+      } else if (entry.revision != previous.revision + 1) {
+        return null;
+      }
+      return <PiConversationEntry>[
+        ...entries.take(index),
+        entry,
+        ...entries.skip(index + 1),
+      ];
+    case PiSessionPartDeltaEvent(
+      :final entryId,
+      :final expectedEntryRevision,
+      :final resultingEntryRevision,
+      :final partId,
+      :final expectedPartRevision,
+      :final resultingPartRevision,
+      :final textDelta,
+    ):
+      final entryIndex = current.indexWhere(
+        (entry) => entry.identity.entryId == entryId,
+      );
+      if (entryIndex == -1) return null;
+      final entry = current[entryIndex];
+      if (entry.revision != expectedEntryRevision ||
+          resultingEntryRevision != expectedEntryRevision + 1 ||
+          resultingPartRevision != expectedPartRevision + 1) {
+        return null;
+      }
+      final partIndex = entry.parts.indexWhere((part) => part.partId == partId);
+      if (partIndex == -1) return null;
+      final part = entry.parts[partIndex];
+      if (part.revision != expectedPartRevision) return null;
+      final updatedPart = switch (part) {
+        PiTextConversationPart(:final text, contentReference: null) =>
+          PiTextConversationPart(
+            partId: part.partId,
+            revision: resultingPartRevision,
+            text: '${text ?? ''}$textDelta',
+          ),
+        PiThinkingConversationPart(
+          visibility: PiThinkingVisibility.visible,
+          :final text,
+          contentReference: null,
+        ) =>
+          PiThinkingConversationPart(
+            partId: part.partId,
+            revision: resultingPartRevision,
+            visibility: PiThinkingVisibility.visible,
+            text: '${text ?? ''}$textDelta',
+          ),
+        _ => null,
+      };
+      if (updatedPart == null) return null;
+      final parts = <PiConversationPart>[
+        ...entry.parts.take(partIndex),
+        updatedPart,
+        ...entry.parts.skip(partIndex + 1),
+      ];
+      return _replaceConversationEntry(
+        current,
+        entryIndex,
+        _copyConversationEntry(
+          entry,
+          revision: resultingEntryRevision,
+          parts: parts,
+        ),
+      );
+    case PiSessionEntryFinalizedEvent(
+      :final entry,
+      :final expectedPreviousRevision,
+    ):
+      if (!entry.finalized || entry.revision != expectedPreviousRevision + 1) {
+        return null;
+      }
+      final index = current.indexWhere(
+        (candidate) => candidate.identity.entryId == entry.identity.entryId,
+      );
+      if (index == -1) {
+        return expectedPreviousRevision == 0
+            ? <PiConversationEntry>[...current, entry]
+            : null;
+      }
+      if (current[index].revision != expectedPreviousRevision) return null;
+      return _replaceConversationEntry(current, index, entry);
+    case PiSessionToolActivityEvent(
+      :final entryId,
+      :final expectedEntryRevision,
+      :final resultingEntryRevision,
+      :final activity,
+    ):
+      final index = current.indexWhere(
+        (entry) => entry.identity.entryId == entryId,
+      );
+      if (index == -1 ||
+          current[index].revision != expectedEntryRevision ||
+          resultingEntryRevision != expectedEntryRevision + 1) {
+        return null;
+      }
+      final entry = current[index];
+      final existing = entry.toolActivities.indexWhere(
+        (candidate) => candidate.activityId == activity.activityId,
+      );
+      if (existing != -1 &&
+          activity.revision != entry.toolActivities[existing].revision + 1) {
+        return null;
+      }
+      final activities =
+          <PiToolActivity>[
+            ...entry.toolActivities.where(
+              (candidate) => candidate.activityId != activity.activityId,
+            ),
+            activity,
+          ]..sort(
+            (left, right) => left.sourceOrdinal.compareTo(right.sourceOrdinal),
+          );
+      return _replaceConversationEntry(
+        current,
+        index,
+        _copyConversationEntry(
+          entry,
+          revision: resultingEntryRevision,
+          toolActivities: activities,
+        ),
+      );
+    case PiSessionMetricsEvent(
+      :final entryId,
+      :final expectedEntryRevision,
+      :final resultingEntryRevision,
+      :final metrics,
+    ):
+      final index = current.indexWhere(
+        (entry) => entry.identity.entryId == entryId,
+      );
+      if (index == -1 ||
+          current[index].revision != expectedEntryRevision ||
+          resultingEntryRevision != expectedEntryRevision + 1) {
+        return null;
+      }
+      return _replaceConversationEntry(
+        current,
+        index,
+        _copyConversationEntry(
+          current[index],
+          revision: resultingEntryRevision,
+          metrics: metrics,
+        ),
+      );
+    default:
+      return null;
+  }
+}
+
+List<PiConversationEntry> _replaceConversationEntry(
+  List<PiConversationEntry> entries,
+  int index,
+  PiConversationEntry replacement,
+) => <PiConversationEntry>[
+  ...entries.take(index),
+  replacement,
+  ...entries.skip(index + 1),
+];
+
+PiConversationEntry _copyConversationEntry(
+  PiConversationEntry entry, {
+  required int revision,
+  List<PiConversationPart>? parts,
+  List<PiToolActivity>? toolActivities,
+  PiConversationMetrics? metrics,
+}) {
+  final nextParts = parts ?? entry.parts;
+  final nextActivities = toolActivities ?? entry.toolActivities;
+  final nextMetrics = metrics ?? entry.metrics;
+  return switch (entry) {
+    PiUserConversationEntry() => PiUserConversationEntry(
+      identity: entry.identity,
+      revision: revision,
+      createdAt: entry.createdAt,
+      finalized: entry.finalized,
+      parts: nextParts,
+      toolActivities: nextActivities,
+      metrics: nextMetrics,
+    ),
+    PiAssistantConversationEntry() => PiAssistantConversationEntry(
+      identity: entry.identity,
+      revision: revision,
+      createdAt: entry.createdAt,
+      finalized: entry.finalized,
+      parts: nextParts,
+      toolActivities: nextActivities,
+      metrics: nextMetrics,
+      provider: entry.provider,
+      model: entry.model,
+      stopReason: entry.stopReason,
+      safeErrorMessage: entry.safeErrorMessage,
+    ),
+    PiToolResultConversationEntry() => PiToolResultConversationEntry(
+      identity: entry.identity,
+      revision: revision,
+      createdAt: entry.createdAt,
+      finalized: entry.finalized,
+      parts: nextParts,
+      toolActivities: nextActivities,
+      metrics: nextMetrics,
+      toolCallId: entry.toolCallId,
+      toolName: entry.toolName,
+      isError: entry.isError,
+      safeDetails: entry.safeDetails,
+    ),
+    PiBashConversationEntry() => PiBashConversationEntry(
+      identity: entry.identity,
+      revision: revision,
+      createdAt: entry.createdAt,
+      finalized: entry.finalized,
+      parts: nextParts,
+      toolActivities: nextActivities,
+      metrics: nextMetrics,
+      command: entry.command,
+      exitCode: entry.exitCode,
+      cancelled: entry.cancelled,
+      truncated: entry.truncated,
+      excludedFromContext: entry.excludedFromContext,
+    ),
+    PiCustomConversationEntry() => PiCustomConversationEntry(
+      identity: entry.identity,
+      revision: revision,
+      createdAt: entry.createdAt,
+      finalized: entry.finalized,
+      parts: nextParts,
+      toolActivities: nextActivities,
+      metrics: nextMetrics,
+      customType: entry.customType,
+      display: entry.display,
+      safeDetails: entry.safeDetails,
+    ),
+    PiCompactionConversationEntry() => PiCompactionConversationEntry(
+      identity: entry.identity,
+      revision: revision,
+      createdAt: entry.createdAt,
+      finalized: entry.finalized,
+      parts: nextParts,
+      toolActivities: nextActivities,
+      metrics: nextMetrics,
+      firstKeptEntryId: entry.firstKeptEntryId,
+      tokensBefore: entry.tokensBefore,
+      fromHook: entry.fromHook,
+      safeDetails: entry.safeDetails,
+    ),
+    PiBranchSummaryConversationEntry() => PiBranchSummaryConversationEntry(
+      identity: entry.identity,
+      revision: revision,
+      createdAt: entry.createdAt,
+      finalized: entry.finalized,
+      parts: nextParts,
+      toolActivities: nextActivities,
+      metrics: nextMetrics,
+      fromEntryId: entry.fromEntryId,
+      fromHook: entry.fromHook,
+      safeDetails: entry.safeDetails,
+    ),
+    PiMarkerConversationEntry() => PiMarkerConversationEntry(
+      identity: entry.identity,
+      revision: revision,
+      createdAt: entry.createdAt,
+      finalized: entry.finalized,
+      parts: nextParts,
+      toolActivities: nextActivities,
+      metrics: nextMetrics,
+      markerKind: entry.markerKind,
+      targetEntryId: entry.targetEntryId,
+      label: entry.label,
+      provider: entry.provider,
+      model: entry.model,
+      thinkingLevel: entry.thinkingLevel,
+    ),
+    PiUnknownConversationEntry() => PiUnknownConversationEntry(
+      identity: entry.identity,
+      revision: revision,
+      createdAt: entry.createdAt,
+      finalized: entry.finalized,
+      parts: nextParts,
+      toolActivities: nextActivities,
+      metrics: nextMetrics,
+      sourceType: entry.sourceType,
+    ),
+  };
 }

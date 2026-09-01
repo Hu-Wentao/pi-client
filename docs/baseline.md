@@ -28,17 +28,18 @@ Default review level: L6.
 - Status: Active
 - Review level: L9
 - Pi Client presentation and transport code must not read or rewrite Pi runtime directories directly.
-- On an Agent-host-capable desktop, a first-party host integration owns Pi SDK lifecycle, sessions, tools, project trust, and host filesystem access behind the versioned Pi transport boundary.
-- Connect-only clients consume that transport and must not execute host operations locally.
-- `PiWebGateway` remains a legacy MVP adapter only; new product behavior must not add a runtime or build dependency on pi-web.
+- The current desktop source routes Workspace behavior through the app-owned `PiNodeApi`, a project-owned Protobuf transport, and a project-owned Pi Node that owns reviewed Pi SDK lifecycle, sessions, tools, project trust, and host operations.
+- Connect-only clients consume a Pi Node transport and must not execute host operations locally.
+- Current source contains only the project-owned runtime path. The immutable public `v0.0.2` Preview remains historical compatibility evidence only and is not a current-source adapter or an independent-release claim.
 
 ## BASE-PI-002 - Credential and payload handling
 
 - Status: Active
 - Review level: L6
-- The optional Basic Auth password exists only in private ViewModel/service memory for the current page lifecycle.
-- The password must not enter route state, `WorkspaceModel`, JSON generation, URL user-info, repository files, screenshots, or logs.
-- Request/response headers and bodies remain disabled in Dio logging because they can contain credentials, prompts, messages, tool output, and project data.
+- Current source has no user-configured runtime endpoint credential path or legacy HTTP streaming client path. Historical `v0.0.2` transport credentials remain release-scoped evidence and must not be reintroduced into current runtime state.
+- Flutter serializable state must not contain reusable provider, Node, or Friday credentials. Project-owned Provider credentials remain Pi Node-owned when provider flows are implemented.
+- Local Direct reserves stdout for bounded binary protocol frames; transport stderr is drained without decoding or application logging, and Pi Node diagnostics emit only stable redacted codes.
+- Prompts, messages, tool output, project paths, credentials, and raw provider failures must not enter transport diagnostics, Relay payload logs, screenshots, or generated public evidence.
 
 ## BASE-PI-003 - Contract and state ownership
 
@@ -59,55 +60,70 @@ Default review level: L6.
 - Android delegates its minimum SDK to the pinned Flutter toolchain; other minimum platform versions remain owned by generated platform configuration and require an explicit compatibility decision before they change.
 - Project versioning starts at `0.0.1`; public compatibility surfaces remain unstable during `0.x`.
 
-## BASE-PI-005 - Legacy upstream compatibility
+## BASE-PI-005 - Project-owned product boundary
 
 - Status: Active
 - Review level: L6
-- Evidence for the legacy MVP adapter remains pinned to `agegr/pi-web` commit `28bab3c25f5f6770c9b0b745ebbfec1c27f7b948` (`0.8.11`, MIT).
-- Pi-web is not the target runtime, protocol authority, or cross-platform host. No new platform may copy its implementation or promote its HTTP routes into the first-party Pi transport contract.
-- Any maintenance of the legacy adapter requires focused compatibility tests; its future removal requires the migration and release notes already required by `DEC-012`.
-- Pi-web branding, screenshots, icons, and substantial implementation are not treated as Pi Client-owned assets.
+- Historical `v0.0.2` artifacts and their release-scoped evidence remain immutable historical facts, but exploratory comparisons have no ongoing authority.
+- Current requirements, completeness, architecture, protocol, implementation, compatibility, runtime, build, deployment, and release are owned by this project.
+- No platform may import an exploratory source's implementation or promote its routes, schemas, events, internal types, branding, screenshots, icons, or deployment artifacts into project-owned contracts or assets.
+- Current work uses the project-owned Pi Node domain, typed `PiNodeApi`, and project-owned protocol; source cutover does not by itself prove a packaged or published release.
 
 ## BASE-PI-006 - Platform execution roles
 
 - Status: Active
 - Review level: L9
-- macOS, Windows, and Linux are Agent-host-capable clients: they may connect to another host or use a future first-party integration to run Pi SDK and host an Agent.
-- Android, iOS, and Web are remote-client-only: they may connect to an Agent host but must not embed Pi SDK, launch an Agent runtime, expose host tools, or claim host filesystem authority.
+- macOS, Windows, and Linux are Agent-host-capable clients. Current source provides their shared lazy local-process composition through an app-owned `PiNodeApi`, desktop host controller, stdio Local Direct transport, and first-party Pi Node entrypoint.
+- Android, iOS, and Web are remote-client-only: they must not embed Pi SDK, launch an Agent runtime, expose host tools, or claim host filesystem authority. Until a remote transport is configured, current composition fails explicitly instead of acquiring local host authority.
 - `PlatformCapabilities` is the application-wide code authority for this role mapping; feature code must not duplicate ad hoc platform checks.
-- Agent-host capability does not prove that the Pi SDK runtime is implemented or available in the current release.
+- A reproducible host-targeted runtime Capsule builder exists, but Agent-host capability and source composition do not prove that a Capsule is bundled into every desktop app, that Windows/Linux packages are qualified, or that an independent public release exists.
 
-## BASE-PI-007 - Archived Preview and product-site integrity
-
-- Status: Active
-- Review level: L9
-- The immutable historical release identity remains `0.0.2+2` and `v0.0.2/Pi-Client-0.0.2-macOS-universal.zip`; its Tag, bytes, checksum, signing disclosures, storage boundary, and recorded deployment evidence must not be rewritten.
-- The historical macOS Preview is not the current product entry. The Landing Page must not render its download URL, version, installation flow, signing warning, runtime adapter, or Workspace screenshot.
-- The current product site presents Pi Client as an independent, open-source Flutter client with six platform targets. It may state the verified execution-role contract, but must label undelivered Host runtime and transport work as active development rather than current capability.
-- Product-site visuals use Pi Client-owned brand and platform-role assets only. They must not contain production paths, credentials, private prompts, real tool output, archived runtime branding, or unverified feature claims.
-- The canonical product-site origin is `https://pi.wyattcoder.top/`; English is served at `/` and Simplified Chinese at `/zh-cn/`. The inherited `https://wyattcoder.top/pi-client/` path is not an accepted production target.
-- Historical and active release metadata may remain machine-readable for release verification without being imported by the rendered product page. Existing Pages Release-asset admission remains unchanged until a separate release-workflow decision replaces it.
-- A passing local site build is source evidence only. Current publication requires an exact successful Pages run plus production canonical, content-exclusion, asset, HTTPS, and accessibility evidence.
-
-## BASE-PI-008 - Cross-platform build and Preview release integrity
-
-- Status: Active
-- Review level: L6
-- Pull requests and main changes use shared generation, formatting, analysis, test, release-contract, and site gates before platform builds; Android, iOS, macOS, Windows, Linux, and Web build on an appropriate native GitHub runner.
-- `pubspec.yaml` is the version and build-number authority. `release/release.json` selects a versioned Artifact Profile but must not redefine version identity; the current `macos-preview-v1` remains bound to the immutable macOS-only `v0.0.2` history.
-- A future six-platform Preview is built from one full commit, standardized by project-owned scripts, and aggregated before publication. Missing, extra, duplicate, symbolic-link, or zero-byte artifacts are release failures.
-- Every aggregated Preview records product version, build number, full commit, Flutter version, platform, architecture, execution role, host-runtime inclusion and filename-boundary evidence, runtime baseline, signing state, installability, size, and SHA-256 in `artifact-manifest.json`; `SHA256SUMS` is a deterministic checksum projection.
-- Android, iOS, and Web release metadata must remain `remote-client-only`; macOS, Windows, and Linux may remain `agent-host-capable`, but all artifacts record `hostRuntimeIncluded: false` until a separately accepted Pi SDK Host implementation exists. Current evidence scans package path names, contained framework symlink targets, and reserved future Host names; it does not claim semantic inspection of arbitrary binary contents.
-- Preview signing state is fail-closed and explicit: Android Release must not fall back to Debug signing; iOS is no-codesign; macOS and Windows remain unsigned until their respective identity and trust workflows are configured. Web uses the standard JavaScript target until a separate WASM compatibility decision and evidence exist.
-- Publishing remains a manual, separately authorized transition. The candidate version must be stable and monotonic. It creates an annotated immutable Tag only after qualification or resumes only the same annotated Tag/full commit with the original qualification run ID and exact retained aggregate bundle. A matching Draft may receive missing assets after existing bytes are verified; only one failed `starter/0-byte` expected asset may be deleted under a revalidated Draft boundary, while uploaded assets and every public Release are read-only. Draft publication and annotated-Tag-bound Pages deployment occur only after exact service-set and downloaded-byte verification.
-
-## BASE-PI-009 - Unsigned Homebrew Cask integrity
+## BASE-PI-007 - Distribution and product-site integrity
 
 - Status: Active
 - Review level: L9
-- The Homebrew channel is the public Tap `Hu-Wentao/homebrew-tap`; the Cask token is globally unique `pi-client`, and the documented install command is `brew install --cask hu-wentao/tap/pi-client`.
-- The application repository owns deterministic Cask rendering and verification. A Cask is generated only from the active non-legacy Release contract plus the exact lowercase SHA-256 of its `macos-universal` ZIP.
-- The Cask URL must resolve to one immutable GitHub Release Tag asset. Actions Artifacts, moving branches, mutable URLs, zero/placeholder digests and the archived `v0.0.2` asset are not admissible.
-- Until Developer ID and Notarization are separately configured, Cask metadata and user documentation must state `unsigned` and `not notarized`; Homebrew quarantine remains intact, ordinary launch is expected to fail Gatekeeper, and Finder Control-click Open is the only documented first-launch exception.
-- Project code, workflows, documentation and Tap content must not add `--no-quarantine`, remove quarantine attributes, disable Gatekeeper, or imply that ad-hoc signing is a trusted Apple distribution identity.
-- Homebrew distribution does not prove the first-party Pi host runtime or transport. The Preview must disclose its transitional pi-web compatibility boundary, while the independent Landing Page continues to omit downloads, installation steps and legacy runtime names under `BASE-PI-007`.
+- The source version is the unpublished development identity `0.1.0+3`; no supported independent public release currently exists. Version metadata and qualification evidence alone are not release claims.
+- The immutable public `v0.0.2` artifact is historical evidence only. The current Landing Page must not present it as the current product or offer a binary download.
+- Historical unsigned-Preview storage and trust limitations remain release-scoped facts. Future packages must disclose their own exact signing, notarization, sandbox, storage, migration, platform, and architecture state.
+- The Landing Page uses only Pi Client-owned visuals and does not render the retired Workspace screenshot. It must not use third-party product branding, production paths, credentials, private prompts, real tool output, unpublished download URLs, or Homebrew commands.
+- GitHub Pages may publish a source-only project status page. A release CTA may appear only after the exact supported artifact is authorized, public, and verified.
+- A passing site build, release workflow, or source version does not prove publication, installation, or production acceptance.
+- The active `independent-six-platform-development-v1` Profile is publication-disabled. Desktop evidence must include the first-party Runtime Capsule; Android, iOS, Web JavaScript, and WebAssembly remain connect-only.
+
+## BASE-PI-008 - Product authority and 1.0 completeness
+
+- Status: Active
+- Review level: L9
+- `DEC-020` establishes project-owned product authority; `docs/requirements.md` is the semantic authority for Pi Client outcomes, constraints, platform adaptations, and acceptance.
+- `1.0.0` completeness requires every project-owned Must requirement in release scope to be Active and every acceptance clause to have appropriate verification evidence.
+- Independently accepted requirements remain in scope until superseded through project governance; exploratory comparisons do not add, remove, or reinterpret product scope.
+- Completeness never authorizes importing, copying, calling, deploying, or requiring an external runtime, source, route, schema, event, protocol, component, or artifact.
+- `PLAN-PI-004` owns the P0-P11 implementation path; `PLAN-PI-002` remains the Friday Workspace parallel track, and `PLAN-PI-001` remains Superseded.
+
+## BASE-PI-009 - Development release integrity
+
+- Status: Active
+- Review level: L9
+- `DEC-021` and `PLAN-PI-007` define the only active aggregated artifact contract: `0.1.0+3`, Profile `independent-six-platform-development-v1`, publication disabled.
+- macOS, Windows, and Linux candidates must package a Runtime Capsule built from the exact source commit and pass platform-specific manifest/layout/architecture/startup gates before staging.
+- Android, iOS, Web JavaScript, and WebAssembly artifacts must remain connect-only and pass reserved-runtime scans.
+- Qualification artifacts are evidence only. No current workflow may create or mutate `v0.1.0`, `v0.0.3`, a GitHub Release, a Homebrew Tap, or a release-bound Pages deployment without a future publication-enabled contract and explicit authorization.
+- Existing remote stable tags are monotonic and immutable; retries may only reconcile the same annotated Tag, peeled commit, original qualification run, exact asset set, and identical bytes.
+
+## BASE-PI-010 - Dormant Homebrew integrity
+
+- Status: Active
+- Review level: L9
+- Homebrew tooling is retained as dormant deterministic infrastructure, not as a current installation promise.
+- Cask generation requires explicit qualified evidence for one publication-enabled, already-public Universal macOS runtime-bearing asset: annotated Tag, exact commit, exact file name, SHA-256, and published state.
+- Placeholder checksums, moving refs, connect-only assets, absent Runtime Capsules, Gatekeeper bypasses, and third-party Tap writes without separate authorization are rejected.
+
+## BASE-PI-011 - Versioned terminal and Shell boundary
+
+- Status: Active
+- Review level: L9
+- `DEC-022` defines the complete `1.0` CLI scope: macOS, Windows, and Linux may open only the current Pi Node-validated project identity in a system external terminal at its canonical cwd.
+- The `1.0` launcher does not execute `pi` or another command, copy or generate commands, accept command/argument/environment input, capture output, provide stdin or PTY, create a Shell grant, use a file URL, or cross Pi Protocol/Friday Transport.
+- Android, iOS, Web JavaScript, and WebAssembly expose no external-terminal action and must remain free of local Shell host, PTY host, remote-command executor, and host-process authority.
+- Standard native Extension dialogs remain a `1.0` outcome. Windows Shell settings, built-in command execution, remote Shell, mobile/Web Shell, PTY, and arbitrary Extension terminal UI belong to `REQ-PI-019` and `PLAN-PI-008` for `1.1`.
+- Historical Shell, ANSI, Process, and Tool conversation entries remain renderable under `REQ-PI-020`; read-only rendering does not create execution authority.

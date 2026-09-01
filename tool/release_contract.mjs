@@ -9,6 +9,8 @@ export const homebrewInstallCommand = 'brew install --cask hu-wentao/tap/pi-clie
 export const requiredFlutterVersion = '3.41.6';
 export const legacyPreviewVersion = '0.0.2';
 export const legacyPreviewBuildNumber = '2';
+export const independentDevelopmentVersion = '0.1.0';
+export const independentDevelopmentBuildNumber = '3';
 export const linuxRuntimeBaseline =
   'ubuntu-24.04-compatible; system libsecret/keyring required';
 
@@ -21,6 +23,7 @@ const target = (
   executionRole,
   signing,
   installability,
+  hostRuntimeIncluded,
   runtimeBaseline = null,
 ) => ({
   id,
@@ -31,7 +34,7 @@ const target = (
   executionRole,
   signing,
   installability,
-  hostRuntimeIncluded: false,
+  hostRuntimeIncluded,
   runtimeBaseline,
 });
 
@@ -39,6 +42,8 @@ export const artifactProfiles = Object.freeze({
   'macos-preview-v1': Object.freeze({
     id: 'macos-preview-v1',
     immutableLegacy: true,
+    publicationEnabled: false,
+    distribution: 'historical-unsigned-preview',
     primaryTarget: 'macos-universal',
     targets: Object.freeze([
       target(
@@ -49,95 +54,117 @@ export const artifactProfiles = Object.freeze({
         'zip',
         'agent-host-capable',
         'unsigned',
-        'unsigned-preview',
+        'historical-unsigned-preview',
+        false,
       ),
     ]),
   }),
-  'six-platform-preview-v1': Object.freeze({
-    id: 'six-platform-preview-v1',
+  'independent-six-platform-development-v1': Object.freeze({
+    id: 'independent-six-platform-development-v1',
     immutableLegacy: false,
-    primaryTarget: 'macos-universal',
+    publicationEnabled: false,
+    distribution: 'independent-development-candidate',
+    primaryTarget: 'macos-host-native',
     targets: Object.freeze([
       target(
         'android-armeabi-v7a',
         'android',
         'armeabi-v7a',
-        'Android-armeabi-v7a',
+        'Android-armeabi-v7a-development',
         'apk',
         'remote-client-only',
         'unsigned',
         'requires-signing-before-install',
+        false,
       ),
       target(
         'android-arm64-v8a',
         'android',
         'arm64-v8a',
-        'Android-arm64-v8a',
+        'Android-arm64-v8a-development',
         'apk',
         'remote-client-only',
         'unsigned',
         'requires-signing-before-install',
+        false,
       ),
       target(
         'android-x86_64',
         'android',
         'x86_64',
-        'Android-x86_64',
+        'Android-x86_64-development',
         'apk',
         'remote-client-only',
         'unsigned',
         'requires-signing-before-install',
+        false,
       ),
       target(
         'ios-arm64',
         'ios',
         'arm64',
-        'iOS-arm64',
+        'iOS-arm64-development',
         'xcarchive.zip',
         'remote-client-only',
         'no-codesign',
         'development-archive-only',
+        false,
       ),
       target(
-        'macos-universal',
+        'macos-host-native',
         'macos',
-        'universal',
-        'macOS-universal',
+        'host-native',
+        'macOS-host-native-ad-hoc-development',
         'zip',
         'agent-host-capable',
-        'unsigned',
-        'unsigned-preview',
+        'ad-hoc',
+        'development-candidate',
+        true,
       ),
       target(
-        'windows-amd64-portable',
+        'windows-x64-portable',
         'windows',
-        'amd64',
-        'Windows-amd64-portable',
+        'x64',
+        'Windows-x64-portable-development',
         'zip',
         'agent-host-capable',
         'unsigned',
-        'portable-archive',
+        'development-candidate',
+        true,
       ),
       target(
-        'linux-amd64',
+        'linux-x64',
         'linux',
-        'amd64',
-        'Linux-amd64',
+        'x64',
+        'Linux-x64-development',
         'tar.gz',
         'agent-host-capable',
         'unsigned',
-        'requires-linux-desktop-runtime',
+        'development-candidate',
+        true,
         linuxRuntimeBaseline,
       ),
       target(
         'web-js',
         'web',
         'javascript',
-        'Web-js',
+        'Web-js-development',
         'zip',
         'remote-client-only',
         'not-applicable',
         'static-web-bundle',
+        false,
+      ),
+      target(
+        'web-wasm',
+        'web',
+        'wasm',
+        'Web-wasm-development',
+        'zip',
+        'remote-client-only',
+        'not-applicable',
+        'static-web-bundle',
+        false,
       ),
     ]),
   }),
@@ -259,11 +286,11 @@ export function getArtifactProfile(id) {
     const expectedRole = ['android', 'ios', 'web'].includes(artifact.platform)
       ? 'remote-client-only'
       : 'agent-host-capable';
-    const expectedRuntimeBaseline =
-      artifact.platform === 'linux' ? linuxRuntimeBaseline : null;
+    const expectedHostRuntime = !['android', 'ios', 'web'].includes(artifact.platform) && !profile.immutableLegacy;
+    const expectedRuntimeBaseline = artifact.platform === 'linux' ? linuxRuntimeBaseline : null;
     if (
       artifact.executionRole !== expectedRole ||
-      artifact.hostRuntimeIncluded !== false ||
+      artifact.hostRuntimeIncluded !== expectedHostRuntime ||
       artifact.runtimeBaseline !== expectedRuntimeBaseline
     ) {
       throw new Error(`Artifact profile ${id} violates a platform release boundary.`);
@@ -285,14 +312,18 @@ export function assertArtifactProfileVersion(profile, version, buildNumber) {
     }
     return;
   }
-  if (
-    profile.id === 'six-platform-preview-v1' &&
-    compareSemVer(version, legacyPreviewVersion) <= 0
-  ) {
-    throw new Error(
-      `six-platform-preview-v1 requires a version greater than ${legacyPreviewVersion}.`,
-    );
+  if (profile.id === 'independent-six-platform-development-v1') {
+    if (
+      version !== independentDevelopmentVersion ||
+      String(buildNumber) !== independentDevelopmentBuildNumber
+    ) {
+      throw new Error(
+        `independent-six-platform-development-v1 is currently bound to ${independentDevelopmentVersion}+${independentDevelopmentBuildNumber}.`,
+      );
+    }
+    return;
   }
+  throw new Error(`Unhandled artifact profile version gate: ${profile.id}.`);
 }
 
 export function artifactFileName(version, artifactTarget) {
@@ -327,93 +358,17 @@ export function releaseAssets(version, profile) {
 
 export function expectedReleaseNotes(metadata) {
   if (metadata.artifactProfile === 'macos-preview-v1') {
-    return `## Pi Client ${metadata.version} unsigned macOS preview
-
-This preview provides a Universal macOS app for Apple silicon and Intel Macs.
-
-### Before you install
-
-This app is **not signed with an Apple Developer ID and is not notarized**. macOS Gatekeeper will warn before opening it. Install it only if you trust this repository and the published SHA-256 checksum. A signed, notarized DMG is not available in this release.
-
-The unsigned preview uses an isolated preferences directory and a fixed public storage key so it can start without Keychain entitlement access. The public key provides no secrecy. The preview does not persist the pi-web password, and a future signed release will not automatically inherit preview preferences.
-
-### Requirements
-
-- macOS 11.0 or newer.
-- A running pi-web \`0.8.11\` service.
-- A model provider configured for pi when you want to execute prompts.
-
-### Install
-
-1. Download \`${metadata.asset}\` and its \`.sha256\` file.
-2. Verify the checksum.
-3. Extract \`Pi Client.app\`.
-4. In Finder, Control-click \`Pi Client.app\`, select **Open**, then confirm **Open** in the warning dialog. Do not remove quarantine metadata with a shell command.
-
-For setup and security guidance, see the [Pi Client README](https://github.com/${repositorySlug}#start-pi-client).
-
-### Current scope
-
-Pi Client can browse sessions, create and continue work, follow live output, and stop an active run through the transitional pi-web \`0.8.11\` compatibility boundary. This release does not include WebAssembly support, a signed DMG, or the planned versioned Pi SDK-based transport.
-`;
+    return `## Pi Client ${metadata.version} unsigned macOS preview\n\nThis file describes the immutable historical v0.0.2 release only. Its legacy runtime requirements are not current product architecture or installation guidance.\n`;
   }
-  return `## Pi Client ${metadata.version} unsigned cross-platform preview
-
-This prerelease contains unsigned preview artifacts for Android, iOS, macOS, Windows, Linux, and the JavaScript Web target.
-
-### Security and installability
-
-- Android APKs are unsigned and require signing before installation.
-- The iOS artifact is a no-codesign development archive, not an installable IPA.
-- macOS and Windows artifacts are unsigned; macOS is not notarized.
-- The Linux archive is not self-contained. It targets Ubuntu 24.04-compatible desktop runtimes and requires system libsecret/keyring libraries.
-- The Dart application is compiled to JavaScript. Flutter renderer framework assets may include WebAssembly.
-- No artifact includes the planned Pi SDK Agent Host runtime. This is package filename-boundary evidence, not proof about arbitrary embedded file contents.
-
-Use these artifacts only for evaluation. Verify \`SHA256SUMS\` and \`artifact-manifest.json\` before use.
-
-### Install the macOS Preview with Homebrew
-
-\`\`\`bash
-${homebrewInstallCommand}
-\`\`\`
-
-The Homebrew Cask installs \`Pi Client.app\` into \`/Applications\`. The app is unsigned and not notarized, so macOS Gatekeeper will reject a normal first launch. In Finder, Control-click \`Pi Client.app\`, select **Open**, then confirm **Open**. Do not remove quarantine metadata or disable Gatekeeper.
-
-The current Preview still uses the transitional pi-web compatibility boundary. The first-party Pi host runtime and transport remain under development.
-`;
-}
-
-function parseReleaseBlock(source) {
-  const block = source.match(/export const release = \{([\s\S]*?)\n\} as const;/);
-  if (!block) throw new Error('site/src/content/copy.ts must contain the release block.');
-  const fields = {};
-  for (const key of ['version', 'tag', 'asset', 'downloadUrl', 'releaseUrl']) {
-    const match = block[1].match(new RegExp(`${key}:\\s*(?:\\n\\s*)?'([^']+)'`));
-    if (!match) throw new Error(`Landing-page release block is missing ${key}.`);
-    fields[key] = match[1];
-  }
-  const fieldNames = [...block[1].matchAll(/^\s*([A-Za-z]+):/gm)]
-    .map((match) => match[1])
-    .sort();
-  if (
-    JSON.stringify(fieldNames) !==
-    JSON.stringify(['asset', 'downloadUrl', 'releaseUrl', 'tag', 'version'])
-  ) {
-    throw new Error('Landing-page release block contains unexpected or duplicate fields.');
-  }
-  return fields;
+  return `## Pi Client ${metadata.version} independent development candidate\n\nThis unpublished development candidate exercises the project-owned Pi Protocol, first-party Pi Node, and verified desktop runtime Capsules. It does not authorize a Git tag, GitHub Release, Homebrew update, or public download.\n\n### Artifact roles\n\n- macOS, Windows, and Linux development artifacts include the first-party Pi Node runtime Capsule and remain Agent-host-capable.\n- Android, iOS, JavaScript Web, and WebAssembly artifacts remain connect-only and must not include the host runtime.\n- Android and iOS artifacts are unsigned/no-codesign development evidence.\n- macOS uses ad-hoc signing for local Hardened Runtime qualification and is not Developer ID signed or notarized.\n- Windows and Linux development artifacts are not stable signed distributions.\n\n### Publication boundary\n\nThe active profile is deliberately publication-disabled. A future release decision must freeze an exact commit, enable an approved profile, provide required signing evidence for a stable channel, and requalify every published byte. Existing v0.0.2 bytes and tags remain immutable.\n`;
 }
 
 export async function loadReleaseContract(root = repositoryRoot, options = {}) {
-  const [pubspecSource, fvmSource, releaseSource, sitePackageSource, siteCopySource] =
-    await Promise.all([
-      readFile(resolve(root, 'pubspec.yaml'), 'utf8'),
-      readFile(resolve(root, '.fvmrc'), 'utf8'),
-      readFile(resolve(root, 'release/release.json'), 'utf8'),
-      readFile(resolve(root, 'site/package.json'), 'utf8'),
-      readFile(resolve(root, 'site/src/content/copy.ts'), 'utf8'),
-    ]);
+  const [pubspecSource, fvmSource, releaseSource] = await Promise.all([
+    readFile(resolve(root, 'pubspec.yaml'), 'utf8'),
+    readFile(resolve(root, '.fvmrc'), 'utf8'),
+    readFile(resolve(root, 'release/release.json'), 'utf8'),
+  ]);
 
   const { version, buildNumber } = parsePubspecVersion(pubspecSource);
   const fvm = JSON.parse(fvmSource);
@@ -425,21 +380,29 @@ export async function loadReleaseContract(root = repositoryRoot, options = {}) {
   const releaseConfig = JSON.parse(releaseSource);
   assertExactKeys(
     releaseConfig,
-    ['schemaVersion', 'artifactProfile', 'primaryTarget'],
+    ['schemaVersion', 'artifactProfile', 'primaryTarget', 'publicationEnabled'],
     'release/release.json',
   );
-  if (releaseConfig.schemaVersion !== 1) {
-    throw new Error('release/release.json schemaVersion must be 1.');
+  if (releaseConfig.schemaVersion !== 2) {
+    throw new Error('release/release.json schemaVersion must be 2.');
   }
   const profile = getArtifactProfile(releaseConfig.artifactProfile);
   assertArtifactProfileVersion(profile, version, buildNumber);
   if (releaseConfig.primaryTarget !== profile.primaryTarget) {
     throw new Error(`release primaryTarget must be ${profile.primaryTarget} for ${profile.id}.`);
   }
+  if (releaseConfig.publicationEnabled !== profile.publicationEnabled) {
+    throw new Error(
+      `release publicationEnabled must be ${profile.publicationEnabled} for ${profile.id}.`,
+    );
+  }
   if (options.requireProfile && profile.id !== options.requireProfile) {
     throw new Error(
       `Release profile ${profile.id} does not satisfy required profile ${options.requireProfile}.`,
     );
+  }
+  if (options.requirePublication && !releaseConfig.publicationEnabled) {
+    throw new Error(`Release profile ${profile.id} is publication-disabled.`);
   }
 
   const artifacts = applicationArtifacts(version, profile);
@@ -448,8 +411,9 @@ export async function loadReleaseContract(root = repositoryRoot, options = {}) {
   const asset = primary.file;
   const checksumAsset = `${asset}.sha256`;
   const downloadUrl = `https://github.com/${repositorySlug}/releases/download/${tag}/${asset}`;
-  const releaseUrl = `https://github.com/${repositorySlug}/releases/tag/${tag}`;
-  const releaseNotesPath = `.github/release-notes/${tag}.md`;
+  const releaseNotesPath = profile.immutableLegacy
+    ? `.github/release-notes/${tag}.md`
+    : `.github/release-notes/${tag}-development.md`;
   const metadata = {
     version,
     buildNumber,
@@ -459,25 +423,16 @@ export async function loadReleaseContract(root = repositoryRoot, options = {}) {
     downloadUrl,
     artifactProfile: profile.id,
     primaryTarget: profile.primaryTarget,
+    publicationEnabled: releaseConfig.publicationEnabled,
+    distribution: profile.distribution,
     expectedAssets: releaseAssets(version, profile),
-    releaseTitle:
-      profile.id === 'macos-preview-v1'
-        ? `Pi Client ${version} unsigned macOS preview`
-        : `Pi Client ${version} unsigned cross-platform preview`,
+    releaseTitle: profile.immutableLegacy
+      ? `Pi Client ${version} historical unsigned macOS preview`
+      : `Pi Client ${version} independent development candidate`,
     releaseNotesPath,
     flutterVersion: fvm.flutter,
     artifacts,
   };
-
-  const sitePackage = JSON.parse(sitePackageSource);
-  if (sitePackage.version !== version) {
-    throw new Error(`site/package.json version must be ${version}.`);
-  }
-  const actualReleaseBlock = parseReleaseBlock(siteCopySource);
-  const expectedReleaseBlock = { version, tag, asset, downloadUrl, releaseUrl };
-  if (JSON.stringify(actualReleaseBlock) !== JSON.stringify(expectedReleaseBlock)) {
-    throw new Error('Landing-page release block does not exactly match the release contract.');
-  }
 
   const notes = await readFile(resolve(root, releaseNotesPath), 'utf8');
   if (notes !== expectedReleaseNotes(metadata)) {

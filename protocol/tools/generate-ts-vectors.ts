@@ -1,0 +1,263 @@
+import { create, toBinary } from "@bufbuild/protobuf";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import {
+  ConversationIdentityScope,
+  HealthStatus,
+  PiTransportFrameSchema,
+  ProjectTrustReason,
+  ProjectTrustStatus,
+  SessionAdminOperation,
+  SessionTreeEntryKind,
+  SessionTreeMutationOperation,
+} from "../gen/ts/pi/client/protocol/v0/protocol_pb.ts";
+import { encodeTransportFrame } from "../src/frame_codec.ts";
+
+const protocolRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const vectorDirectory = resolve(protocolRoot, "test-vectors");
+mkdirSync(vectorDirectory, { recursive: true });
+
+const sessionResponse = create(PiTransportFrameSchema, {
+  frameSequence: 18_446_744_073_709_551_615n,
+  operation: {
+    case: "getSessionResponse",
+    value: {
+      requestId: 18_446_744_073_709_551_615n,
+      session: {
+        summary: {
+          sessionId: "session-ts-1",
+          title: "Cross-language session",
+          workingDirectory: "/tmp/pi-client-vector",
+          createdAtUnixMillis: 9_007_199_254_740_993n,
+          updatedAtUnixMillis: 9_007_199_254_740_999n,
+          isRunning: true,
+          hasUnread: false,
+          adminRevision: "revision-session-ts-1",
+          hasCustomName: true,
+        },
+        conversation: {
+          sessionId: "session-ts-1",
+          lastEventSequence: 9_007_199_254_741_003n,
+          entries: [
+            {
+              identity: {
+                entryId: "entry-ts-1",
+                scope: ConversationIdentityScope.RUNTIME,
+                originCommandId: "command-ts-1",
+              },
+              revision: 2n,
+              createdAtUnixMillis: 9_007_199_254_741_001n,
+              finalized: false,
+              parts: [
+                {
+                  partId: "part-ts-1",
+                  revision: 2n,
+                  kind: {
+                    case: "text",
+                    value: {
+                      content: {
+                        case: "inlineText",
+                        value: "Typed Protobuf response",
+                      },
+                    },
+                  },
+                },
+              ],
+              kind: {
+                case: "assistant",
+                value: {
+                  provider: "provider-ts",
+                  model: "model-ts",
+                  stopReason: "stop",
+                },
+              },
+            },
+          ],
+        },
+      },
+    },
+  },
+});
+const sessionBytes = encodeTransportFrame(sessionResponse);
+writeFileSync(resolve(vectorDirectory, "ts_session_response.pb"), sessionBytes);
+
+const projectSnapshot = create(PiTransportFrameSchema, {
+  frameSequence: 7n,
+  operation: {
+    case: "validateProjectResponse",
+    value: {
+      requestId: 11n,
+      project: {
+        identity: {
+          projectId: "project-vector-ts",
+          canonicalWorkingDirectory: "/tmp/pi-client-project-vector",
+          isGitRepository: true,
+          gitRoot: "/tmp/pi-client-project-vector",
+          mainWorktreeRoot: "/tmp/pi-client-main-vector",
+          branch: "feature/vector",
+          isLinkedWorktree: true,
+          isDetachedHead: false,
+          worktreeId: "worktree-vector-ts",
+          mainProjectId: "main-project-vector-ts",
+        },
+        trust: {
+          status: ProjectTrustStatus.APPROVAL_REQUIRED,
+          reasons: [
+            ProjectTrustReason.PI_SETTINGS,
+            ProjectTrustReason.AGENT_SKILLS,
+          ],
+          revision:
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        },
+      },
+    },
+  },
+});
+writeFileSync(
+  resolve(vectorDirectory, "ts_project_snapshot.pb"),
+  encodeTransportFrame(projectSnapshot),
+);
+
+const sessionAdminOutcome = create(PiTransportFrameSchema, {
+  frameSequence: 19n,
+  operation: {
+    case: "sessionAdminCommandOutcome",
+    value: {
+      requestId: 23n,
+      commandId: "admin-command-ts-1",
+      operation: SessionAdminOperation.AUTO_NAME,
+      outcome: {
+        case: "session",
+        value: {
+          sessionId: "session-ts-admin-1",
+          title: "Generated cross-language title",
+          workingDirectory: "/tmp/pi-client-admin-vector",
+          createdAtUnixMillis: 1_700_000_000_000n,
+          updatedAtUnixMillis: 1_700_000_000_001n,
+          isRunning: false,
+          hasUnread: false,
+          adminRevision: "revision-session-ts-admin-2",
+          hasCustomName: true,
+        },
+      },
+    },
+  },
+});
+writeFileSync(
+  resolve(vectorDirectory, "ts_session_admin_outcome.pb"),
+  encodeTransportFrame(sessionAdminOutcome),
+);
+
+const sessionTreeMutation = create(PiTransportFrameSchema, {
+  frameSequence: 20n,
+  operation: {
+    case: "sessionTreeMutationOutcome",
+    value: {
+      requestId: 24n,
+      commandId: "tree-command-ts-1",
+      operation: SessionTreeMutationOperation.FORK,
+      outcome: {
+        case: "result",
+        value: {
+          session: {
+            summary: {
+              sessionId: "session-ts-fork-1",
+              title: "Forked cross-language session",
+              workingDirectory: "/tmp/pi-client-tree-vector",
+              createdAtUnixMillis: 1_700_000_000_100n,
+              updatedAtUnixMillis: 1_700_000_000_101n,
+              isRunning: false,
+              hasUnread: false,
+              adminRevision: "revision-session-ts-fork-1",
+              hasCustomName: false,
+              parentSessionId: "session-ts-parent-1",
+            },
+            conversation: {
+              sessionId: "session-ts-fork-1",
+              entries: [],
+              lastEventSequence: 0n,
+            },
+          },
+          tree: {
+            sessionId: "session-ts-fork-1",
+            nodes: [
+              {
+                entryId: "entry-ts-user-1",
+                kind: SessionTreeEntryKind.USER_MESSAGE,
+                text: "Restore this prompt",
+                createdAtUnixMillis: 1_700_000_000_000n,
+                depth: 0,
+                isOnActivePath: true,
+                hasChildren: false,
+                canEditFromHere: true,
+                canFork: true,
+              },
+            ],
+            activePathEntryIds: ["entry-ts-user-1"],
+            activeLeafEntryId: "entry-ts-user-1",
+            canCloneActiveBranch: true,
+            adminRevision: "revision-session-ts-fork-1",
+          },
+          editorText: "Restore this prompt",
+        },
+      },
+    },
+  },
+});
+writeFileSync(
+  resolve(vectorDirectory, "ts_session_tree_mutation.pb"),
+  encodeTransportFrame(sessionTreeMutation),
+);
+
+// Unknown top-level field 19000, varint value 123. It is appended to a valid
+// typed frame so both runtimes can prove decode/re-encode preservation.
+const unknownSuffix = Uint8Array.from([
+  ...encodeVarint(BigInt((19_000 << 3) | 0)),
+  ...encodeVarint(123n),
+]);
+const unknownBytes = new Uint8Array(sessionBytes.length + unknownSuffix.length);
+unknownBytes.set(sessionBytes);
+unknownBytes.set(unknownSuffix, sessionBytes.length);
+writeFileSync(resolve(vectorDirectory, "unknown_field.pb"), unknownBytes);
+
+// The generated runtime can encode an unknown enum number. The bounded codec
+// must reject it instead of treating it as a future known status.
+const unknownEnum = create(PiTransportFrameSchema, {
+  frameSequence: 1n,
+  operation: {
+    case: "healthResponse",
+    value: {
+      requestId: 1n,
+      status: 99 as HealthStatus,
+      nodeVersion: "0.1.0",
+    },
+  },
+});
+writeFileSync(
+  resolve(vectorDirectory, "unknown_enum.pb"),
+  toBinary(PiTransportFrameSchema, unknownEnum),
+);
+
+// Unknown top-level length-delimited operation 19001. frame_sequence remains
+// valid, but no known operation is selected after decoding.
+writeFileSync(
+  resolve(vectorDirectory, "unknown_operation.pb"),
+  Uint8Array.from([
+    0x08,
+    0x01,
+    ...encodeVarint(BigInt((19_001 << 3) | 2)),
+    0x00,
+  ]),
+);
+
+function encodeVarint(value: bigint): number[] {
+  const output: number[] = [];
+  let remaining = value;
+  while (remaining >= 0x80n) {
+    output.push(Number((remaining & 0x7fn) | 0x80n));
+    remaining >>= 7n;
+  }
+  output.push(Number(remaining));
+  return output;
+}

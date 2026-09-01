@@ -1,0 +1,10 @@
+version: v2
+clean: true
+plugins:
+  - local: protoc-gen-es
+    out: gen/ts
+    opt:
+      - target=ts
+      - import_extension=js
+  - local: tools/protoc-gen-dart.mjs
+    out: dart/lib/src/gen

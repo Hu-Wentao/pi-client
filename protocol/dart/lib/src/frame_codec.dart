@@ -1,0 +1,1700 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:fixnum/fixnum.dart';
+
+import 'gen/pi/client/protocol/v0/protocol.pb.dart';
+import 'limits.dart';
+
+final _semanticVersionPattern = RegExp(
+  r'^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)'
+  r'(?:-((?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)'
+  r'(?:\.(?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*))?'
+  r'(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$',
+);
+final _knownCapabilities = <Capability>{
+  Capability.CAPABILITY_SESSION_READ,
+  Capability.CAPABILITY_SESSION_CREATE,
+  Capability.CAPABILITY_PROMPT_COMMAND,
+  Capability.CAPABILITY_ABORT_COMMAND,
+  Capability.CAPABILITY_SESSION_EVENTS,
+  Capability.CAPABILITY_HEALTH,
+  Capability.CAPABILITY_CANCELLATION,
+  Capability.CAPABILITY_FLOW_CONTROL,
+  Capability.CAPABILITY_TRANSFER,
+  Capability.CAPABILITY_PROJECT_DISCOVERY,
+  Capability.CAPABILITY_PROJECT_TRUST,
+  Capability.CAPABILITY_SESSION_ADMIN,
+  Capability.CAPABILITY_SESSION_TREE,
+  Capability.CAPABILITY_SESSION_HISTORY,
+  Capability.CAPABILITY_SESSION_STATS,
+  Capability.CAPABILITY_SESSION_EXPORT,
+  Capability.CAPABILITY_RICH_CONVERSATION,
+  Capability.CAPABILITY_MESSAGE_CONTENT,
+};
+final _knownHealthStatuses = <HealthStatus>{
+  HealthStatus.HEALTH_STATUS_STARTING,
+  HealthStatus.HEALTH_STATUS_SERVING,
+  HealthStatus.HEALTH_STATUS_DEGRADED,
+  HealthStatus.HEALTH_STATUS_STOPPING,
+};
+final _knownProjectTrustStatuses = <ProjectTrustStatus>{
+  ProjectTrustStatus.PROJECT_TRUST_STATUS_NOT_REQUIRED,
+  ProjectTrustStatus.PROJECT_TRUST_STATUS_TRUSTED,
+  ProjectTrustStatus.PROJECT_TRUST_STATUS_APPROVAL_REQUIRED,
+  ProjectTrustStatus.PROJECT_TRUST_STATUS_DENIED,
+};
+final _knownProjectTrustReasons = <ProjectTrustReason>{
+  ProjectTrustReason.PROJECT_TRUST_REASON_PI_SETTINGS,
+  ProjectTrustReason.PROJECT_TRUST_REASON_PI_EXTENSIONS,
+  ProjectTrustReason.PROJECT_TRUST_REASON_PI_SKILLS,
+  ProjectTrustReason.PROJECT_TRUST_REASON_PI_PROMPTS,
+  ProjectTrustReason.PROJECT_TRUST_REASON_PI_THEMES,
+  ProjectTrustReason.PROJECT_TRUST_REASON_PI_SYSTEM_PROMPT,
+  ProjectTrustReason.PROJECT_TRUST_REASON_AGENT_SKILLS,
+  ProjectTrustReason.PROJECT_TRUST_REASON_SAVED_APPROVAL,
+  ProjectTrustReason.PROJECT_TRUST_REASON_SAVED_DENIAL,
+};
+final _knownSessionExportFormats = <SessionExportFormat>{
+  SessionExportFormat.SESSION_EXPORT_FORMAT_HTML,
+  SessionExportFormat.SESSION_EXPORT_FORMAT_JSONL,
+};
+final _knownTransferDirections = <TransferDirection>{
+  TransferDirection.TRANSFER_DIRECTION_UPLOAD,
+  TransferDirection.TRANSFER_DIRECTION_DOWNLOAD,
+};
+final _knownTransferPurposes = <TransferPurpose>{
+  TransferPurpose.TRANSFER_PURPOSE_FILE,
+  TransferPurpose.TRANSFER_PURPOSE_ATTACHMENT,
+  TransferPurpose.TRANSFER_PURPOSE_EXPORT,
+  TransferPurpose.TRANSFER_PURPOSE_MESSAGE_CONTENT,
+};
+final _knownErrorCodes = <ErrorCode>{
+  ErrorCode.ERROR_CODE_AUTHENTICATION_REQUIRED,
+  ErrorCode.ERROR_CODE_PERMISSION_DENIED,
+  ErrorCode.ERROR_CODE_NOT_FOUND,
+  ErrorCode.ERROR_CODE_INVALID_REQUEST,
+  ErrorCode.ERROR_CODE_CONFLICT,
+  ErrorCode.ERROR_CODE_NODE_BUSY,
+  ErrorCode.ERROR_CODE_PROTOCOL_VERSION_UNSUPPORTED,
+  ErrorCode.ERROR_CODE_CANCELLED,
+  ErrorCode.ERROR_CODE_DEADLINE_EXCEEDED,
+  ErrorCode.ERROR_CODE_UNAVAILABLE,
+  ErrorCode.ERROR_CODE_DATA_LOSS,
+  ErrorCode.ERROR_CODE_INTERNAL,
+  ErrorCode.ERROR_CODE_PROTOCOL_VIOLATION,
+  ErrorCode.ERROR_CODE_RESOURCE_EXHAUSTED,
+  ErrorCode.ERROR_CODE_ALREADY_EXISTS,
+  ErrorCode.ERROR_CODE_FAILED_PRECONDITION,
+};
+
+final class FrameValidationException implements Exception {
+  FrameValidationException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => 'FrameValidationException: $message';
+}
+
+Uint8List encodeTransportFrame(PiTransportFrame frame) {
+  validateTransportFrame(frame);
+  final bytes = frame.writeToBuffer();
+  _validateFrameByteLength(bytes.length);
+  return bytes;
+}
+
+PiTransportFrame decodeTransportFrame(List<int> bytes) {
+  _validateFrameByteLength(bytes.length);
+  final frame = PiTransportFrame.fromBuffer(bytes);
+  validateTransportFrame(frame);
+  return frame;
+}
+
+void validateTransportFrame(PiTransportFrame frame) {
+  _validatePositiveUint64('frame_sequence', frame.frameSequence);
+
+  switch (frame.whichOperation()) {
+    case PiTransportFrame_Operation.clientProtocolOffer:
+      final offer = frame.clientProtocolOffer;
+      _validateProtocolVersions(
+        'client protocol offer',
+        offer.protocolVersions,
+        required: true,
+      );
+      _validateCapabilities(offer.capabilities);
+      _validateIdentifier('client_instance_id', offer.clientInstanceId);
+      _validateRequiredShortText(
+        'implementation_name',
+        offer.implementationName,
+      );
+      _validateSemanticVersion(
+        'implementation_version',
+        offer.implementationVersion,
+      );
+      _validateAdvertisedLimits(
+        offer.maxFrameBytes,
+        offer.maxTransferChunkBytes,
+      );
+      return;
+    case PiTransportFrame_Operation.serverHandshakeAccepted:
+      final accepted = frame.serverHandshakeAccepted;
+      if (!accepted.hasSelectedProtocolVersion()) {
+        _fail('accepted handshake must contain a selected protocol version');
+      }
+      _validateProtocolVersion(accepted.selectedProtocolVersion);
+      _validateCapabilities(accepted.capabilities);
+      _validateIdentifier('node_instance_id', accepted.nodeInstanceId);
+      _validateRequiredShortText(
+        'implementation_name',
+        accepted.implementationName,
+      );
+      _validateSemanticVersion(
+        'implementation_version',
+        accepted.implementationVersion,
+      );
+      _validateAdvertisedLimits(
+        accepted.maxFrameBytes,
+        accepted.maxTransferChunkBytes,
+      );
+      return;
+    case PiTransportFrame_Operation.serverHandshakeRejected:
+      final rejected = frame.serverHandshakeRejected;
+      _requireStableError(
+        'handshake rejection',
+        rejected.hasError(),
+        rejected.error,
+      );
+      _validateProtocolVersions(
+        'server supported protocol versions',
+        rejected.supportedProtocolVersions,
+        required: false,
+      );
+      return;
+    case PiTransportFrame_Operation.healthRequest:
+      _validateRequestId(frame.healthRequest.requestId);
+      return;
+    case PiTransportFrame_Operation.healthResponse:
+      final response = frame.healthResponse;
+      _validateRequestId(response.requestId);
+      _validateKnownEnum(
+        'health response status',
+        response.status,
+        _knownHealthStatuses,
+      );
+      _validateSemanticVersion('node_version', response.nodeVersion);
+      return;
+    case PiTransportFrame_Operation.getProjectBootstrapRequest:
+      _validateRequestId(frame.getProjectBootstrapRequest.requestId);
+      return;
+    case PiTransportFrame_Operation.getProjectBootstrapResponse:
+      final response = frame.getProjectBootstrapResponse;
+      _validateRequestId(response.requestId);
+      _validatePath('home_directory', response.homeDirectory);
+      _requireProjectSnapshot(
+        'project bootstrap',
+        response.hasDefaultProject(),
+        response.defaultProject,
+      );
+      return;
+    case PiTransportFrame_Operation.browseDirectoryRequest:
+      final request = frame.browseDirectoryRequest;
+      _validateRequestId(request.requestId);
+      _validatePath('directory', request.directory);
+      _validateBoundedUint32(
+        'max_children',
+        request.maxChildren,
+        maxDirectoryChildren,
+        allowZero: true,
+      );
+      return;
+    case PiTransportFrame_Operation.browseDirectoryResponse:
+      final response = frame.browseDirectoryResponse;
+      _validateRequestId(response.requestId);
+      _requireDirectoryListing(
+        'browse directory response',
+        response.hasDirectory(),
+        response.directory,
+      );
+      return;
+    case PiTransportFrame_Operation.validateProjectRequest:
+      final request = frame.validateProjectRequest;
+      _validateRequestId(request.requestId);
+      _validatePath('candidate_directory', request.candidateDirectory);
+      return;
+    case PiTransportFrame_Operation.validateProjectResponse:
+      final response = frame.validateProjectResponse;
+      _validateRequestId(response.requestId);
+      _requireProjectSnapshot(
+        'validate project response',
+        response.hasProject(),
+        response.project,
+      );
+      return;
+    case PiTransportFrame_Operation.listKnownProjectsRequest:
+      final request = frame.listKnownProjectsRequest;
+      _validateRequestId(request.requestId);
+      _validateBoundedUint32(
+        'max_projects',
+        request.maxProjects,
+        maxKnownProjects,
+        allowZero: true,
+      );
+      return;
+    case PiTransportFrame_Operation.listKnownProjectsResponse:
+      final response = frame.listKnownProjectsResponse;
+      _validateRequestId(response.requestId);
+      if (response.projects.length > maxKnownProjects) {
+        _fail('known project response exceeds the local hard limit');
+      }
+      for (final known in response.projects) {
+        _requireProjectSnapshot(
+          'known project',
+          known.hasProject(),
+          known.project,
+        );
+        _validatePositiveUint64(
+          'last_session_at_unix_millis',
+          known.lastSessionAtUnixMillis,
+        );
+        _validateBoundedUint32(
+          'session_count',
+          known.sessionCount,
+          0xffffffff,
+          allowZero: false,
+        );
+      }
+      return;
+    case PiTransportFrame_Operation.approveProjectTrustRequest:
+      final request = frame.approveProjectTrustRequest;
+      _validateRequestId(request.requestId);
+      _validateIdentifier('project_id', request.projectId);
+      _validateIdentifier('trust_revision', request.trustRevision);
+      return;
+    case PiTransportFrame_Operation.approveProjectTrustResponse:
+      final response = frame.approveProjectTrustResponse;
+      _validateRequestId(response.requestId);
+      _requireProjectSnapshot(
+        'project trust approval',
+        response.hasProject(),
+        response.project,
+      );
+      return;
+    case PiTransportFrame_Operation.listSessionsRequest:
+      _validateRequestId(frame.listSessionsRequest.requestId);
+      _validateIdentifier('project_id', frame.listSessionsRequest.projectId);
+      return;
+    case PiTransportFrame_Operation.listSessionsResponse:
+      final response = frame.listSessionsResponse;
+      _validateRequestId(response.requestId);
+      if (response.sessions.length > maxSessionsPerResponse) {
+        _fail('session response count exceeds the local hard limit');
+      }
+      final sessionIds = <String>{};
+      for (final session in response.sessions) {
+        _validateSessionSummary(session);
+        if (!sessionIds.add(session.sessionId)) {
+          _fail('session response contains a duplicate session_id');
+        }
+      }
+      return;
+    case PiTransportFrame_Operation.getSessionRequest:
+      final request = frame.getSessionRequest;
+      _validateRequestId(request.requestId);
+      _validateIdentifier('session_id', request.sessionId);
+      _validateIdentifier('project_id', request.projectId);
+      return;
+    case PiTransportFrame_Operation.getSessionResponse:
+      final response = frame.getSessionResponse;
+      _validateRequestId(response.requestId);
+      _requireSessionDetail(
+        'get session response',
+        response.hasSession(),
+        response.session,
+      );
+      return;
+    case PiTransportFrame_Operation.createSessionRequest:
+      final request = frame.createSessionRequest;
+      _validateRequestId(request.requestId);
+      _validateIdentifier('project_id', request.projectId);
+      return;
+    case PiTransportFrame_Operation.createSessionResponse:
+      final response = frame.createSessionResponse;
+      _validateRequestId(response.requestId);
+      _requireSessionDetail(
+        'create session response',
+        response.hasSession(),
+        response.session,
+      );
+      return;
+    case PiTransportFrame_Operation.getSessionTreeRequest:
+      final request = frame.getSessionTreeRequest;
+      _validateRequestId(request.requestId);
+      _validateIdentifier('project_id', request.projectId);
+      _validateIdentifier('session_id', request.sessionId);
+      return;
+    case PiTransportFrame_Operation.getSessionTreeResponse:
+      final response = frame.getSessionTreeResponse;
+      _validateRequestId(response.requestId);
+      if (!response.hasTree()) {
+        _fail('get session tree response must contain a tree snapshot');
+      }
+      _validateSessionTree(response.tree);
+      return;
+    case PiTransportFrame_Operation.navigateSessionTreeCommand:
+      final command = frame.navigateSessionTreeCommand;
+      _validateSessionTreeMutationCommand(
+        command.requestId,
+        command.commandId,
+        command.projectId,
+        command.sessionId,
+        command.expectedAdminRevision,
+      );
+      _validateIdentifier('entry_id', command.entryId);
+      return;
+    case PiTransportFrame_Operation.forkSessionCommand:
+      final command = frame.forkSessionCommand;
+      _validateSessionTreeMutationCommand(
+        command.requestId,
+        command.commandId,
+        command.projectId,
+        command.sessionId,
+        command.expectedAdminRevision,
+      );
+      _validateIdentifier('user_entry_id', command.userEntryId);
+      return;
+    case PiTransportFrame_Operation.cloneSessionCommand:
+      final command = frame.cloneSessionCommand;
+      _validateSessionTreeMutationCommand(
+        command.requestId,
+        command.commandId,
+        command.projectId,
+        command.sessionId,
+        command.expectedAdminRevision,
+      );
+      return;
+    case PiTransportFrame_Operation.sessionTreeMutationOutcome:
+      final outcome = frame.sessionTreeMutationOutcome;
+      _validateRequestId(outcome.requestId);
+      _validateIdentifier('command_id', outcome.commandId);
+      if (outcome.operation ==
+          SessionTreeMutationOperation
+              .SESSION_TREE_MUTATION_OPERATION_UNSPECIFIED) {
+        _fail('session tree mutation outcome must identify its operation');
+      }
+      switch (outcome.whichOutcome()) {
+        case SessionTreeMutationOutcome_Outcome.result:
+          if (!outcome.result.hasSession() || !outcome.result.hasTree()) {
+            _fail('session tree mutation result must contain session and tree');
+          }
+          _validateSessionDetail(outcome.result.session);
+          _validateSessionTree(outcome.result.tree);
+          if (outcome.result.session.summary.sessionId !=
+              outcome.result.tree.sessionId) {
+            _fail('session tree mutation result identities must match');
+          }
+          _validateContentText(
+            'session tree editor text',
+            outcome.result.editorText,
+            required: false,
+          );
+          return;
+        case SessionTreeMutationOutcome_Outcome.error:
+          _requireStableError(
+            'session tree mutation outcome',
+            outcome.hasError(),
+            outcome.error,
+          );
+          return;
+        case SessionTreeMutationOutcome_Outcome.notSet:
+          _fail('session tree mutation outcome must contain a typed result');
+      }
+    case PiTransportFrame_Operation.getSessionHistoryRequest:
+      final request = frame.getSessionHistoryRequest;
+      _validateRequestId(request.requestId);
+      _validateIdentifier('project_id', request.projectId);
+      _validateIdentifier('session_id', request.sessionId);
+      _validateShortText('history cursor', request.cursor, required: false);
+      _validateBoundedUint32(
+        'history limit',
+        request.limit,
+        maxSessionHistoryPageMessages,
+        allowZero: true,
+      );
+      _validateOptionalIdentifier(
+        'expected_active_branch_revision',
+        request.expectedActiveBranchRevision,
+      );
+      _validateOptionalIdentifier(
+        'expected_tree_revision',
+        request.expectedTreeRevision,
+      );
+      return;
+    case PiTransportFrame_Operation.getSessionHistoryResponse:
+      final response = frame.getSessionHistoryResponse;
+      _validateRequestId(response.requestId);
+      if (!response.hasSummary() || !response.hasConversation()) {
+        _fail('session history response must contain summary and conversation');
+      }
+      _validateSessionSummary(response.summary);
+      _validateConversationPage(response.conversation);
+      if (response.summary.sessionId != response.conversation.sessionId) {
+        _fail('session history conversation must match its summary');
+      }
+      return;
+    case PiTransportFrame_Operation.getMessageContentRequest:
+      final request = frame.getMessageContentRequest;
+      _validateRequestId(request.requestId);
+      _validateIdentifier('project_id', request.projectId);
+      if (!request.hasBinding()) {
+        _fail('message content request must contain a binding');
+      }
+      _validateMessageContentBinding(request.binding);
+      _validateRequiredShortText(
+        'expected_mime_type',
+        request.expectedMimeType,
+      );
+      _validatePositiveUint64(
+        'expected_total_bytes',
+        request.expectedTotalBytes,
+      );
+      if (_compareUnsigned(
+            request.expectedTotalBytes,
+            Int64(maxMessageContentBytes),
+          ) >
+          0) {
+        _fail('message content request exceeds the local hard limit');
+      }
+      _validateRequiredDigest(request.expectedSha256);
+      return;
+    case PiTransportFrame_Operation.getSessionStatsRequest:
+      final request = frame.getSessionStatsRequest;
+      _validateRequestId(request.requestId);
+      _validateIdentifier('project_id', request.projectId);
+      _validateIdentifier('session_id', request.sessionId);
+      return;
+    case PiTransportFrame_Operation.getSessionStatsResponse:
+      final response = frame.getSessionStatsResponse;
+      _validateRequestId(response.requestId);
+      if (!response.hasStats() || !response.stats.hasProjection()) {
+        _fail(
+          'session stats response must contain stats and a safe projection',
+        );
+      }
+      final stats = response.stats;
+      final projection = stats.projection;
+      _validateRequiredShortText(
+        'session_file_name',
+        projection.sessionFileName,
+      );
+      _validateIdentifier('session_id', projection.sessionId);
+      _validateIdentifier('project_id', projection.projectId);
+      _validatePath(
+        'canonical_project_directory',
+        projection.canonicalProjectDirectory,
+      );
+      _validateIdentifier('worktree_id', projection.worktreeId);
+      _validateIdentifier('main_project_id', projection.mainProjectId);
+      _validateShortText('branch', projection.branch, required: false);
+      if (projection.isDetachedHead && projection.branch.isNotEmpty) {
+        _fail('a detached stats projection must not contain a branch');
+      }
+      _validateNonNegativeUint64('user_messages', stats.userMessages);
+      _validateNonNegativeUint64('assistant_messages', stats.assistantMessages);
+      _validateNonNegativeUint64('tool_calls', stats.toolCalls);
+      _validateNonNegativeUint64('tool_results', stats.toolResults);
+      _validateNonNegativeUint64('total_messages', stats.totalMessages);
+      _validateNonNegativeUint64('input_tokens', stats.inputTokens);
+      _validateNonNegativeUint64('output_tokens', stats.outputTokens);
+      _validateNonNegativeUint64('cache_read_tokens', stats.cacheReadTokens);
+      _validateNonNegativeUint64('cache_write_tokens', stats.cacheWriteTokens);
+      _validateNonNegativeUint64('total_tokens', stats.totalTokens);
+      _validateNonNegativeNumber('cost', stats.cost);
+      _validateNonNegativeUint64('active_time_millis', stats.activeTimeMillis);
+      if (stats.hasContextUsage) {
+        _validatePositiveUint64('context_window', stats.contextWindow);
+        if (stats.contextTokensKnown) {
+          _validateNonNegativeUint64('context_tokens', stats.contextTokens);
+          _validateNonNegativeNumber('context_percent', stats.contextPercent);
+        } else if (!stats.contextTokens.isZero || stats.contextPercent != 0) {
+          _fail('unknown context tokens must not contain usage values');
+        }
+      } else if (stats.contextTokensKnown ||
+          !stats.contextTokens.isZero ||
+          !stats.contextWindow.isZero ||
+          stats.contextPercent != 0) {
+        _fail('unknown context usage must not contain context values');
+      }
+      return;
+    case PiTransportFrame_Operation.promptCommand:
+      final command = frame.promptCommand;
+      _validateRequestId(command.requestId);
+      _validateIdentifier('command_id', command.commandId);
+      _validateIdentifier('session_id', command.sessionId);
+      _validateContentText('prompt', command.prompt, required: true);
+      return;
+    case PiTransportFrame_Operation.abortCommand:
+      final command = frame.abortCommand;
+      _validateRequestId(command.requestId);
+      _validateIdentifier('command_id', command.commandId);
+      _validateIdentifier('session_id', command.sessionId);
+      return;
+    case PiTransportFrame_Operation.renameSessionCommand:
+      final command = frame.renameSessionCommand;
+      _validateSessionAdminCommand(
+        command.requestId,
+        command.commandId,
+        command.projectId,
+        command.sessionId,
+      );
+      _validateRequiredShortText('session name', command.name);
+      return;
+    case PiTransportFrame_Operation.clearSessionNameCommand:
+      final command = frame.clearSessionNameCommand;
+      _validateSessionAdminCommand(
+        command.requestId,
+        command.commandId,
+        command.projectId,
+        command.sessionId,
+      );
+      return;
+    case PiTransportFrame_Operation.autoNameSessionCommand:
+      final command = frame.autoNameSessionCommand;
+      _validateSessionAdminCommand(
+        command.requestId,
+        command.commandId,
+        command.projectId,
+        command.sessionId,
+      );
+      if (command.timeoutMillis < 1000 || command.timeoutMillis > 30000) {
+        _fail('auto-name timeout is outside the supported bounds');
+      }
+      return;
+    case PiTransportFrame_Operation.deleteSessionCommand:
+      final command = frame.deleteSessionCommand;
+      _validateSessionAdminCommand(
+        command.requestId,
+        command.commandId,
+        command.projectId,
+        command.sessionId,
+      );
+      if (!command.hasConfirmation()) {
+        _fail('delete session command must contain confirmation evidence');
+      }
+      final confirmation = command.confirmation;
+      _validateIdentifier('confirmation session_id', confirmation.sessionId);
+      _validateIdentifier(
+        'confirmation admin_revision',
+        confirmation.adminRevision,
+      );
+      _validateRequiredShortText(
+        'confirmation displayed_title',
+        confirmation.displayedTitle,
+      );
+      if (!confirmation.destructiveActionAcknowledged ||
+          confirmation.sessionId != command.sessionId) {
+        _fail('delete confirmation evidence is incomplete');
+      }
+      return;
+    case PiTransportFrame_Operation.sessionAdminCommandOutcome:
+      final outcome = frame.sessionAdminCommandOutcome;
+      _validateRequestId(outcome.requestId);
+      _validateIdentifier('command_id', outcome.commandId);
+      if (outcome.operation ==
+          SessionAdminOperation.SESSION_ADMIN_OPERATION_UNSPECIFIED) {
+        _fail('session administration outcome must identify its operation');
+      }
+      switch (outcome.whichOutcome()) {
+        case SessionAdminCommandOutcome_Outcome.session:
+          _validateSessionSummary(outcome.session);
+          if (outcome.operation ==
+              SessionAdminOperation.SESSION_ADMIN_OPERATION_DELETE) {
+            _fail('delete outcome cannot contain an updated session');
+          }
+          return;
+        case SessionAdminCommandOutcome_Outcome.deletion:
+          _validateIdentifier('deleted session_id', outcome.deletion.sessionId);
+          if (outcome.operation !=
+              SessionAdminOperation.SESSION_ADMIN_OPERATION_DELETE) {
+            _fail('only delete outcomes may contain deletion evidence');
+          }
+          return;
+        case SessionAdminCommandOutcome_Outcome.error:
+          _requireStableError(
+            'session administration outcome',
+            outcome.hasError(),
+            outcome.error,
+          );
+          return;
+        case SessionAdminCommandOutcome_Outcome.notSet:
+          _fail('session administration outcome must contain a typed result');
+      }
+    case PiTransportFrame_Operation.requestRejected:
+      final rejected = frame.requestRejected;
+      _validateRequestId(rejected.requestId);
+      _requireStableError(
+        'request rejection',
+        rejected.hasError(),
+        rejected.error,
+      );
+      return;
+    case PiTransportFrame_Operation.commandAccepted:
+      final accepted = frame.commandAccepted;
+      _validateRequestId(accepted.requestId);
+      _validateIdentifier('command_id', accepted.commandId);
+      return;
+    case PiTransportFrame_Operation.commandRejected:
+      final rejected = frame.commandRejected;
+      _validateRequestId(rejected.requestId);
+      _validateIdentifier('command_id', rejected.commandId);
+      _requireStableError(
+        'command rejection',
+        rejected.hasError(),
+        rejected.error,
+      );
+      return;
+    case PiTransportFrame_Operation.sessionEventStream:
+      final stream = frame.sessionEventStream;
+      _validateIdentifier('stream_id', stream.streamId);
+      _validateIdentifier('session_id', stream.sessionId);
+      _validatePositiveUint64('event_sequence', stream.eventSequence);
+      switch (stream.whichEvent()) {
+        case SessionEventStreamEnvelope_Event.entryUpsert:
+          if (!stream.entryUpsert.hasEntry()) {
+            _fail('entry upsert event must contain an entry');
+          }
+          _validateConversationEntry(stream.entryUpsert.entry);
+          if (stream.entryUpsert.hasExpectedPreviousRevision()) {
+            _validatePositiveUint64(
+              'expected_previous_revision',
+              stream.entryUpsert.expectedPreviousRevision,
+            );
+          }
+          return;
+        case SessionEventStreamEnvelope_Event.partDelta:
+          final delta = stream.partDelta;
+          _validateIdentifier('entry_id', delta.entryId);
+          _validateIdentifier('part_id', delta.partId);
+          _validateRevisionTransition(
+            delta.expectedEntryRevision,
+            delta.resultingEntryRevision,
+            'entry',
+          );
+          _validateRevisionTransition(
+            delta.expectedPartRevision,
+            delta.resultingPartRevision,
+            'part',
+          );
+          _validateInlineConversationText('part delta', delta.textDelta);
+          return;
+        case SessionEventStreamEnvelope_Event.entryFinalized:
+          if (!stream.entryFinalized.hasEntry() ||
+              !stream.entryFinalized.entry.finalized) {
+            _fail('entry finalized event must contain a finalized entry');
+          }
+          _validateConversationEntry(stream.entryFinalized.entry);
+          _validateNonNegativeUint64(
+            'expected_previous_revision',
+            stream.entryFinalized.expectedPreviousRevision,
+          );
+          return;
+        case SessionEventStreamEnvelope_Event.toolActivity:
+          _validateIdentifier('entry_id', stream.toolActivity.entryId);
+          _validateRevisionTransition(
+            stream.toolActivity.expectedEntryRevision,
+            stream.toolActivity.resultingEntryRevision,
+            'entry',
+          );
+          if (!stream.toolActivity.hasActivity()) {
+            _fail('tool activity event must contain an activity');
+          }
+          _validateToolActivity(stream.toolActivity.activity);
+          return;
+        case SessionEventStreamEnvelope_Event.metrics:
+          _validateIdentifier('entry_id', stream.metrics.entryId);
+          _validateRevisionTransition(
+            stream.metrics.expectedEntryRevision,
+            stream.metrics.resultingEntryRevision,
+            'entry',
+          );
+          if (!stream.metrics.hasMetrics()) {
+            _fail('metrics event must contain metrics');
+          }
+          _validateConversationMetrics(stream.metrics.metrics);
+          return;
+        case SessionEventStreamEnvelope_Event.runningChanged:
+          return;
+        case SessionEventStreamEnvelope_Event.commandCompleted:
+          final completed = stream.commandCompleted;
+          _validateIdentifier('command_id', completed.commandId);
+          _validateCompletionError(completed);
+          return;
+        case SessionEventStreamEnvelope_Event.streamClosed:
+          _validateStreamClosed(stream.streamClosed);
+          return;
+        case SessionEventStreamEnvelope_Event.notSet:
+          _fail('session event stream must contain a typed event');
+      }
+    case PiTransportFrame_Operation.eventStream:
+      final stream = frame.eventStream;
+      _validateIdentifier('stream_id', stream.streamId);
+      _validatePositiveUint64('event_sequence', stream.eventSequence);
+      switch (stream.whichEvent()) {
+        case EventStreamEnvelope_Event.heartbeat:
+          _validatePositiveUint64(
+            'observed_unix_millis',
+            stream.heartbeat.observedUnixMillis,
+          );
+          return;
+        case EventStreamEnvelope_Event.healthStatusChanged:
+          final event = stream.healthStatusChanged;
+          _validateKnownEnum(
+            'health status event',
+            event.status,
+            _knownHealthStatuses,
+          );
+          _validateShortText('health summary', event.summary, required: false);
+          return;
+        case EventStreamEnvelope_Event.streamClosed:
+          _validateStreamClosed(stream.streamClosed);
+          return;
+        case EventStreamEnvelope_Event.notSet:
+          _fail('event stream envelope must contain a typed event');
+      }
+    case PiTransportFrame_Operation.cancel:
+      final cancel = frame.cancel;
+      switch (cancel.whichTarget()) {
+        case Cancel_Target.requestId:
+          _validateRequestId(cancel.requestId);
+        case Cancel_Target.streamId:
+          _validateIdentifier('stream_id', cancel.streamId);
+        case Cancel_Target.transferId:
+          _validateIdentifier('transfer_id', cancel.transferId);
+        case Cancel_Target.notSet:
+          _fail('cancel must contain a target identifier');
+      }
+      _validateShortText('cancel reason', cancel.reason, required: false);
+      return;
+    case PiTransportFrame_Operation.windowUpdate:
+      final update = frame.windowUpdate;
+      switch (update.whichTarget()) {
+        case WindowUpdate_Target.streamId:
+          _validateIdentifier('stream_id', update.streamId);
+        case WindowUpdate_Target.transferId:
+          _validateIdentifier('transfer_id', update.transferId);
+        case WindowUpdate_Target.notSet:
+          _fail('window update must contain a target identifier');
+      }
+      if (update.creditMessages == 0 && update.creditBytes.isZero) {
+        _fail('window update must grant message or byte credit');
+      }
+      if (_compareUnsigned(update.creditBytes, Int64(maxTransferCreditBytes)) >
+          0) {
+        _fail('window update byte credit exceeds the local hard limit');
+      }
+      return;
+    case PiTransportFrame_Operation.exportSessionRequest:
+      final request = frame.exportSessionRequest;
+      _validateRequestId(request.requestId);
+      _validateIdentifier('project_id', request.projectId);
+      _validateIdentifier('session_id', request.sessionId);
+      _validateKnownEnum(
+        'session export format',
+        request.format,
+        _knownSessionExportFormats,
+      );
+      _validateOptionalIdentifier(
+        'expected_active_branch_revision',
+        request.expectedActiveBranchRevision,
+      );
+      _validateOptionalIdentifier(
+        'expected_tree_revision',
+        request.expectedTreeRevision,
+      );
+      return;
+    case PiTransportFrame_Operation.transferOpen:
+      final transfer = frame.transferOpen;
+      _validateIdentifier('transfer_id', transfer.transferId);
+      _validateRequestId(transfer.requestId);
+      _validateKnownEnum(
+        'transfer direction',
+        transfer.direction,
+        _knownTransferDirections,
+      );
+      _validateKnownEnum(
+        'transfer purpose',
+        transfer.purpose,
+        _knownTransferPurposes,
+      );
+      _validateRequiredShortText('content_type', transfer.contentType);
+      _validateRequiredShortText('file_name', transfer.fileName);
+      _validatePositiveUint64('total_bytes', transfer.totalBytes);
+      if (transfer.chunkBytes <= 0 ||
+          transfer.chunkBytes > maxTransferChunkBytes) {
+        _fail('transfer chunk_bytes is outside the local hard limit');
+      }
+      _validateRequiredDigest(transfer.sha256);
+      if (transfer.purpose ==
+          TransferPurpose.TRANSFER_PURPOSE_MESSAGE_CONTENT) {
+        if (transfer.direction !=
+                TransferDirection.TRANSFER_DIRECTION_DOWNLOAD ||
+            !transfer.hasMessageContentBinding()) {
+          _fail('message content transfers must be bound downloads');
+        }
+        if (_compareUnsigned(
+              transfer.totalBytes,
+              Int64(maxMessageContentBytes),
+            ) >
+            0) {
+          _fail('message content transfer exceeds the local hard limit');
+        }
+        _validateMessageContentBinding(transfer.messageContentBinding);
+      } else if (transfer.hasMessageContentBinding()) {
+        _fail('only message content transfers may contain a binding');
+      }
+      return;
+    case PiTransportFrame_Operation.transferChunk:
+      final chunk = frame.transferChunk;
+      _validateIdentifier('transfer_id', chunk.transferId);
+      _validatePositiveUint64('chunk_sequence', chunk.chunkSequence);
+      _validateNonNegativeUint64('offset', chunk.offset);
+      if (chunk.data.isEmpty || chunk.data.length > maxTransferChunkBytes) {
+        _fail('transfer chunk data is outside the local hard limit');
+      }
+      return;
+    case PiTransportFrame_Operation.transferAck:
+      final ack = frame.transferAck;
+      _validateIdentifier('transfer_id', ack.transferId);
+      _validatePositiveUint64(
+        'acknowledged_sequence',
+        ack.acknowledgedSequence,
+      );
+      _validatePositiveUint64('committed_bytes', ack.committedBytes);
+      return;
+    case PiTransportFrame_Operation.transferComplete:
+      final complete = frame.transferComplete;
+      _validateIdentifier('transfer_id', complete.transferId);
+      _validatePositiveUint64('total_bytes', complete.totalBytes);
+      _validateRequiredDigest(complete.sha256);
+      return;
+    case PiTransportFrame_Operation.transferAbort:
+      final abort = frame.transferAbort;
+      _validateIdentifier('transfer_id', abort.transferId);
+      _requireStableError('transfer abort', abort.hasError(), abort.error);
+      return;
+    case PiTransportFrame_Operation.error:
+      final envelope = frame.error;
+      switch (envelope.whichCorrelation()) {
+        case ErrorEnvelope_Correlation.requestId:
+          _validateRequestId(envelope.requestId);
+        case ErrorEnvelope_Correlation.streamId:
+          _validateIdentifier('stream_id', envelope.streamId);
+        case ErrorEnvelope_Correlation.transferId:
+          _validateIdentifier('transfer_id', envelope.transferId);
+        case ErrorEnvelope_Correlation.notSet:
+          break;
+      }
+      _requireStableError(
+        'error envelope',
+        envelope.hasError(),
+        envelope.error,
+      );
+      return;
+    case PiTransportFrame_Operation.notSet:
+      _fail('transport frame must contain a typed operation');
+  }
+}
+
+void _validateAdvertisedLimits(
+  int advertisedFrameBytes,
+  int advertisedTransferChunkBytes,
+) {
+  if (advertisedFrameBytes <= 0 || advertisedFrameBytes > maxFrameBytes) {
+    _fail('advertised max_frame_bytes is outside the local hard limit');
+  }
+  if (advertisedTransferChunkBytes <= 0 ||
+      advertisedTransferChunkBytes > maxTransferChunkBytes) {
+    _fail(
+      'advertised max_transfer_chunk_bytes is outside the local hard limit',
+    );
+  }
+}
+
+void _validateProtocolVersions(
+  String label,
+  List<ProtocolVersion> versions, {
+  required bool required,
+}) {
+  if (required && versions.isEmpty) {
+    _fail('$label must contain at least one protocol version');
+  }
+  if (versions.length > maxProtocolVersions) {
+    _fail('$label exceeds the local protocol version limit');
+  }
+  final seen = <String>{};
+  for (final version in versions) {
+    _validateProtocolVersion(version);
+    final key = '${version.major}.${version.minor}.${version.patch}';
+    if (!seen.add(key)) {
+      _fail('$label contains a duplicate protocol version');
+    }
+  }
+}
+
+void _validateProtocolVersion(ProtocolVersion version) {
+  if (version.major != 0) {
+    _fail('v0 protocol versions must use major zero');
+  }
+}
+
+void _validateCapabilities(List<Capability> capabilities) {
+  if (capabilities.length > maxCapabilities) {
+    _fail('capability count exceeds the local hard limit');
+  }
+  final seen = <Capability>{};
+  for (final capability in capabilities) {
+    _validateKnownEnum('capability', capability, _knownCapabilities);
+    if (!seen.add(capability)) {
+      _fail('capability list contains a duplicate');
+    }
+  }
+}
+
+void _requireDirectoryListing(
+  String label,
+  bool present,
+  DirectoryListingSnapshot listing,
+) {
+  if (!present) {
+    _fail('$label must contain a directory listing');
+  }
+  _validatePath('canonical_directory', listing.canonicalDirectory);
+  if (listing.parentDirectory.isNotEmpty) {
+    _validatePath('parent_directory', listing.parentDirectory);
+  }
+  if (listing.children.length > maxDirectoryChildren) {
+    _fail('directory child count exceeds the local hard limit');
+  }
+  final names = <String>{};
+  for (final child in listing.children) {
+    _validateRequiredShortText('directory child name', child.name);
+    _validatePath('directory child canonical_path', child.canonicalPath);
+    if (!names.add(child.name)) {
+      _fail('directory listing contains a duplicate child name');
+    }
+  }
+}
+
+void _requireProjectSnapshot(
+  String label,
+  bool present,
+  ProjectSnapshot project,
+) {
+  if (!present || !project.hasIdentity() || !project.hasTrust()) {
+    _fail('$label must contain project identity and trust snapshots');
+  }
+  final identity = project.identity;
+  _validateIdentifier('project_id', identity.projectId);
+  _validatePath(
+    'canonical_working_directory',
+    identity.canonicalWorkingDirectory,
+  );
+  _validateIdentifier('worktree_id', identity.worktreeId);
+  _validateIdentifier('main_project_id', identity.mainProjectId);
+  if (identity.isGitRepository) {
+    _validatePath('git_root', identity.gitRoot);
+    _validatePath('main_worktree_root', identity.mainWorktreeRoot);
+    _validateShortText('branch', identity.branch, required: false);
+    if (identity.isDetachedHead && identity.branch.isNotEmpty) {
+      _fail('a detached project identity must not contain a branch');
+    }
+  } else if (identity.gitRoot.isNotEmpty ||
+      identity.mainWorktreeRoot.isNotEmpty ||
+      identity.branch.isNotEmpty ||
+      identity.isLinkedWorktree ||
+      identity.isDetachedHead) {
+    _fail('a non-Git project identity contains Git-only fields');
+  }
+
+  final trust = project.trust;
+  _validateKnownEnum(
+    'project trust status',
+    trust.status,
+    _knownProjectTrustStatuses,
+  );
+  _validateIdentifier('project trust revision', trust.revision);
+  final reasons = <ProjectTrustReason>{};
+  for (final reason in trust.reasons) {
+    _validateKnownEnum(
+      'project trust reason',
+      reason,
+      _knownProjectTrustReasons,
+    );
+    if (!reasons.add(reason)) {
+      _fail('project trust reasons contain a duplicate');
+    }
+  }
+  if (trust.status == ProjectTrustStatus.PROJECT_TRUST_STATUS_NOT_REQUIRED &&
+      trust.reasons.isNotEmpty) {
+    _fail('a not-required project trust snapshot must not contain reasons');
+  }
+  if (trust.status != ProjectTrustStatus.PROJECT_TRUST_STATUS_NOT_REQUIRED &&
+      trust.reasons.isEmpty) {
+    _fail('a restricted or trusted project must contain a trust reason');
+  }
+}
+
+void _requireSessionDetail(
+  String label,
+  bool hasDetail,
+  SessionDetailSnapshot detail,
+) {
+  if (!hasDetail) {
+    _fail('$label must contain a session detail snapshot');
+  }
+  _validateSessionDetail(detail);
+}
+
+void _validateSessionDetail(SessionDetailSnapshot detail) {
+  if (!detail.hasSummary() || !detail.hasConversation()) {
+    _fail('session detail must contain summary and conversation');
+  }
+  _validateSessionSummary(detail.summary);
+  _validateConversationSnapshot(detail.conversation);
+  if (detail.summary.sessionId != detail.conversation.sessionId) {
+    _fail('session detail conversation must match its summary');
+  }
+}
+
+void _validateSessionAdminCommand(
+  Int64 requestId,
+  String commandId,
+  String projectId,
+  String sessionId,
+) {
+  _validateRequestId(requestId);
+  _validateIdentifier('command_id', commandId);
+  _validateIdentifier('project_id', projectId);
+  _validateIdentifier('session_id', sessionId);
+}
+
+void _validateConversationSnapshot(ConversationSnapshot snapshot) {
+  _validateIdentifier('conversation session_id', snapshot.sessionId);
+  if (snapshot.entries.length > maxMessagesPerSessionSnapshot) {
+    _fail('conversation entry count exceeds the local hard limit');
+  }
+  _validateConversationEntries(snapshot.entries);
+  _validateNonNegativeUint64('last_event_sequence', snapshot.lastEventSequence);
+}
+
+void _validateConversationPage(ConversationPage page) {
+  _validateIdentifier('conversation page session_id', page.sessionId);
+  if (page.entries.length > maxSessionHistoryPageMessages) {
+    _fail('conversation page exceeds the local hard limit');
+  }
+  _validateConversationEntries(page.entries);
+  _validateShortText('next_cursor', page.nextCursor, required: false);
+  if (page.hasMore != page.nextCursor.isNotEmpty) {
+    _fail('conversation page cursor and has_more must agree');
+  }
+  _validateIdentifier('active_branch_revision', page.activeBranchRevision);
+  _validateIdentifier('tree_revision', page.treeRevision);
+  _validateNonNegativeUint64('last_event_sequence', page.lastEventSequence);
+}
+
+void _validateConversationEntries(Iterable<ConversationEntry> entries) {
+  final ids = <String>{};
+  for (final entry in entries) {
+    _validateConversationEntry(entry);
+    if (!ids.add(entry.identity.entryId)) {
+      _fail('conversation contains a duplicate entry_id');
+    }
+  }
+}
+
+void _validateConversationEntry(ConversationEntry entry) {
+  if (!entry.hasIdentity()) _fail('conversation entry must contain identity');
+  _validateIdentifier('entry_id', entry.identity.entryId);
+  if (entry.identity.scope !=
+          ConversationIdentityScope.CONVERSATION_IDENTITY_SCOPE_PERSISTENT &&
+      entry.identity.scope !=
+          ConversationIdentityScope.CONVERSATION_IDENTITY_SCOPE_RUNTIME) {
+    _fail('conversation identity scope is unknown');
+  }
+  _validateOptionalIdentifier(
+    'origin_command_id',
+    entry.identity.originCommandId,
+  );
+  _validatePositiveUint64('entry revision', entry.revision);
+  _validatePositiveUint64(
+    'entry created_at_unix_millis',
+    entry.createdAtUnixMillis,
+  );
+  if (entry.parts.length > maxConversationParts ||
+      entry.toolActivities.length > maxToolActivities) {
+    _fail('conversation entry exceeds collection limits');
+  }
+  final partIds = <String>{};
+  for (final part in entry.parts) {
+    _validateConversationPart(part);
+    if (!partIds.add(part.partId)) _fail('duplicate part_id');
+  }
+  var priorOrdinal = -1;
+  final activityIds = <String>{};
+  for (final activity in entry.toolActivities) {
+    _validateToolActivity(activity);
+    if (!activityIds.add(activity.activityId) ||
+        activity.sourceOrdinal < priorOrdinal) {
+      _fail('tool activity identity or order is invalid');
+    }
+    priorOrdinal = activity.sourceOrdinal;
+  }
+  if (entry.hasMetrics()) _validateConversationMetrics(entry.metrics);
+  switch (entry.whichKind()) {
+    case ConversationEntry_Kind.user:
+      return;
+    case ConversationEntry_Kind.assistant:
+      _validateRequiredShortText(
+        'assistant provider',
+        entry.assistant.provider,
+      );
+      _validateRequiredShortText('assistant model', entry.assistant.model);
+      _validateRequiredShortText(
+        'assistant stop_reason',
+        entry.assistant.stopReason,
+      );
+      return;
+    case ConversationEntry_Kind.toolResult:
+      _validateIdentifier('tool_call_id', entry.toolResult.toolCallId);
+      _validateRequiredShortText('tool_name', entry.toolResult.toolName);
+      _requireSafeValue('tool result details', entry.toolResult.safeDetails);
+      return;
+    case ConversationEntry_Kind.bash:
+      _validateInlineConversationText('bash command', entry.bash.command);
+      return;
+    case ConversationEntry_Kind.custom:
+      _validateRequiredShortText('custom_type', entry.custom.customType);
+      _requireSafeValue('custom details', entry.custom.safeDetails);
+      return;
+    case ConversationEntry_Kind.compaction:
+      _validateIdentifier(
+        'first_kept_entry_id',
+        entry.compaction.firstKeptEntryId,
+      );
+      _requireSafeValue('compaction details', entry.compaction.safeDetails);
+      return;
+    case ConversationEntry_Kind.branchSummary:
+      _validateIdentifier('from_entry_id', entry.branchSummary.fromEntryId);
+      _requireSafeValue(
+        'branch summary details',
+        entry.branchSummary.safeDetails,
+      );
+      return;
+    case ConversationEntry_Kind.marker:
+      if (entry.marker.markerKind == MarkerKind.MARKER_KIND_UNSPECIFIED) {
+        _fail('conversation marker kind is unknown');
+      }
+      _validateOptionalIdentifier(
+        'target_entry_id',
+        entry.marker.targetEntryId,
+      );
+      return;
+    case ConversationEntry_Kind.unknown:
+      _validateRequiredShortText(
+        'unknown source_type',
+        entry.unknown.sourceType,
+      );
+      return;
+    case ConversationEntry_Kind.notSet:
+      _fail('conversation entry must contain a typed kind');
+  }
+}
+
+void _validateConversationPart(ConversationPart part) {
+  _validateIdentifier('part_id', part.partId);
+  _validatePositiveUint64('part revision', part.revision);
+  switch (part.whichKind()) {
+    case ConversationPart_Kind.text:
+      switch (part.text.whichContent()) {
+        case BoundedTextPart_Content.inlineText:
+          _validateInlineConversationText('text part', part.text.inlineText);
+          return;
+        case BoundedTextPart_Content.contentReference:
+          _validateMessageContentReference(part.text.contentReference);
+          return;
+        case BoundedTextPart_Content.notSet:
+          _fail('text part must contain content');
+      }
+    case ConversationPart_Kind.thinking:
+      final thinking = part.thinking;
+      if (thinking.visibility ==
+          ThinkingVisibility.THINKING_VISIBILITY_UNSPECIFIED) {
+        _fail('thinking visibility is unknown');
+      }
+      if (thinking.visibility ==
+          ThinkingVisibility.THINKING_VISIBILITY_VISIBLE) {
+        switch (thinking.whichContent()) {
+          case ThinkingPart_Content.inlineText:
+            _validateInlineConversationText(
+              'thinking part',
+              thinking.inlineText,
+            );
+            return;
+          case ThinkingPart_Content.contentReference:
+            _validateMessageContentReference(thinking.contentReference);
+            return;
+          case ThinkingPart_Content.notSet:
+            _fail('visible thinking must contain content');
+        }
+      } else if (thinking.whichContent() != ThinkingPart_Content.notSet) {
+        _fail('hidden thinking must not contain content');
+      }
+      return;
+    case ConversationPart_Kind.image:
+      if (!part.image.hasContentReference()) {
+        _fail('image part must contain a content reference');
+      }
+      _validateMessageContentReference(part.image.contentReference);
+      return;
+    case ConversationPart_Kind.toolCall:
+      _validateIdentifier('tool_call_id', part.toolCall.toolCallId);
+      _validateRequiredShortText('tool_name', part.toolCall.toolName);
+      _requireSafeValue('tool arguments', part.toolCall.safeArguments);
+      return;
+    case ConversationPart_Kind.unsupported:
+      _validateRequiredShortText(
+        'unsupported source_type',
+        part.unsupported.sourceType,
+      );
+      return;
+    case ConversationPart_Kind.notSet:
+      _fail('conversation part must contain a typed kind');
+  }
+}
+
+void _validateInlineConversationText(String label, String value) {
+  if (utf8.encode(value).length > maxInlineConversationTextBytes) {
+    _fail('$label exceeds the inline conversation limit');
+  }
+}
+
+void _validateMessageContentReference(MessageContentReference reference) {
+  _validateIdentifier('content_id', reference.contentId);
+  _validateRequiredShortText('content mime_type', reference.mimeType);
+  _validateRequiredShortText('content display_name', reference.displayName);
+  _validatePositiveUint64('content total_bytes', reference.totalBytes);
+  if (_compareUnsigned(reference.totalBytes, Int64(maxMessageContentBytes)) >
+      0) {
+    _fail('message content reference exceeds the local hard limit');
+  }
+  _validateRequiredDigest(reference.sha256);
+}
+
+void _validateMessageContentBinding(MessageContentBinding binding) {
+  _validateIdentifier('binding session_id', binding.sessionId);
+  _validateIdentifier('binding entry_id', binding.entryId);
+  _validateIdentifier('binding part_id', binding.partId);
+  _validatePositiveUint64('binding entry_revision', binding.entryRevision);
+  _validatePositiveUint64('binding part_revision', binding.partRevision);
+  _validateIdentifier('binding content_id', binding.contentId);
+}
+
+void _requireSafeValue(String label, SafeValue value) {
+  final bytes = _validateSafeValue(value, 0);
+  if (bytes > maxSafeValueBytes) _fail('$label exceeds safe value bytes');
+}
+
+int _validateSafeValue(SafeValue value, int depth) {
+  if (depth > maxSafeValueDepth) _fail('safe value exceeds depth limit');
+  switch (value.whichValue()) {
+    case SafeValue_Value.sentinel:
+      if (value.sentinel != SafeValueKind.SAFE_VALUE_KIND_NULL &&
+          value.sentinel != SafeValueKind.SAFE_VALUE_KIND_REDACTED) {
+        _fail('safe value sentinel is unknown');
+      }
+      return 1;
+    case SafeValue_Value.boolValue:
+    case SafeValue_Value.intValue:
+      return 8;
+    case SafeValue_Value.doubleValue:
+      if (!value.doubleValue.isFinite) _fail('safe double must be finite');
+      return 8;
+    case SafeValue_Value.stringValue:
+      return utf8.encode(value.stringValue).length;
+    case SafeValue_Value.listValue:
+      if (value.listValue.values.length > maxSafeValueItems) {
+        _fail('safe list exceeds item limit');
+      }
+      return value.listValue.values.fold<int>(
+        0,
+        (total, child) => total + _validateSafeValue(child, depth + 1),
+      );
+    case SafeValue_Value.objectValue:
+      if (value.objectValue.fields.length > maxSafeValueItems) {
+        _fail('safe object exceeds item limit');
+      }
+      final keys = <String>{};
+      var total = 0;
+      for (final field in value.objectValue.fields) {
+        _validateRequiredShortText('safe object key', field.key);
+        if (!keys.add(field.key) || !field.hasValue()) {
+          _fail('safe object field is invalid');
+        }
+        total += utf8.encode(field.key).length;
+        total += _validateSafeValue(field.value, depth + 1);
+      }
+      return total;
+    case SafeValue_Value.notSet:
+      _fail('safe value must contain a typed value');
+  }
+}
+
+void _validateToolActivity(ToolActivity activity) {
+  _validateIdentifier('activity_id', activity.activityId);
+  _validateIdentifier('activity tool_call_id', activity.toolCallId);
+  _validateRequiredShortText('activity tool_name', activity.toolName);
+  _validatePositiveUint64('activity revision', activity.revision);
+  if (activity.status == ToolActivityStatus.TOOL_ACTIVITY_STATUS_UNSPECIFIED) {
+    _fail('tool activity status is unknown');
+  }
+  if (activity.hasProgressBasisPoints() &&
+      activity.progressBasisPoints > 10000) {
+    _fail('tool activity progress exceeds 10000 basis points');
+  }
+  _requireSafeValue('tool activity details', activity.safeDetails);
+}
+
+void _validateConversationMetrics(ConversationMetrics metrics) {
+  if (!metrics.hasUsage() || !metrics.hasCost()) {
+    _fail('conversation metrics must contain usage and cost');
+  }
+  _validateRequiredShortText('currency_code', metrics.cost.currencyCode);
+  _validateRequiredShortText('decimal_amount', metrics.cost.decimalAmount);
+  if (metrics.hasContext()) {
+    _validatePositiveUint64('context_window', metrics.context.contextWindow);
+    if (metrics.context.hasTokens()) {
+      _validateNonNegativeUint64('context tokens', metrics.context.tokens);
+    }
+  }
+}
+
+void _validateRevisionTransition(
+  Int64 expected,
+  Int64 resulting,
+  String label,
+) {
+  _validatePositiveUint64('$label expected revision', expected);
+  _validatePositiveUint64('$label resulting revision', resulting);
+  if (resulting != expected + Int64.ONE) {
+    _fail('$label revision transition must advance by one');
+  }
+}
+
+void _validateSessionTreeMutationCommand(
+  Int64 requestId,
+  String commandId,
+  String projectId,
+  String sessionId,
+  String expectedAdminRevision,
+) {
+  _validateRequestId(requestId);
+  _validateIdentifier('command_id', commandId);
+  _validateIdentifier('project_id', projectId);
+  _validateIdentifier('session_id', sessionId);
+  _validateIdentifier('expected_admin_revision', expectedAdminRevision);
+}
+
+void _validateSessionTree(SessionTreeSnapshot tree) {
+  _validateIdentifier('session tree session_id', tree.sessionId);
+  _validateIdentifier('session tree admin_revision', tree.adminRevision);
+  if (tree.nodes.length > maxMessagesPerSessionSnapshot) {
+    _fail('session tree entry count exceeds the local hard limit');
+  }
+  final byId = <String, SessionTreeNodeSnapshot>{};
+  for (final node in tree.nodes) {
+    _validateIdentifier('session tree entry_id', node.entryId);
+    if (byId.containsKey(node.entryId)) {
+      _fail('session tree contains a duplicate entry_id');
+    }
+    byId[node.entryId] = node;
+    if (node.parentEntryId.isNotEmpty) {
+      _validateIdentifier('session tree parent_entry_id', node.parentEntryId);
+      if (node.parentEntryId == node.entryId) {
+        _fail('session tree entry cannot parent itself');
+      }
+    }
+    if (node.kind == SessionTreeEntryKind.SESSION_TREE_ENTRY_KIND_UNSPECIFIED) {
+      _fail('session tree entry kind must be specified');
+    }
+    _validateContentText('session tree entry text', node.text, required: false);
+    _validatePositiveUint64(
+      'session tree entry created_at_unix_millis',
+      node.createdAtUnixMillis,
+    );
+    if (node.label.isNotEmpty) {
+      _validateRequiredShortText('session tree entry label', node.label);
+    }
+    final isUser =
+        node.kind == SessionTreeEntryKind.SESSION_TREE_ENTRY_KIND_USER_MESSAGE;
+    if ((node.canEditFromHere || node.canFork) && !isUser) {
+      _fail('only user-message entries can expose edit or fork actions');
+    }
+  }
+
+  final activeIds = <String>{};
+  String? previous;
+  var activeContainsUser = false;
+  for (final entryId in tree.activePathEntryIds) {
+    _validateIdentifier('active path entry_id', entryId);
+    if (!activeIds.add(entryId)) {
+      _fail('active path contains a duplicate entry_id');
+    }
+    final node = byId[entryId];
+    if (node == null) {
+      _fail('active path references an unknown entry_id');
+    }
+    if (previous == null) {
+      if (node.parentEntryId.isNotEmpty &&
+          byId.containsKey(node.parentEntryId)) {
+        _fail('active path must begin at a tree root');
+      }
+    } else if (node.parentEntryId != previous) {
+      _fail('active path parent linkage is not contiguous');
+    }
+    if (!node.isOnActivePath) {
+      _fail('active path entry must be marked active');
+    }
+    activeContainsUser =
+        activeContainsUser ||
+        node.kind == SessionTreeEntryKind.SESSION_TREE_ENTRY_KIND_USER_MESSAGE;
+    previous = entryId;
+  }
+  for (final node in tree.nodes) {
+    if (node.isOnActivePath != activeIds.contains(node.entryId)) {
+      _fail(
+        'session tree active-path flags disagree with active_path_entry_ids',
+      );
+    }
+  }
+  if (tree.activePathEntryIds.isEmpty) {
+    if (tree.activeLeafEntryId.isNotEmpty || tree.canCloneActiveBranch) {
+      _fail('an empty active path cannot expose a leaf or clone action');
+    }
+  } else {
+    _validateIdentifier('active_leaf_entry_id', tree.activeLeafEntryId);
+    if (tree.activeLeafEntryId != tree.activePathEntryIds.last) {
+      _fail('active leaf must be the final active path entry');
+    }
+    if (tree.canCloneActiveBranch && !activeContainsUser) {
+      _fail('a cloneable active branch must contain a user message');
+    }
+  }
+}
+
+void _validateSessionSummary(SessionSummarySnapshot summary) {
+  _validateIdentifier('session_id', summary.sessionId);
+  _validateIdentifier('admin_revision', summary.adminRevision);
+  if (summary.parentSessionId.isNotEmpty) {
+    _validateIdentifier('parent_session_id', summary.parentSessionId);
+    if (summary.parentSessionId == summary.sessionId) {
+      _fail('a session cannot be its own parent');
+    }
+  }
+  _validateRequiredShortText('session title', summary.title);
+  _validatePath('working_directory', summary.workingDirectory);
+  _validatePositiveUint64(
+    'created_at_unix_millis',
+    summary.createdAtUnixMillis,
+  );
+  _validatePositiveUint64(
+    'updated_at_unix_millis',
+    summary.updatedAtUnixMillis,
+  );
+  if (_compareUnsigned(
+        summary.updatedAtUnixMillis,
+        summary.createdAtUnixMillis,
+      ) <
+      0) {
+    _fail('session updated time must not precede its created time');
+  }
+}
+
+void _validateCompletionError(CommandCompletedEvent completed) {
+  if (completed.succeeded) {
+    if (completed.hasError()) {
+      _fail('successful command completion must not contain an error');
+    }
+    return;
+  }
+  _requireStableError(
+    'failed command completion',
+    completed.hasError(),
+    completed.error,
+  );
+}
+
+void _validateStreamClosed(StreamClosedEvent event) {
+  if (event.graceful) {
+    if (event.hasError()) {
+      _fail('graceful stream close must not contain an error');
+    }
+    return;
+  }
+  _requireStableError('ungraceful stream close', event.hasError(), event.error);
+}
+
+void _requireStableError(String label, bool hasError, StableError error) {
+  if (!hasError) {
+    _fail('$label must contain a stable error');
+  }
+  _validateStableError(error);
+}
+
+void _validateStableError(StableError error) {
+  _validateKnownEnum('stable error code', error.code, _knownErrorCodes);
+  _validateTextBytes(
+    'stable error safe_message',
+    error.safeMessage,
+    maxErrorMessageBytes,
+    required: false,
+  );
+  if (error.retryAfterMillis > 0 && !error.retryable) {
+    _fail('retry_after_millis requires retryable=true');
+  }
+}
+
+void _validateDigest(List<int> digest) {
+  if (digest.isNotEmpty && digest.length != sha256Bytes) {
+    _fail('sha256 must be empty or exactly 32 bytes');
+  }
+}
+
+void _validateRequiredDigest(List<int> digest) {
+  _validateDigest(digest);
+  if (digest.length != sha256Bytes) {
+    _fail('sha256 must contain exactly 32 bytes');
+  }
+}
+
+void _validateBoundedUint32(
+  String label,
+  int value,
+  int maximum, {
+  required bool allowZero,
+}) {
+  if (value < (allowZero ? 0 : 1) || value > maximum) {
+    _fail('$label is outside the local uint32 limit');
+  }
+}
+
+void _validateRequestId(Int64 value) {
+  _validatePositiveUint64('request_id', value);
+}
+
+void _validateNonNegativeUint64(String label, Int64 value) {
+  if (value.isNegative) {
+    _fail('$label must be a non-negative uint64');
+  }
+}
+
+void _validatePositiveUint64(String label, Int64 value) {
+  if (value.isZero) {
+    _fail('$label must be a non-zero uint64');
+  }
+}
+
+int _compareUnsigned(Int64 left, Int64 right) {
+  if (left.isNegative != right.isNegative) {
+    return left.isNegative ? 1 : -1;
+  }
+  return left.compareTo(right);
+}
+
+void _validateOptionalIdentifier(String label, String value) {
+  if (value.isNotEmpty) _validateIdentifier(label, value);
+}
+
+void _validateIdentifier(String label, String value) {
+  final length = utf8.encode(value).length;
+  if (length == 0 ||
+      length > maxIdentifierBytes ||
+      value.trim() != value ||
+      _containsForbiddenControl(value)) {
+    _fail('$label is outside the local identifier limit');
+  }
+}
+
+void _validatePath(String label, String value) {
+  final length = utf8.encode(value).length;
+  if (length == 0 ||
+      length > maxPathBytes ||
+      value.trim() != value ||
+      _containsForbiddenControl(value)) {
+    _fail('$label is outside the local path limit');
+  }
+}
+
+void _validateRequiredShortText(String label, String value) {
+  _validateShortText(label, value, required: true);
+}
+
+void _validateShortText(String label, String value, {required bool required}) {
+  _validateTextBytes(label, value, maxShortTextBytes, required: required);
+}
+
+void _validateContentText(
+  String label,
+  String value, {
+  required bool required,
+}) {
+  _validateTextBytes(label, value, maxContentTextBytes, required: required);
+}
+
+void _validateTextBytes(
+  String label,
+  String value,
+  int maximum, {
+  required bool required,
+}) {
+  final length = utf8.encode(value).length;
+  if ((required && value.trim().isEmpty) ||
+      length > maximum ||
+      value.contains('\u0000')) {
+    _fail('$label is outside the local text limit');
+  }
+}
+
+void _validateNonNegativeNumber(String label, double value) {
+  if (!value.isFinite || value < 0) {
+    _fail('$label must be a finite non-negative number');
+  }
+}
+
+void _validateSemanticVersion(String label, String value) {
+  _validateRequiredShortText(label, value);
+  if (!_semanticVersionPattern.hasMatch(value)) {
+    _fail('$label must be a SemVer 2.0.0 version');
+  }
+}
+
+void _validateKnownEnum<T>(String label, T value, Set<T> known) {
+  if (!known.contains(value)) {
+    _fail('$label must contain a known non-zero enum value');
+  }
+}
+
+bool _containsForbiddenControl(String value) =>
+    value.codeUnits.any((unit) => unit <= 0x1f || unit == 0x7f);
+
+void _validateFrameByteLength(int length) {
+  if (length <= 0) {
+    _fail('transport frame must contain at least one byte');
+  }
+  if (length > maxFrameBytes) {
+    _fail('transport frame exceeds $maxFrameBytes bytes');
+  }
+}
+
+Never _fail(String message) {
+  throw FrameValidationException(message);
+}

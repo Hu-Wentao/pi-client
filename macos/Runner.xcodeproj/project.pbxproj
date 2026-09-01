@@ -241,6 +241,7 @@
 				33CC110E2044A8840003C045 /* Bundle Framework */,
 				3399D490228B24CF009A79C7 /* ShellScript */,
 				B768989DD1AEDE96F2399CF0 /* [CP] Embed Pods Frameworks */,
+				F1A9C4102D7C4C9800C0DE01 /* Install Pi Node Runtime Capsule */,
 			);
 			buildRules = (
 			);
@@ -273,7 +274,7 @@
 						ProvisioningStyle = Automatic;
 						SystemCapabilities = {
 							com.apple.Sandbox = {
-								enabled = 1;
+								enabled = 0;
 							};
 						};
 					};
@@ -420,6 +421,26 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		F1A9C4102D7C4C9800C0DE01 /* Install Pi Node Runtime Capsule */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Install Pi Node Runtime Capsule";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "APP_BUNDLE=\"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\"\nCAPSULE_DESTINATION=\"${APP_BUNDLE}/Contents/Resources/PiNode\"\nif [ -z \"${PI_CLIENT_RUNTIME_CAPSULE_PATH:-}\" ]; then\n  if [ -e \"${CAPSULE_DESTINATION}\" ]; then\n    /bin/chmod -R u+w \"${CAPSULE_DESTINATION}\" 2>/dev/null || true\n    /bin/rm -rf \"${CAPSULE_DESTINATION}\"\n  fi\n  echo \"Pi Node runtime capsule not requested; built app remains capsule-free.\"\n  exit 0\nfi\nNODE_EXECUTABLE=\"$(command -v node || true)\"\nif [ -z \"${NODE_EXECUTABLE}\" ]; then\n  echo \"error: Node.js is required only when PI_CLIENT_RUNTIME_CAPSULE_PATH is set.\" >&2\n  exit 1\nfi\nif [ -n \"${PI_CLIENT_RUNTIME_CAPSULE_EXPECTED_SOURCE_COMMIT:-}\" ]; then\n  \"${NODE_EXECUTABLE}\" \"${SRCROOT}/../node/scripts/install-runtime-capsule-in-macos-app.mjs\" --app \"${APP_BUNDLE}\" --capsule \"${PI_CLIENT_RUNTIME_CAPSULE_PATH}\" --expected-source-commit \"${PI_CLIENT_RUNTIME_CAPSULE_EXPECTED_SOURCE_COMMIT}\"\nelse\n  \"${NODE_EXECUTABLE}\" \"${SRCROOT}/../node/scripts/install-runtime-capsule-in-macos-app.mjs\" --app \"${APP_BUNDLE}\" --capsule \"${PI_CLIENT_RUNTIME_CAPSULE_PATH}\"\nfi\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
