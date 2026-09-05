@@ -79,6 +79,39 @@ test('CI combines Flutter, Protocol, Pi Node, release, site, WASM, connect-only,
   assert.ok(source.includes('concurrency:'));
 });
 
+test('macOS Debug uses an isolated PiClientDev identity while Release keeps Pi Client', async () => {
+  const project = await readFile(
+    resolve(repositoryRoot, 'macos/Runner.xcodeproj/project.pbxproj'),
+    'utf8',
+  );
+  const debugTarget = project.match(
+    /33CC10FC2044A3C60003C045 \/\* Debug \*\/[\s\S]*?\n\t\t};\n\t\t33CC10FD/,
+  )?.[0];
+  const debugTests = project.match(
+    /331C80DB294CF71000263BE5 \/\* Debug \*\/[\s\S]*?\n\t\t};\n\t\t331C80DC/,
+  )?.[0];
+  const appInfo = await readFile(
+    resolve(repositoryRoot, 'macos/Runner/Configs/AppInfo.xcconfig'),
+    'utf8',
+  );
+  assert.ok(debugTarget, 'macOS Debug target configuration must exist');
+  assert.ok(debugTests, 'macOS Debug test configuration must exist');
+  assert.match(debugTarget, /PRODUCT_NAME = PiClientDev;/);
+  assert.match(
+    debugTarget,
+    /PRODUCT_BUNDLE_IDENTIFIER = io\.github\.huwentao\.piClient\.dev;/,
+  );
+  assert.match(
+    debugTests,
+    /TEST_HOST = "\$\(BUILT_PRODUCTS_DIR\)\/PiClientDev\.app\/\$\(BUNDLE_EXECUTABLE_FOLDER_PATH\)\/PiClientDev";/,
+  );
+  assert.match(appInfo, /PRODUCT_NAME = Pi Client\n/);
+  assert.match(appInfo, /PRODUCT_BUNDLE_IDENTIFIER = io\.github\.huwentao\.piClient\n/);
+  assert.ok(!appInfo.includes('PiClientDev'));
+  const ci = await workflow('ci.yml');
+  assert.ok(ci.includes("APP='build/macos/Build/Products/Debug/PiClientDev.app'"));
+});
+
 test('connect-only scan keeps the external-terminal desktop process boundary out of Web', async () => {
   const source = await readFile(
     resolve(repositoryRoot, '.github/scripts/assert-connect-only-artifact.mjs'),
