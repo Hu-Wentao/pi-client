@@ -201,7 +201,7 @@ jobs:
       - name: Build macOS debug app without a downloaded runtime Capsule
         run: |
           fvm flutter build macos --debug --no-pub
-          APP='build/macos/Build/Products/Debug/Pi Client.app'
+          APP='build/macos/Build/Products/Debug/PiClientDev.app'
           test -d "$APP"
           test ! -e "$APP/Contents/Resources/PiNode"
           node .github/scripts/assert-no-runtime-capsule.mjs "$APP"

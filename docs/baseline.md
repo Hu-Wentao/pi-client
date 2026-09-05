@@ -56,6 +56,7 @@ Default review level: L6.
 - One Flutter project targets Android, iOS, macOS, Windows, Linux, and Web.
 - Flutter `3.41.6` is fixed by `.fvmrc`; platform directories and `.metadata` must remain aligned with that toolchain.
 - macOS remains at 11.0 or newer and keeps a native title bar with a 1280 × 820 default content viewport and 900 × 640 minimum.
+- macOS Release/Profile retain the public `Pi Client` identity (`io.github.huwentao.piClient`); macOS Debug uses `PiClientDev` with `io.github.huwentao.piClient.dev` so local development is distinct from the installed public app.
 - iOS requires 15.0 or newer because the pinned ObjectBox Flutter library does not support the Flutter template's iOS 13.0 target.
 - Android delegates its minimum SDK to the pinned Flutter toolchain; other minimum platform versions remain owned by generated platform configuration and require an explicit compatibility decision before they change.
 - Project versioning starts at `0.0.1`; public compatibility surfaces remain unstable during `0.x`.

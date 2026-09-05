@@ -108,13 +108,13 @@ fvm flutter run -d DEVICE_ID \
   --dart-define=PI_CLIENT_DEVELOPMENT_AGENT_DIR="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
 ```
 
-Replace `DEVICE_ID` with a desktop device from this command:
+On macOS, the Debug build is named `PiClientDev.app` with Bundle ID `io.github.huwentao.piClient.dev`, so it is separate from the Homebrew `Pi Client.app`. Replace `DEVICE_ID` with a desktop device from this command:
 
 ```bash
 fvm flutter devices
 ```
 
-Release builds reject the development fallback. Packaged desktop applications must contain a compatible, integrity-verified runtime Capsule.
+Use `fvm flutter run -d macos` to launch the Debug app; do not use `open -a "Pi Client"`, which may select the installed Homebrew app. Release builds reject the development fallback. Packaged desktop applications must contain a compatible, integrity-verified runtime Capsule.
 
 ## Run the checks
 
