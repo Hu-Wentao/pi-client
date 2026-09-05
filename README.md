@@ -39,6 +39,25 @@ The first-party architecture is implemented in source, but it is not yet a suppo
 
 Friday Workspace, native authentication, end-to-end encrypted remote transport, full remote-client connectivity, and the remaining `1.0.0` feature set are still planned or incomplete. Local Direct remains independent of Friday services.
 
+## Install the public macOS Preview
+
+The public `v0.0.3` unsigned cross-platform Preview can be installed on macOS 11 or newer with Homebrew:
+
+```bash
+brew install --cask hu-wentao/tap/pi-client
+```
+
+Homebrew installs `Pi Client.app` into `/Applications`. This Preview is unsigned and not notarized. Homebrew preserves macOS quarantine, so Gatekeeper will reject a normal first launch. In Finder, Control-click `Pi Client.app`, choose **Open**, and confirm **Open**. Do not use `--no-quarantine`, remove quarantine metadata, or disable Gatekeeper.
+
+The Preview uses the transitional pi-web compatibility boundary and does not include the planned first-party Pi host runtime and transport. It is an evaluation artifact separate from the current `0.1.0+3` development source. See the matching [GitHub Release](https://github.com/Hu-Wentao/pi-client/releases/tag/v0.0.3) for release assets and checksums.
+
+Upgrade or uninstall through the same Tap:
+
+```bash
+brew upgrade --cask hu-wentao/tap/pi-client
+brew uninstall --cask hu-wentao/tap/pi-client
+```
+
 ## Set up the repository
 
 Install these prerequisites:
