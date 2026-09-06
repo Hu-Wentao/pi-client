@@ -18,6 +18,14 @@ const releaseContract = await loadReleaseContract(undefined, {
   requirePublication: options.channel === "stable",
 });
 if (
+  options.channel === "stable" &&
+  releaseContract.distribution !== "independent-stable"
+) {
+  throw new Error(
+    "Stable desktop metadata requires an independent-stable publication profile.",
+  );
+}
+if (
   releaseContract.version !== version ||
   releaseContract.buildNumber !== buildNumber
 ) {

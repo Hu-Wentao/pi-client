@@ -20,7 +20,7 @@ The platform roles and current connectivity are intentionally different:
 
 | Platform | Product role | Current source connectivity |
 | --- | --- | --- |
-| macOS, Windows, Linux | Agent-host-capable client | Local Direct source is implemented; supported packaging and release qualification are incomplete |
+| macOS, Windows, Linux | Agent-host-capable client | Local Direct source is implemented; macOS has a public ad-hoc Preview, while broader supported packaging remains in qualification |
 | Android, iOS, Web | Remote client only | Remote transport is not implemented |
 
 Android, iOS, and Web must not embed the Pi SDK, launch an Agent runtime, expose host tools, or obtain host filesystem authority.
@@ -35,21 +35,21 @@ The current source includes:
 - Workspace behavior for project trust, session discovery and administration, paged history, branching, export, prompts, ordered events, and cancellation.
 - Focused Dart, TypeScript, cross-language protocol, cross-process, runtime Capsule, and platform-role tests.
 
-The first-party architecture is implemented in source, but it is not yet a supported public release. The current repository version, `0.1.0+3`, is an unpublished development identity with publication disabled. The public `v0.0.2` prerelease predates this architecture and remains historical release evidence only. Do not use that artifact to infer the current source setup or runtime design.
+The first-party architecture is implemented in source. The current repository version, `0.1.0+3`, is published as an independent macOS Preview with a bundled first-party Runtime Capsule; it is not a supported stable release. The public `v0.0.2` and transitional `v0.0.3` artifacts predate this architecture and remain historical release evidence only. Do not use those artifacts to infer the current source setup or runtime design.
 
 Friday Workspace, native authentication, end-to-end encrypted remote transport, full remote-client connectivity, and the remaining `1.0.0` feature set are still planned or incomplete. Local Direct remains independent of Friday services.
 
 ## Install the public macOS Preview
 
-The public `v0.0.3` unsigned cross-platform Preview can be installed on macOS 11 or newer with Homebrew:
+The current `0.1.0` build `3` Preview can be installed on macOS 11 or newer with the official Homebrew Tap:
 
 ```bash
 brew install --cask hu-wentao/tap/pi-client
 ```
 
-Homebrew installs `Pi Client.app` into `/Applications`. This Preview is unsigned and not notarized. Homebrew preserves macOS quarantine, so Gatekeeper will reject a normal first launch. In Finder, Control-click `Pi Client.app`, choose **Open**, and confirm **Open**. Do not use `--no-quarantine`, remove quarantine metadata, or disable Gatekeeper.
+Homebrew installs `Pi Client.app` into `/Applications`. This Preview is ad-hoc signed and not notarized. Homebrew preserves macOS quarantine, so Gatekeeper may reject a normal first launch. In Finder, Control-click `Pi Client.app`, choose **Open**, and confirm **Open**. Do not use `--no-quarantine`, remove quarantine metadata, or disable Gatekeeper.
 
-The Preview uses the transitional pi-web compatibility boundary and does not include the planned first-party Pi host runtime and transport. It is an evaluation artifact separate from the current `0.1.0+3` development source. See the matching [GitHub Release](https://github.com/Hu-Wentao/pi-client/releases/tag/v0.0.3) for release assets and checksums.
+The Preview bundles the first-party Pi Node Runtime Capsule and uses the project-owned Local Direct path. See the matching [GitHub Release](https://github.com/Hu-Wentao/pi-client/releases/tag/v0.1.0) for release assets and checksums. The Homebrew command remains stable as the Tap advances to later Preview releases.
 
 Upgrade or uninstall through the same Tap:
 
@@ -164,18 +164,19 @@ These ordinary Flutter build commands do not qualify a release or prove that a r
 
 ## Development artifact qualification
 
-The active `independent-six-platform-development-v1` profile qualifies source evidence only:
+The active `independent-first-party-preview-v1` profile publishes Preview evidence only:
 
-- macOS, Windows, and Linux candidates must package and verify the first-party Runtime Capsule;
-- Android, iOS, JavaScript Web, and WebAssembly candidates must remain connect-only;
+- macOS, Windows, and Linux artifacts must package and verify the first-party Runtime Capsule;
+- the macOS Homebrew artifact must be Universal and ad-hoc signed;
+- Android, iOS, JavaScript Web, and WebAssembly artifacts must remain connect-only;
 - aggregate manifests and checksums bind artifacts to an exact source commit; and
-- publication, release-bound Pages deployment, and Homebrew generation fail closed for the current profile.
+- the release workflow updates the Homebrew Cask only after the exact public Release is verified.
 
-There is no supported `0.1.0` download or Homebrew installation command. Creating or changing tags, GitHub Releases, Pages release deployments, or Tap contents requires a separate explicit authorization and a publication-enabled release contract.
+This is a public Preview, not a supported stable release. Future Preview releases use the same stable Homebrew command and update the Tap Cask version, archive URL, and checksum from the exact published asset. The publish workflow requires a dedicated `HOMEBREW_TAP_TOKEN` with write access to `Hu-Wentao/homebrew-tap`; never commit that credential.
 
 ## Landing Page
 
-The source-only product site lives in `site/` and uses `https://pi.wyattcoder.top/` as its canonical production identity. Validate it with:
+The product site lives in `site/` and uses `https://pi.wyattcoder.top/` as its canonical production identity. Ordinary main builds remain source-only; the exact release-bound Pages build exposes the verified Homebrew Preview entry. Validate it with:
 
 ```bash
 (
@@ -204,7 +205,7 @@ Do not commit credentials, local sessions, provider data, signing material, priv
 
 The current source does not yet provide:
 
-- A supported independent public release.
+- A supported stable independent release; the public macOS build is an evaluation Preview.
 - A frozen public protocol version or complete reconnect and replay behavior.
 - Production acceptance evidence for provider-backed prompt, cancellation, restart, and recovery flows.
 - Complete LAN or Friday Workspace transport, pairing, authentication, or end-to-end encryption.

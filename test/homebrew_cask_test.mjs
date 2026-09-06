@@ -15,8 +15,9 @@ const commit = '0123456789abcdef0123456789abcdef01234567';
 const futureMetadata = Object.freeze({
   version: '0.2.0',
   tag: 'v0.2.0',
-  asset: 'Pi-Client-0.2.0-macOS-universal.zip',
+  asset: 'Pi-Client-0.2.0-macOS-universal-ad-hoc-preview.zip',
   publicationEnabled: true,
+  distribution: 'independent-public-preview',
   artifacts: [
     {
       id: 'macos-universal',
@@ -24,7 +25,7 @@ const futureMetadata = Object.freeze({
       architecture: 'universal',
       extension: 'zip',
       hostRuntimeIncluded: true,
-      file: 'Pi-Client-0.2.0-macOS-universal.zip',
+      file: 'Pi-Client-0.2.0-macOS-universal-ad-hoc-preview.zip',
     },
   ],
 });
@@ -36,17 +37,21 @@ const evidence = Object.freeze({
   published: true,
 });
 
-test('Homebrew tooling is dormant for the unpublished development profile', async () => {
+test('Homebrew tooling renders the active public Preview Cask from exact evidence', async () => {
   const metadata = await loadReleaseContract();
-  assert.equal(metadata.publicationEnabled, false);
-  await assert.rejects(
-    () => activeHomebrewCask(digest, evidence),
-    /publication-disabled/,
-  );
-  assert.throws(
-    () => renderHomebrewCask(metadata, digest, evidence),
-    /dormant|publication-disabled/,
-  );
+  assert.equal(metadata.publicationEnabled, true);
+  const activeEvidence = {
+    tag: metadata.tag,
+    asset: metadata.asset,
+    sha256: digest,
+    commit,
+    published: true,
+  };
+  const source = await activeHomebrewCask(digest, activeEvidence);
+  assert.match(source, /version "0\.1\.0"/);
+  assert.match(source, /macOS-universal-ad-hoc-preview\.zip/);
+  assert.match(source, /first-party Pi Node runtime/);
+  assert.match(source, /ad-hoc signed and not notarized/);
 });
 
 test('future Cask rendering requires exact qualified published Release evidence', () => {
@@ -56,6 +61,7 @@ test('future Cask rendering requires exact qualified published Release evidence'
   assert.match(source, new RegExp(`sha256 "${digest}"`));
   assert.match(source, /releases\/download\/v#\{version\}/);
   assert.match(source, /first-party Pi Node runtime/);
+  assert.match(source, /ad-hoc signed and not notarized/);
   assert.match(source, /never disables Gatekeeper/);
   assert.ok(!source.includes('pi-web'));
   assert.ok(!source.includes('--no-quarantine'));
@@ -86,5 +92,9 @@ test('Homebrew Cask rejects placeholder digests, unqualified bytes, and wrong id
   assert.throws(
     () => renderHomebrewCask({ ...futureMetadata, publicationEnabled: false }, digest, evidence),
     /dormant/,
+  );
+  assert.throws(
+    () => renderHomebrewCask({ ...futureMetadata, artifacts: [] }, digest, evidence),
+    /macos-universal/,
   );
 });

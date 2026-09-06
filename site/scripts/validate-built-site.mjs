@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 const siteRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const dist = resolve(siteRoot, 'dist');
+const showHomebrew = process.env.PUBLIC_HOMEBREW_PREVIEW_ENABLED === 'true';
 const pages = [
   {
     path: resolve(dist, 'index.html'),
@@ -38,6 +39,13 @@ for (const page of pages) {
       platform,
       `${platform} platform target`,
     ]),
+    ...(showHomebrew
+      ? [
+          ['brew install --cask hu-wentao/tap/pi-client', 'Homebrew installation command'],
+          ['macOS Preview', 'Homebrew Preview section'],
+          ['Gatekeeper', 'macOS trust guidance'],
+        ]
+      : []),
   ];
   for (const [needle, label] of assertions) {
     if (!html.includes(needle)) {
@@ -47,7 +55,7 @@ for (const page of pages) {
 
   const forbidden = [
     ['releases/download/', 'unpublished download URL'],
-    ['brew install --cask', 'Homebrew installation flow'],
+    ...(showHomebrew ? [] : [['brew install --cask', 'Homebrew installation flow']]),
     ['v0.1.0', 'unpublished development version'],
     ['v0.0.3', 'unpublished abandoned Preview version'],
     ['pi-web', 'legacy runtime name'],

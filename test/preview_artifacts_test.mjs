@@ -24,7 +24,7 @@ import {
   verifyArtifacts,
 } from '../tool/preview_artifacts.mjs';
 
-const profileId = 'independent-six-platform-development-v1';
+const profileId = 'independent-first-party-preview-v1';
 const version = '0.1.0';
 const commit = '0123456789abcdef0123456789abcdef01234567';
 const flutterVersion = '3.41.6';
@@ -171,7 +171,7 @@ test('assembly creates deterministic mixed-role manifest and exact checksums', a
     commit,
     flutterVersion,
   });
-  assert.equal(manifest.distribution, 'independent-development-candidate');
+  assert.equal(manifest.distribution, 'independent-public-preview');
   assert.equal(manifest.artifacts.length, 9);
   assert.ok(
     manifest.artifacts

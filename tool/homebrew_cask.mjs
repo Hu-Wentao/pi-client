@@ -61,6 +61,9 @@ export function renderHomebrewCask(metadata, sha256, evidence) {
   const artifact = macosArtifact(metadata);
   assertQualifiedRelease(metadata, sha256, evidence);
   const versionedFile = artifact.file.replace(metadata.version, '#{version}');
+  const trustNotice = metadata.distribution === 'independent-public-preview'
+    ? 'This public Preview is ad-hoc signed and not notarized. Homebrew preserves macOS quarantine metadata and never disables Gatekeeper.'
+    : 'Follow the release notes for its signing and notarization status. Homebrew preserves macOS quarantine metadata and never disables Gatekeeper.';
   return `cask "${homebrewCask}" do
   version "${metadata.version}"
   sha256 "${sha256}"
@@ -76,8 +79,7 @@ export function renderHomebrewCask(metadata, sha256, evidence) {
 
   caveats <<~EOS
     This exact Pi Client release includes the first-party Pi Node runtime.
-    Follow the release notes for its signing and notarization status. Homebrew
-    preserves macOS quarantine metadata and never disables Gatekeeper.
+    ${trustNotice}
   EOS
 end
 `;

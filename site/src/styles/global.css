@@ -528,6 +528,64 @@
     margin-top: 24px;
   }
 
+  .install-section {
+    background:
+      radial-gradient(circle at 78% 50%, rgba(98, 214, 209, 0.1), transparent 30rem),
+      #0b0c1d;
+    border-bottom: 1px solid rgba(180, 184, 255, 0.1);
+  }
+
+  .install-layout {
+    align-items: center;
+    display: grid;
+    gap: 72px;
+    grid-template-columns: minmax(0, 0.78fr) minmax(420px, 1.22fr);
+  }
+
+  .install-panel {
+    background: rgba(19, 20, 45, 0.86);
+    border: 1px solid var(--border-strong);
+    border-radius: 22px;
+    box-shadow: var(--shadow);
+    padding: 28px;
+  }
+
+  .install-label {
+    color: var(--accent-light);
+    font-size: 0.78rem;
+    font-weight: 720;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .install-command {
+    background: #070812;
+    border: 1px solid rgba(98, 214, 209, 0.28);
+    border-radius: 12px;
+    margin-top: 14px;
+    overflow-x: auto;
+    padding: 17px 18px;
+  }
+
+  .install-command code {
+    color: #e8fff9;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.92rem;
+    white-space: nowrap;
+  }
+
+  .install-platform {
+    color: var(--text);
+    font-size: 0.86rem;
+    font-weight: 650;
+    margin-top: 16px;
+  }
+
+  .install-note {
+    font-size: 0.88rem;
+    margin-top: 9px;
+  }
+
   .status-section {
     background: #0d0e20;
     border-bottom: 1px solid rgba(180, 184, 255, 0.1);
@@ -699,7 +757,8 @@
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .roles-layout {
+  .roles-layout,
+  .install-layout {
     gap: 54px;
     grid-template-columns: 1fr;
   }

@@ -215,31 +215,31 @@ mdq:
 
 - Status: PASS
 - Requirements: REQ-PI-005, REQ-PI-006, REQ-PI-034, REQ-PI-035
-- Evidence: `release/release.json`, `tool/release_contract.mjs`, `tool/release_metadata.mjs`, `tool/preview_artifacts.mjs`, `tool/homebrew_cask.mjs`, `.gitattributes`, `dart_test.yaml`, `.github/workflows/ci.yml`, `.github/workflows/release-preview.yml`, `.github/workflows/release-desktop-candidates.yml`, and their Node test suites prove the `0.1.0+3` publication-disabled Profile, truthful desktop Capsule inclusion, mobile/Web connect-only roles, deterministic manifest/checksum behavior, exact recovery policy, dormant Homebrew, stable desktop signing denial, macOS-only Golden execution, Windows `<version>+<build>` file identity, and LF-preserved strict Release inputs.
-- Scope: This is source and local policy/tooling evidence. It does not claim a remote qualification run, public Release, installable `0.1.0`, or production acceptance.
+- Evidence: `release/release.json`, `tool/release_contract.mjs`, `tool/release_metadata.mjs`, `tool/preview_artifacts.mjs`, `tool/homebrew_cask.mjs`, `tool/homebrew_tap.mjs`, `.gitattributes`, `dart_test.yaml`, `.github/workflows/ci.yml`, `.github/workflows/release-preview.yml`, `.github/workflows/release-desktop-candidates.yml`, and their Node test suites prove the `0.1.0+3` first-party publication-enabled Preview Profile, truthful desktop Capsule inclusion, Universal macOS target, mobile/Web connect-only roles, deterministic manifest/checksum behavior, exact recovery policy, Tap update idempotence, stable desktop signing denial, macOS-only Golden execution, Windows `<version>+<build>` file identity, and LF-preserved strict Release inputs.
+- Scope: This is source and local policy/tooling evidence. It does not claim a remote qualification run, public Release, Tap mutation, installable `0.1.0`, or production acceptance.
 
 ## VER-PI-024 - Native six-platform qualification and publication recovery
 
 - Status: PLANNED
 - Requirements: REQ-PI-035
 - Owner: GitHub Actions native runners, aggregate artifact verifier, Release readback, and Pages release-dispatch evidence
-- Planned evidence: One exact commit produces all nine application artifacts and manifest/checksums; desktop candidates pass Capsule verification and E2E; mobile/Web pass connect-only scans; retry uses the original qualification run; any future publication uses an annotated Tag, Draft-first readback, no overwrite, and publish-last.
-- Gap: Current Profile intentionally denies publication, and no new remote qualification or public Release is authorized by this merge.
+- Planned evidence: One exact commit produces all nine Preview application artifacts and manifest/checksums; desktop candidates pass Capsule verification and E2E; macOS is Universal; mobile/Web pass connect-only scans; retry uses the original qualification run; publication uses an annotated Tag, Draft-first readback, no overwrite, publish-last, Tap Cask readback, and a clean Homebrew smoke.
+- Gap: The local Preview contract and workflow are implemented, but no remote `v0.1.0` qualification, public Release, Tap update, Homebrew installation, or release-bound Pages deployment is evidenced by this source change.
 
 ## VER-PI-025 - Independent Landing Page source and production identity
 
 - Status: PASS
 - Requirements: REQ-PI-036
-- Evidence: Astro build and `site/scripts/validate-built-site.mjs` validate source output; Pages governance preserves canonical `pi.wyattcoder.top`; the existing production evidence for the imported `main` Landing Page confirms status `200`, title `Pi Client | A Flutter UI for Pi`, canonical URL, expected independent-product copy, and absence of legacy runtime identity, downloads, Homebrew commands, unpublished versions, stale workspace screenshots, and secret markers.
-- Scope: Passing source and endpoint evidence proves the current source-only product page, not a binary release.
+- Evidence: Astro build and `site/scripts/validate-built-site.mjs` validate both ordinary source-only output and the release-bound Homebrew Preview output; Pages governance preserves canonical `pi.wyattcoder.top`; the current production endpoint remains the source-only variant until the exact public Preview Release is deployed.
+- Scope: Local site evidence proves the conditional Homebrew section and its trust notice, not a remote binary release or production installation.
 
 ## VER-PI-026 - Homebrew public installation
 
 - Status: PLANNED
 - Requirements: REQ-PI-037
-- Owner: future publication-enabled Release, public Tap repository, fresh Homebrew client, and exact asset readback
-- Planned evidence: Generate Cask from explicit Tag/commit/asset/SHA-256 evidence, commit the authorized Tap change, install the exact Universal runtime-bearing asset, verify version, launch and Capsule behavior, and confirm no Gatekeeper bypass.
-- Gap: Current development Profile is publication-disabled and no Homebrew publication is authorized; source tests prove only dormant fail-closed behavior. Historical `v0.0.3` evidence in `VER-PI-028` does not satisfy this first-party Runtime Capsule requirement.
+- Owner: the `independent-first-party-preview-v1` Release workflow, authorized public Tap repository, fresh Homebrew client, and exact asset readback
+- Planned evidence: Generate Cask from explicit Tag/commit/asset/SHA-256 evidence, update and read back the authorized Tap change, install the exact Universal runtime-bearing asset, verify version, architecture, Runtime Capsule, quarantine, Gatekeeper behavior, and uninstall.
+- Gap: Local source tests prove the fail-closed evidence contract and deterministic Tap update, but the public `v0.1.0` Release, Tap commit, clean Homebrew install, and production Pages deployment remain outstanding. Historical `v0.0.3` evidence in `VER-PI-028` does not satisfy this first-party Runtime Capsule requirement.
 
 ## VER-PI-027 - Historical v0.0.3 six-platform Preview delivery
 
@@ -272,3 +272,11 @@ mdq:
 - Owner: future Protocol 1.x conformance, Pi Node Shell/PTY integration, Local Direct and Friday Transport E2E, mobile/Web remote-client tests, desktop native-runner tests, Extension terminal fixtures, adversarial security suites, and connect-only artifact scans
 - Planned evidence: Verify project-scoped command and PTY admission, cwd/environment policy, stdout/stderr or terminal frames, input, resize, backpressure, reconnect/resume, writer lease, timeout, cancellation, process-tree termination, Windows Shell profiles, arbitrary Extension terminal UI, remote grants, replay rejection, E2EE opacity, and absence of local Shell/PTY host code from Android/iOS/Web.
 - Gap: `1.0` deliberately contains no Shell request/event/stream, built-in executor, PTY, output capture, remote Shell, mobile/Web Shell, Windows Shell setting, or custom Extension terminal bridge. Implementation begins only under `PLAN-PI-008` after `1.0.0`.
+
+## VER-PI-031 - Automatic Homebrew Cask synchronization
+
+- Status: PLANNED
+- Requirements: REQ-PI-037
+- Owner: public Preview publish workflow, `HOMEBREW_TAP_TOKEN`, `Hu-Wentao/homebrew-tap`, Cask readback, and macOS Homebrew smoke runner
+- Planned evidence: A public Preview publish binds one annotated Tag, exact commit, exact macOS Universal asset, and real SHA-256; the workflow updates only `Casks/pi-client.rb`, reads back identical bytes, installs the Cask on a clean macOS runner, verifies app version/build, both architectures, the first-party Runtime Capsule, quarantine, Gatekeeper behavior, and uninstall; later Preview releases repeat the same path with a new Cask version and checksum.
+- Gap: The local deterministic generator, Tap updater, release workflow, and page gate are implemented, but no remote `v0.1.0` publish, Tap mutation, or fresh-client evidence has been completed.

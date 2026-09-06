@@ -13,6 +13,7 @@ type Role = {
   platforms: string;
   badge: string;
   description: string;
+  publicDescription: string;
 };
 
 export type LandingCopy = {
@@ -30,6 +31,7 @@ export type LandingCopy = {
   nav: {
     product: string;
     platforms: string;
+    install: string;
     status: string;
     github: string;
   };
@@ -41,6 +43,7 @@ export type LandingCopy = {
     primary: string;
     secondary: string;
     note: string;
+    publicNote: string;
     platformLabel: string;
   };
   principles: {
@@ -56,14 +59,26 @@ export type LandingCopy = {
     desktop: Role;
     connectOnly: Role;
     note: string;
+    publicNote: string;
+  };
+  homebrew: {
+    eyebrow: string;
+    title: string;
+    description: string;
+    commandLabel: string;
+    command: string;
+    platform: string;
+    note: string;
   };
   status: {
     eyebrow: string;
     title: string;
     description: string;
     items: string[];
+    publicItems: string[];
     noticeTitle: string;
     noticeBody: string;
+    publicNoticeBody: string;
   };
   closing: {
     title: string;
@@ -98,6 +113,7 @@ export const copy: Record<Locale, LandingCopy> = {
     nav: {
       product: 'Product',
       platforms: 'Platforms',
+      install: 'Install',
       status: 'Status',
       github: 'GitHub',
     },
@@ -110,6 +126,7 @@ export const copy: Record<Locale, LandingCopy> = {
       primary: 'Explore the source',
       secondary: 'Contribute',
       note: 'First-party Local Direct is implemented in source; supported public distribution is still under active development.',
+      publicNote: 'The current macOS Preview is available through Homebrew; other platform distributions remain under active development.',
       platformLabel: 'Supported project targets',
     },
     principles: {
@@ -155,6 +172,8 @@ export const copy: Record<Locale, LandingCopy> = {
         badge: 'Host-capable by contract',
         description:
           'Desktop source builds support first-party Local Direct and verified runtime Capsules. Supported public packages are still being qualified.',
+        publicDescription:
+          'The public macOS Preview is distributed through Homebrew with the first-party Runtime Capsule; Windows and Linux Preview packages remain in qualification.',
       },
       connectOnly: {
         title: 'Connect-only clients',
@@ -162,9 +181,24 @@ export const copy: Record<Locale, LandingCopy> = {
         badge: 'Connect-only',
         description:
           'Mobile and Web targets connect without embedding the Agent runtime or receiving host filesystem and tool-execution authority.',
+        publicDescription:
+          'Mobile and Web targets connect without embedding the Agent runtime or receiving host filesystem and tool-execution authority.',
       },
       note:
         'First-party host runtime Capsules are verified in source and candidate workflows, but no supported public package is currently promoted.',
+      publicNote:
+        'The public macOS Preview includes the first-party Host runtime Capsule; Android, iOS, and Web retain their connect-only boundary.',
+    },
+    homebrew: {
+      eyebrow: 'macOS Preview',
+      title: 'Install the current Preview with Homebrew.',
+      description:
+        'The official Pi Client Tap tracks the latest exact public macOS Preview. The command stays stable as the Tap advances.',
+      commandLabel: 'Install with Homebrew',
+      command: 'brew install --cask hu-wentao/tap/pi-client',
+      platform: 'macOS 11 or newer',
+      note:
+        'This Preview is ad-hoc signed and not notarized. Homebrew preserves macOS quarantine; if Gatekeeper blocks the first launch, Control-click Pi Client.app in Finder, choose Open, and confirm. Do not disable Gatekeeper or remove quarantine metadata.',
     },
     status: {
       eyebrow: 'Current status',
@@ -177,9 +211,17 @@ export const copy: Record<Locale, LandingCopy> = {
         'Shared analysis, tests, and cross-platform build automation are maintained in the repository.',
         'First-party Local Direct and runtime Capsules exist in source, but are not presented as a current public download.',
       ],
+      publicItems: [
+        'The current macOS Preview is published with a bundled first-party Pi Node Runtime Capsule.',
+        'The Homebrew Tap points to the exact published Universal macOS asset and its SHA-256.',
+        'Android, iOS, Web, Windows, and Linux retain their declared platform roles and Preview boundaries.',
+        'Shared analysis, tests, and cross-platform release automation are maintained in the repository.',
+      ],
       noticeTitle: 'Development status',
       noticeBody:
         'Pi Client is not promoting an installable build as the current product yet. Follow the repository for implementation progress and future releases.',
+      publicNoticeBody:
+        'The current macOS Preview is available through the official Homebrew Tap. It is ad-hoc signed and not notarized; release notes explain its trust and Gatekeeper behavior.',
     },
     closing: {
       title: 'Build the independent Pi Client with us.',
@@ -214,6 +256,7 @@ export const copy: Record<Locale, LandingCopy> = {
     nav: {
       product: '产品',
       platforms: '平台',
+      install: '安装',
       status: '状态',
       github: 'GitHub',
     },
@@ -226,6 +269,7 @@ export const copy: Record<Locale, LandingCopy> = {
       primary: '查看源代码',
       secondary: '参与贡献',
       note: '第一方 Local Direct 已在源码中实现；受支持的公开分发仍在积极建设中。',
+      publicNote: '当前 macOS Preview 已可通过 Homebrew 获取；其他平台的公开分发仍在积极建设中。',
       platformLabel: '项目支持的平台目标',
     },
     principles: {
@@ -266,6 +310,8 @@ export const copy: Record<Locale, LandingCopy> = {
         badge: '契约定义为 Host-capable',
         description:
           '桌面源码构建已支持第一方 Local Direct 和经过验证的 Runtime Capsule；受支持的公开安装包仍在资格验证中。',
+        publicDescription:
+          '公开的 macOS Preview 通过 Homebrew 分发，并包含第一方 Runtime Capsule；Windows 和 Linux Preview 安装包仍在资格验证中。',
       },
       connectOnly: {
         title: '仅连接客户端',
@@ -273,8 +319,21 @@ export const copy: Record<Locale, LandingCopy> = {
         badge: 'Connect-only',
         description:
           '移动端和 Web 不嵌入 Agent 运行时，也不获取宿主文件系统或工具执行权限。',
+        publicDescription:
+          '移动端和 Web 不嵌入 Agent 运行时，也不获取宿主文件系统或工具执行权限。',
       },
       note: '第一方 Host Runtime Capsule 已在源码和候选流程中验证，但当前没有受支持的公开安装包入口。',
+      publicNote: '公开的 macOS Preview 已包含第一方 Host Runtime Capsule；Android、iOS 和 Web 继续保持仅连接边界。',
+    },
+    homebrew: {
+      eyebrow: 'macOS Preview',
+      title: '通过 Homebrew 安装当前 Preview。',
+      description: '官方 Pi Client Tap 会跟踪最新的、固定资产的 macOS Preview；Tap 更新时安装命令保持不变。',
+      commandLabel: '使用 Homebrew 安装',
+      command: 'brew install --cask hu-wentao/tap/pi-client',
+      platform: 'macOS 11 或更高版本',
+      note:
+        '此 Preview 使用 ad-hoc 签名，尚未公证。Homebrew 会保留 macOS 隔离属性；如果 Gatekeeper 阻止首次启动，请在 Finder 中按住 Control 点击 Pi Client.app，选择“打开”并确认。不要关闭 Gatekeeper 或删除隔离属性。',
     },
     status: {
       eyebrow: '当前状态',
@@ -286,9 +345,17 @@ export const copy: Record<Locale, LandingCopy> = {
         '共享分析、测试和跨平台构建自动化都在仓库中维护。',
         '第一方 Local Direct 与 Runtime Capsule 已存在于源码中，但不会被描述为当前公开下载。',
       ],
+      publicItems: [
+        '当前 macOS Preview 已发布，并包含第一方 Pi Node Runtime Capsule。',
+        'Homebrew Tap 指向精确的 Universal macOS 资产及其 SHA-256。',
+        'Android、iOS、Web、Windows 和 Linux 继续遵循各自的平台角色与 Preview 边界。',
+        '共享分析、测试和跨平台发布自动化都在仓库中维护。',
+      ],
       noticeTitle: '开发状态',
       noticeBody:
         'Pi Client 当前不把任何可安装构建作为正式产品入口。请通过公开仓库关注实现进度与后续发布。',
+      publicNoticeBody:
+        '当前 macOS Preview 已可通过官方 Homebrew Tap 获取。它使用 ad-hoc 签名且尚未公证；发布说明会解释信任与 Gatekeeper 行为。',
     },
     closing: {
       title: '一起构建独立的 Pi Client。',

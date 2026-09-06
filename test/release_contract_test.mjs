@@ -11,6 +11,7 @@ import {
   getArtifactProfile,
   independentDevelopmentBuildNumber,
   independentDevelopmentVersion,
+  independentPreviewProfileId,
   inspectRemoteCandidateTag,
   legacyPreviewBuildNumber,
   legacyPreviewVersion,
@@ -22,7 +23,8 @@ import {
   repositoryRoot,
 } from '../tool/release_contract.mjs';
 
-const profileId = 'independent-six-platform-development-v1';
+const profileId = independentPreviewProfileId;
+const developmentProfileId = 'independent-six-platform-development-v1';
 
 const remoteTags = [
   '1111111111111111111111111111111111111111\trefs/tags/v0.0.2',
@@ -33,14 +35,14 @@ const remoteTags = [
   '',
 ].join('\n');
 
-test('active contract is the unpublished first-party 0.1.0+3 development profile', async () => {
+test('active contract is the public first-party 0.1.0+3 Preview profile', async () => {
   const metadata = await loadReleaseContract(undefined, { requireProfile: profileId });
   assert.equal(metadata.version, independentDevelopmentVersion);
   assert.equal(metadata.buildNumber, independentDevelopmentBuildNumber);
   assert.equal(metadata.tag, 'v0.1.0');
-  assert.equal(metadata.publicationEnabled, false);
-  assert.equal(metadata.distribution, 'independent-development-candidate');
-  assert.equal(metadata.primaryTarget, 'macos-host-native');
+  assert.equal(metadata.publicationEnabled, true);
+  assert.equal(metadata.distribution, 'independent-public-preview');
+  assert.equal(metadata.primaryTarget, 'macos-universal');
   assert.equal(metadata.artifacts.length, 9);
   assert.ok(
     metadata.artifacts
@@ -64,9 +66,27 @@ test('active contract is the unpublished first-party 0.1.0+3 development profile
     await readFile(resolve(repositoryRoot, metadata.releaseNotesPath), 'utf8'),
     expectedReleaseNotes(metadata),
   );
-  await assert.rejects(
-    () => loadReleaseContract(undefined, { requirePublication: true }),
-    /publication-disabled/,
+  assert.equal(metadata.artifacts.find(({ id }) => id === 'macos-universal').architecture, 'universal');
+  assert.equal(metadata.artifacts.find(({ id }) => id === 'macos-universal').installability, 'public-preview');
+  await loadReleaseContract(undefined, { requirePublication: true });
+});
+
+test('development profile remains available for local qualification but cannot publish', () => {
+  const development = getArtifactProfile(developmentProfileId);
+  assert.equal(development.publicationEnabled, false);
+  assert.equal(development.primaryTarget, 'macos-host-native');
+  assert.throws(
+    () => assertArtifactProfileVersion(development, '0.1.1', '4'),
+    /currently bound to 0\.1\.0\+3/,
+  );
+});
+
+test('public Preview profile accepts later monotonic Preview versions only', () => {
+  const preview = getArtifactProfile(profileId);
+  assert.doesNotThrow(() => assertArtifactProfileVersion(preview, '0.2.0', '1'));
+  assert.throws(
+    () => assertArtifactProfileVersion(preview, '0.0.9', '9'),
+    /must not precede 0\.1\.0/,
   );
 });
 
@@ -128,13 +148,13 @@ test('legacy v0.0.2 profile remains immutable and separate from current metadata
   assert.equal(legacy.targets[0].hostRuntimeIncluded, false);
 });
 
-test('development artifact names identify first-party development evidence, not v0.0.3 Preview bytes', () => {
+test('public Preview artifact names identify the first-party release, not v0.0.3 Preview bytes', () => {
   const artifacts = applicationArtifacts(
     independentDevelopmentVersion,
     getArtifactProfile(profileId),
   );
   assert.ok(artifacts.every(({ file }) => file.includes('0.1.0')));
   assert.ok(artifacts.every(({ file }) => !file.includes('0.0.3')));
-  assert.ok(artifacts.some(({ file }) => file.includes('Web-wasm-development')));
-  assert.ok(artifacts.some(({ file }) => file.includes('macOS-host-native-ad-hoc-development')));
+  assert.ok(artifacts.some(({ file }) => file.includes('Web-wasm-preview')));
+  assert.ok(artifacts.some(({ file }) => file.includes('macOS-universal-ad-hoc-preview')));
 });

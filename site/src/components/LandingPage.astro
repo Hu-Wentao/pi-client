@@ -19,6 +19,7 @@ const readmeUrl = `${repositoryUrl}#current-source-status`;
 const contributingUrl = `${repositoryUrl}/blob/main/CONTRIBUTING.md`;
 const licenseUrl = `${repositoryUrl}/blob/main/LICENSE`;
 const skipLabel = copy.locale === 'zh-cn' ? '跳到主要内容' : 'Skip to content';
+const showHomebrew = import.meta.env.PUBLIC_HOMEBREW_PREVIEW_ENABLED === 'true';
 const platforms = ['Android', 'iOS', 'macOS', 'Windows', 'Linux', 'Web'];
 ---
 
@@ -39,6 +40,7 @@ const platforms = ['Android', 'iOS', 'macOS', 'Windows', 'Linux', 'Web'];
       <nav class="primary-nav" aria-label={copy.navigationLabel}>
         <a href="#product">{copy.nav.product}</a>
         <a href="#platforms">{copy.nav.platforms}</a>
+        {showHomebrew && <a href="#install">{copy.nav.install}</a>}
         <a href="#status">{copy.nav.status}</a>
         <a href={repositoryUrl}>{copy.nav.github}</a>
       </nav>
@@ -71,7 +73,7 @@ const platforms = ['Android', 'iOS', 'macOS', 'Windows', 'Linux', 'Web'];
           </div>
           <p class="development-note">
             <span aria-hidden="true"></span>
-            {copy.hero.note}
+            {showHomebrew ? copy.hero.publicNote : copy.hero.note}
           </p>
         </div>
         <div class="platform-visual" aria-label={copy.hero.platformLabel} role="img">
@@ -114,24 +116,44 @@ const platforms = ['Android', 'iOS', 'macOS', 'Windows', 'Linux', 'Web'];
           <p class="eyebrow">{copy.roles.eyebrow}</p>
           <h2>{copy.roles.title}</h2>
           <p>{copy.roles.description}</p>
-          <p class="boundary-note">{copy.roles.note}</p>
+          <p class="boundary-note">{showHomebrew ? copy.roles.publicNote : copy.roles.note}</p>
         </div>
         <div class="role-grid">
           <article class="role-card role-card-desktop">
             <span class="role-badge">{copy.roles.desktop.badge}</span>
             <h3>{copy.roles.desktop.title}</h3>
             <p class="role-platforms">{copy.roles.desktop.platforms}</p>
-            <p>{copy.roles.desktop.description}</p>
+            <p>{showHomebrew ? copy.roles.desktop.publicDescription : copy.roles.desktop.description}</p>
           </article>
           <article class="role-card">
             <span class="role-badge role-badge-connect">{copy.roles.connectOnly.badge}</span>
             <h3>{copy.roles.connectOnly.title}</h3>
             <p class="role-platforms">{copy.roles.connectOnly.platforms}</p>
-            <p>{copy.roles.connectOnly.description}</p>
+            <p>{showHomebrew ? copy.roles.connectOnly.publicDescription : copy.roles.connectOnly.description}</p>
           </article>
         </div>
       </div>
     </section>
+
+    {showHomebrew && (
+      <section id="install" class="content-section install-section">
+        <div class="container install-layout">
+          <div class="section-heading">
+            <p class="eyebrow">{copy.homebrew.eyebrow}</p>
+            <h2>{copy.homebrew.title}</h2>
+            <p>{copy.homebrew.description}</p>
+          </div>
+          <div class="install-panel">
+            <p class="install-label">{copy.homebrew.commandLabel}</p>
+            <div class="install-command" role="group" aria-label={copy.homebrew.commandLabel}>
+              <code>{copy.homebrew.command}</code>
+            </div>
+            <p class="install-platform">{copy.homebrew.platform}</p>
+            <p class="install-note">{copy.homebrew.note}</p>
+          </div>
+        </div>
+      </section>
+    )}
 
     <section id="status" class="content-section status-section">
       <div class="container status-layout">
@@ -141,7 +163,7 @@ const platforms = ['Android', 'iOS', 'macOS', 'Windows', 'Linux', 'Web'];
           <p>{copy.status.description}</p>
         </div>
         <ul class="status-list">
-          {copy.status.items.map((item) => (
+          {(showHomebrew ? copy.status.publicItems : copy.status.items).map((item) => (
             <li>
               <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12 4 4 10-10" /></svg>
               <span>{item}</span>
@@ -152,7 +174,7 @@ const platforms = ['Android', 'iOS', 'macOS', 'Windows', 'Linux', 'Web'];
           <span class="status-indicator" aria-hidden="true"></span>
           <div>
             <h3>{copy.status.noticeTitle}</h3>
-            <p>{copy.status.noticeBody}</p>
+            <p>{showHomebrew ? copy.status.publicNoticeBody : copy.status.noticeBody}</p>
           </div>
         </aside>
       </div>

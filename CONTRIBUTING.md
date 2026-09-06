@@ -80,6 +80,8 @@ bun install --frozen-lockfile
 ASTRO_TELEMETRY_DISABLED=1 bun run check
 ASTRO_TELEMETRY_DISABLED=1 bun run build
 bun run validate
+PUBLIC_HOMEBREW_PREVIEW_ENABLED=true ASTRO_TELEMETRY_DISABLED=1 bun run build
+PUBLIC_HOMEBREW_PREVIEW_ENABLED=true bun run validate
 ```
 
 When the UI intentionally changes, review the rendered result before running:
@@ -100,8 +102,8 @@ Keep changes focused. Update requirements, baselines, comparison scope, tests, g
 
 - Edit `assets/brand/pi-client-mark.svg` and `assets/brand/social-card.svg` as the brand sources, then run `cd site && bun run brand`. Commit the generated product mark, social card, and every macOS App Icon size together.
 - Flutter Golden fixtures remain product-behavior evidence, not Landing Page assets. Update them only after intentional UI review, and keep all fixture paths, sessions, prompts, and output synthetic.
-- Keep release metadata synchronized across `pubspec.yaml`, `site/package.json`, `release/release.json`, release notes, artifact contracts, and workflow-generated asset names. The current `0.1.0+3` Profile is unpublished and publication-disabled.
-- Desktop development artifacts must contain the exact first-party Runtime Capsule and pass bundle verification. Android, iOS, JavaScript Web, and WebAssembly must remain connect-only.
-- Do not manually move, overwrite, delete, or reuse a release tag or published asset. Qualification evidence is not publication, and the current aggregate workflow must fail before remote mutation.
-- Homebrew tooling remains dormant until a separately authorized publication-enabled profile supplies exact public Tag, commit, asset, SHA-256, Universal architecture, and runtime evidence.
-- Publishing a Release, dispatching release-bound Pages, enabling Pages, updating a Tap, pushing tags, and creating decision tags require explicit current authorization.
+- Keep release metadata synchronized across `pubspec.yaml`, `site/package.json`, `release/release.json`, release notes, artifact contracts, and workflow-generated asset names. The current `0.1.0+3` identity uses the `independent-first-party-preview-v1` publication-enabled Preview Profile.
+- Desktop Preview artifacts must contain the exact first-party Runtime Capsule and pass bundle verification. The macOS Homebrew artifact must be Universal and ad-hoc signed; Android, iOS, JavaScript Web, and WebAssembly remain connect-only.
+- Do not manually move, overwrite, delete, or reuse a release tag or published asset. The aggregate Preview workflow binds one exact commit, publishes the Release last, and updates the Tap only after public asset readback.
+- Homebrew Cask generation requires exact public Tag, commit, asset, SHA-256, Universal architecture, and runtime evidence. The release workflow updates `Hu-Wentao/homebrew-tap/Casks/pi-client.rb` with the dedicated `HOMEBREW_TAP_TOKEN`.
+- Publishing a Release, dispatching release-bound Pages, enabling Pages, updating a Tap, pushing tags, and creating decision tags require explicit current authorization; the Preview release workflow also requires the configured Tap credential.

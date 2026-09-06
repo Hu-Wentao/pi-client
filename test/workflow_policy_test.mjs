@@ -146,10 +146,10 @@ test('ordinary desktop artifact scan rejects an embedded runtime Capsule', async
   );
 });
 
-test('aggregated development qualification is Capsule-aware and publication-disabled', async () => {
+test('aggregated public Preview qualification is Capsule-aware and publication-gated', async () => {
   const source = await workflow('release-preview.yml');
   for (const required of [
-    'independent-six-platform-development-v1',
+    'independent-first-party-preview-v1',
     'flutter test --exclude-tags golden',
     'flutter test test/workspace_golden_test.dart',
     "ProductVersion -ne '$VERSION+$BUILD_NUMBER'",
@@ -160,7 +160,7 @@ test('aggregated development qualification is Capsule-aware and publication-disa
     'install-runtime-capsule-in-desktop-bundle.mjs',
     '--platform windows',
     '--platform linux',
-    '--target macos-host-native',
+    '--target macos-universal',
     '--target windows-x64-portable',
     '--target linux-x64',
     '--target web-js',
@@ -173,6 +173,11 @@ test('aggregated development qualification is Capsule-aware and publication-disa
     'Existing remote Tag or Release for $TAG requires resume_run_id',
     'Published release $TAG is missing $NAME and must not be mutated',
     'git tag -a "$TAG" "$GITHUB_SHA"',
+    'Update the authorized Homebrew Tap',
+    'HOMEBREW_TAP_TOKEN',
+    'homebrew-smoke:',
+    'brew install --cask hu-wentao/tap/pi-client',
+    'PUBLIC_HOMEBREW_PREVIEW_ENABLED',
   ]) {
     assert.ok(source.includes(required), `release-preview.yml must contain ${required}`);
   }
@@ -247,7 +252,7 @@ test('desktop candidate metadata matches the active contract and stable fails be
         '--channel',
         'stable',
       ]),
-    /publication-disabled/,
+    /independent-stable publication profile/,
   );
 });
 
@@ -277,7 +282,7 @@ test('stable desktop admission fails closed when signing credentials are absent'
   );
 });
 
-test('Pages deploys the source-only public site while release dispatch stays exact-tag gated', async () => {
+test('Pages keeps ordinary main source-only and release Preview exact-tag gated', async () => {
   const source = await workflow('pages.yml');
   for (const required of [
     'pi.wyattcoder.top',
@@ -288,6 +293,9 @@ test('Pages deploys the source-only public site while release dispatch stays exa
     '.object.type == "commit" and .object.sha == $commit',
     'node tool/release_metadata.mjs --require-publication',
     'exact published Release',
+    'PUBLIC_HOMEBREW_PREVIEW_ENABLED',
+    'actual-homebrew-cask.rb',
+    'raw.githubusercontent.com/Hu-Wentao/homebrew-tap/main/Casks/pi-client.rb',
     "echo 'complete=true'",
   ]) {
     assert.ok(source.includes(required), `pages.yml must contain ${required}`);
@@ -310,17 +318,18 @@ test('strict release contract inputs keep LF line endings on every runner', asyn
   }
 });
 
-test('site validation rejects unpublished downloads, Homebrew commands, and stale screenshots', async () => {
+test('site validation gates Homebrew copy to the published Preview build', async () => {
   const source = await readFile(
     resolve(repositoryRoot, 'site/scripts/validate-built-site.mjs'),
     'utf8',
   );
   for (const required of [
     "['releases/download/', 'unpublished download URL']",
-    "['brew install --cask', 'Homebrew installation flow']",
     "['v0.1.0', 'unpublished development version']",
     "['v0.0.3', 'unpublished abandoned Preview version']",
     "['workspace-preview', 'retired workspace screenshot']",
+    'PUBLIC_HOMEBREW_PREVIEW_ENABLED',
+    'Homebrew installation command',
   ]) {
     assert.ok(source.includes(required), `site validation must contain ${required}`);
   }

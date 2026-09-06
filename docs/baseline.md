@@ -77,19 +77,19 @@ Default review level: L6.
 - macOS, Windows, and Linux are Agent-host-capable clients. Current source provides their shared lazy local-process composition through an app-owned `PiNodeApi`, desktop host controller, stdio Local Direct transport, and first-party Pi Node entrypoint.
 - Android, iOS, and Web are remote-client-only: they must not embed Pi SDK, launch an Agent runtime, expose host tools, or claim host filesystem authority. Until a remote transport is configured, current composition fails explicitly instead of acquiring local host authority.
 - `PlatformCapabilities` is the application-wide code authority for this role mapping; feature code must not duplicate ad hoc platform checks.
-- A reproducible host-targeted runtime Capsule builder exists, but Agent-host capability and source composition do not prove that a Capsule is bundled into every desktop app, that Windows/Linux packages are qualified, or that an independent public release exists.
+- A reproducible host-targeted runtime Capsule builder exists, but Agent-host capability and source composition do not prove that a Capsule is bundled into every desktop app, that Windows/Linux packages are qualified, or that a supported stable release exists.
 
 ## BASE-PI-007 - Distribution and product-site integrity
 
 - Status: Active
 - Review level: L9
-- The source version is the unpublished development identity `0.1.0+3`; no supported independent public release currently exists. Version metadata and qualification evidence alone are not release claims.
-- The immutable public `v0.0.2` artifact is historical evidence only. The current Landing Page must not present it as the current product or offer a binary download.
-- Historical unsigned-Preview storage and trust limitations remain release-scoped facts. Future packages must disclose their own exact signing, notarization, sandbox, storage, migration, platform, and architecture state.
-- The Landing Page uses only Pi Client-owned visuals and does not render the retired Workspace screenshot. It must not use third-party product branding, production paths, credentials, private prompts, real tool output, unpublished download URLs, or Homebrew commands.
-- GitHub Pages may publish a source-only project status page. A release CTA may appear only after the exact supported artifact is authorized, public, and verified.
-- A passing site build, release workflow, or source version does not prove publication, installation, or production acceptance.
-- The active `independent-six-platform-development-v1` Profile is publication-disabled. Desktop evidence must include the first-party Runtime Capsule; Android, iOS, Web JavaScript, and WebAssembly remain connect-only.
+- The source version is the first-party Preview identity `0.1.0+3`; the public macOS Preview is an evaluation channel, not a supported stable release. Version metadata and qualification evidence alone are not publication evidence.
+- The immutable public `v0.0.2` and transitional `v0.0.3` artifacts are historical evidence only. The current product and release-bound Landing Page must not present them as the current architecture.
+- Preview packages must disclose their exact signing, notarization, quarantine, storage, migration, platform, and architecture state. The current macOS Preview is ad-hoc signed and not notarized.
+- The Landing Page uses only Pi Client-owned visuals and does not render the retired Workspace screenshot. It must not use third-party product branding, production paths, credentials, private prompts, real tool output, unpublished download URLs, or stale release identities.
+- Ordinary GitHub Pages main builds remain source-only. A release-bound Pages build may show the Homebrew Preview CTA only after the exact public Release and Tap Cask have been verified.
+- A passing site build, release workflow, or source version does not by itself prove public installation or production acceptance.
+- The active `independent-first-party-preview-v1` Profile is publication-enabled for Preview releases. Desktop evidence must include the first-party Runtime Capsule; Android, iOS, Web JavaScript, and WebAssembly remain connect-only.
 
 ## BASE-PI-008 - Product authority and 1.0 completeness
 
@@ -105,19 +105,20 @@ Default review level: L6.
 
 - Status: Active
 - Review level: L9
-- `DEC-021` and `PLAN-PI-007` define the only active aggregated artifact contract: `0.1.0+3`, Profile `independent-six-platform-development-v1`, publication disabled.
-- macOS, Windows, and Linux candidates must package a Runtime Capsule built from the exact source commit and pass platform-specific manifest/layout/architecture/startup gates before staging.
+- `DEC-023` and `PLAN-PI-007` define the active aggregated Preview artifact contract: `0.1.0+3`, Profile `independent-first-party-preview-v1`, publication enabled for an explicitly dispatched Preview release.
+- macOS, Windows, and Linux Preview artifacts must package a Runtime Capsule built from the exact source commit and pass platform-specific manifest/layout/architecture/startup gates before staging; the Homebrew macOS artifact must be Universal.
 - Android, iOS, Web JavaScript, and WebAssembly artifacts must remain connect-only and pass reserved-runtime scans.
-- Qualification artifacts are evidence only. No current workflow may create or mutate `v0.1.0`, `v0.0.3`, a GitHub Release, a Homebrew Tap, or a release-bound Pages deployment without a future publication-enabled contract and explicit authorization.
-- Existing remote stable tags are monotonic and immutable; retries may only reconcile the same annotated Tag, peeled commit, original qualification run, exact asset set, and identical bytes.
+- The publish workflow creates or reuses only the exact annotated Tag and Release identity, publishes the verified bundle last, and updates the Homebrew Tap only after public asset readback.
+- Existing remote release tags and assets are monotonic and immutable; retries may only reconcile the same annotated Tag, peeled commit, original qualification run, exact asset set, and identical bytes.
 
-## BASE-PI-010 - Dormant Homebrew integrity
+## BASE-PI-010 - Homebrew Preview integrity
 
 - Status: Active
 - Review level: L9
-- Homebrew tooling is retained as dormant deterministic infrastructure, not as a current installation promise.
-- Cask generation requires explicit qualified evidence for one publication-enabled, already-public Universal macOS runtime-bearing asset: annotated Tag, exact commit, exact file name, SHA-256, and published state.
-- Placeholder checksums, moving refs, connect-only assets, absent Runtime Capsules, Gatekeeper bypasses, and third-party Tap writes without separate authorization are rejected.
+- Homebrew tooling is an active Preview delivery path and remains fail-closed until exact public evidence exists.
+- Cask generation requires one publication-enabled, already-public Universal macOS runtime-bearing asset: annotated Tag, exact commit, exact file name, SHA-256, and published state.
+- The release workflow updates only `Hu-Wentao/homebrew-tap/Casks/pi-client.rb` through the dedicated Tap credential, verifies the remote file, and then runs a clean macOS install smoke test.
+- Placeholder checksums, moving refs, connect-only assets, absent Runtime Capsules, Gatekeeper bypasses, and unrelated Tap changes are rejected.
 
 ## BASE-PI-011 - Versioned terminal and Shell boundary
 

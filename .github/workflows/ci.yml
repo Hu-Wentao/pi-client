@@ -56,10 +56,10 @@ jobs:
           fvm flutter test --no-pub --exclude-tags golden
 
       - name: Test release, Homebrew, Preview, and workflow contracts
-        run: node --test test/homebrew_cask_test.mjs test/release_contract_test.mjs test/preview_artifacts_test.mjs test/workflow_policy_test.mjs
+        run: node --test test/homebrew_cask_test.mjs test/homebrew_tap_test.mjs test/release_contract_test.mjs test/preview_artifacts_test.mjs test/workflow_policy_test.mjs
 
-      - name: Validate publication-disabled independent release metadata
-        run: node tool/release_metadata.mjs --require-profile independent-six-platform-development-v1
+      - name: Validate publication-enabled independent Preview metadata
+        run: node tool/release_metadata.mjs --require-profile independent-first-party-preview-v1 --require-publication
 
       - name: Install and validate the independent Landing Page
         working-directory: site

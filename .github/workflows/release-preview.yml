@@ -1,4 +1,4 @@
-name: Qualify independent cross-platform development artifacts
+name: Qualify and publish independent cross-platform Preview artifacts
 
 on:
   workflow_dispatch:
@@ -46,9 +46,19 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Freeze independent six-platform development metadata
+      - name: Freeze independent six-platform Preview metadata
         id: metadata
-        run: node tool/release_metadata.mjs --require-profile independent-six-platform-development-v1 --github-output "$GITHUB_OUTPUT"
+        run: node tool/release_metadata.mjs --require-profile independent-first-party-preview-v1 --github-output "$GITHUB_OUTPUT"
+
+      - name: Verify the Homebrew Tap credential before publication
+        if: inputs.mode == 'publish'
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          TAP_REPOSITORY: Hu-Wentao/homebrew-tap
+        run: |
+          set -euo pipefail
+          test -n "$GH_TOKEN"
+          [[ "$(gh api "repos/$TAP_REPOSITORY" --jq '.permissions.push')" == 'true' ]]
 
       - name: Validate and freeze recovery input mode
         id: recovery-input
@@ -97,7 +107,7 @@ jobs:
             exit "$STATUS"
           fi
           node tool/release_metadata.mjs \
-            --require-profile independent-six-platform-development-v1 \
+            --require-profile independent-first-party-preview-v1 \
             --require-publication \
             --remote-tags-file "$REMOTE_TAGS" \
             --candidate-commit "$GITHUB_SHA" > "$RUNNER_TEMP/remote-tag-state.json"
@@ -147,7 +157,7 @@ jobs:
             jq -e \
               --arg repository "$GITHUB_REPOSITORY" \
               --arg workflowPath '.github/workflows/release-preview.yml' \
-              --arg workflowName 'Qualify independent cross-platform development artifacts' \
+              --arg workflowName 'Qualify and publish independent cross-platform Preview artifacts' \
               --arg headSha "$GITHUB_SHA" \
               '.repository.full_name == $repository and
                .path == $workflowPath and
@@ -199,18 +209,19 @@ jobs:
           fvm dart format --output=none --set-exit-if-changed lib test tool
           fvm flutter analyze
           fvm flutter test --exclude-tags golden
-          node --test test/homebrew_cask_test.mjs test/release_contract_test.mjs test/preview_artifacts_test.mjs test/workflow_policy_test.mjs
-          node tool/release_metadata.mjs --require-profile independent-six-platform-development-v1
+          node --test test/homebrew_cask_test.mjs test/homebrew_tap_test.mjs test/release_contract_test.mjs test/preview_artifacts_test.mjs test/workflow_policy_test.mjs
+          node tool/release_metadata.mjs --require-profile independent-first-party-preview-v1 --require-publication
 
       - name: Set up Bun 1.4.0
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.4.0
 
-      - name: Validate landing site
+      - name: Validate published Preview landing site
         working-directory: site
         env:
           ASTRO_TELEMETRY_DISABLED: '1'
+          PUBLIC_HOMEBREW_PREVIEW_ENABLED: 'true'
         run: |
           bun install --frozen-lockfile
           bun run check
@@ -219,7 +230,7 @@ jobs:
 
   build:
     if: needs.prepare.outputs.freshBundleRequired == 'true'
-    name: Build ${{ matrix.platform }} independent development artifact
+    name: Build ${{ matrix.platform }} independent public Preview artifact
     needs: [prepare, qualification]
     strategy:
       fail-fast: false
@@ -408,9 +419,13 @@ jobs:
               MAC_ZIP="$RUNNER_TEMP/Pi-Client-macOS.zip"
               ditto -c -k --sequesterRsrc --keepParent "$APP" "$MAC_ZIP"
               unzip -t "$MAC_ZIP"
+              [[ '${{ steps.macos-metadata.outputs.universal }}' == 'true' ]] || {
+                echo 'The public Homebrew Preview requires a Universal macOS artifact.' >&2
+                exit 1
+              }
               node tool/preview_artifacts.mjs stage \
                 --profile "$PROFILE" \
-                --target macos-host-native \
+                --target macos-universal \
                 --input "$MAC_ZIP" \
                 --contents-root "$APP" \
                 --output-dir "$STAGE"
@@ -664,7 +679,7 @@ jobs:
             exit "$STATUS"
           fi
           node tool/release_metadata.mjs \
-            --require-profile independent-six-platform-development-v1 \
+            --require-profile independent-first-party-preview-v1 \
             --require-publication \
             --remote-tags-file "$REMOTE_TAGS" \
             --candidate-commit "$GITHUB_SHA" > "$RUNNER_TEMP/final-tag-state.json"
@@ -966,7 +981,103 @@ jobs:
           assert_release_identity "$RELEASE_JSON" false
           assert_exact_assets "$RELEASE_JSON"
 
-      - name: Request frozen-source Pages deployment after publication
+      - name: Update the authorized Homebrew Tap from the published asset
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          ASSET: ${{ needs.prepare.outputs.asset }}
+          COMMIT: ${{ github.sha }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          TAP_REPOSITORY: Hu-Wentao/homebrew-tap
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          test -n "$GH_TOKEN"
+          gh auth setup-git
+          TAP_ROOT="$RUNNER_TEMP/homebrew-tap"
+          gh repo clone "$TAP_REPOSITORY" "$TAP_ROOT" -- --branch main --depth 1
+          SHA256="$(sha256sum "downloaded/$ASSET" | cut -d' ' -f1)"
+          EVIDENCE="$RUNNER_TEMP/homebrew-release-evidence.json"
+          jq -n \
+            --arg asset "$ASSET" \
+            --arg commit "$COMMIT" \
+            --arg sha256 "$SHA256" \
+            --arg tag "$TAG" \
+            '{asset: $asset, commit: $commit, published: true, sha256: $sha256, tag: $tag}' \
+            > "$EVIDENCE"
+          node tool/homebrew_tap.mjs \
+            --tap-dir "$TAP_ROOT" \
+            --sha256 "$SHA256" \
+            --qualified-release "$EVIDENCE"
+          git -C "$TAP_ROOT" config user.name 'github-actions[bot]'
+          git -C "$TAP_ROOT" config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git -C "$TAP_ROOT" add Casks/pi-client.rb
+          if git -C "$TAP_ROOT" diff --cached --quiet; then
+            echo "Homebrew Cask already matches $TAG."
+          else
+            git -C "$TAP_ROOT" commit -m "chore: update Pi Client cask to $VERSION"
+            git -C "$TAP_ROOT" push origin HEAD:main
+          fi
+          git -C "$TAP_ROOT" fetch --no-tags origin main
+          git -C "$TAP_ROOT" show origin/main:Casks/pi-client.rb > "$RUNNER_TEMP/homebrew-tap-readback.rb"
+          cmp "$RUNNER_TEMP/homebrew-tap-readback.rb" "$TAP_ROOT/Casks/pi-client.rb"
+
+  homebrew-smoke:
+    if: inputs.mode == 'publish' && needs.publish.result == 'success'
+    needs: publish
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - name: Check out the published source identity
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Node.js 22.19.0
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22.19.0
+
+      - name: Install and verify the exact Homebrew Cask
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP='/Applications/Pi Client.app'
+          cleanup() {
+            brew uninstall --cask --force pi-client >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          brew update
+          brew uninstall --cask --force pi-client >/dev/null 2>&1 || true
+          brew install --cask hu-wentao/tap/pi-client
+          METADATA="$(node tool/release_metadata.mjs --require-profile independent-first-party-preview-v1 --require-publication)"
+          VERSION="$(jq -r '.version' <<< "$METADATA")"
+          BUILD_NUMBER="$(jq -r '.buildNumber' <<< "$METADATA")"
+          test -d "$APP"
+          [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$APP/Contents/Info.plist")" == 'Pi Client' ]]
+          [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")" == "$VERSION" ]]
+          [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Contents/Info.plist")" == "$BUILD_NUMBER" ]]
+          ARCHES="$(lipo -archs "$APP/Contents/MacOS/Pi Client")"
+          grep -Eq '(^| )arm64( |$)' <<< "$ARCHES"
+          grep -Eq '(^| )x86_64( |$)' <<< "$ARCHES"
+          node node/scripts/verify-macos-app-runtime-capsule.mjs \
+            --app "$APP" \
+            --expected-source-commit "$GITHUB_SHA"
+          xattr -p com.apple.quarantine "$APP" >/dev/null
+          if spctl --assess --type execute "$APP" >/dev/null 2>&1; then
+            echo 'The ad-hoc Preview unexpectedly passed Gatekeeper assessment.' >&2
+            exit 1
+          fi
+
+  pages:
+    if: inputs.mode == 'publish' && needs.homebrew-smoke.result == 'success'
+    needs: [prepare, publish, homebrew-smoke]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Request frozen-source Pages deployment after Homebrew verification
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.prepare.outputs.tag }}

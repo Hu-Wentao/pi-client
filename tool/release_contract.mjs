@@ -5,12 +5,14 @@ export const repositoryRoot = resolve(import.meta.dirname, '..');
 export const repositorySlug = 'Hu-Wentao/pi-client';
 export const homebrewTap = 'Hu-Wentao/homebrew-tap';
 export const homebrewCask = 'pi-client';
+export const homebrewTapCaskPath = 'Casks/pi-client.rb';
 export const homebrewInstallCommand = 'brew install --cask hu-wentao/tap/pi-client';
 export const requiredFlutterVersion = '3.41.6';
 export const legacyPreviewVersion = '0.0.2';
 export const legacyPreviewBuildNumber = '2';
 export const independentDevelopmentVersion = '0.1.0';
 export const independentDevelopmentBuildNumber = '3';
+export const independentPreviewProfileId = 'independent-first-party-preview-v1';
 export const linuxRuntimeBaseline =
   'ubuntu-24.04-compatible; system libsecret/keyring required';
 
@@ -160,6 +162,115 @@ export const artifactProfiles = Object.freeze({
         'web',
         'wasm',
         'Web-wasm-development',
+        'zip',
+        'remote-client-only',
+        'not-applicable',
+        'static-web-bundle',
+        false,
+      ),
+    ]),
+  }),
+  [independentPreviewProfileId]: Object.freeze({
+    id: independentPreviewProfileId,
+    immutableLegacy: false,
+    publicationEnabled: true,
+    distribution: 'independent-public-preview',
+    primaryTarget: 'macos-universal',
+    targets: Object.freeze([
+      target(
+        'android-armeabi-v7a',
+        'android',
+        'armeabi-v7a',
+        'Android-armeabi-v7a-preview',
+        'apk',
+        'remote-client-only',
+        'unsigned',
+        'requires-signing-before-install',
+        false,
+      ),
+      target(
+        'android-arm64-v8a',
+        'android',
+        'arm64-v8a',
+        'Android-arm64-v8a-preview',
+        'apk',
+        'remote-client-only',
+        'unsigned',
+        'requires-signing-before-install',
+        false,
+      ),
+      target(
+        'android-x86_64',
+        'android',
+        'x86_64',
+        'Android-x86_64-preview',
+        'apk',
+        'remote-client-only',
+        'unsigned',
+        'requires-signing-before-install',
+        false,
+      ),
+      target(
+        'ios-arm64',
+        'ios',
+        'arm64',
+        'iOS-arm64-preview',
+        'xcarchive.zip',
+        'remote-client-only',
+        'no-codesign',
+        'development-archive-only',
+        false,
+      ),
+      target(
+        'macos-universal',
+        'macos',
+        'universal',
+        'macOS-universal-ad-hoc-preview',
+        'zip',
+        'agent-host-capable',
+        'ad-hoc',
+        'public-preview',
+        true,
+      ),
+      target(
+        'windows-x64-portable',
+        'windows',
+        'x64',
+        'Windows-x64-portable-preview',
+        'zip',
+        'agent-host-capable',
+        'unsigned',
+        'public-preview',
+        true,
+      ),
+      target(
+        'linux-x64',
+        'linux',
+        'x64',
+        'Linux-x64-preview',
+        'tar.gz',
+        'agent-host-capable',
+        'unsigned',
+        'public-preview',
+        true,
+        linuxRuntimeBaseline,
+      ),
+      target(
+        'web-js',
+        'web',
+        'javascript',
+        'Web-js-preview',
+        'zip',
+        'remote-client-only',
+        'not-applicable',
+        'static-web-bundle',
+        false,
+      ),
+      target(
+        'web-wasm',
+        'web',
+        'wasm',
+        'Web-wasm-preview',
         'zip',
         'remote-client-only',
         'not-applicable',
@@ -323,6 +434,14 @@ export function assertArtifactProfileVersion(profile, version, buildNumber) {
     }
     return;
   }
+  if (profile.id === independentPreviewProfileId) {
+    if (compareSemVer(version, independentDevelopmentVersion) < 0) {
+      throw new Error(
+        `${independentPreviewProfileId} must not precede ${independentDevelopmentVersion}.`,
+      );
+    }
+    return;
+  }
   throw new Error(`Unhandled artifact profile version gate: ${profile.id}.`);
 }
 
@@ -359,6 +478,9 @@ export function releaseAssets(version, profile) {
 export function expectedReleaseNotes(metadata) {
   if (metadata.artifactProfile === 'macos-preview-v1') {
     return `## Pi Client ${metadata.version} unsigned macOS preview\n\nThis file describes the immutable historical v0.0.2 release only. Its legacy runtime requirements are not current product architecture or installation guidance.\n`;
+  }
+  if (metadata.artifactProfile === independentPreviewProfileId) {
+    return `## Pi Client ${metadata.version} independent public Preview\n\nThis public Preview is the first project-owned Pi Client distribution. It bundles the verified first-party Pi Node Runtime Capsule and is published as an exact, immutable release for evaluation.\n\n### Artifact roles\n\n- The macOS asset is a Universal arm64/x86_64 app with the first-party Pi Node Runtime Capsule.\n- Android, iOS, JavaScript Web, and WebAssembly assets remain connect-only and do not include the host runtime.\n- The macOS Preview is ad-hoc signed and not notarized; Homebrew preserves macOS quarantine and Gatekeeper may require an explicit first launch approval.\n- Windows and Linux Preview artifacts are unsigned and may require platform-specific trust approval.\n\n### Homebrew\n\nInstall the current macOS Preview with:\n\n\`\`\`bash\nbrew install --cask hu-wentao/tap/pi-client\n\`\`\`\n\nThe Homebrew Tap tracks the exact published macOS asset and SHA-256 for each Preview release. Do not disable Gatekeeper or remove quarantine metadata.\n`;
   }
   return `## Pi Client ${metadata.version} independent development candidate\n\nThis unpublished development candidate exercises the project-owned Pi Protocol, first-party Pi Node, and verified desktop runtime Capsules. It does not authorize a Git tag, GitHub Release, Homebrew update, or public download.\n\n### Artifact roles\n\n- macOS, Windows, and Linux development artifacts include the first-party Pi Node runtime Capsule and remain Agent-host-capable.\n- Android, iOS, JavaScript Web, and WebAssembly artifacts remain connect-only and must not include the host runtime.\n- Android and iOS artifacts are unsigned/no-codesign development evidence.\n- macOS uses ad-hoc signing for local Hardened Runtime qualification and is not Developer ID signed or notarized.\n- Windows and Linux development artifacts are not stable signed distributions.\n\n### Publication boundary\n\nThe active profile is deliberately publication-disabled. A future release decision must freeze an exact commit, enable an approved profile, provide required signing evidence for a stable channel, and requalify every published byte. Existing v0.0.2 bytes and tags remain immutable.\n`;
 }
@@ -413,7 +535,9 @@ export async function loadReleaseContract(root = repositoryRoot, options = {}) {
   const downloadUrl = `https://github.com/${repositorySlug}/releases/download/${tag}/${asset}`;
   const releaseNotesPath = profile.immutableLegacy
     ? `.github/release-notes/${tag}.md`
-    : `.github/release-notes/${tag}-development.md`;
+    : profile.id === independentPreviewProfileId
+      ? `.github/release-notes/${tag}-preview.md`
+      : `.github/release-notes/${tag}-development.md`;
   const metadata = {
     version,
     buildNumber,
@@ -428,7 +552,9 @@ export async function loadReleaseContract(root = repositoryRoot, options = {}) {
     expectedAssets: releaseAssets(version, profile),
     releaseTitle: profile.immutableLegacy
       ? `Pi Client ${version} historical unsigned macOS preview`
-      : `Pi Client ${version} independent development candidate`,
+      : profile.id === independentPreviewProfileId
+        ? `Pi Client ${version} independent public Preview`
+        : `Pi Client ${version} independent development candidate`,
     releaseNotesPath,
     flutterVersion: fvm.flutter,
     artifacts,
